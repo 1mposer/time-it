@@ -1,37 +1,39 @@
-// this file is used to fetch data about the weather baby...
-//https://www.meteosource.com/
-//https://open-meteo.com/en/features#available_apis
+require('dotenv').config();
+const { parseWeather } = require('./parseWeather');
+const { meteosourceAdapter } = require('./meteosource.adapter');
+// https://www.meteosource.com/
+// https://open-meteo.com/en/features#available_apis
 
 async function getWeather() {
 
-  const url = "https://www.meteosource.com/api/v1/free/nearest_place?lat=25.1627&lon=55.2077&key=";
+  const params = {
 
-  const params = new URLSearchParams({
-
+    lat: "25.1627",
+    lon: "55.2077",
     timezone: "UTC",
     language: "en",
     sections: "all",
-    lat: "25.1627",
-    lon: "55.2077",
     units: "metric",
-    key: "",
+    key: process.env.API_KEY,
+  };
 
+  const query = new URLSearchParams(params);
 
-  })
+  const baseURL = "https://www.meteosource.com/api/v1/free/point";
 
+  const fullURL = baseURL + "?" + query.toString();
 
-}
-
-
+  
   try {
-    const response = await fetch(url);
+    const response = await fetch(fullURL);
     if (!response.ok) {
 
-      throw new Error('Response status: ${response.status}');
+      throw new Error(`Response status: ${response.status}`);
     }
 
     const result = await response.json();
-    console.log(result);
+    const hours = parseWeather(result, meteosourceAdapter);
+    console.log(JSON.stringify(hours, null, 2));
   } catch (error) {
     console.error(error.message);
   }
