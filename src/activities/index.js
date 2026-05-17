@@ -1,6 +1,6 @@
 
 const { fishing } = require("./fishing");
-const { starGazing } = require("./stargGazing");
+const { starGazing } = require("./starGazing");
 const { volleyBall } = require("./volleyBall");
 
 

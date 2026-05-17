@@ -16,7 +16,7 @@ const starGazingPro = {
 };
 
 const starGazingLite = {
-  label: "Stargazing Lite"
+  label: "Stargazing Lite",
   thresholds: {
 
       tempMin: 5,				//celcius
