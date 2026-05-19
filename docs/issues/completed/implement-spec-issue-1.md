@@ -1,3 +1,5 @@
+#COMPLETED & CLOSED on may 19th 2026
+
 # Implementation spec — Issue #1: Window-evaluation wraps around midnight
 
 > GitHub issue: https://github.com/1mposer/time-it/issues/1
