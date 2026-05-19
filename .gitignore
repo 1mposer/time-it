@@ -1,12 +1,8 @@
 node_modules/
-.env
-.env.me
-.env.vault
-.env.local
-.env.*.local
-.env.development.local
-.env.test.local
-.env.production.local
+
+# Environment / secrets
+.env*
+.flaskenv*
 
 # OS files
 .DS_Store
@@ -18,8 +14,3 @@ Thumbs.db
 *.swp
 *.swo
 *~
-
-.env*
-.flaskenv*
-.env.project
-.env.vault

@@ -1,4 +1,4 @@
-# time-it
+# Time-it
 
 A backend engine that tells UAE outdoor hobbyists exactly when to go outside.
 
