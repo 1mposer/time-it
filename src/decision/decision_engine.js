@@ -22,38 +22,41 @@ function evaluateHour(hourData, thresholds) {
   return "bad";
 }
 
-function findLongestRun(ratedHours, rating) {
+function findLongestWindow(ratings, targetRating) {
   let best = null;
   let current = null;
 
-  for (const ratedHour of ratedHours) {
-    if (ratedHour.rating === rating) {
-      if (!current) current = { startHour: ratedHour.hour, endHour: ratedHour.hour + 1, duration: 0 };
-      current.endHour = ratedHour.hour + 1;
-      current.duration++;
+  for (let i = 0; i < ratings.length; i++) {
+    if (ratings[i] === targetRating) {
+      if (!current) current = { startIndex: i, endIndex: i + 1, duration: 1 };
+      else {
+        current.endIndex = i + 1;
+        current.duration++;
+      }
     } else {
-      if (current && (!best || current.duration > best.duration)) best = { ...current };
+      if (current && (!best || current.duration > best.duration)) best = current;
       current = null;
     }
   }
-  if (current && (!best || current.duration > best.duration)) best = { ...current };
+  if (current && (!best || current.duration > best.duration)) best = current;
 
   return best;
 }
 
 function evaluate(hours, userPrefs) {
-  const ratedHours = hours.map((h) => ({
-    hour: h.hour,
-    rating: evaluateHour(h, userPrefs.thresholds),
-  }));
+  const ratings = hours.map((h) => evaluateHour(h, userPrefs.thresholds));
 
-  const perfectWindow = findLongestRun(ratedHours, "perfect");
-  if (perfectWindow) return { rating: "perfect", ...perfectWindow };
+  const perfectWindow = findLongestWindow(ratings, "perfect");
+  if (perfectWindow) {
+    return { rating: "perfect", activityId: userPrefs.activityId, ...perfectWindow };
+  }
 
-  const goodWindow = findLongestRun(ratedHours, "good");
-  if (goodWindow) return { rating: "good", ...goodWindow };
+  const goodWindow = findLongestWindow(ratings, "good");
+  if (goodWindow) {
+    return { rating: "good", activityId: userPrefs.activityId, ...goodWindow };
+  }
 
-  return null;
+  return { rating: null, activityId: userPrefs.activityId };
 }
 
 module.exports = { evaluate };
