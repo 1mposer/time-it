@@ -29,7 +29,7 @@ async function main() {
   const hours = parseWeather(raw, meteosourceAdapter);
 
   const window = evaluate(hours, sampleUserPrefs);
-  console.log("Best window for", sampleUserPrefs.activityId, ":", window);
+  console.log(JSON.stringify(window, null, 2));
 }
 
 main().catch((err) => console.error(err.message));
