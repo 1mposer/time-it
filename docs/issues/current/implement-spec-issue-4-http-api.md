@@ -1,8 +1,8 @@
 # Implementation spec — Issue #4: HTTP API server (Express)
 
 > Domain glossary: [`CONTEXT.md`](../CONTEXT.md)
-> Depends on: [Issue #3 (Backend Internals)](implement-spec-issue-3-backend-internals.md) — must be complete first
-> Required by: [Issue #5 (iOS App)](implement-spec-issue-5-ios-swiftui.md), [Issue #6 (Deploy)](implement-spec-issue-6-deploy-and-notifications.md)
+> Depends on: [Issue #3 (Backend Internals)](implement-spec-issue-3-backend-internals.md) ([GitHub](https://github.com/1mposer/time-it/issues/3)) — must be complete first
+> Required by: [Issue #5 (iOS App)](implement-spec-issue-5-ios-swiftui.md) ([GitHub](https://github.com/1mposer/time-it/issues/5)), [Issue #6 (Deploy)](implement-spec-issue-6-deploy-and-notifications.md) ([GitHub](https://github.com/1mposer/time-it/issues/6))
 
 This spec is self-contained. The implementing agent should not need any other conversation context to complete the task.
 
@@ -303,6 +303,6 @@ This file is committed to git so future developers know what variables are neede
 ## 7. Related artifacts
 
 - [`CONTEXT.md`](../CONTEXT.md) — domain glossary.
-- [Issue #3 (Backend Internals)](implement-spec-issue-3-backend-internals.md) — must be completed before this issue; provides `evaluateAll`, corrected activity schemas, and the `{ forecastStart, hours }` parse shape.
-- [Issue #5 (iOS App)](implement-spec-issue-5-ios-swiftui.md) — the iOS app implements against the JSON contract defined in Section 4 of this issue. Do not change the response shape after Issue #5 begins.
-- [Issue #6 (Deploy)](implement-spec-issue-6-deploy-and-notifications.md) — deploys the server built here to Railway.
+- [Issue #3 (Backend Internals)](implement-spec-issue-3-backend-internals.md) ([GitHub](https://github.com/1mposer/time-it/issues/3)) — must be completed before this issue; provides `evaluateAll`, corrected activity schemas, and the `{ forecastStart, hours }` parse shape.
+- [Issue #5 (iOS App)](implement-spec-issue-5-ios-swiftui.md) ([GitHub](https://github.com/1mposer/time-it/issues/5)) — the iOS app implements against the JSON contract defined in Section 4 of this issue. Do not change the response shape after Issue #5 begins.
+- [Issue #6 (Deploy)](implement-spec-issue-6-deploy-and-notifications.md) ([GitHub](https://github.com/1mposer/time-it/issues/6)) — deploys the server built here to Railway.

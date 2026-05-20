@@ -1,7 +1,7 @@
 # Implementation spec — Issue #7: Wire real marine data from Meteosource adapter
 
 > Domain glossary: [`CONTEXT.md`](../CONTEXT.md)
-> Depends on: [Issue #3 (Backend Internals)](implement-spec-issue-3-backend-internals.md) — adapter pattern must be in place first
+> Depends on: [Issue #3 (Backend Internals)](implement-spec-issue-3-backend-internals.md) ([GitHub](https://github.com/1mposer/time-it/issues/3)) — adapter pattern must be in place first
 > Blocked by: Meteosource API tier investigation (see Section 1)
 
 ---
@@ -87,5 +87,5 @@ It was deliberately omitted in Issue #3 because `parse.js` hardcodes `douglasSca
 ## 5. Related artifacts
 
 - [`CONTEXT.md`](../CONTEXT.md) — domain glossary.
-- [Issue #3 (Backend Internals)](implement-spec-issue-3-backend-internals.md) — established
+- [Issue #3 (Backend Internals)](implement-spec-issue-3-backend-internals.md) ([GitHub](https://github.com/1mposer/time-it/issues/3)) — established
   the adapter pattern and placeholder fields this issue fills in.

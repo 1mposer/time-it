@@ -1,7 +1,7 @@
 # Implementation spec — Issue #8: Add `requireTrue` threshold type to decision engine
 
 > Domain glossary: [`CONTEXT.md`](../CONTEXT.md)
-> Depends on: [Issue #3 (Backend Internals)](implement-spec-issue-3-backend-internals.md) — `forbidTrue` flag type must be in place first
+> Depends on: [Issue #3 (Backend Internals)](implement-spec-issue-3-backend-internals.md) ([GitHub](https://github.com/1mposer/time-it/issues/3)) — `forbidTrue` flag type must be in place first
 
 ---
 
@@ -44,5 +44,5 @@ totalSolarEclipse: { requireTrue: true, type: "flag", required: false },
 
 ## 4. Related artifacts
 
-- [Issue #3 (Backend Internals)](implement-spec-issue-3-backend-internals.md) — introduced `forbidTrue`; `requireTrue` is its counterpart.
-- [Issue #7 (Marine Data)](implement-spec-issue-7-marine-data.md) — same pattern: engine capability before data source.
+- [Issue #3 (Backend Internals)](implement-spec-issue-3-backend-internals.md) ([GitHub](https://github.com/1mposer/time-it/issues/3)) — introduced `forbidTrue`; `requireTrue` is its counterpart.
+- [Issue #7 (Marine Data)](implement-spec-issue-7-marine-data.md) ([GitHub](https://github.com/1mposer/time-it/issues/7)) — same pattern: engine capability before data source.

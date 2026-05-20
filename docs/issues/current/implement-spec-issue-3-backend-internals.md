@@ -2,7 +2,7 @@
 
 > Domain glossary: [`CONTEXT.md`](../CONTEXT.md)
 > Depends on: nothing — implement this first
-> Required by: [Issue #4 (HTTP API)](implement-spec-issue-4-http-api.md), [Issue #5 (iOS App)](implement-spec-issue-5-ios-swiftui.md)
+> Required by: [Issue #4 (HTTP API)](implement-spec-issue-4-http-api.md) ([GitHub](https://github.com/1mposer/time-it/issues/4)), [Issue #5 (iOS App)](implement-spec-issue-5-ios-swiftui.md) ([GitHub](https://github.com/1mposer/time-it/issues/5))
 
 This spec is self-contained. The implementing agent should not need any other conversation context to complete the task.
 
@@ -352,7 +352,7 @@ module.exports = { evaluateAll };
 ## 6. Related artifacts
 
 - [`CONTEXT.md`](../CONTEXT.md) — domain glossary.
-- [Issue #1 (completed)](completed/implement-spec-issue-1.md) — fixed the midnight-crossover bug; established the `startIndex`/`endIndex`/`duration` output contract that this issue builds on.
-- [Issue #4 (HTTP API)](implement-spec-issue-4-http-api.md) — must be completed after this issue; imports `evaluateAll` and `parseWeather`.
-- [Issue #5 (iOS App)](implement-spec-issue-5-ios-swiftui.md) — depends on the JSON contract defined here (`forecastStart`, `displayMetrics`, `id`).
-- [Issue #8 (requireTrue threshold)](implement-spec-issue-8-require-true-threshold.md) — depends on the `forbidTrue` flag type introduced here; adds its logical counterpart.
+- [Issue #1 (completed)](completed/implement-spec-issue-1.md) ([GitHub](https://github.com/1mposer/time-it/issues/1)) — fixed the midnight-crossover bug; established the `startIndex`/`endIndex`/`duration` output contract that this issue builds on.
+- [Issue #4 (HTTP API)](implement-spec-issue-4-http-api.md) ([GitHub](https://github.com/1mposer/time-it/issues/4)) — must be completed after this issue; imports `evaluateAll` and `parseWeather`.
+- [Issue #5 (iOS App)](implement-spec-issue-5-ios-swiftui.md) ([GitHub](https://github.com/1mposer/time-it/issues/5)) — depends on the JSON contract defined here (`forecastStart`, `displayMetrics`, `id`).
+- [Issue #8 (requireTrue threshold)](implement-spec-issue-8-require-true-threshold.md) ([GitHub](https://github.com/1mposer/time-it/issues/8)) — depends on the `forbidTrue` flag type introduced here; adds its logical counterpart.

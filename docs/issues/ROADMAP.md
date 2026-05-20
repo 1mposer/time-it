@@ -6,15 +6,15 @@
 
 ## Critical path
 
-- [#3 Backend Internals](current/implement-spec-issue-3-backend-internals.md) — start here, everything depends on it
-- [#4 HTTP API](current/implement-spec-issue-4-http-api.md) — requires #3
-- [#5 iOS App](current/implement-spec-issue-5-ios-swiftui.md) — requires #4 running locally
-- [#6 Deploy + Notifications](current/implement-spec-issue-6-deploy-and-notifications.md) — requires #4 and #5
+- [#3 Backend Internals](current/implement-spec-issue-3-backend-internals.md) ([GitHub](https://github.com/1mposer/time-it/issues/3)) — start here, everything depends on it
+- [#4 HTTP API](current/implement-spec-issue-4-http-api.md) ([GitHub](https://github.com/1mposer/time-it/issues/4)) — requires #3
+- [#5 iOS App](current/implement-spec-issue-5-ios-swiftui.md) ([GitHub](https://github.com/1mposer/time-it/issues/5)) — requires #4 running locally
+- [#6 Deploy + Notifications](current/implement-spec-issue-6-deploy-and-notifications.md) ([GitHub](https://github.com/1mposer/time-it/issues/6)) — requires #4 and #5
 
 ## Parallel tracks (open after #3)
 
-- [#7 Marine Data](current/implement-spec-issue-7-marine-data.md) — investigate Meteosource API tier before writing any code
-- [#8 requireTrue threshold](current/implement-spec-issue-8-require-true-threshold.md) — small engine change, unblocks future stargazing features
+- [#7 Marine Data](current/implement-spec-issue-7-marine-data.md) ([GitHub](https://github.com/1mposer/time-it/issues/7)) — investigate Meteosource API tier before writing any code
+- [#8 requireTrue threshold](current/implement-spec-issue-8-require-true-threshold.md) ([GitHub](https://github.com/1mposer/time-it/issues/8)) — small engine change, unblocks future stargazing features
 
 ## Notes
 

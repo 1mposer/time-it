@@ -1,8 +1,8 @@
 # Implementation spec — Issue #5: SwiftUI iOS app
 
 > Domain glossary: [`CONTEXT.md`](../CONTEXT.md)
-> Depends on: [Issue #4 (HTTP API)](implement-spec-issue-4-http-api.md) — must be complete and running locally before starting this issue
-> Required by: [Issue #6 (Deploy)](implement-spec-issue-6-deploy-and-notifications.md)
+> Depends on: [Issue #4 (HTTP API)](implement-spec-issue-4-http-api.md) ([GitHub](https://github.com/1mposer/time-it/issues/4)) — must be complete and running locally before starting this issue
+> Required by: [Issue #6 (Deploy)](implement-spec-issue-6-deploy-and-notifications.md) ([GitHub](https://github.com/1mposer/time-it/issues/6))
 
 This spec is self-contained. The implementing agent should not need any other conversation context.
 
@@ -610,5 +610,5 @@ To add this in Xcode: open `Info.plist` as source code (right-click > Open As > 
 ## 8. Related artifacts
 
 - [`CONTEXT.md`](../CONTEXT.md) — domain glossary.
-- [Issue #4 (HTTP API)](implement-spec-issue-4-http-api.md) — defines the exact JSON contract this app decodes. Must be complete and running before this issue can be tested.
-- [Issue #6 (Deploy)](implement-spec-issue-6-deploy-and-notifications.md) — after deploy, update `APIConfig.swift` `#else` branch with the Railway URL and remove `NSAllowsLocalNetworking` from `Info.plist`.
+- [Issue #4 (HTTP API)](implement-spec-issue-4-http-api.md) ([GitHub](https://github.com/1mposer/time-it/issues/4)) — defines the exact JSON contract this app decodes. Must be complete and running before this issue can be tested.
+- [Issue #6 (Deploy)](implement-spec-issue-6-deploy-and-notifications.md) ([GitHub](https://github.com/1mposer/time-it/issues/6)) — after deploy, update `APIConfig.swift` `#else` branch with the Railway URL and remove `NSAllowsLocalNetworking` from `Info.plist`.
