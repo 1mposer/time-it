@@ -41,6 +41,13 @@ A provider-specific module that extracts the unified hourly fields from a raw AP
 **Lite / Pro**:
 The two preset **Threshold** profiles per **Activity**. **Lite** uses free-tier metrics; **Pro** uses premium metrics (atmospheric transparency, swell height, Douglas scale, moon phase) and corresponds to a paid subscription tier.
 
+**Display metrics**:
+The ordered list of metric key names an **Activity** declares as relevant to its **Rating**. Stored on the activity definition as `displayMetrics`. The backend decides which metrics matter per activity; the iOS app renders them generically without hardcoding per-activity logic. Example: `["temp", "windSpeed", "humidity", "uV"]` for Volleyball.
+
+**Darkness (Bortle scale)**:
+A sky-quality measurement on the standard Bortle scale (1–9). **1 = darkest, most pristine sky (best for stargazing); 9 = heavily light-polluted urban sky (worst)**. A threshold of `max: 4` means the sky must be rural-class or darker to pass. Currently hardcoded to `0` in `parse.js` (no premium data source); marked `required: false` so it downgrades to **Good** rather than **Bad** until real data is integrated.
+_Avoid_: treating higher Bortle numbers as better — that is the inverted convention used in the old code and is incorrect.
+
 ## Relationships
 
 - A **User** picks one **Activity** and supplies **User preferences** (threshold overrides).
@@ -54,3 +61,8 @@ The two preset **Threshold** profiles per **Activity**. **Lite** uses free-tier 
 > **Domain expert:** "No — Abdulla's **Session** is 3 hours on Sunday. The **Window** tells him *when he could* go out. He picks where his **Session** fits inside it."
 > **Dev:** "What if no hour clears the required **Thresholds**?"
 > **Domain expert:** "Then there's no **Window** for this **Forecast**. The iOS app shows 'no window in the next 24 hours' and sends no notification."
+
+## Tests
+
+- `tests/decision/decision_engine.test.js` — five unit tests covering the core **Window** evaluation logic (midnight crossover, single-hour window, no qualifying hours, Perfect preferred over Good, Good fallback).
+- `tests/decision/evaluateAll.test.js` — smoke test verifying `evaluateAll(hours)` returns an array where every element contains `activityId`, `label`, `rating`, and `displayMetrics`.
