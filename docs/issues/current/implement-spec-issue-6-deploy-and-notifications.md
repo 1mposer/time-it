@@ -1,6 +1,6 @@
 # Implementation spec — Issue #6: Railway deployment + push notifications
 
-> Domain glossary: [`CONTEXT.md`](../CONTEXT.md)
+> Domain glossary: [`CONTEXT.md`](../../CONTEXT.md)
 > Depends on: [Issue #4 (HTTP API)](implement-spec-issue-4-http-api.md) ([GitHub](https://github.com/1mposer/time-it/issues/4)) and [Issue #5 (iOS App)](implement-spec-issue-5-ios-swiftui.md) ([GitHub](https://github.com/1mposer/time-it/issues/5)) — both must be complete and tested locally before starting this issue
 > Required by: nothing — this is the final issue
 
@@ -286,7 +286,7 @@ Document these in `.env.example` (created in Issue #4) with placeholder values.
 
 ## 7. Related artifacts
 
-- [`CONTEXT.md`](../CONTEXT.md) — domain glossary.
+- [`CONTEXT.md`](../../CONTEXT.md) — domain glossary.
 - [Issue #4 (HTTP API)](implement-spec-issue-4-http-api.md) ([GitHub](https://github.com/1mposer/time-it/issues/4)) — the server being deployed here.
 - [Issue #5 (iOS App)](implement-spec-issue-5-ios-swiftui.md) ([GitHub](https://github.com/1mposer/time-it/issues/5)) — the iOS app being connected to the live URL here.
 - [Issue #3 (Backend Internals)](implement-spec-issue-3-backend-internals.md) ([GitHub](https://github.com/1mposer/time-it/issues/3)) — foundational fixes that must be in place before this deploy.

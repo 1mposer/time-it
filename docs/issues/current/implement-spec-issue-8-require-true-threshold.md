@@ -1,6 +1,6 @@
 # Implementation spec — Issue #8: Add `requireTrue` threshold type to decision engine
 
-> Domain glossary: [`CONTEXT.md`](../CONTEXT.md)
+> Domain glossary: [`CONTEXT.md`](../../CONTEXT.md)
 > Depends on: [Issue #3 (Backend Internals)](implement-spec-issue-3-backend-internals.md) ([GitHub](https://github.com/1mposer/time-it/issues/3)) — `forbidTrue` flag type must be in place first
 
 ---

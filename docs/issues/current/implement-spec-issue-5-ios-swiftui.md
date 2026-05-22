@@ -1,6 +1,6 @@
 # Implementation spec — Issue #5: SwiftUI iOS app
 
-> Domain glossary: [`CONTEXT.md`](../CONTEXT.md)
+> Domain glossary: [`CONTEXT.md`](../../CONTEXT.md)
 > Depends on: [Issue #4 (HTTP API)](implement-spec-issue-4-http-api.md) ([GitHub](https://github.com/1mposer/time-it/issues/4)) — must be complete and running locally before starting this issue
 > Required by: [Issue #6 (Deploy)](implement-spec-issue-6-deploy-and-notifications.md) ([GitHub](https://github.com/1mposer/time-it/issues/6))
 
@@ -438,7 +438,7 @@ struct ActivityDetailView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             if let start = activity.startIndex, let end = activity.endIndex {
-                Text("Best window: hours \(start)–\(end) (\(activity.duration ?? 0)h)")
+                Text("Best window: hours \(start)–\(end - 1) (\(activity.duration ?? 0)h)")
                     .font(.subheadline.weight(.medium))
             }
 
@@ -609,6 +609,6 @@ To add this in Xcode: open `Info.plist` as source code (right-click > Open As > 
 
 ## 8. Related artifacts
 
-- [`CONTEXT.md`](../CONTEXT.md) — domain glossary.
+- [`CONTEXT.md`](../../CONTEXT.md) — domain glossary.
 - [Issue #4 (HTTP API)](implement-spec-issue-4-http-api.md) ([GitHub](https://github.com/1mposer/time-it/issues/4)) — defines the exact JSON contract this app decodes. Must be complete and running before this issue can be tested.
 - [Issue #6 (Deploy)](implement-spec-issue-6-deploy-and-notifications.md) ([GitHub](https://github.com/1mposer/time-it/issues/6)) — after deploy, update `APIConfig.swift` `#else` branch with the Railway URL and remove `NSAllowsLocalNetworking` from `Info.plist`.

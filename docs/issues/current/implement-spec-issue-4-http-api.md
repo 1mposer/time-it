@@ -1,6 +1,6 @@
 # Implementation spec — Issue #4: HTTP API server (Express)
 
-> Domain glossary: [`CONTEXT.md`](../CONTEXT.md)
+> Domain glossary: [`CONTEXT.md`](../../CONTEXT.md)
 > Depends on: [Issue #3 (Backend Internals)](implement-spec-issue-3-backend-internals.md) ([GitHub](https://github.com/1mposer/time-it/issues/3)) — must be complete first
 > Required by: [Issue #5 (iOS App)](implement-spec-issue-5-ios-swiftui.md) ([GitHub](https://github.com/1mposer/time-it/issues/5)), [Issue #6 (Deploy)](implement-spec-issue-6-deploy-and-notifications.md) ([GitHub](https://github.com/1mposer/time-it/issues/6))
 
@@ -106,7 +106,7 @@ Response `200`:
       "activityId": "stargazing-lite",
       "label": "Stargazing Lite",
       "rating": null,
-      "displayMetrics": ["temp", "cloudCover", "darkness"]
+      "displayMetrics": ["temp", "cloudCover"]
     }
   ],
   "hours": [
@@ -222,7 +222,7 @@ router.get('/rating', async (req, res) => {
 
     res.json({ forecastStart, activities, hours: indexedHours });
   } catch (err) {
-    if (err.message?.includes('Meteosource') || err.message?.includes('fetch')) {
+    if (err.message?.includes('Meteosource') || err.message?.includes('fetch') || err.message?.includes('Response status')) {
       return res.status(502).json({ error: 'Weather data unavailable' });
     }
     console.error(err);
@@ -302,7 +302,7 @@ This file is committed to git so future developers know what variables are neede
 
 ## 7. Related artifacts
 
-- [`CONTEXT.md`](../CONTEXT.md) — domain glossary.
+- [`CONTEXT.md`](../../CONTEXT.md) — domain glossary.
 - [Issue #3 (Backend Internals)](implement-spec-issue-3-backend-internals.md) ([GitHub](https://github.com/1mposer/time-it/issues/3)) — must be completed before this issue; provides `evaluateAll`, corrected activity schemas, and the `{ forecastStart, hours }` parse shape.
 - [Issue #5 (iOS App)](implement-spec-issue-5-ios-swiftui.md) ([GitHub](https://github.com/1mposer/time-it/issues/5)) — the iOS app implements against the JSON contract defined in Section 4 of this issue. Do not change the response shape after Issue #5 begins.
 - [Issue #6 (Deploy)](implement-spec-issue-6-deploy-and-notifications.md) ([GitHub](https://github.com/1mposer/time-it/issues/6)) — deploys the server built here to Railway.

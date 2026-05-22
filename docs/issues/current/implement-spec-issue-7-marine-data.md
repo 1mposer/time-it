@@ -1,6 +1,6 @@
 # Implementation spec — Issue #7: Wire real marine data from Meteosource adapter
 
-> Domain glossary: [`CONTEXT.md`](../CONTEXT.md)
+> Domain glossary: [`CONTEXT.md`](../../CONTEXT.md)
 > Depends on: [Issue #3 (Backend Internals)](implement-spec-issue-3-backend-internals.md) ([GitHub](https://github.com/1mposer/time-it/issues/3)) — adapter pattern must be in place first
 > Blocked by: Meteosource API tier investigation (see Section 1)
 
@@ -69,23 +69,26 @@ Follow the existing adapter pattern — one function per field, raw response →
 ### 4.2 `src/weather/parse.js`
 
 Replace the placeholder `0` values for confirmed fields with `adapter.<field>(row)` calls.
-Remove the `// PENDING Issue #8` comments for any field that is now wired.
+Remove the `// PENDING Issue #7` comments for any field that is now wired.
 Leave placeholders and comments in place for any field that remains unresolved.
 
 ### 4.3 `src/activities/fishing.js`
 
-Once `douglasScale` is wired with real data, add it back to `shoreFishing.displayMetrics`:
+Once `douglasScale` and `swellHeight` are wired with real data, add them back to the affected activities' `displayMetrics`:
 
 ```js
-displayMetrics: ["temp", "windSpeed", "douglasScale"],
+shoreFishing.displayMetrics:   ["temp", "windSpeed", "douglasScale"]
+boatFishingPro.displayMetrics: ["temp", "douglasScale", "swellHeight"]
 ```
 
-It was deliberately omitted in Issue #3 because `parse.js` hardcodes `douglasScale: 0` — displaying a hardcoded zero on the iOS Shore Fishing card would be misleading. Once real data flows through the adapter, the field is meaningful and should be surfaced.
+These fields were deliberately omitted from `displayMetrics` in Issue #3 because `parse.js` hardcodes them to `0` — displaying a hardcoded zero on the iOS card would be misleading. Once real data flows through the adapter, the fields are meaningful and should be surfaced.
+
+`seaWarning` (`boatFishingPro`, `boatFishingLite`) and `darkness` (`starGazingLite`) were omitted for the same reason but are sourced from different APIs (UAE maritime authority and astronomy data, respectively) — they will be re-added when those data sources are integrated, not by this issue.
 
 ---
 
 ## 5. Related artifacts
 
-- [`CONTEXT.md`](../CONTEXT.md) — domain glossary.
+- [`CONTEXT.md`](../../CONTEXT.md) — domain glossary.
 - [Issue #3 (Backend Internals)](implement-spec-issue-3-backend-internals.md) ([GitHub](https://github.com/1mposer/time-it/issues/3)) — established
   the adapter pattern and placeholder fields this issue fills in.

@@ -1,6 +1,6 @@
 # Implementation spec — Issue #3: Fix backend internals — activity schemas, forecastStart, multi-activity evaluator
 
-> Domain glossary: [`CONTEXT.md`](../CONTEXT.md)
+> Domain glossary: [`CONTEXT.md`](../../CONTEXT.md)
 > Depends on: nothing — implement this first
 > Required by: [Issue #4 (HTTP API)](implement-spec-issue-4-http-api.md) ([GitHub](https://github.com/1mposer/time-it/issues/4)), [Issue #5 (iOS App)](implement-spec-issue-5-ios-swiftui.md) ([GitHub](https://github.com/1mposer/time-it/issues/5))
 
@@ -135,7 +135,7 @@ Complete replacement:
 const boatFishingPro = {
   id: "boat-fishing-pro",
   label: "Boat Fishing Pro",
-  displayMetrics: ["temp", "douglasScale", "swellHeight", "seaWarning"],
+  displayMetrics: ["temp"],
   thresholds: {
     temp:         { min: 10, max: 40,  required: true  },
     douglasScale: {          max: 3,   required: true  },  // 0=calm 3=slight 5=rough 9=phenomenal
@@ -148,7 +148,7 @@ const boatFishingPro = {
 const boatFishingLite = {
   id: "boat-fishing-lite",
   label: "Boat Fishing Lite",
-  displayMetrics: ["temp", "windSpeed", "seaWarning"],
+  displayMetrics: ["temp", "windSpeed"],
   thresholds: {
     temp:         { min: 10, max: 40, required: true  },
     windSpeed:    {          max: 25, required: true  },
@@ -205,7 +205,7 @@ Complete replacement. Pro is kept as a commented-out constant (do not delete dom
 const starGazingLite = {
   id: "stargazing-lite",
   label: "Stargazing Lite",
-  displayMetrics: ["temp", "cloudCover", "darkness"],
+  displayMetrics: ["temp", "cloudCover"],
   thresholds: {
     temp:       { min: 5, max: 30, required: true  },
     cloudCover: {         max: 20, required: true  },  // % cloud cover; must be near-clear
@@ -264,13 +264,13 @@ function parseWeather(rawResponse, adapter) {
     moon,
     uV:           adapter.uV(row),
     dustAlert:    adapter.dustAlert(row),
-    // PENDING Issue #8 — wire real marine data from Meteosource adapter
+    // PENDING Issue #7 — wire real marine data from Meteosource adapter
     // douglasScale, swellHeight, swellLength, seaWarning are placeholder values.
     // Fishing activity ratings will trivially pass these thresholds until real data is integrated.
     darkness:     0,       // PENDING: astronomy data source (not Meteosource)
-    douglasScale: 0,       // PENDING Issue #8: Meteosource marine data
-    swellHeight:  0,       // PENDING Issue #8: Meteosource marine data
-    swellLength:  0,       // PENDING Issue #8: Meteosource marine data
+    douglasScale: 0,       // PENDING Issue #7: Meteosource marine data
+    swellHeight:  0,       // PENDING Issue #7: Meteosource marine data
+    swellLength:  0,       // PENDING Issue #7: Meteosource marine data
     tide:         0,       // DEFERRED: requires separate tidal API — no data source identified
     seaWarning:   false,   // PENDING: UAE maritime authority API — not Meteosource
   }));
@@ -351,8 +351,8 @@ module.exports = { evaluateAll };
 
 ## 6. Related artifacts
 
-- [`CONTEXT.md`](../CONTEXT.md) — domain glossary.
-- [Issue #1 (completed)](completed/implement-spec-issue-1.md) ([GitHub](https://github.com/1mposer/time-it/issues/1)) — fixed the midnight-crossover bug; established the `startIndex`/`endIndex`/`duration` output contract that this issue builds on.
+- [`CONTEXT.md`](../../CONTEXT.md) — domain glossary.
+- [Issue #1 (completed)](../completed/implement-spec-issue-1.md) ([GitHub](https://github.com/1mposer/time-it/issues/1)) — fixed the midnight-crossover bug; established the `startIndex`/`endIndex`/`duration` output contract that this issue builds on.
 - [Issue #4 (HTTP API)](implement-spec-issue-4-http-api.md) ([GitHub](https://github.com/1mposer/time-it/issues/4)) — must be completed after this issue; imports `evaluateAll` and `parseWeather`.
 - [Issue #5 (iOS App)](implement-spec-issue-5-ios-swiftui.md) ([GitHub](https://github.com/1mposer/time-it/issues/5)) — depends on the JSON contract defined here (`forecastStart`, `displayMetrics`, `id`).
 - [Issue #8 (requireTrue threshold)](implement-spec-issue-8-require-true-threshold.md) ([GitHub](https://github.com/1mposer/time-it/issues/8)) — depends on the `forbidTrue` flag type introduced here; adds its logical counterpart.
