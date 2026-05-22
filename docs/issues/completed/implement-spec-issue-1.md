@@ -4,7 +4,7 @@
 
 > GitHub issue: https://github.com/1mposer/time-it/issues/1
 > Branch: `fix/issue-1-window-crossover`
-> Domain glossary: [`CONTEXT.md`](../CONTEXT.md)
+> Domain glossary: [`CONTEXT.md`](../../CONTEXT.md)
 
 This spec is self-contained. The next agent should not need any other conversation context to complete the task.
 
@@ -266,6 +266,6 @@ test("Perfect run ending at the last array element is captured", () => {
 
 ## 6. Related artifacts
 
-- [`CONTEXT.md`](../CONTEXT.md) — domain glossary. Use the canonical terms (**Window**, **Rating**, **Threshold**, etc.) in any new comments or commit messages.
+- [`CONTEXT.md`](../../CONTEXT.md) — domain glossary. Use the canonical terms (**Window**, **Rating**, **Threshold**, etc.) in any new comments or commit messages.
 - [Issue #1](https://github.com/1mposer/time-it/issues/1) — the bug report this PR closes.
 - [Issue #2](https://github.com/1mposer/time-it/issues/2) — `activityId` casing convention (deferred).
