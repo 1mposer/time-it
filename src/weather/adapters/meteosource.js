@@ -1,6 +1,7 @@
 const meteosourceAdapter = {
   extractHours:     (res) => res.hourly.data,
   extractMoonPhase: (res) => res.astro?.data?.[0]?.moon_phase,
+  forecastStart:    (firstRow) => firstRow.date,
   hour:       (h) => parseInt(h.date.split("T")[1].split(":")[0], 10),
   temp:       (h) => h.temperature,
   humidity:   (h) => h.humidity,

@@ -1,60 +1,39 @@
-
-
 const boatFishingPro = {
+  id: "boat-fishing-pro",
   label: "Boat Fishing Pro",
-
+  displayMetrics: ["temp"],
   thresholds: {
-	
-      tempMin: 0,
-      tempMax: 0,
-      douglasScaleMin: 0,     //  calm = 0 (0 m) | rough = 5 (2.5m -> 4m) | phenomenal = 9  (over 14m)
-      douglasScaleMax: 9,
-      swellHeightMin: 0,      // low swell = >2m   |  moderate swell = between 2.0m - 4.0m   | heavy swell = more than 4.0m
-      swellHeightMax: 4,
-      swellLengthMin: 0,      // short = <100m   | average = 100-200m  | long = >200m
-      swellLengthMax: 200,
-      tideMin: 0,             // do more research : tide in meters
-      tideMax: 9,
-      seaWarning: false,
-
-  },		
+    temp:         { min: 10, max: 40,  required: true  },
+    douglasScale: {          max: 3,   required: true  },  // 0=calm 3=slight 5=rough 9=phenomenal
+    swellHeight:  {          max: 2.5, required: true  },  // metres; >4m = heavy swell
+    swellLength:  {          max: 200, required: false },  // metres
+    seaWarning:   { forbidTrue: true, type: "flag", required: true },
+  },
 };
 
 const boatFishingLite = {
+  id: "boat-fishing-lite",
   label: "Boat Fishing Lite",
-
+  displayMetrics: ["temp", "windSpeed"],
   thresholds: {
-	
-      tempMin: 0,
-      tempMax: 0,
-      douglasScaleMin: 0,     //  calm = 0 (0 m) | rough = 5 (2.5m -> 4m) | phenomenal = 9  (over 14m)
-      douglasScaleMax: 9,
-      tideMin: 0,             // do more research : tide in meters
-      tideMax: 9,
-      seaWarning: false,
-
-  },		
+    temp:       { min: 10, max: 40, required: true  },
+    windSpeed:  {          max: 25, required: true  },
+    seaWarning: { forbidTrue: true, type: "flag", required: true },
+  },
 };
 
 const shoreFishing = {
+  id: "shore-fishing",
   label: "Shore Fishing",
-
+  displayMetrics: ["temp", "windSpeed"],
   thresholds: {
-	
-      tempMin: 0,
-      tempMax: 0,
-      douglasScaleMin: 0,     //  calm = 0 (0 m) | rough = 5 (2.5m -> 4m) | phenomenal = 9  (over 14m)
-      douglasScaleMax: 9,
-      tideMin: 0,             // do more research : tide in meters
-      tideMax: 9,
-      seaWarning: false,
-
-  },		
+    temp:         { min: 15, max: 38, required: true  },
+    windSpeed:    {          max: 20, required: false },
+    douglasScale: {          max: 4,  required: false },
+    seaWarning:   { forbidTrue: true, type: "flag", required: true },
+  },
 };
-
-
 
 const fishing = [boatFishingPro, boatFishingLite, shoreFishing];
 
 module.exports = { fishing };
-

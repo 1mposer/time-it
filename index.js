@@ -26,7 +26,7 @@ async function main() {
   };
 
   const raw = await fetchWeather(params);
-  const hours = parseWeather(raw, meteosourceAdapter);
+  const { hours } = parseWeather(raw, meteosourceAdapter);
 
   const window = evaluate(hours, sampleUserPrefs);
   console.log(JSON.stringify(window, null, 2));

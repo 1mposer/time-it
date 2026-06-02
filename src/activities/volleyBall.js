@@ -1,17 +1,16 @@
-
-const volleyBall = {
-  label: "Volleyball",
-  thresholds: {
-
-      tempMin: 15,					//celcius
-      tempMax: 35,
-      humidityMax: 60,					//%
-      windMax: 15,					//km/h
-      uvMax: 6,						//UV index
-      dustAlert: false,					//No dust storms allowed
-
+const volleyBall = [
+  {
+    id: "volleyball",
+    label: "Volleyball",
+    displayMetrics: ["temp", "windSpeed", "humidity", "uV"],
+    thresholds: {
+      temp:      { min: 15, max: 35, required: true  },
+      humidity:  {          max: 60, required: true  },
+      windSpeed: {          max: 15, required: false },
+      uV:        {          max: 6,  required: false },
+      dustAlert: { forbidTrue: true, type: "flag", required: true },
+    },
   },
-};
+];
 
-module.exports = {volleyBall}
-
+module.exports = { volleyBall };

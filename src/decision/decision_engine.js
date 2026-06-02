@@ -1,5 +1,6 @@
 
 function checkThreshold(value, config) {
+  if (config.type === "flag" && config.forbidTrue && value === true) return false;
   if (config.min !== undefined && value < config.min) return false;
   if (config.max !== undefined && value > config.max) return false;
   return true;
