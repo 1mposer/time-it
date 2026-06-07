@@ -10,20 +10,24 @@ Fetches a 24-hour weather **Forecast** for a lat/lon, evaluates it against every
 
 ---
 
-## Architecture — three deep modules
+## Architecture — HTTP server + three deep modules
 
 Callers import only the public surface of each module. Internal files (`fetch.js`, `parse.js`, `decision_engine.js`, individual activity files) are implementation details.
 
 ```
-src/weather/index.js      →  getWeather(lat, lon)       returns { forecastStart, hours }
-src/decision/index.js     →  evaluateAll(hours)          returns Activity result[]
-src/activities/index.js   →  activities                  flat array of all Activity objects
+app.js                    →  entry point. Calls app.listen(PORT, '0.0.0.0')
+src/server.js             →  Express app (exported, no .listen). CORS, health route, mounts router
+src/routes/rating.js      →  GET /api/v1/rating — validates params, calls weather + decision, returns JSON
+
+src/weather/index.js      →  getWeather(lat, lon, timezone?)  returns { forecastStart, hours }
+src/decision/index.js     →  evaluateAll(hours)               returns Activity result[]
+src/activities/index.js   →  activities                       flat array of all Activity objects
 ```
 
 The full data flow is two steps:
 
 ```js
-const { forecastStart, hours } = await getWeather(lat, lon);
+const { forecastStart, hours } = await getWeather(lat, lon, timezone);
 const results = evaluateAll(hours);
 ```
 
@@ -33,8 +37,11 @@ const results = evaluateAll(hours);
 
 ## Module internals
 
+### `src/routes/`
+- `rating.js` — `GET /api/v1/rating?lat=&lon=&timezone=`. Validates required params, calls `getWeather` and `evaluateAll`, adds `index` field to each hour, returns shaped JSON. Error → 400 (bad params), 502 (Meteosource failure), 500 (unexpected).
+
 ### `src/weather/`
-- `index.js` — public. Calls fetch → parse → returns `{ forecastStart, hours }`. Owns the Meteosource adapter selection and all API params.
+- `index.js` — public. Calls fetch → parse → returns `{ forecastStart, hours }`. Accepts optional `timezone` (default `"UTC"`). Owns the Meteosource adapter selection and all API params.
 - `fetch.js` — calls Meteosource REST API. Reads `process.env.API_KEY`.
 - `parse.js` — normalises raw response to the unified hourly schema (24 entries). Returns `{ forecastStart, hours }`.
 - `adapters/meteosource.js` — extracts provider-specific fields. Swap this file to change weather provider without touching parse logic.
@@ -106,18 +113,32 @@ npm test
 
 - `tests/decision/decision_engine.test.js` — 5 unit tests for core **Window** logic.
 - `tests/decision/evaluateAll.test.js` — smoke test for multi-activity evaluation; verifies count, shape, stable IDs, and flag threshold behaviour.
+- `tests/server/health.test.js` — 1 test: `GET /health` returns 200 with `status: ok`.
+- `tests/server/rating.test.js` — 5 tests: param validation (400s), top-level response shape, `hours` index field, activity shape including window fields. Uses `require.cache` injection to mock `getWeather` — no live API calls.
 
 ---
 
+## Running the server
+
+```
+npm run dev        # nodemon — auto-restarts on file save (development)
+npm start          # node app.js (production)
+```
+
+`GET /health` — liveness check (used by Railway).
+`GET /api/v1/rating?lat=25.1627&lon=55.2077` — returns forecast + all activity ratings.
+
+Requires `.env` with `API_KEY=<meteosource key>` and optionally `PORT=3000`. See `.env.example`.
+
 ## CLI (development only)
 
-`index.js` at the root hits the live Meteosource API and prints a single-activity evaluation as JSON:
+`cli.js` at the root hits the live Meteosource API and prints a single-activity evaluation as JSON:
 
 ```
-node index.js | python3 -m json.tool
+node cli.js | python3 -m json.tool
 ```
 
-Requires `.env` with `API_KEY=<meteosource key>`. See `.env.example`.
+Requires `.env` with `API_KEY=<meteosource key>`.
 
 ---
 
@@ -125,7 +146,7 @@ Requires `.env` with `API_KEY=<meteosource key>`. See `.env.example`.
 
 See [`docs/issues/ROADMAP.md`](docs/issues/ROADMAP.md) for the full critical path.
 
-- **Done:** Issue #3 (backend internals — this state of the codebase)
-- **Next:** Issue #4 (HTTP API — Express server, `GET /api/v1/rating`)
-- **Then:** Issue #5 (iOS SwiftUI app), Issue #6 (deploy + APNs)
+- **Done:** Issue #3 (backend internals), Issue #4 (HTTP API — Express server, `GET /api/v1/rating`)
+- **Next:** Issue #5 (iOS SwiftUI app — requires this server running locally)
+- **Then:** Issue #6 (deploy + APNs)
 - **Parallel:** Issue #7 (marine data), Issue #8 (`requireTrue` flag type)

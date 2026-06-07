@@ -2,13 +2,13 @@
 
 ## Build order
 
-**#4 is the current focus. #4 → #5 → #6 must be done in that order. #7 and #8 can be done any time after #3 (already done).**
+**#5 is the current focus. #4 → #5 → #6 must be done in that order. #7 and #8 can be done any time after #3 (already done).**
 
 ## Critical path
 
 - [#3 Backend Internals](completed/implement-spec-issue-3-backend-internals.md) ([GitHub](https://github.com/1mposer/time-it/issues/3)) — ✅ merged
-- [#4 HTTP API](current/implement-spec-issue-4-http-api.md) ([GitHub](https://github.com/1mposer/time-it/issues/4)) — **start here**
-- [#5 iOS App](current/implement-spec-issue-5-ios-swiftui.md) ([GitHub](https://github.com/1mposer/time-it/issues/5)) — requires #4 running locally
+- [#4 HTTP API](completed/implement-spec-issue-4-http-api.md) ([GitHub](https://github.com/1mposer/time-it/issues/4)) — ✅ merged
+- [#5 iOS App](current/implement-spec-issue-5-ios-swiftui.md) ([GitHub](https://github.com/1mposer/time-it/issues/5)) — **start here** — requires #4 running locally
 - [#6 Deploy + Notifications](current/implement-spec-issue-6-deploy-and-notifications.md) ([GitHub](https://github.com/1mposer/time-it/issues/6)) — requires #4 and #5
 
 ## Parallel tracks (open now)

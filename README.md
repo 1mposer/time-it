@@ -37,10 +37,11 @@ Activities at launch:
 
 ## Stack
 
-- **Runtime**: Node.js
+- **Runtime**: Node.js + Express
 - **Weather**: Meteosource API (adapter layer supports expansion)
 - **Notifications**: Apple Push Notification service (APNs)
 - **Client**: iOS (App Store)
+- **Deployment**: Railway
 
 ## Setup
 
@@ -48,5 +49,18 @@ Activities at launch:
 cp .env.example .env
 # Add your API_KEY to .env
 npm install
-npm start
+npm run dev        # starts server at http://localhost:3000
+```
+
+### Endpoints
+
+```
+GET /health                                     → { status: "ok", timestamp: "..." }
+GET /api/v1/rating?lat=25.1627&lon=55.2077      → forecast + all activity ratings
+```
+
+### CLI (manual testing)
+
+```bash
+node cli.js | python3 -m json.tool
 ```

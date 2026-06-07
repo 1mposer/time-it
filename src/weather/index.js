@@ -2,11 +2,11 @@ const { fetchWeather } = require('./fetch');
 const { parseWeather } = require('./parse');
 const { meteosourceAdapter } = require('./adapters/meteosource');
 
-async function getWeather(lat, lon) {
+async function getWeather(lat, lon, timezone = "UTC") {
   const params = {
     lat,
     lon,
-    timezone: "UTC",
+    timezone,
     language: "en",
     sections: "all",
     units: "metric",
