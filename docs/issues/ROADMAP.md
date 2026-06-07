@@ -2,14 +2,17 @@
 
 ## Build order
 
-**#5 is the current focus. #4 → #5 → #6 must be done in that order. #7 and #8 can be done any time after #3 (already done).**
+**#5a is the current focus. Compact between each sub-issue. #7 and #8 can be done any time after #4.**
 
 ## Critical path
 
 - [#3 Backend Internals](completed/implement-spec-issue-3-backend-internals.md) ([GitHub](https://github.com/1mposer/time-it/issues/3)) — ✅ merged
 - [#4 HTTP API](completed/implement-spec-issue-4-http-api.md) ([GitHub](https://github.com/1mposer/time-it/issues/4)) — ✅ merged
-- [#5 iOS App](current/implement-spec-issue-5-ios-swiftui.md) ([GitHub](https://github.com/1mposer/time-it/issues/5)) — **start here** — requires #4 running locally
-- [#6 Deploy + Notifications](current/implement-spec-issue-6-deploy-and-notifications.md) ([GitHub](https://github.com/1mposer/time-it/issues/6)) — requires #4 and #5
+- [#5a Core iOS app](current/implement-spec-issue-5-ios-swiftui.md) ([GitHub](https://github.com/1mposer/time-it/issues/5)) — **start here** — dashboard, GPS, Sign in with Apple (client-only), all 5 activities visible
+- [#5b Personalization layer](current/implement-spec-issue-5-ios-swiftui.md) ([GitHub](https://github.com/1mposer/time-it/issues/5)) — onboarding, activity filtering, home location, StoreKit Pro gating
+- [#6a Backend infrastructure](current/implement-spec-issue-6-deploy-and-notifications.md) ([GitHub](https://github.com/1mposer/time-it/issues/6)) — PostgreSQL, Sign in with Apple verification, JWT auth, user preferences API
+- [#6b Railway deployment](current/implement-spec-issue-6-deploy-and-notifications.md) ([GitHub](https://github.com/1mposer/time-it/issues/6)) — deploy to Railway, update iOS app to live URL
+- [#6c Push notifications](current/implement-spec-issue-6-deploy-and-notifications.md) ([GitHub](https://github.com/1mposer/time-it/issues/6)) — APNs, daily digest cron, Perfect window detector cron
 
 ## Parallel tracks (open now)
 
@@ -18,5 +21,6 @@
 
 ## Notes
 
-- #6 Part B (push notifications) needs an Apple Developer account — scaffold is written, implementation is deferred.
-- When an issue is merged, move its spec to `docs/issues/completed/`.
+- Sub-issue specs (#5a, #5b, #6a, #6b, #6c) live in the GitHub issue bodies for #5 and #6, and are mirrored in the local spec files above.
+- #6c requires an Apple Developer account ($99/year) — prerequisite before starting that sub-issue.
+- When an issue is fully merged, move its spec to `docs/issues/completed/`.
