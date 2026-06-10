@@ -8,8 +8,9 @@
 
 - [#3 Backend Internals](completed/implement-spec-issue-3-backend-internals.md) ([GitHub](https://github.com/1mposer/time-it/issues/3)) — ✅ merged
 - [#4 HTTP API](completed/implement-spec-issue-4-http-api.md) ([GitHub](https://github.com/1mposer/time-it/issues/4)) — ✅ merged
-- [#5a Core iOS app](current/implement-spec-issue-5-ios-swiftui.md) ([GitHub](https://github.com/1mposer/time-it/issues/5)) — **start here** — dashboard, GPS, Sign in with Apple (client-only), all 5 activities visible
-- [#5b Personalization layer](current/implement-spec-issue-5-ios-swiftui.md) ([GitHub](https://github.com/1mposer/time-it/issues/5)) — onboarding, activity filtering, home location, StoreKit Pro gating
+- [#5a Core iOS app](current/implement-spec-issue-5a-ios-core.md) ([GitHub](https://github.com/1mposer/time-it/issues/5)) — **start here** — dashboard, GPS, Sign in with Apple (client-only), all 5 activities visible
+- [#5b Personalization layer](current/implement-spec-issue-5b-ios-personalization.md) ([GitHub](https://github.com/1mposer/time-it/issues/5)) — onboarding, activity filtering, home location, StoreKit Pro gating
+- Shared: [design-decisions-issue-5.md](current/design-decisions-issue-5.md) · [ios/guidelines/Guidelines.md](../../ios/guidelines/Guidelines.md)
 - [#6a Backend infrastructure](current/implement-spec-issue-6-deploy-and-notifications.md) ([GitHub](https://github.com/1mposer/time-it/issues/6)) — PostgreSQL, Sign in with Apple verification, JWT auth, user preferences API
 - [#6b Railway deployment](current/implement-spec-issue-6-deploy-and-notifications.md) ([GitHub](https://github.com/1mposer/time-it/issues/6)) — deploy to Railway, update iOS app to live URL
 - [#6c Push notifications](current/implement-spec-issue-6-deploy-and-notifications.md) ([GitHub](https://github.com/1mposer/time-it/issues/6)) — APNs, daily digest cron, Perfect window detector cron

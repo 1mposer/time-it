@@ -1,7 +1,7 @@
 # Implementation spec — Issue #6: Railway deployment + push notifications
 
 > Domain glossary: [`CONTEXT.md`](../../CONTEXT.md)
-> Depends on: [Issue #4 (HTTP API)](completed/implement-spec-issue-4-http-api.md) ([GitHub](https://github.com/1mposer/time-it/issues/4)), [Issue #5a](current/implement-spec-issue-5-ios-swiftui.md), [Issue #5b](current/implement-spec-issue-5-ios-swiftui.md) — iOS app must be complete before starting this issue
+> Depends on: [Issue #4 (HTTP API)](completed/implement-spec-issue-4-http-api.md) ([GitHub](https://github.com/1mposer/time-it/issues/4)), [Issue #5a](current/implement-spec-issue-5a-ios-core.md), [Issue #5b](current/implement-spec-issue-5b-ios-personalization.md) — iOS app must be complete before starting this issue
 > This is the final backend issue.
 
 **This issue is split into three sequential sub-issues.** Implement in order: #6a → #6b → #6c, compacting between each. Each sub-issue is fully self-contained.
@@ -799,5 +799,5 @@ Call `UIApplication.shared.registerForRemoteNotifications()` after successful si
 ## Related artifacts
 
 - [`CONTEXT.md`](../../CONTEXT.md) — domain glossary.
-- [Issue #5](current/implement-spec-issue-5-ios-swiftui.md) ([GitHub](https://github.com/1mposer/time-it/issues/5)) — iOS app that integrates with the backend built here.
+- [Issue #5a](current/implement-spec-issue-5a-ios-core.md) / [#5b](current/implement-spec-issue-5b-ios-personalization.md) ([GitHub](https://github.com/1mposer/time-it/issues/5)) — iOS app that integrates with the backend built here.
 - [Issue #4 (HTTP API)](completed/implement-spec-issue-4-http-api.md) ([GitHub](https://github.com/1mposer/time-it/issues/4)) — the server being extended and deployed here.
