@@ -44,19 +44,23 @@ Add Swift/Xcode patterns to the root `.gitignore` (xcuserstate, DerivedData, xcu
 
 All models are `Decodable`. Field names must match the JSON keys the backend returns exactly.
 
-**`ForecastResponse`** — top-level API response. Fields: `forecastStart` (ISO 8601 string), `activities` (array of `ActivityRating`), `hours` (array of `HourlyWeather`).
+**`ForecastResponse`** — top-level API response. Fields: `forecastStart` (ISO 8601 UTC string with `Z` suffix, e.g. `"2026-06-10T14:00:00Z"` — decodes cleanly with `ISO8601DateFormatter` using default options), `activities` (array of `ActivityRating`), `hours` (array of `HourlyWeather`).
 
-**`ActivityRating`** — one activity's evaluation result. Fields: `activityId`, `label`, `rating` (optional string: `"perfect"` | `"good"` | nil), `startIndex` (optional Int), `endIndex` (optional Int), `duration` (optional Int), `displayMetrics` (string array). Computed properties: `id` (alias of `activityId`), `hasWindow` (true when rating is non-nil), `ratingDisplay` ("Perfect" / "Good" / "No Window"), `isPro` (true when `activityId` ends in `-pro`).
+**`ActivityRating`** — one activity's evaluation result. Fields: `activityId`, `label`, `rating` (optional string: `"perfect"` | `"good"` | nil), `startIndex` (optional Int), `endIndex` (optional Int), `duration` (optional Int), `displayMetrics` (string array). The window fields (`startIndex`/`endIndex`/`duration`) are **absent** from the JSON when `rating` is nil — decode them as Swift optionals so the missing keys are tolerated. Computed properties: `id` (alias of `activityId`), `hasWindow` (true when rating is non-nil), `ratingDisplay` ("Perfect" / "Good" / "No Window"), `isPro` (true when `activityId` ends in `-pro`).
 
-**`HourlyWeather`** — one hourly forecast entry. Fields: `index`, `hour`, `temp`, `humidity`, `windSpeed`, `rainFall`, `cloudCover`, `visibility`, `uV`, `dustAlert` (Bool), `darkness`, `douglasScale`, `swellHeight`, `swellLength`, `tide`, `seaWarning` (Bool). Computed: `id` (alias of `index`). Two methods: `formatted(for metric:) -> String` (returns display string per metric, e.g. `"22°C"`, `"UV 3"`, `"13 km/h"`, `"8%"`), and static `label(for metric:) -> String` (returns human label, e.g. `"Temperature"`).
+**`HourlyWeather`** — one hourly forecast entry. Fields: `index: Int`, `hour: Int`, `temp: Double`, `humidity: Double`, `windSpeed: Double?`, `rainFall: Double?`, `cloudCover: Double?`, `visibility: Double`, `uV: Double`, `dustAlert: Bool`, `darkness: Double`, `douglasScale: Double`, `swellHeight: Double`, `swellLength: Double`, `tide: Double`, `seaWarning: Bool`. **`windSpeed`, `rainFall`, and `cloudCover` are optional** — the backend returns JSON `null` for these when the upstream weather provider omits the field. Computed: `id` (alias of `index`). Two methods: `formatted(for metric:) -> String` (returns display string per metric, e.g. `"22°C"`, `"UV 3"`, `"13 km/h"`, `"8%"`; **when the underlying value is nil, returns `"—"`** so the chip shows a neutral em-dash rather than a misleading zero), and static `label(for metric:) -> String` (returns human label, e.g. `"Temperature"`).
 
 ---
 
 ## 3. Networking
 
-**`APIConfig`** — provides the base URL (`http://localhost:3000` in DEBUG, Railway HTTPS URL in release) and a `ratingURL(lat:lon:timezone:)` builder that constructs the full URL with query items.
+**`APIConfig`** — provides the base URL (`http://localhost:3000` in DEBUG, Railway HTTPS URL in release) and a `ratingURL(lat:lon:)` builder that constructs the full URL with `lat` and `lon` query items. **No `timezone` parameter** — the backend ignores it and always evaluates in UTC.
 
-**`APIClient`** — a Swift `actor` with a shared singleton. One method: `fetchAllRatings(lat:lon:) async throws -> ForecastResponse`. Decodes with `JSONDecoder`. Throws `APIError.invalidResponse` or `APIError.serverError(statusCode:)` on failure.
+**`APIClient`** — a Swift `actor` with a shared singleton. One method: `fetchAllRatings(lat:lon:) async throws -> ForecastResponse`. Decodes with `JSONDecoder`. Maps server responses to `APIError`:
+- `502` → `APIError.providerUnavailable` — upstream weather provider failed (network error, non-OK status, malformed payload). Treat as transient — the user-facing message should suggest retrying.
+- `500` → `APIError.serverError` — server-side defect. Distinct from `502` so it can be surfaced or reported differently.
+- Any other non-2xx status → `APIError.serverError(statusCode:)` (generic fallback).
+- Decoding failure or unexpected response → `APIError.invalidResponse`.
 
 ---
 
@@ -105,17 +109,21 @@ Takes `activity: ActivityRating` and `windowStartHour: HourlyWeather?`. All visu
 
 **Timeline** — `GeometryReader` computes the window's left offset and width as fractions of the bar's total width (18-hour span, 6am–midnight). Green fill for Perfect, orange for Good, no fill for No Window. Time-axis labels (6am, 12pm, 6pm, 12am) below.
 
-**Metric chips** — `activity.displayMetrics.prefix(3)`. Each chip: icon + formatted value from `windowStartHour?.formatted(for: metric)` (falls back to `HourlyWeather.label(for: metric)` when `windowStartHour` is nil). Background and text colour determined by the metric's tier against the thresholds in the design decisions doc. When `windowStartHour` is nil, chips render with neutral grey styling.
+**Metric chips** — `activity.displayMetrics.prefix(3)`. Each chip: icon + formatted value from `windowStartHour?.formatted(for: metric)` (falls back to `HourlyWeather.label(for: metric)` when `windowStartHour` is nil). Background and text colour determined by the metric's tier against the thresholds in the design decisions doc.
+
+Chips render with neutral grey styling in two cases:
+1. `windowStartHour` is nil (no qualifying window for this activity).
+2. `windowStartHour` exists but the raw value for the metric is nil — this only applies to `windSpeed`, `rainFall`, and `cloudCover`, which the backend may return as JSON `null` when the upstream provider omits them. In this case, `formatted(for:)` returns `"—"` and the tier function returns the neutral styling.
 
 Chip tier logic (all in `ActivityCardView` — do not import this logic from outside the view):
 
-| Metric | Raw value source on `HourlyWeather` |
-|---|---|
-| `temp` | `.temp` |
-| `uV` | `.uV` |
-| `windSpeed` | `.windSpeed` |
-| `humidity` | `.humidity` |
-| `cloudCover` | `.cloudCover` |
+| Metric | Raw value source on `HourlyWeather` | Nullable? |
+|---|---|---|
+| `temp` | `.temp` | no |
+| `uV` | `.uV` | no |
+| `humidity` | `.humidity` | no |
+| `windSpeed` | `.windSpeed` | **yes — `Double?`** |
+| `cloudCover` | `.cloudCover` | **yes — `Double?`** |
 
 ### `ActivityDetailView`
 
@@ -145,7 +153,13 @@ Sheet. App name, subtitle, `SignInWithAppleButton` (scopes: none), "Continue as 
 
 **`MetricColorTests`**
 - Verify each tier boundary for: temp (18/33/38), UV (4/7), wind (21/36), humidity (61/76), cloudCover (21/61)
+- Nil value for `windSpeed` or `cloudCover` → returns neutral grey styling (not green/orange/red)
 - The test instantiates an `ActivityCardView` test helper or extracts the tier logic into a testable pure function — structure however makes testing cleanest
+
+**`HourlyWeatherFormattedTests`**
+- `formatted(for: "windSpeed")` returns `"— km/h"` or `"—"` (whichever the implementation picks) when `windSpeed` is nil
+- Same for `rainFall` and `cloudCover`
+- Returns formatted value (e.g. `"13 km/h"`) when the field is non-nil
 
 **`DashboardViewModelTests`**
 - `loadForecast()` sets `forecast` on success, `errorMessage` on failure, toggles `isLoading` correctly

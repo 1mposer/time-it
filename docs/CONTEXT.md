@@ -42,7 +42,7 @@ A user's chosen **Activity** plus their **Threshold** overrides. In code: `userP
 24 hourly entries starting at "now", fetched from the weather provider via an **Adapter** and normalized to a unified schema.
 
 **Forecast start**:
-The ISO 8601 timestamp of the first hourly entry in the **Forecast** (e.g. `"2026-05-19T15:00:00"`, UTC). Stored on the parse result as `forecastStart` and propagated to the API response. The iOS app combines it with each hourly entry's **Index** to render clock times in the user's local timezone.
+The ISO 8601 UTC timestamp of the first hourly entry in the **Forecast**, with an explicit `Z` suffix (e.g. `"2026-05-19T15:00:00Z"`). Stored on the parse result as `forecastStart` and propagated to the API response. The `Z` suffix is required so Swift's default `ISO8601DateFormatter` can decode it without custom formatting. The iOS app combines it with each hourly entry's **Index** to render clock times in the user's local timezone.
 
 **Index**:
 The 0–23 position of a forecast entry within the 24-hour **Forecast** array. Monotonic and timezone-agnostic — `index: 5` always means "the 6th hour after **Forecast start**", regardless of clock time. Used by the decision engine as the canonical position primitive (`startIndex`, `endIndex`, `duration`) and surfaced on every hourly object in the API response as `index`. Introduced in [Issue #1](issues/completed/implement-spec-issue-1.md) to replace **Clock hour** in the engine output after midnight-crossover bugs.
@@ -86,4 +86,4 @@ A boolean flag indicating an active maritime-authority alert (e.g. gale warning,
 
 ## Tests
 
-- `tests/decision/decision_engine.test.js` — five unit tests covering the core **Window** evaluation logic (midnight crossover, single-hour window, no qualifying hours, Perfect preferred over Good, Perfect run ending at last array element).
+For the full test inventory (unit tests for the adapter, parser, fetch, getWeather, decision engine, and HTTP route), see [`CLAUDE.md`](../CLAUDE.md#tests). `tests/decision/decision_engine.test.js` remains the canonical reference for the core **Window** evaluation logic — midnight crossover, single-hour window, no qualifying hours, Perfect preferred over Good, last-element runs, the null-value-fails-threshold guard, and the strict-`>` tie-break.
