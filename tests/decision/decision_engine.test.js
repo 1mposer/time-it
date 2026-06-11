@@ -91,3 +91,40 @@ test("Perfect run ending at the last array element is captured", () => {
   assert.equal(result.endIndex, 24);
   assert.equal(result.duration, 2);
 });
+
+// B2 — undefined/null metric values fail the threshold rather than silently passing
+test("undefined metric value fails the threshold (B2)", () => {
+  const hours = Array.from({ length: 24 }, (_, i) => ({
+    hour: i,
+    temp: undefined,    // required threshold can't be evaluated
+    humidity: 40,
+  }));
+  const result = evaluate(hours, prefs);
+  // No hour passes because temp is undefined (required); no good window either since temp is required
+  assert.deepEqual(result, { rating: null, activityId: "volleyball" });
+});
+
+test("null metric value fails the threshold (B2)", () => {
+  const hours = Array.from({ length: 24 }, (_, i) => ({
+    hour: i,
+    temp: null,
+    humidity: 40,
+  }));
+  const result = evaluate(hours, prefs);
+  assert.deepEqual(result, { rating: null, activityId: "volleyball" });
+});
+
+// G2 — when two equal-length Perfect windows exist, the EARLIER one wins
+test("tie-breaking: earlier of two equal-length Perfect windows wins (G2)", () => {
+  // Two 2-hour perfect runs at [2,3] and [10,11], all other hours bad
+  const passes = Array(24).fill(false);
+  passes[2] = true;
+  passes[3] = true;
+  passes[10] = true;
+  passes[11] = true;
+  const result = evaluate(hoursFromPasses(passes), prefs);
+  assert.equal(result.rating, "perfect");
+  assert.equal(result.startIndex, 2, "earlier window should win on tie");
+  assert.equal(result.endIndex, 4);
+  assert.equal(result.duration, 2);
+});

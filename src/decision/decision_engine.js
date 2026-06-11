@@ -1,5 +1,6 @@
-
 function checkThreshold(value, config) {
+  // Absent data fails the threshold rather than silently passing via NaN/0 coercion.
+  if (value === null || value === undefined) return false;
   if (config.type === "flag" && config.forbidTrue && value === true) return false;
   if (config.min !== undefined && value < config.min) return false;
   if (config.max !== undefined && value > config.max) return false;
@@ -35,6 +36,7 @@ function findLongestWindow(ratings, targetRating) {
         current.duration++;
       }
     } else {
+      // Strict `>` — on a tie, the earlier window wins (iOS shows the earlier block).
       if (current && (!best || current.duration > best.duration)) best = current;
       current = null;
     }

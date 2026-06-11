@@ -1,8 +1,13 @@
+const { UpstreamError } = require('./UpstreamError');
+
 function parseWeather(rawResponse, adapter) {
+  const allHours = adapter.extractHours(rawResponse);
+  if (!allHours || allHours.length === 0) {
+    throw new UpstreamError('Empty forecast from provider');
+  }
+
   const phase = adapter.extractMoonPhase(rawResponse);
   const moon = phase ? [phase] : [];
-
-  const allHours = adapter.extractHours(rawResponse);
   const forecastStart = adapter.forecastStart(allHours[0]);
 
   const hours = allHours.slice(0, 24).map((row) => ({
@@ -13,7 +18,7 @@ function parseWeather(rawResponse, adapter) {
     rainFall:     adapter.rainFall(row),
     cloudCover:   adapter.cloudCover(row),
     visibility:   adapter.visibility(row),
-    moon,
+    moon:         [...moon],
     uV:           adapter.uV(row),
     dustAlert:    adapter.dustAlert(row),
     // PENDING Issue #7 — wire real marine data from Meteosource adapter

@@ -55,3 +55,40 @@ test("dustAlert true triggers bad rating for volleyball", () => {
   const vb = results.find((r) => r.activityId === "volleyball");
   assert.equal(vb.rating, null);
 });
+
+// E1 — seaWarning flag fails all three fishing activities (parallel to dustAlert for volleyball)
+test("seaWarning true triggers null rating for all fishing activities (E1)", () => {
+  const results = evaluateAll(makeHours({ seaWarning: true }));
+  const fishingIds = ["boat-fishing-pro", "boat-fishing-lite", "shore-fishing"];
+  for (const id of fishingIds) {
+    const a = results.find((r) => r.activityId === id);
+    assert.equal(a.rating, null, `${id} should have null rating when seaWarning is true`);
+  }
+});
+
+// E2 — exceeding an OPTIONAL threshold downgrades volleyball from "perfect" to "good"
+test('"good" rating path: optional windSpeed exceeded for volleyball (E2)', () => {
+  // volleyball windSpeed threshold: { max: 15, required: false } — exceeding it should be "good", not null
+  const results = evaluateAll(makeHours({ windSpeed: 20 }));
+  const vb = results.find((r) => r.activityId === "volleyball");
+  assert.equal(vb.rating, "good");
+  assert.equal(typeof vb.startIndex, "number");
+  assert.equal(typeof vb.endIndex, "number");
+  assert.equal(typeof vb.duration, "number");
+  assert.equal(vb.startIndex, 0);
+  assert.equal(vb.endIndex, 24);
+  assert.equal(vb.duration, 24);
+});
+
+// E3 — when rating is null, the window fields must be ABSENT (not present as undefined)
+test("null-rating activities have no startIndex/endIndex/duration keys (E3)", () => {
+  // Extreme temp fails required temp threshold for every activity
+  const results = evaluateAll(makeHours({ temp: 100 }));
+  const nullRated = results.filter((r) => r.rating === null);
+  assert.ok(nullRated.length > 0, "expected at least one null-rated activity");
+  for (const r of nullRated) {
+    assert.equal("startIndex" in r, false, `startIndex should be absent on ${r.activityId}`);
+    assert.equal("endIndex"   in r, false, `endIndex should be absent on ${r.activityId}`);
+    assert.equal("duration"   in r, false, `duration should be absent on ${r.activityId}`);
+  }
+});

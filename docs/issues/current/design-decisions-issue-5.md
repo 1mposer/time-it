@@ -87,3 +87,18 @@ Deferred. Light mode only at launch.
 ## Platform
 
 iOS 17+, Swift, SwiftUI, MVVM. No third-party Swift packages.
+
+---
+
+## Mockup vs. API contract — for the SwiftUI agent
+
+The React/Vite prototype at `ios/src/app/` is a **visual reference only** — it will be deleted once the SwiftUI app exists. Its TypeScript types do **not** match the API contract. Use the backend response shape (Issue #4) as the source of truth, not the mockup types.
+
+Specific mismatches the SwiftUI agent must NOT replicate:
+
+| Mockup (visual prototype) | Real API (source of truth) | Notes |
+|---|---|---|
+| `condition: 'perfect' \| 'good' \| 'none'` | `rating: "perfect" \| "good" \| null` | The no-window state is JSON `null`, not the string `"none"`. Model it as an optional in Swift. |
+| `bestTimeStart`, `bestTimeEnd` (clock hours, e.g. `6`, `14`) | `startIndex`, `endIndex` (0-based indices into `forecast.hours`) | Indices are NOT clock hours. Derive the clock time with `hours[activity.startIndex].hour` (or by combining `forecastStart` + `index` hours). |
+
+The mockup timeline positions the highlight using clock-hour math because the mockup hardcodes a 6am–midnight axis. The SwiftUI implementation must compute the timeline window from `startIndex`/`endIndex` against the actual `hours` array.

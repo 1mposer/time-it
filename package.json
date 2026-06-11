@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "description": "Weather-based activity recommender",
   "main": "app.js",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
     "start": "node app.js",
     "dev":   "nodemon app.js",
