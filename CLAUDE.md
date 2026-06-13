@@ -137,11 +137,11 @@ Clients should distinguish `502` (transient — retry, or fall back to a differe
 
 ### `src/decision/`
 - `index.js` — public. Re-exports `evaluateAll`.
-- `evaluateAll.js` — iterates all **Activities**, calls `evaluate()` per activity, merges in `label` and `displayMetrics`.
+- `evaluateAll.js` — iterates all **Activities**, calls `evaluate()` per activity, and constructs each result with the documented field order: `activityId`, `label`, `displayMetrics`, `rating`, and (only when `rating` is non-null) `startIndex`, `endIndex`, `duration`.
 - `decision_engine.js` — core logic: `evaluateHour`, `findLongestWindow`, `evaluate`. `checkThreshold` treats `null`/`undefined` values as failing the threshold (absent data fails rather than silently passing via NaN coercion). `findLongestWindow` uses strict `>` for tie-breaking, so on equal durations the earlier window wins. Do not import this directly from outside the module.
 
 ### `src/activities/`
-- `index.js` — public. Exports a flat `activities` array: `[...fishing, ...starGazing, ...volleyBall]`.
+- `index.js` — public. Exports a flat `activities` array: `[...fishing, ...volleyBall, ...starGazing]`. Order is the canonical dashboard order documented in `docs/issues/current/design-decisions-issue-5.md`.
 - `volleyBall.js`, `fishing.js`, `starGazing.js` — activity definitions. Each file exports an array (even single-activity pursuits).
 
 ---
@@ -203,11 +203,11 @@ npm test
 - `tests/decision/decision_engine.test.js` — unit tests for core **Window** logic. Covers midnight crossover, single-hour windows, no qualifying hours, Perfect-preferred-over-Good, last-element runs. Also covers the B2 null-guard (`null`/`undefined` values fail thresholds) and the strict-`>` tie-break (earlier window wins).
 - `tests/decision/evaluateAll.test.js` — smoke test for multi-activity evaluation; verifies count, shape, stable IDs, flag threshold behaviour, and that the entry point exposes `evaluateAll` without leaking internals.
 - `tests/weather/adapter.test.js` — unit tests for the Meteosource adapter. Per-field coverage: `windSpeed`/`rainFall`/`cloudCover` returning `null` when the upstream payload omits the source field; `hour` throwing `UpstreamError` on malformed dates; `forecastStart` appending `Z` (idempotently) for unambiguous UTC.
-- `tests/weather/parse.test.js` — unit tests for `parseWeather`. Covers the 24-hour slice, the `UpstreamError` on empty hourly data, per-hour `moon` array isolation, and placeholder defaults.
+- `tests/weather/parse.test.js` — unit tests for `parseWeather`. Covers the 24-hour slice, the `UpstreamError` on empty hourly data, per-hour `moon` array isolation, placeholder defaults, and a contract pin on the per-hour key order.
 - `tests/weather/fetch.test.js` — unit tests for `fetchWeather`. Wraps network failures and non-OK responses as `UpstreamError`.
 - `tests/weather/getWeather.test.js` — unit tests for the public `getWeather`. Includes the `API_KEY` guard and confirmation that no timezone arg leaks into the upstream URL.
 - `tests/server/health.test.js` — 1 test: `GET /health` returns `200` with `status: ok`.
-- `tests/server/rating.test.js` — integration tests for the route. Uses the `createRatingRouter({ getWeather, evaluateAll })` factory to inject fakes — no live API calls and no `require.cache` patching. Covers param-validation 400s, response shape (top-level + per-hour `index` + per-activity window fields), `UpstreamError → 502` mapping, generic `Error → 500` mapping, and the fact that a `timezone` query param is silently ignored.
+- `tests/server/rating.test.js` — integration tests for the route. Uses the `createRatingRouter({ getWeather, evaluateAll })` factory to inject fakes — no live API calls and no `require.cache` patching. Covers param-validation 400s, response shape (top-level + per-hour `index` + per-activity window fields), `UpstreamError → 502` mapping, generic `Error → 500` mapping, and the fact that a `timezone` query param is silently ignored. Includes a golden snapshot test pinning the full response shape, activity-array order, and per-object key order against the documented contract.
 
 ---
 

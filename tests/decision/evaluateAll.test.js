@@ -27,7 +27,7 @@ function makeHours(overrides = {}) {
 test("evaluateAll returns one result per activity", () => {
   const results = evaluateAll(makeHours());
   assert.ok(Array.isArray(results));
-  assert.equal(results.length, 5); // boat-fishing-pro, boat-fishing-lite, shore-fishing, stargazing-lite, volleyball
+  assert.equal(results.length, 5); // boat-fishing-pro, boat-fishing-lite, shore-fishing, volleyball, stargazing-lite
 });
 
 test("every result has required shape fields", () => {

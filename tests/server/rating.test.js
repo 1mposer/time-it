@@ -117,3 +117,41 @@ test('null-rated activities have no startIndex/endIndex/duration in response JSO
     assert.equal('duration' in a,   false);
   }
 });
+
+// Contract pin: full response shape + key order must match the documented API
+// (CLAUDE.md). assert.deepStrictEqual ignores key order, so Object.keys() is
+// asserted separately. Any silent drift in field name, type, or order breaks here.
+test('full response shape and key order match the documented API contract', async () => {
+  const app = makeApp({ getWeather: happyGetWeather, evaluateAll: realEvaluateAll });
+  const res = await supertest(app).get('/api/v1/rating?lat=25.1627&lon=55.2077');
+
+  assert.equal(res.status, 200);
+
+  // Top-level key order
+  assert.deepStrictEqual(Object.keys(res.body), ['forecastStart', 'activities', 'hours']);
+  assert.equal(res.body.forecastStart, '2026-06-07T00:00:00');
+
+  // activities[] — canonical order matches the design doc
+  assert.equal(res.body.activities.length, 5);
+  assert.deepStrictEqual(
+    res.body.activities.map(a => a.activityId),
+    ['boat-fishing-pro', 'boat-fishing-lite', 'shore-fishing', 'volleyball', 'stargazing-lite'],
+  );
+
+  // Per-activity key order (non-null path — happy fixture makes all 5 perfect)
+  const expectedActivityKeys = [
+    'activityId', 'label', 'displayMetrics', 'rating', 'startIndex', 'endIndex', 'duration',
+  ];
+  for (const a of res.body.activities) {
+    assert.equal(a.rating, 'perfect', `expected perfect rating for ${a.activityId} in happy fixture`);
+    assert.deepStrictEqual(Object.keys(a), expectedActivityKeys, `unexpected key order on ${a.activityId}`);
+  }
+
+  // hours[] — length and per-hour key order (with index prepended by route layer)
+  assert.equal(res.body.hours.length, 24);
+  assert.deepStrictEqual(Object.keys(res.body.hours[0]), [
+    'index', 'hour', 'temp', 'humidity', 'windSpeed', 'rainFall', 'cloudCover',
+    'visibility', 'moon', 'uV', 'dustAlert',
+    'darkness', 'douglasScale', 'swellHeight', 'swellLength', 'tide', 'seaWarning',
+  ]);
+});

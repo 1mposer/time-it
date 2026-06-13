@@ -9,11 +9,19 @@ function evaluateAll(hours) {
       activityId: activity.id,
       thresholds: activity.thresholds,
     });
-    results.push({
-      ...window,
-      label: activity.label,
+
+    const result = {
+      activityId:     activity.id,
+      label:          activity.label,
       displayMetrics: activity.displayMetrics,
-    });
+      rating:         window.rating,
+    };
+    if (window.rating !== null) {
+      result.startIndex = window.startIndex;
+      result.endIndex   = window.endIndex;
+      result.duration   = window.duration;
+    }
+    results.push(result);
   }
 
   return results;

@@ -62,3 +62,14 @@ test('marine placeholder fields are present with 0/false defaults', () => {
   assert.equal(h.darkness, 0);
   assert.equal(h.seaWarning, false);
 });
+
+// Contract pin: parseWeather hour-object key order must match the documented
+// API shape. `index` is added later at the route layer (see rating.js).
+test('hour object key order matches the documented contract', () => {
+  const { hours } = parseWeather(makeRaw(), makeStubAdapter());
+  assert.deepStrictEqual(Object.keys(hours[0]), [
+    'hour', 'temp', 'humidity', 'windSpeed', 'rainFall', 'cloudCover',
+    'visibility', 'moon', 'uV', 'dustAlert',
+    'darkness', 'douglasScale', 'swellHeight', 'swellLength', 'tide', 'seaWarning',
+  ]);
+});
