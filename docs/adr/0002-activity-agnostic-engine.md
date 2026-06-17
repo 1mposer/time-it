@@ -1,0 +1,11 @@
+# The decision engine is activity-agnostic; curated activities become Templates
+
+The backend decision engine evaluates whatever **Activity** profile the caller supplies — `{ label, chosen metrics, threshold per metric, optional time-of-day }` — and holds **no built-in activity list**. Activities are authored client-side, stored locally, and sent in the request body for per-request evaluation: `evaluateAll(hours)` → `evaluateAll(hours, activities)`, and `GET /api/v1/rating` gains a **POST** form carrying the profiles. The previously hardcoded `src/activities/*` definitions become **Templates**: curated starting defaults a user adopts and then modifies; the engine treats an adopted Template identically to a from-scratch Activity.
+
+Chosen because the user wants custom user-defined activities and threshold overrides on built-ins. Routing evaluation through the stateless backend keeps **one source of truth** (no client-side engine duplication), preserves **offline/guest use** (fits [ADR-0001](0001-no-accounts-guest-first.md)), and makes the backend the natural **funnel for aggregate analytics** (it sees every threshold on every call, keyed by anonymous install ID).
+
+Rejected alternatives: server-stored per-user activities (requires storage just to render the dashboard, fights the no-accounts decision); client-side engine (duplicates the crown-jewel Window logic, two engines drift).
+
+**Consequences:** a **metric catalog** becomes a first-class contract (likely served via `GET /api/v1/metrics`); placeholder / no-data metrics must be hidden from authoring to avoid silent false **Perfect** ratings; `displayMetrics` becomes user-chosen, not backend-decided; the Lite/Pro split moves from *activity tiers* to *metric-access + quantity* gating; the golden-snapshot and `activities.length` tests get reworked.
+
+**Superseded result shape:** this ADR originally implied one top-level window per activity. [ADR-0003](0003-seven-day-horizon-flat-hours-day-buckets.md) extends the forecast to 7 days and makes the engine output **day-bucketed** — each activity result is now up to 7 day-results `{ dayIndex, rating, startIndex, endIndex, duration }`. The activity-agnostic contract here is unchanged (the engine still evaluates caller-supplied profiles against `evaluateAll(hours, activities)`); only the per-activity result gains a day dimension.
