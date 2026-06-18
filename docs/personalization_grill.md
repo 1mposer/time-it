@@ -34,7 +34,7 @@ The personalization grill is **complete**: design questions Q1–Q9 are all lock
 
 ### PENDING — the only open work
 
-1. **Data shapes (tree item 7)** — full custom-activity schema, Template-override schema, sync model. *(Catalog, day-bucketed result, and events-table shapes are already done.)*
+1. **Data shapes (tree item 7)** — full custom-activity schema, Template-override schema, sync model. *(Catalog and events-table shapes are done. The day-bucketed result **element** `{ dayIndex, rating, startIndex, endIndex, duration }` is sketched, but the `/rating` **response wire shape is NOT pinned** — the response container, the fate of the singular `activities[].rating`, the null-day rule, and the card day-0-vs-`bestDayIndex` default are all open. This is audit blocker **B2** and gates the iOS #5a decoder; see [`STATUS.md`](STATUS.md) §4.)*
 2. **v1-vs-fast-follow sequencing** — what ships in the first launch vs fast-follow. Never resolved.
 3. **Provider verification (ADR-0003 precondition)** — confirm Meteosource + Air Quality + Marine return clean *hourly* data across all 7 days, before the horizon change is final.
 4. **Spec rewrites** — fold every locked decision here + in the ADRs into the **#5a / #5b / #6a–#6c** specs. This is the grill's final output.
@@ -202,7 +202,7 @@ With Lite/Pro-as-activities dead, what does Pro gate?
 >
 > **Sub-decisions:**
 > - **(i) Downgrade integrity — RESOLVED. Soft-lock, never delete; re-subscribe is a full restore.**
->   - *Quantity overflow:* lock from-scratch activities beyond 3; user **picks which 3 stay active, defaulting to most-recently-used**; rest greyed "re-subscribe to reactivate." Template-derived activities never lock.
+>   - *Quantity overflow:* lock from-scratch activities beyond 3; user **picks which 3 stay active, defaulting to most-recently-used**; rest greyed "re-subscribe to reactivate." Template-derived activities never lock **on the quantity cap** (a premium metric still locks them — see the next bullet).
 >   - *Premium-metric activities:* lock entirely (can't be honestly evaluated free; silent-drop would resurrect the false-Perfect trap). For Template-derived ones, offer one-tap **"remove the premium metric to keep using it free."**
 >   - *Pro notifications:* revert to free Daily Digest; live whole-day alerts stop.
 >   - Enforcement client-side (StoreKit reports lapsed entitlement); backend stops Pro cron jobs on next sync. Nothing deleted → re-subscribe restores exactly.

@@ -1,5 +1,7 @@
 # time-it
 
+> **Read the glossary below FIRST** — it defines the ubiquitous language used everywhere in this repo. Note: several terms (**Activity**, **Forecast**, **Index**, **Lite / Pro**, **Display metrics**) describe the *currently shipped code* and are **superseded by locked-but-unbuilt design**. ONLY AFTER you understand the terms, see [`STATUS.md`](STATUS.md) for the current project status and what is changing.
+
 A backend engine that watches hourly weather forecasts and tells UAE outdoor hobbyists when conditions match their activity. Output is consumed by an iOS app that sends the user a push notification.
 
 ## Language
