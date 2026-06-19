@@ -34,7 +34,7 @@ The personalization grill is **complete**: design questions Q1–Q9 are all lock
 
 ### PENDING — the only open work
 
-1. **Data shapes (tree item 7)** — full custom-activity schema, Template-override schema, sync model. *(Catalog and events-table shapes are done. The day-bucketed result **element** `{ dayIndex, rating, startIndex, endIndex, duration }` is sketched, but the `/rating` **response wire shape is NOT pinned** — the response container, the fate of the singular `activities[].rating`, the null-day rule, and the card day-0-vs-`bestDayIndex` default are all open. This is audit blocker **B2** and gates the iOS #5a decoder; see [`STATUS.md`](STATUS.md) §4.)*
+1. **Data shapes (tree item 7)** — full custom-activity schema, Template-override schema, sync model. *(Catalog and events-table shapes are done. The day-bucketed `/rating` **response wire shape is now PINNED** — flat 7-entry `activities[].days[]`, singular top-level `rating`/window removed, dense null days, `days[0]` card default; see [ADR-0004](adr/0004-day-bucketed-rating-wire-shape.md). This was audit blocker B2, now resolved. The remaining open shapes are the custom-activity / Template-override / sync schemas above.)*
 2. **v1-vs-fast-follow sequencing** — what ships in the first launch vs fast-follow. Never resolved.
 3. **Provider verification (ADR-0003 precondition)** — confirm Meteosource + Air Quality + Marine return clean *hourly* data across all 7 days, before the horizon change is final.
 4. **Spec rewrites** — fold every locked decision here + in the ADRs into the **#5a / #5b / #6a–#6c** specs. This is the grill's final output.
