@@ -1,6 +1,6 @@
 # STATUS — project orientation hub
 
-> **Last updated: 2026-06-19** — Meteosource `flexi` horizon verified (~164 clean hourly); ADR-0003/0004 reframed so **168 is a ceiling, not a count**; adapter-boundary principle added to CONTEXT. (Earlier today: B2 resolved — [ADR-0004](adr/0004-day-bucketed-rating-wire-shape.md).)
+> **Last updated: 2026-06-19** — Day-bucketing settled: **location-local calendar days** via the provider's IANA `timezone` + a time-boundary module (ADR-0003/0004 amended; CONTEXT gains the time-boundary principle). Earlier today: `flexi` horizon verified, 168 reframed as a ceiling, B2 resolved.
 
 This is the **"start here" dashboard** for the codebase. It tells you *where the project is right now* and links down to the detail. It does **not** restate decisions — it points to them, so it can't drift out of sync.
 
@@ -26,7 +26,7 @@ When these two disagree, that is **expected, not a bug** — the design is ahead
 | **Index** | 0–23 | 0..N-1 (N ≤ 168) | [ADR-0003](adr/0003-seven-day-horizon-flat-hours-day-buckets.md) |
 | **Lite / Pro** | activity tiers (`-lite`/`-pro`) | metric-access + quantity gating | grill Q3 |
 | **Display metrics** | backend-decided | user-chosen | [ADR-0002](adr/0002-activity-agnostic-engine.md), grill Q2 |
-| **`/rating` contract** | `GET`, singular `rating`/window, 5 activities | `POST`, `activities[].days[]` (7-entry, day-0 card), caller-supplied activities | [ADR-0002](adr/0002-activity-agnostic-engine.md), [ADR-0003](adr/0003-seven-day-horizon-flat-hours-day-buckets.md), [ADR-0004](adr/0004-day-bucketed-rating-wire-shape.md) |
+| **`/rating` contract** | `GET`, singular `rating`/window, 5 activities | `POST`, `activities[].days[]` (local-calendar days, day-0 card, top-level `timezone`), caller-supplied activities | [ADR-0002](adr/0002-activity-agnostic-engine.md), [ADR-0003](adr/0003-seven-day-horizon-flat-hours-day-buckets.md), [ADR-0004](adr/0004-day-bucketed-rating-wire-shape.md) |
 
 Term definitions in [`CONTEXT.md`](CONTEXT.md) still describe the **current** column — they migrate to the **future** column only when the code lands (deliberate; avoids glossary/code drift).
 
@@ -39,7 +39,8 @@ Term definitions in [`CONTEXT.md`](CONTEXT.md) still describe the **current** co
 - Drop Supabase; one Node + Railway Postgres; append-only events at launch — grill Q5
 - Forecast 7-day rolling, flat hours (count provider-determined, **168 = ceiling not count**); day-bucketed evaluation — [ADR-0003](adr/0003-seven-day-horizon-flat-hours-day-buckets.md), grill Q6
 - Provider-specifics stop at the adapter boundary; no provider horizon baked into the contract; never fabricate hours — [CONTEXT.md](CONTEXT.md) (Adapter), [ADR-0003](adr/0003-seven-day-horizon-flat-hours-day-buckets.md)
-- Day-bucketed `/rating` wire shape: 7-entry `activities[].days[]`, day-0 card, dense null days, no top-level pointer — [ADR-0004](adr/0004-day-bucketed-rating-wire-shape.md)
+- Day-bucketed `/rating` wire shape: `activities[].days[]`, day-0 card, dense null days, no top-level pointer — [ADR-0004](adr/0004-day-bucketed-rating-wire-shape.md)
+- Day bucketing = **forecast-location local calendar days** (provider IANA `timezone` + time-boundary module; `dayIndex` 0..6 or 0..7, today/tail partial, `startIndex`/`endIndex` global); response carries top-level `timezone`; client renders in that zone — [ADR-0003](adr/0003-seven-day-horizon-flat-hours-day-buckets.md), [ADR-0004](adr/0004-day-bucketed-rating-wire-shape.md)
 - Notification type follows activity shape, not tier (Daily Digest / Window Watch) — grill "Notification / CRON model"
 - iOS shape: 5 surfaces / 8 screens, no bottom bar — grill Q6–Q9, "Page inventory — final (v1)"
 
@@ -65,3 +66,4 @@ Term definitions in [`CONTEXT.md`](CONTEXT.md) still describe the **current** co
 - **2026-06-18** — Created. Drift table + locked-decisions index + audit blockers (B2, provider-verify, stateless wording, metric-flip, catalog refresh). Paired with: CONTEXT.md/CLAUDE.md routing banners, deletion of three empty `docs/agents/*.md` orphans, two in-place grill corrections (line 37, Q3.i).
 - **2026-06-19** — B2 resolved. Added [ADR-0004](adr/0004-day-bucketed-rating-wire-shape.md) pinning the day-bucketed `/rating` wire shape (flat 7-entry `days[]`, day-0 card, dense null days, no top-level pointer). Flipped §4 B2 blocker→resolved, §5 iOS #5a blocked→unblocked, drift-table `/rating` row, locked-decisions index. Paired with grill line 37 update.
 - **2026-06-19** — Provider verification done (Meteosource `flexi` ~164 clean hourly). Reframed ADR-0003 + ADR-0004: **168 is a ceiling, not a count** — horizon provider-determined, last day partial, decoder/snapshot must not hardcode 168/7, no fabricated hours. Added adapter-boundary principle to CONTEXT.md (Adapter term). Updated drift table (Forecast/Index rows), locked-decisions (+horizon + adapter-boundary), §4 provider flag DONE, §5 timeline unblocked.
+- **2026-06-19** — Day-bucketing rule settled: **location-local calendar days**, not `floor(index/24)` blocks. Timezone = provider's IANA `timezone` field (Meteosource `timezone=auto`), normalised at the adapter boundary; a new **time-boundary module** tags each hour's `localDay`; engine groups by it. `dayIndex` = 0-based local-calendar-day ordinal (0..6 or 0..7; today + tail partial), `days.length` NOT a closed form over `hours.length`; `startIndex`/`endIndex` stay global; `localDay` internal (not on wire); response gains top-level `timezone`; client renders in that zone. Amended ADR-0003 (rule + worked 8-bucket example + fetch wrinkle + UTC-instant landmine), ADR-0004 (killed false `days.length` formula, +`timezone`, +three pins), CONTEXT (sibling time-boundary principle + Forecast-start rendering note), this drift table + locked-decisions. **Open:** partial-day-0 card rule (parked); custom-activity request schema (Phase-2 gate, unchanged).
