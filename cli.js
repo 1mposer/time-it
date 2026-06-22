@@ -16,7 +16,7 @@ async function main() {
   const params = {
     lat: '25.1627',
     lon: '55.2077',
-    timezone: 'UTC',
+    timezone: 'auto',  // flexi exposes the location IANA zone only under auto (ADR-0003)
     language: 'en',
     sections: 'all',
     units: 'metric',

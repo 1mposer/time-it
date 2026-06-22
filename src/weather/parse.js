@@ -1,5 +1,10 @@
 const { UpstreamError } = require('./UpstreamError');
 
+// 7-day rolling horizon ceiling (ADR-0003). 168 = 7 x 24 is a CEILING, not a
+// fixed count: the provider serves however many clean hourly entries it returns
+// (Meteosource flexi ~161-168), capped here. We never fabricate hours to a target.
+const FORECAST_HOURS = 168;
+
 function parseWeather(rawResponse, adapter) {
   const allHours = adapter.extractHours(rawResponse);
   if (!allHours || allHours.length === 0) {
@@ -8,10 +13,10 @@ function parseWeather(rawResponse, adapter) {
 
   const phase = adapter.extractMoonPhase(rawResponse);
   const moon = phase ? [phase] : [];
-  const forecastStart = adapter.forecastStart(allHours[0]);
+  const timezone = adapter.timezone(rawResponse);
+  const forecastStart = adapter.forecastStart(allHours[0], timezone);
 
-  const hours = allHours.slice(0, 24).map((row) => ({
-    hour:         adapter.hour(row),
+  const hours = allHours.slice(0, FORECAST_HOURS).map((row) => ({
     temp:         adapter.temp(row),
     humidity:     adapter.humidity(row),
     windSpeed:    adapter.windSpeed(row),
@@ -32,7 +37,7 @@ function parseWeather(rawResponse, adapter) {
     seaWarning:   false,   // PENDING: UAE maritime authority API — not Meteosource
   }));
 
-  return { forecastStart, hours };
+  return { forecastStart, timezone, hours };
 }
 
-module.exports = { parseWeather };
+module.exports = { parseWeather, FORECAST_HOURS };

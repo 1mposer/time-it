@@ -1,7 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { meteosourceAdapter } = require('../../src/weather/adapters/meteosource');
-const { UpstreamError } = require('../../src/weather/UpstreamError');
 
 // ---------- windSpeed (A1) ----------
 
@@ -53,34 +52,26 @@ test('cloudCover returns null when cloud_cover is an object without .total (A3)'
   assert.equal(meteosourceAdapter.cloudCover({ cloud_cover: { low: 5, mid: 0 } }), null);
 });
 
-// ---------- forecastStart (B4 — unambiguous UTC) ----------
+// ---------- timezone (ADR-0003 — location IANA zone) ----------
 
-test('forecastStart appends Z to make the timestamp unambiguous UTC (B4)', () => {
-  // Meteosource returns dates without a timezone designator. With timezone=UTC forced,
-  // the backend appends 'Z' so iOS ISO 8601 parsers can decode it without custom formatting.
-  assert.equal(meteosourceAdapter.forecastStart({ date: '2026-06-10T14:00:00' }), '2026-06-10T14:00:00Z');
+test('timezone extracts the top-level forecast-location IANA zone', () => {
+  assert.equal(meteosourceAdapter.timezone({ timezone: 'Asia/Dubai' }), 'Asia/Dubai');
 });
 
-test('forecastStart does not double-append Z when already present (B4)', () => {
-  assert.equal(meteosourceAdapter.forecastStart({ date: '2026-06-10T14:00:00Z' }), '2026-06-10T14:00:00Z');
-});
+// ---------- forecastStart (ADR-0003 fetch wrinkle — local wall-time -> UTC-Z) ----------
 
-// ---------- hour (A4) ----------
-
-test('hour parses the hour from a valid ISO 8601 date', () => {
-  assert.equal(meteosourceAdapter.hour({ date: '2026-06-10T14:00:00' }), 14);
-});
-
-test('hour throws UpstreamError when date lacks T separator (A4)', () => {
-  assert.throws(
-    () => meteosourceAdapter.hour({ date: '2026-06-10 14:00:00' }),
-    UpstreamError,
+test('forecastStart converts the provider local wall-time to UTC-Z via the zone', () => {
+  // Under timezone=auto Meteosource returns LOCAL wall-time with no designator;
+  // 16:00 Asia/Dubai (+4) is 12:00 UTC. Blind-appending Z would be 4h wrong.
+  assert.equal(
+    meteosourceAdapter.forecastStart({ date: '2026-06-19T16:00:00' }, 'Asia/Dubai'),
+    '2026-06-19T12:00:00Z',
   );
 });
 
-test('hour throws UpstreamError when date is missing entirely (A4)', () => {
-  assert.throws(
-    () => meteosourceAdapter.hour({}),
-    UpstreamError,
+test('forecastStart is idempotent on an already-UTC-Z timestamp', () => {
+  assert.equal(
+    meteosourceAdapter.forecastStart({ date: '2026-06-19T12:00:00Z' }, 'Asia/Dubai'),
+    '2026-06-19T12:00:00Z',
   );
 });

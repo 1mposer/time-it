@@ -1,6 +1,7 @@
 const { UpstreamError } = require('./UpstreamError');
 
-const BASE_URL = "https://www.meteosource.com/api/v1/free/point";
+// flexi tier — 7-day hourly horizon (ADR-0003). /free/ caps at 24h and is unusable here.
+const BASE_URL = "https://www.meteosource.com/api/v1/flexi/point";
 
 async function fetchWeather(params) {
   const query = new URLSearchParams(params);

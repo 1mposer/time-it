@@ -1,15 +1,13 @@
-const { UpstreamError } = require('../UpstreamError');
+const { zonedWallTimeToUtcIso } = require('../timeBoundary');
 
 const meteosourceAdapter = {
   extractHours:     (res) => res.hourly.data,
   extractMoonPhase: (res) => res.astro?.data?.[0]?.moon_phase,
-  forecastStart:    (firstRow) => firstRow.date.endsWith('Z') ? firstRow.date : `${firstRow.date}Z`,
-  hour: (h) => {
-    if (typeof h.date !== 'string' || !h.date.includes('T')) {
-      throw new UpstreamError(`Expected ISO 8601 date with 'T' separator, got: ${h.date}`);
-    }
-    return parseInt(h.date.split('T')[1].split(':')[0], 10);
-  },
+  // Location IANA zone, exposed top-level under timezone=auto (ADR-0003).
+  timezone:         (res) => res.timezone,
+  // Under timezone=auto the provider serves LOCAL wall-time with no designator;
+  // convert to the unified UTC-Z forecastStart contract using the location zone.
+  forecastStart:    (firstRow, timezone) => zonedWallTimeToUtcIso(firstRow.date, timezone),
   temp:       (h) => h.temperature,
   humidity:   (h) => h.humidity,
   windSpeed:  (h) => h.wind?.speed ?? null,

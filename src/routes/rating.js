@@ -13,10 +13,12 @@ function createRatingRouter({ getWeather = defaultGetWeather, evaluateAll = defa
     if (!lon) return res.status(400).json({ error: 'Missing required parameter: lon' });
 
     try {
-      const { forecastStart, hours } = await getWeather(lat, lon);
-      const indexedHours = hours.map((h, i) => ({ index: i, ...h }));
+      const { forecastStart, timezone, hours } = await getWeather(lat, lon);
       const activities = evaluateAll(hours);
-      res.json({ forecastStart, activities, hours: indexedHours });
+      // Wire shape (ADR-0004): index first; the internal localDay tag is stripped
+      // (the client derives day membership from forecastStart + timezone + index).
+      const indexedHours = hours.map(({ localDay, ...h }, i) => ({ index: i, ...h }));
+      res.json({ forecastStart, timezone, activities, hours: indexedHours });
     } catch (err) {
       if (err instanceof UpstreamError) {
         return res.status(502).json({ error: 'Weather data unavailable' });
