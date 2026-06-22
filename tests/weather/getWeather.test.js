@@ -13,8 +13,10 @@ function captureFetch() {
       ok: true,
       status: 200,
       json: async () => ({
+        timezone: 'Asia/Dubai',
         hourly: { data: [
           { date: '2026-06-10T00:00:00', temperature: 25, humidity: 40, wind: { speed: 10 }, precipitation: { total: 0 }, cloud_cover: { total: 10 }, visibility: 10, uv_index: 3, weather: 'clear' },
+          { date: '2026-06-10T01:00:00', temperature: 25, humidity: 40, wind: { speed: 10 }, precipitation: { total: 0 }, cloud_cover: { total: 10 }, visibility: 10, uv_index: 3, weather: 'clear' },
         ] },
         astro:  { data: [{ moon_phase: 'waxing crescent' }] },
       }),
@@ -41,21 +43,34 @@ test('getWeather throws a clear error containing "API_KEY" when env var is unset
   );
 });
 
-test('getWeather sends timezone=UTC to provider even when caller passes another zone (B4)', async (t) => {
-  t.after(restore);
-  process.env.API_KEY = 'test-key';
-  const getLastUrl = captureFetch();
-  // Caller tries to override — should be ignored.
-  await getWeather(25.16, 55.20, 'Asia/Dubai');
-  const url = getLastUrl();
-  assert.ok(url.includes('timezone=UTC'),     `expected timezone=UTC in URL, got: ${url}`);
-  assert.ok(!url.includes('Asia%2FDubai'),    `expected Asia/Dubai NOT to leak into URL, got: ${url}`);
-});
-
-test('getWeather sends timezone=UTC by default (B4)', async (t) => {
+test('getWeather requests timezone=auto so the provider exposes the location zone (ADR-0003)', async (t) => {
   t.after(restore);
   process.env.API_KEY = 'test-key';
   const getLastUrl = captureFetch();
   await getWeather(25.16, 55.20);
-  assert.ok(getLastUrl().includes('timezone=UTC'));
+  const url = getLastUrl();
+  assert.ok(url.includes('timezone=auto'), `expected timezone=auto in URL, got: ${url}`);
+  assert.ok(!url.includes('timezone=UTC'), `timezone=UTC must not be sent, got: ${url}`);
+});
+
+test('getWeather targets the flexi 7-day endpoint, not /free/ (ADR-0003)', async (t) => {
+  t.after(restore);
+  process.env.API_KEY = 'test-key';
+  const getLastUrl = captureFetch();
+  await getWeather(25.16, 55.20);
+  const url = getLastUrl();
+  assert.ok(url.includes('/flexi/point'), `expected /flexi/point endpoint, got: ${url}`);
+  assert.ok(!url.includes('/free/point'), `must not hit /free/point (caps at 24h), got: ${url}`);
+});
+
+test('getWeather surfaces the location timezone and tags each hour with an internal localDay', async (t) => {
+  t.after(restore);
+  process.env.API_KEY = 'test-key';
+  captureFetch();
+  const { forecastStart, timezone, hours } = await getWeather(25.16, 55.20);
+  assert.equal(timezone, 'Asia/Dubai');
+  // 00:00 Asia/Dubai = 2026-06-09T20:00:00Z; forecastStart is UTC-Z.
+  assert.equal(forecastStart, '2026-06-09T20:00:00Z');
+  // localDay is the forecast-location calendar day (internal — stripped at the wire).
+  assert.equal(hours[0].localDay, '2026-06-10');
 });

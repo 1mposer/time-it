@@ -1,6 +1,6 @@
 # STATUS — project orientation hub
 
-> **Last updated: 2026-06-20** — Custom-activity request schema grilled & pinned ([ADR-0005](adr/0005-custom-activity-request-schema.md)): POST `{ lat, lon, activities[] }`, display-superset/threshold-subset, half-open local-hour window, wrap-gated nocturnal stitch, coming-soon-metric hard-400, atomic structured errors. Triggered amendments to ADR-0003 (night-stitch) + ADR-0004 (`days.length` per-activity). **Phase-2 gate cleared.** Prior (2026-06-19): partial-day-0 card rule, day-bucketing via provider IANA `timezone`, `flexi` horizon verified (168 = ceiling), B2 resolved.
+> **Last updated: 2026-06-22** — **Phase 1 implemented on `rebuild/phase-1-day-bucketing` (code + code-docs, pre-merge).** Output slice shipped: `flexi`+`timezone=auto` fetch, 168-ceiling `parse`, time-boundary module (`src/weather/timeBoundary.js`, local-day tagging + local→UTC reconciliation), `evaluateAll` → per-activity `days[]` with global indices, route emits `{ forecastStart, timezone, activities, hours }` (per-hour `hour` dropped, `index` first). CONTEXT/CLAUDE migrated for the `days[]`/`timezone`/horizon slice; §2 Phase-1 rows reconciled. Live probe confirmed `flexi` returns local timestamps + top-level IANA `timezone`. **GET + hardcoded activities retained — the GET→POST request flip is Phase 2.** Prior (2026-06-20): ADR-0005 request schema pinned, Phase-2 gate cleared. Prior (2026-06-19): day-bucketing via provider IANA `timezone`, `flexi` horizon verified (168 = ceiling), B2 resolved.
 
 This is the **"start here" dashboard** for the codebase. It tells you *where the project is right now* and links down to the detail. It does **not** restate decisions — it points to them, so it can't drift out of sync.
 
@@ -19,16 +19,16 @@ When these two disagree, that is **expected, not a bug** — the design is ahead
 
 ## 2. Drift table — terms/contract changing under the rebuild
 
-| Thing | Current (in code) | Locked future | Source |
-|---|---|---|---|
-| **Activity** | hardcoded list (`src/activities/*`) | user-authored profile; engine agnostic | [ADR-0002](adr/0002-activity-agnostic-engine.md), grill Q2 |
-| **Forecast** | 24 hourly entries | 7-day rolling, **≤168** provider-determined (Meteosource `flexi` ~164) | [ADR-0003](adr/0003-seven-day-horizon-flat-hours-day-buckets.md), grill Q6 |
-| **Index** | 0–23 | 0..N-1 (N ≤ 168) | [ADR-0003](adr/0003-seven-day-horizon-flat-hours-day-buckets.md) |
-| **Lite / Pro** | activity tiers (`-lite`/`-pro`) | metric-access + quantity gating | grill Q3 |
-| **Display metrics** | backend-decided | user-chosen | [ADR-0002](adr/0002-activity-agnostic-engine.md), grill Q2 |
-| **`/rating` contract** | `GET`, singular `rating`/window, 5 activities | `POST`, body `{ lat, lon, activities[] }` in / `activities[].days[]` out (local-calendar days, day-0 card, top-level `timezone`), caller-supplied activities | [ADR-0002](adr/0002-activity-agnostic-engine.md), [ADR-0003](adr/0003-seven-day-horizon-flat-hours-day-buckets.md), [ADR-0004](adr/0004-day-bucketed-rating-wire-shape.md) (out), [ADR-0005](adr/0005-custom-activity-request-schema.md) (in) |
+| Thing | Current (in code) | Locked future | Migrates in | Source |
+|---|---|---|---|---|
+| **Activity** | hardcoded list (`src/activities/*`) | user-authored profile; engine agnostic | Phase 2 | [ADR-0002](adr/0002-activity-agnostic-engine.md), grill Q2 |
+| **Forecast** | **7-day rolling, ≤168 provider-determined (`flexi` ~161–168) — migrated** | (now current) | **Phase 1 ✅ (branch)** | [ADR-0003](adr/0003-seven-day-horizon-flat-hours-day-buckets.md), grill Q6 |
+| **Index** | **0..N-1 (N ≤ 168) — migrated** | (now current) | **Phase 1 ✅ (branch)** | [ADR-0003](adr/0003-seven-day-horizon-flat-hours-day-buckets.md) |
+| **Lite / Pro** | activity tiers (`-lite`/`-pro`) | metric-access + quantity gating | Phase 2 | grill Q3 |
+| **Display metrics** | backend-decided | user-chosen | Phase 2 | [ADR-0002](adr/0002-activity-agnostic-engine.md), grill Q2 |
+| **`/rating` contract** | **OUTPUT migrated:** `GET`, response `activities[].days[]` + top-level `timezone` (`hour` dropped), 5 hardcoded activities. **INPUT not yet:** still `GET` + `lat`/`lon` query | `POST`, body `{ lat, lon, activities[] }` in, caller-supplied activities | **out → Phase 1 ✅ (branch), in → Phase 2** | [ADR-0003](adr/0003-seven-day-horizon-flat-hours-day-buckets.md), [ADR-0004](adr/0004-day-bucketed-rating-wire-shape.md) (out), [ADR-0005](adr/0005-custom-activity-request-schema.md) (in) |
 
-Term definitions in [`CONTEXT.md`](CONTEXT.md) still describe the **current** column — they migrate to the **future** column only when the code lands (deliberate; avoids glossary/code drift).
+**Phase-1 rows (Forecast, Index, `/rating` output) are migrated on the `rebuild/phase-1-day-bucketing` branch** — [`CONTEXT.md`](CONTEXT.md)/[`CLAUDE.md`](../CLAUDE.md) now describe the built state, so on the branch their "current" reality matches what those docs say (the drift tripwire). They land on `main` only when this branch merges. Phase-2 rows still describe the **current** column and migrate when their code lands. **"Migrates in"** names the phase whose *merge* carries each doc-slice (code + docs together, so `main` never sits in drift); the `/rating` row splits because the response shape lands in Phase 1 and the request flip in Phase 2.
 
 ## 3. Locked decisions (detail is in the linked source — not repeated here)
 
@@ -58,11 +58,24 @@ Term definitions in [`CONTEXT.md`](CONTEXT.md) still describe the **current** co
 
 ## 5. Build-readiness
 
-> **▶ NEXT (start here, fresh session):** the request-schema grill is **DONE → [ADR-0005](adr/0005-custom-activity-request-schema.md)** (Phase-2 gate cleared). Begin implementation. **Phase 1** (168-ceiling slice + location-local day-buckets + `days[]`/`timezone` wire, behind the existing GET, hardcoded activities kept — fully specified by ADR-0003/0004, needs no schema) → **Phase 2** (the `GET→POST` contract flip + `evaluateAll(hours,activities)`, built to ADR-0005; folds in the wrap-gated night-stitch per the ADR-0003 amendment) → **Job B** (migrate CONTEXT/CLAUDE glossary+contract once code lands). Implement the coupled core as **one stream, not a sub-agent fan-out** (only `GET /api/v1/metrics` is cleanly parallel). Work happens on `main`.
+> **▶ NEXT (start here, fresh session):** **Phase 1 is implemented on `rebuild/phase-1-day-bucketing` (code + code-docs, pre-merge — not yet merged to `main`/`pre-merge-main`).** All §5 checklist items done; full suite green; live probe verified. Code-docs migrated for the Phase-1 slice (see §2). **Next: Phase 2** — the `GET→POST` contract flip + `evaluateAll(hours, activities)` (caller-supplied activities), built to [ADR-0005](adr/0005-custom-activity-request-schema.md); folds in the wrap-gated **night-stitch** per the ADR-0003 amendment (dormant in Phase 1). **Job B (CONTEXT/CLAUDE migration) is distributed, not trailing** — each phase's merge carries its own doc-slice (code + docs together), so `main` never sits in drift; the Phase-1 slice migrated on the branch as Phase 1's closing commit. Implement the coupled core as **one stream, not a sub-agent fan-out** (only `GET /api/v1/metrics` is cleanly parallel). Branch flow: phase branches → `pre-merge-main` (integration; full ultra-review of the rebuild) → `main`. CONTEXT/CLAUDE stay frozen during each phase's *implementation*, migrating at that phase's close.
 
 - **Current backend (through #10):** stable, tested, buildable.
-- **iOS #5a (core app):** **scoped & unblocked (2026-06-20).** Decision: **#5a ships core read-only first** — decode `days[]`/`timezone`, render card + soonest-actionable fallback + 7-day timeline against seeded/curated activities. **Authoring + POST encode + metric catalog defer to the #5b/Phase-2 wave** (resolves grill PENDING #2, "v1-vs-fast-follow", for the iOS axis). Wire shape pinned in [ADR-0004](adr/0004-day-bucketed-rating-wire-shape.md) incl. the 2026-06-20 amendments (per-activity `days.length`, nocturnal tail/label, per-hour shape + `hour` dropped); decode against variable-length `days[]` (read `days.length` per activity; never hardcode 7). (Backend still ships the old `GET`/24h/singular-rating shape — Phase 1 makes the live API match this contract.) **Known #5a-core limitation:** Phase 1 has no window support, so night-stitch is dormant — the curated **Stargazing** card shows *fragmented* nocturnal windows (split at calendar-midnight) until Phase 2. Deliberate, not a bug.
+- **iOS #5a (core app):** **scoped & unblocked (2026-06-20).** Decision: **#5a ships core read-only first** — decode `days[]`/`timezone`, render card + soonest-actionable fallback + 7-day timeline against seeded/curated activities. **Authoring + POST encode + metric catalog defer to the #5b/Phase-2 wave** (resolves grill PENDING #2, "v1-vs-fast-follow", for the iOS axis). Wire shape pinned in [ADR-0004](adr/0004-day-bucketed-rating-wire-shape.md) incl. the 2026-06-20 amendments (per-activity `days.length`, nocturnal tail/label, per-hour shape + `hour` dropped); decode against variable-length `days[]` (read `days.length` per activity; never hardcode 7). (Phase 1 ships the `days[]`/`timezone` **output** shape while keeping **GET** and hardcoded activities; the POST **input** flip is Phase 2. Until Phase 1 lands, the live API still serves the old 24h/singular-rating shape.) **Known #5a-core limitation:** Phase 1 has no window support, so night-stitch is dormant — the curated **Stargazing** card shows *fragmented* nocturnal windows (split at calendar-midnight) until Phase 2. Deliberate, not a bug.
 - **Timeline detail (screen #2):** unblocked for base weather — Meteosource `flexi` 7-day hourly verified. (Marine/AQ fields on the timeline wait for those adapters.)
+
+### Phase 1 — work items (output side: `days[]`/`timezone` behind GET, activities still hardcoded)
+
+Resumability checklist for cold-session pickup. Pointers to ADR sections, not restatements — read the ADR for the detail.
+
+- [x] `fetch.js` → `/api/v1/flexi/point` + `timezone=auto` ([ADR-0003](adr/0003-seven-day-horizon-flat-hours-day-buckets.md))
+- [x] `parse.js`: `slice(0, FORECAST_HOURS)` — 168 ceiling, last day partial, never fabricate hours ([ADR-0003](adr/0003-seven-day-horizon-flat-hours-day-buckets.md))
+- [x] time-boundary module (`src/weather/timeBoundary.js`): `(utc instant, IANA zone) → localDay`, tags each hour (internal, not on wire); also `zonedWallTimeToUtcIso` for the local→UTC fetch wrinkle ([ADR-0003](adr/0003-seven-day-horizon-flat-hours-day-buckets.md) worked 8-bucket example)
+- [x] `evaluateAll` output → per-activity `days[]` (global indices) + top-level `timezone`; signature **stays** `evaluateAll(hours)` (activities hardcoded until Phase 2) ([ADR-0004](adr/0004-day-bucketed-rating-wire-shape.md))
+- [x] rewrite affected tests; **golden snapshot hand-verified against [ADR-0004](adr/0004-day-bucketed-rating-wire-shape.md)** + a partial-day-0 route fixture (variable-length buckets, non-24 offset). The snapshot is Phase 1's executable spec.
+- [x] **at phase close:** migrated the `days[]`/`timezone`/horizon doc-slice of CONTEXT/CLAUDE (code + docs together, this commit); §2 reconciled
+
+**Phase 1: complete on the branch, pending merge.** Known dormant-feature limitation carried to Phase 2: no night-stitch, so the curated **Stargazing** card shows midnight-split nocturnal windows (deliberate — see §5 iOS bullet).
 
 ---
 
