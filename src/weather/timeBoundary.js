@@ -33,6 +33,23 @@ function localDay(instantMs, timezone) {
   return dayFormatter(timezone).format(new Date(instantMs));
 }
 
+// The hour-of-day (0..23) in the location zone at a UTC instant — the sibling of
+// localDay used by the time-of-day window + night-stitch (ADR-0005/0003). Same
+// UTC-instant discipline as localDay; h23 cycle so local midnight reads 0, not 24.
+const hourFormatterCache = new Map();
+function hourFormatter(timezone) {
+  let fmt = hourFormatterCache.get(timezone);
+  if (!fmt) {
+    fmt = new Intl.DateTimeFormat('en-US', { timeZone: timezone, hour: '2-digit', hourCycle: 'h23' });
+    hourFormatterCache.set(timezone, fmt);
+  }
+  return fmt;
+}
+function localHour(instantMs, timezone) {
+  const part = hourFormatter(timezone).formatToParts(new Date(instantMs)).find((p) => p.type === 'hour');
+  return Number(part.value);
+}
+
 // The offset (ms) the zone is from UTC at a given instant. Found by formatting
 // the instant in the zone, reading the wall components back, and diffing — the
 // standard library-free, DST-correct technique.
@@ -67,10 +84,14 @@ function zonedWallTimeToUtcIso(wallTime, timezone) {
 
 function tagLocalDays(hours, forecastStart, timezone) {
   const startMs = Date.parse(forecastStart);
-  return hours.map((hour, index) => ({
-    ...hour,
-    localDay: localDay(startMs + index * MS_PER_HOUR, timezone),
-  }));
+  return hours.map((hour, index) => {
+    const instantMs = startMs + index * MS_PER_HOUR;
+    return {
+      ...hour,
+      localDay: localDay(instantMs, timezone),
+      localHour: localHour(instantMs, timezone),
+    };
+  });
 }
 
-module.exports = { tagLocalDays, localDay, zonedWallTimeToUtcIso };
+module.exports = { tagLocalDays, localDay, localHour, zonedWallTimeToUtcIso };

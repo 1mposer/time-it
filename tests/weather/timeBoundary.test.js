@@ -52,6 +52,20 @@ test('the 164-hour horizon resolves to 8 local-day buckets of 8/24x6/12 hours', 
   ]);
 });
 
+// localHour (ADR-0005 window / ADR-0003 night-stitch): each hour also carries its
+// hour-of-day (0..23) in the location zone, so the engine can filter a time-of-day
+// window and stitch a nocturnal night by comparing integers — no client tz math.
+test('tagLocalDays tags each hour with its forecast-location localHour (0..23)', () => {
+  const tagged = tagLocalDays(makeHours(164), FORECAST_START, TIMEZONE);
+  // index 0 = 16:00 local; index 7 = 23:00; index 8 = 00:00 (midnight wraps to 0).
+  assert.equal(tagged[0].localHour, 16);
+  assert.equal(tagged[7].localHour, 23);
+  assert.equal(tagged[8].localHour, 0);
+  // index 152 = 00:00 on the tail day; 163 = 11:00.
+  assert.equal(tagged[152].localHour, 0);
+  assert.equal(tagged[163].localHour, 11);
+});
+
 test('tagLocalDays does not mutate the input hours and preserves existing fields', () => {
   const input = makeHours(3);
   const tagged = tagLocalDays(input, FORECAST_START, TIMEZONE);

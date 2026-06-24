@@ -14,8 +14,8 @@ const { tagLocalDays } = require('../../src/weather/timeBoundary');
 const FORECAST_START = '2026-06-19T20:00:00Z';
 const TIMEZONE = 'Asia/Dubai';
 
-// What getWeather returns: tagged hours (internal localDay, no `hour`) — the
-// route strips localDay and prepends index for the wire.
+// What getWeather returns: tagged hours (internal localDay/localHour, no `hour`) —
+// the route strips the internal tags and prepends index for the wire.
 function makeTaggedHours(count = 48, overrides = {}) {
   const hours = Array.from({ length: count }, () => ({
     temp: 25, humidity: 40, windSpeed: 10, rainFall: 0,
@@ -33,27 +33,56 @@ function makeApp({ getWeather, evaluateAll }) {
   return app;
 }
 
+// Caller-supplied activities (ADR-0005). All metrics are LIVE so the body is valid.
+const REQUEST_ACTIVITIES = [
+  { id: 'boat-fishing-pro', label: 'Boat Fishing Pro', displayMetrics: ['temp'],
+    thresholds: { temp: { min: 15, max: 35, required: true } } },
+  { id: 'volleyball', label: 'Volleyball', displayMetrics: ['temp', 'windSpeed'],
+    thresholds: { temp: { min: 15, max: 35, required: true }, windSpeed: { max: 15, required: false } } },
+];
+function validBody(activities = REQUEST_ACTIVITIES) {
+  return { lat: 25.1627, lon: 55.2077, activities };
+}
+
 const happyFixture = { forecastStart: FORECAST_START, timezone: TIMEZONE, hours: makeTaggedHours() };
 const happyGetWeather = async () => happyFixture;
 const realEvaluateAll = require('../../src/decision').evaluateAll;
 
-test('missing lat returns 400', async () => {
+const post = (app, body) => supertest(app).post('/api/v1/rating').send(body);
+
+// --- validation 400s (ADR-0005, uniform { errors: [...] }) ---
+test('missing lat returns 400 with a structured errors[] body', async () => {
   const app = makeApp({ getWeather: happyGetWeather, evaluateAll: realEvaluateAll });
-  const res = await supertest(app).get('/api/v1/rating?lon=55.2077');
+  const body = validBody(); delete body.lat;
+  const res = await post(app, body);
   assert.equal(res.status, 400);
-  assert.equal(res.body.error, 'Missing required parameter: lat');
+  assert.ok(Array.isArray(res.body.errors));
+  assert.ok(res.body.errors.some((e) => e.path === 'lat'));
 });
 
-test('missing lon returns 400', async () => {
+test('an invalid activity rejects the whole request atomically (400)', async () => {
   const app = makeApp({ getWeather: happyGetWeather, evaluateAll: realEvaluateAll });
-  const res = await supertest(app).get('/api/v1/rating?lat=25.1627');
+  const body = validBody([
+    REQUEST_ACTIVITIES[0],
+    { id: 'bad', label: 'Bad', displayMetrics: ['temp'], thresholds: { temp: { required: true } } }, // bound-less
+  ]);
+  const res = await post(app, body);
   assert.equal(res.status, 400);
-  assert.equal(res.body.error, 'Missing required parameter: lon');
+  assert.ok(res.body.errors.length > 0);
 });
 
-test('valid request returns 200 with the day-bucketed top-level shape', async () => {
+test('validation runs BEFORE getWeather — a bad body spends no provider call', async () => {
+  let called = false;
+  const spyGetWeather = async () => { called = true; return happyFixture; };
+  const app = makeApp({ getWeather: spyGetWeather, evaluateAll: realEvaluateAll });
+  await post(app, { lat: 999, lon: 0, activities: [] });
+  assert.equal(called, false);
+});
+
+// --- happy path ---
+test('valid POST returns 200 with the day-bucketed top-level shape', async () => {
   const app = makeApp({ getWeather: happyGetWeather, evaluateAll: realEvaluateAll });
-  const res = await supertest(app).get('/api/v1/rating?lat=25.1627&lon=55.2077');
+  const res = await post(app, validBody());
   assert.equal(res.status, 200);
   assert.ok('forecastStart' in res.body);
   assert.equal(res.body.timezone, 'Asia/Dubai');
@@ -61,76 +90,74 @@ test('valid request returns 200 with the day-bucketed top-level shape', async ()
   assert.ok(Array.isArray(res.body.hours));
 });
 
-test('hours are dense with contiguous index and no internal localDay leak', async () => {
+test('hours are dense with contiguous index and no internal tag leak', async () => {
   const app = makeApp({ getWeather: happyGetWeather, evaluateAll: realEvaluateAll });
-  const res = await supertest(app).get('/api/v1/rating?lat=25.1627&lon=55.2077');
+  const res = await post(app, validBody());
   assert.equal(res.body.hours.length, 48);
   res.body.hours.forEach((h, i) => {
     assert.equal(h.index, i);
     assert.equal('localDay' in h, false, 'internal localDay must not reach the wire');
+    assert.equal('localHour' in h, false, 'internal localHour must not reach the wire');
     assert.equal('hour' in h, false, 'UTC hour is dropped (ADR-0004b)');
   });
 });
 
-test('each activity carries days[] (no top-level singular rating/window)', async () => {
+test('response activities echo the caller-supplied activities, in order', async () => {
   const app = makeApp({ getWeather: happyGetWeather, evaluateAll: realEvaluateAll });
-  const res = await supertest(app).get('/api/v1/rating?lat=25.1627&lon=55.2077');
-  for (const activity of res.body.activities) {
-    assert.ok('activityId' in activity);
-    assert.ok('label' in activity);
-    assert.ok('displayMetrics' in activity);
-    assert.ok(Array.isArray(activity.days), `missing days[] on ${activity.activityId}`);
-    assert.equal('rating' in activity, false, `top-level rating must be gone on ${activity.activityId}`);
-    // dense, contiguous dayIndex — read THIS activity's own length, never a magic 7
-    activity.days.forEach((d, i) => assert.equal(d.dayIndex, i));
+  const res = await post(app, validBody());
+  assert.deepStrictEqual(res.body.activities.map((a) => a.activityId), ['boat-fishing-pro', 'volleyball']);
+  for (const a of res.body.activities) {
+    assert.ok(Array.isArray(a.days));
+    assert.equal('rating' in a, false);
+    a.days.forEach((d, i) => assert.equal(d.dayIndex, i));
   }
 });
 
-// B3 — provider failures surface as 502
-test('UpstreamError from getWeather → 502 (B3)', async () => {
+// --- error envelope: uniform across 502/500 (ADR-0005 §6) ---
+test('UpstreamError from getWeather → 502 with errors[] envelope', async () => {
   const failingGetWeather = async () => { throw new UpstreamError('provider down'); };
   const app = makeApp({ getWeather: failingGetWeather, evaluateAll: realEvaluateAll });
-  const res = await supertest(app).get('/api/v1/rating?lat=25.1627&lon=55.2077');
+  const res = await post(app, validBody());
   assert.equal(res.status, 502);
-  assert.equal(res.body.error, 'Weather data unavailable');
+  assert.ok(Array.isArray(res.body.errors));
+  assert.equal(res.body.errors.length, 1);
+  assert.equal(res.body.errors[0].message, 'Weather data unavailable');
 });
 
-// B3 — internal/unexpected errors surface as 500, NOT 502
-test('Generic Error from getWeather → 500, not 502 (B3)', async () => {
+test('generic Error from getWeather → 500 with errors[] envelope, not 502', async () => {
   const failingGetWeather = async () => { throw new Error('fetch is not defined'); };
   const app = makeApp({ getWeather: failingGetWeather, evaluateAll: realEvaluateAll });
-  const res = await supertest(app).get('/api/v1/rating?lat=25.1627&lon=55.2077');
+  const res = await post(app, validBody());
   assert.equal(res.status, 500);
+  assert.ok(Array.isArray(res.body.errors));
+  assert.equal(res.body.errors.length, 1);
 });
 
-// B4 — timezone query param is ignored: getWeather is never called with a third arg
-test('timezone query param is ignored — not forwarded to getWeather (B4)', async () => {
+// --- no timezone in request (ADR-0005): getWeather called with exactly (lat, lon) ---
+test('a stray timezone field in the body is ignored — getWeather gets (lat, lon) only', async () => {
   let receivedArgs = null;
   const spyGetWeather = async (...args) => { receivedArgs = args; return happyFixture; };
   const app = makeApp({ getWeather: spyGetWeather, evaluateAll: realEvaluateAll });
-  await supertest(app).get('/api/v1/rating?lat=25.1627&lon=55.2077&timezone=Asia/Dubai');
+  const body = validBody(); body.timezone = 'Asia/Dubai';
+  const res = await post(app, body);
+  assert.equal(res.status, 200);
   assert.equal(receivedArgs.length, 2, `expected only (lat, lon), got ${receivedArgs.length}`);
 });
 
-// Null-day wire convention: object present, rating null, window triplet absent.
+// --- null-day wire convention ---
 test('a null-rated day keeps its slot with the window fields absent (ADR-0004 sub-decision 3)', async () => {
-  // Extreme temp fails every activity's required temp threshold on every day.
   const fixture = { forecastStart: FORECAST_START, timezone: TIMEZONE, hours: makeTaggedHours(48, { temp: 100 }) };
   const app = makeApp({ getWeather: async () => fixture, evaluateAll: realEvaluateAll });
-  const res = await supertest(app).get('/api/v1/rating?lat=25.1627&lon=55.2077');
-
-  const allDays = res.body.activities.flatMap(a => a.days);
-  const nullDays = allDays.filter(d => d.rating === null);
+  const res = await post(app, validBody());
+  const allDays = res.body.activities.flatMap((a) => a.days);
+  const nullDays = allDays.filter((d) => d.rating === null);
   assert.ok(nullDays.length > 0);
   for (const d of nullDays) {
-    assert.deepStrictEqual(Object.keys(d), ['dayIndex', 'rating'], 'null day must carry only dayIndex + rating');
+    assert.deepStrictEqual(Object.keys(d), ['dayIndex', 'rating']);
   }
 });
 
-// Partial day-0 + non-uniform offset. forecastStart 07:00Z = 11:00 Asia/Dubai,
-// so day 0 is a PARTIAL 13-hour bucket (indices 0-12) and day 1 a full 24 hours
-// (indices 13-36). This is the asymmetric case the clean midnight fixture can't
-// reach: it pins partial-day bucketing AND a non-24 global offset on day 1.
+// --- partial day-0 + non-uniform offset ---
 test('partial day-0: variable-length buckets with a non-24 global offset (ADR-0003)', async () => {
   const partialHours = (() => {
     const hours = Array.from({ length: 37 }, () => ({
@@ -143,53 +170,75 @@ test('partial day-0: variable-length buckets with a non-24 global offset (ADR-00
   })();
   const fixture = { forecastStart: '2026-06-22T07:00:00Z', timezone: TIMEZONE, hours: partialHours };
   const app = makeApp({ getWeather: async () => fixture, evaluateAll: realEvaluateAll });
-  const res = await supertest(app).get('/api/v1/rating?lat=25.1627&lon=55.2077');
+  const res = await post(app, validBody());
 
   assert.equal(res.body.hours.length, 37);
-  const vb = res.body.activities.find(a => a.activityId === 'volleyball');
-  // Read this activity's own days.length — never a magic 7.
+  const vb = res.body.activities.find((a) => a.activityId === 'volleyball');
   assert.equal(vb.days.length, 2);
   vb.days.forEach((d, i) => assert.equal(d.dayIndex, i));
-  // day 0 is the 13-hour partial; day 1's window starts at global index 13, not 24.
   assert.deepStrictEqual(vb.days[0], { dayIndex: 0, rating: 'perfect', startIndex: 0,  endIndex: 13, duration: 13 });
   assert.deepStrictEqual(vb.days[1], { dayIndex: 1, rating: 'perfect', startIndex: 13, endIndex: 37, duration: 24 });
 });
 
-// Golden snapshot — the executable spec. assert.deepStrictEqual ignores key order,
-// so Object.keys() is asserted separately. Hand-verified against ADR-0004; any
-// silent drift in field name, type, order, or the global-index offset breaks here.
-test('golden: full response shape, key order, and global window indices match ADR-0004', async () => {
-  const app = makeApp({ getWeather: happyGetWeather, evaluateAll: realEvaluateAll });
-  const res = await supertest(app).get('/api/v1/rating?lat=25.1627&lon=55.2077');
+// --- night-stitch at the wire: per-activity days.length, dayIndex contiguous (ADR-0004 amendment) ---
+test('a nocturnal (wrapped-window) activity buckets by night; days.length is per-activity', async () => {
+  // 16:00 local start, 60h horizon -> diurnal 4 calendar days, nocturnal 3 nights.
+  const hours = (() => {
+    const raw = Array.from({ length: 60 }, () => ({
+      temp: 25, humidity: 40, windSpeed: 10, rainFall: 0,
+      cloudCover: 10, visibility: 10, moon: [], uV: 3, dustAlert: false,
+      darkness: 0, douglasScale: 0, swellHeight: 0, swellLength: 0,
+      tide: 0, seaWarning: false,
+    }));
+    return tagLocalDays(raw, '2026-06-19T12:00:00Z', TIMEZONE);
+  })();
+  const app = makeApp({ getWeather: async () => ({ forecastStart: '2026-06-19T12:00:00Z', timezone: TIMEZONE, hours }), evaluateAll: realEvaluateAll });
+
+  const body = validBody([
+    { id: 'walk', label: 'Walk', displayMetrics: ['temp'], thresholds: { temp: { min: 15, max: 35, required: true } } },
+    { id: 'star', label: 'Stargazing', displayMetrics: ['temp', 'cloudCover'],
+      thresholds: { temp: { min: 5, max: 35, required: true }, cloudCover: { max: 30, required: true } },
+      window: { startHour: 22, endHour: 2 } },
+  ]);
+  const res = await post(app, body);
   assert.equal(res.status, 200);
 
-  // Top-level key order gains `timezone` (ADR-0004): forecastStart, timezone, activities, hours
+  const walk = res.body.activities.find((a) => a.activityId === 'walk');
+  const star = res.body.activities.find((a) => a.activityId === 'star');
+  assert.equal(walk.days.length, 4, 'diurnal: 4 calendar days');
+  assert.equal(star.days.length, 3, 'nocturnal: 3 nights (per-activity days.length)');
+  star.days.forEach((d, i) => assert.equal(d.dayIndex, i)); // dense from 0 within the activity
+  // night 2 spans the local midnight: day2 22:00,23:00 (idx 54,55) + day3 00:00,01:00 (idx 56,57)
+  assert.deepStrictEqual(star.days[2], { dayIndex: 2, rating: 'perfect', startIndex: 54, endIndex: 58, duration: 4 });
+});
+
+// --- golden snapshot — the executable spec (hand-verified against ADR-0004/0005) ---
+test('golden: full response shape, key order, and global window indices', async () => {
+  const app = makeApp({ getWeather: happyGetWeather, evaluateAll: realEvaluateAll });
+  const res = await post(app, validBody());
+  assert.equal(res.status, 200);
+
+  // Top-level key order (ADR-0004): forecastStart, timezone, activities, hours
   assert.deepStrictEqual(Object.keys(res.body), ['forecastStart', 'timezone', 'activities', 'hours']);
   assert.equal(res.body.forecastStart, '2026-06-19T20:00:00Z');
   assert.equal(res.body.timezone, 'Asia/Dubai');
 
-  // activities[] — canonical dashboard order
-  assert.deepStrictEqual(
-    res.body.activities.map(a => a.activityId),
-    ['boat-fishing-pro', 'boat-fishing-lite', 'shore-fishing', 'volleyball', 'stargazing-lite'],
-  );
+  // activities[] echo the request order
+  assert.deepStrictEqual(res.body.activities.map((a) => a.activityId), ['boat-fishing-pro', 'volleyball']);
 
-  // Per-activity key order: activityId, label, displayMetrics, days (no singular window)
+  // Per-activity key order: activityId, label, displayMetrics, days
   for (const a of res.body.activities) {
-    assert.deepStrictEqual(Object.keys(a), ['activityId', 'label', 'displayMetrics', 'days'],
-      `unexpected key order on ${a.activityId}`);
-    // Read this activity's own days.length (per-activity contract); fixture buckets into 2.
-    assert.equal(a.days.length, 2, `${a.activityId} should bucket into 2 local days`);
+    assert.deepStrictEqual(Object.keys(a), ['activityId', 'label', 'displayMetrics', 'days']);
+    assert.equal(a.days.length, 2);
   }
 
-  // Per-day key order + GLOBAL indices. Happy fixture is all-perfect, so each day
-  // is a full-day window; day 1's offset (24/48) is the silent-offset tripwire.
-  const vb = res.body.activities.find(a => a.activityId === 'volleyball');
+  // Per-day key order + GLOBAL indices; day 1's offset (24/48) is the silent-offset tripwire.
+  const vb = res.body.activities.find((a) => a.activityId === 'volleyball');
   assert.deepStrictEqual(Object.keys(vb.days[0]), ['dayIndex', 'rating', 'startIndex', 'endIndex', 'duration']);
   assert.deepStrictEqual(vb.days[0], { dayIndex: 0, rating: 'perfect', startIndex: 0,  endIndex: 24, duration: 24 });
   assert.deepStrictEqual(vb.days[1], { dayIndex: 1, rating: 'perfect', startIndex: 24, endIndex: 48, duration: 24 });
 
-  // hours[] — per-hour wire key order: index first, `hour` dropped, localDay stripped
+  // hours[] — per-hour wire key order: index first, `hour` dropped, internal tags stripped
   assert.equal(res.body.hours.length, 48);
   assert.deepStrictEqual(Object.keys(res.body.hours[0]), [
     'index', 'temp', 'humidity', 'windSpeed', 'rainFall', 'cloudCover',
