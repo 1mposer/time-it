@@ -32,7 +32,7 @@ At least one required threshold fails.
 
 **Window**:
 The longest contiguous block of forecast hours sharing the same qualifying **Rating** (Perfect, falling back to Good). The decision engine returns at most one **Window** per bucket (one `days[]` entry per bucket; see [ADR-0004](adr/0004-day-bucketed-rating-wire-shape.md)). For a **diurnal** activity a bucket is one **forecast-location local calendar day**; for a **nocturnal** activity (one whose time-of-day window wraps midnight) a bucket is a **night** (the **night-stitch**). So `days.length` is **per-activity** — never assume it is equal across activities.
-_Avoid_: run
+_Avoid_: calling a **Window** a *run* — "run" is a loose synonym for the contiguous block of qualifying hours (it survives only in code comments); use **Window** consistently in domain language.
 
 **Time-of-day window**:
 An optional per-**Activity** `{ startHour, endHour }` (integers `0..23`, **forecast-location local** hours, half-open `[startHour, endHour)`) sent in the request that restricts evaluation to those hours each day. Absent = whole day; `startHour < endHour` = same-day; `startHour > endHour` = **midnight-wrap (nocturnal)**, the only nocturnal signal, which licenses the night-stitch; `startHour === endHour` is rejected. The client sends raw local hours and does **zero** timezone math — the time-boundary module tags each hour's `localHour` and the engine compares integers. See [ADR-0005](adr/0005-custom-activity-request-schema.md).

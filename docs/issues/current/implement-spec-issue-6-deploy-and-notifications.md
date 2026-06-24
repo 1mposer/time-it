@@ -1,5 +1,7 @@
 # Implementation spec — Issue #6: Railway deployment + push notifications
 
+> ⚠️ **STALE — predates the Phase 1/2 rebuild.** This spec references the old `GET /api/v1/rating` endpoint and the single-arg `evaluateAll(hours)`. The shipped route is **`POST /api/v1/rating`** (body `{ lat, lon, activities[] }`, caller-supplied activities) and the engine signature is `evaluateAll(hours, activities)`. The deploy/auth/notification *infrastructure* design still applies — update the route and engine references against [ADR-0005](../../adr/0005-custom-activity-request-schema.md) and [STATUS.md](../../STATUS.md) §5 before implementing.
+
 > Domain glossary: [`CONTEXT.md`](../../CONTEXT.md)
 > Depends on: [Issue #4 (HTTP API)](completed/implement-spec-issue-4-http-api.md) ([GitHub](https://github.com/1mposer/time-it/issues/4)), [Issue #5a](current/implement-spec-issue-5a-ios-core.md), [Issue #5b](current/implement-spec-issue-5b-ios-personalization.md) — iOS app must be complete before starting this issue
 > This is the final backend issue.

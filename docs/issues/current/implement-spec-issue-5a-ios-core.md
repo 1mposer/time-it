@@ -1,5 +1,7 @@
 # Implementation spec — Issue #5a: Core iOS app
 
+> ⚠️ **STALE — predates the Phase 1/2 rebuild; do not build from this verbatim.** It assumes the old `GET /api/v1/rating?lat=&lon=` endpoint, a server-side activity list ("guests see the full activity list"), and a single top-level window per activity (`rating`/`startIndex`/`endIndex`, plus a per-hour `hour` field). The shipped backend is **`POST /api/v1/rating`** with a `{ lat, lon, activities[] }` body, **caller-supplied** activities, and a per-activity **`days[]`** response (`hour` dropped; top-level `timezone` added). Reconcile against [ADR-0004](../../adr/0004-day-bucketed-rating-wire-shape.md) (response) + [ADR-0005](../../adr/0005-custom-activity-request-schema.md) (request) and [STATUS.md](../../STATUS.md) §5 before implementing.
+
 > Design decisions: [`design-decisions-issue-5.md`](design-decisions-issue-5.md) — read before starting.
 > Visual spec: [`ios/guidelines/Guidelines.md`](../../../ios/guidelines/Guidelines.md) — the canonical source of truth for all layout, colour, and typography decisions.
 > Domain glossary: [`CONTEXT.md`](../../CONTEXT.md)

@@ -1,5 +1,7 @@
 # Implementation spec — Issue #5b: Personalization layer
 
+> ⚠️ **STALE — predates the Phase 1/2 rebuild; do not build from this verbatim.** It assumes the backend returns a fixed server-side activity list ("the backend always returns all activities"). The shipped backend is **activity-agnostic**: activities are **caller-supplied** in the `POST /api/v1/rating` body and authored client-side (from Templates), so client-side filtering operates over the locally-authored set, not a server list. Reconcile against [ADR-0002](../../adr/0002-activity-agnostic-engine.md) + [ADR-0005](../../adr/0005-custom-activity-request-schema.md) and [STATUS.md](../../STATUS.md) §5 before implementing.
+
 > Design decisions: [`design-decisions-issue-5.md`](design-decisions-issue-5.md) — read before starting.
 > Visual spec: [`ios/guidelines/Guidelines.md`](../../../ios/guidelines/Guidelines.md)
 > Domain glossary: [`CONTEXT.md`](../../CONTEXT.md)

@@ -1,5 +1,7 @@
 # Implementation spec — Issue #7: Wire real marine data from Meteosource adapter
 
+> ⚠️ **STALE — predates the Phase 1/2 rebuild.** This spec edits `src/activities/fishing.js`, which **no longer exists** — the curated `src/activities/*` list was deleted; activities are now **caller-supplied** and thresholds are authored client-side. The marine metrics (Douglas scale, swell, sea warning) are **coming-soon** in [`src/weather/metricCatalog.js`](../../../src/weather/metricCatalog.js); wiring real data is a parse/adapter change that flips them to live there (and lets requests threshold/display them). Reconcile against [ADR-0002](../../adr/0002-activity-agnostic-engine.md) + [ADR-0005](../../adr/0005-custom-activity-request-schema.md) and [STATUS.md](../../STATUS.md) §5 before implementing.
+
 > Domain glossary: [`CONTEXT.md`](../../CONTEXT.md)
 > Depends on: [Issue #3 (Backend Internals)](implement-spec-issue-3-backend-internals.md) ([GitHub](https://github.com/1mposer/time-it/issues/3)) — adapter pattern must be in place first
 > Blocked by: Meteosource API tier investigation (see Section 1)

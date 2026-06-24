@@ -2,6 +2,7 @@ node_modules/
 
 # Environment / secrets
 .env*
+!.env.example
 .flaskenv*
 
 # OS files
