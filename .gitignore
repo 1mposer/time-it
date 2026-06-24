@@ -15,3 +15,6 @@ Thumbs.db
 *.swp
 *.swo
 *~
+
+# Generated review reports
+docs/review/out/
