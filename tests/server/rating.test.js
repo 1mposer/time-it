@@ -4,6 +4,7 @@ const express = require('express');
 const supertest = require('supertest');
 
 const createRatingRouter = require('../../src/routes/rating');
+const realApp = require('../../src/server'); // production wiring — has the body-parser error handler
 const { UpstreamError } = require('../../src/weather/UpstreamError');
 const { tagLocalDays } = require('../../src/weather/timeBoundary');
 
@@ -129,6 +130,32 @@ test('generic Error from getWeather → 500 with errors[] envelope, not 502', as
   const app = makeApp({ getWeather: failingGetWeather, evaluateAll: realEvaluateAll });
   const res = await post(app, validBody());
   assert.equal(res.status, 500);
+  assert.ok(Array.isArray(res.body.errors));
+  assert.equal(res.body.errors.length, 1);
+});
+
+// --- body-parser failures use the SAME envelope (ADR-0005 §6) ---
+// These run against the real src/server.js: express.json() throws before the route,
+// so getWeather is never reached and the production middleware is what's under test.
+test('malformed JSON body → 400 with the uniform { errors[] } envelope, not HTML', async () => {
+  const res = await supertest(realApp)
+    .post('/api/v1/rating')
+    .set('Content-Type', 'application/json')
+    .send('{ not valid json');
+  assert.equal(res.status, 400);
+  assert.match(res.headers['content-type'], /application\/json/);
+  assert.ok(Array.isArray(res.body.errors));
+  assert.equal(res.body.errors.length, 1);
+});
+
+test('oversized body (>100kb) → 413 with the uniform { errors[] } envelope', async () => {
+  const huge = JSON.stringify({ lat: 25, lon: 55, activities: [], pad: 'x'.repeat(200 * 1024) });
+  const res = await supertest(realApp)
+    .post('/api/v1/rating')
+    .set('Content-Type', 'application/json')
+    .send(huge);
+  assert.equal(res.status, 413);
+  assert.match(res.headers['content-type'], /application\/json/);
   assert.ok(Array.isArray(res.body.errors));
   assert.equal(res.body.errors.length, 1);
 });

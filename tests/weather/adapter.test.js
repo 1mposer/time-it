@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { meteosourceAdapter } = require('../../src/weather/adapters/meteosource');
+const { UpstreamError } = require('../../src/weather/UpstreamError');
 
 // ---------- windSpeed (A1) ----------
 
@@ -74,4 +75,15 @@ test('forecastStart is idempotent on an already-UTC-Z timestamp', () => {
     meteosourceAdapter.forecastStart({ date: '2026-06-19T12:00:00Z' }, 'Asia/Dubai'),
     '2026-06-19T12:00:00Z',
   );
+});
+
+// A malformed/missing provider date is a malformed PAYLOAD → UpstreamError → 502,
+// NOT an unparseable-date RangeError that escapes as a generic 500 (ADR-0004 typed
+// error contract). This pins the guard that replaced the deleted hour() A4 check.
+test('forecastStart throws UpstreamError when the provider date lacks a T separator (A4)', () => {
+  assert.throws(() => meteosourceAdapter.forecastStart({ date: 'not a date' }, 'Asia/Dubai'), UpstreamError);
+});
+
+test('forecastStart throws UpstreamError when the provider date is missing (A4)', () => {
+  assert.throws(() => meteosourceAdapter.forecastStart({}, 'Asia/Dubai'), UpstreamError);
 });
