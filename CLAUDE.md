@@ -166,11 +166,13 @@ Validation is **atomic** (one bad activity rejects the whole request, `400`) and
 - `dustAlert`, `seaWarning`: `boolean`
 - `darkness`, `douglasScale`, `swellHeight`, `swellLength`, `tide`: `number` — currently hardcoded placeholders (see [Pending / placeholder data](#pending--placeholder-data) below)
 
-**Error responses.** Every error body is a **uniform structured array** `{ "errors": [ { "path"?, "message" } ] }` so the iOS decoder parses one shape across all codes (ADR-0005 §6); `502`/`500` are single-element arrays with no `path` (ADR-0004).
+**Error responses.** Every error body is a **uniform structured array** `{ "errors": [ { "path"?, "message" } ] }` so the iOS decoder parses one shape across all codes (ADR-0005 §6); only the validation `400` carries `path` — the malformed-JSON `400`, `413`, `502`, and `500` are single-element arrays with no `path` (ADR-0004).
 
 | Status | When | Body |
 |---|---|---|
 | `400` | Body-validation failure (missing/out-of-range `lat`/`lon`, empty/oversized `activities`, missing `label`/`id`, duplicate `id`, empty `displayMetrics`, `thresholds.keys ⊄ displayMetrics`, unknown/coming-soon metric, `min > max`, bound-less numeric, missing `required`, `requireTrue`, bad `window` hours, `startHour === endHour`) | `{ "errors": [ { "path": "activities[2].thresholds.temp", "message": "min greater than max" } ] }` |
+| `400` | Malformed JSON body (`express.json()` parse failure — body is not valid JSON) | `{ "errors": [ { "message": "Malformed JSON in request body" } ] }` |
+| `413` | Request body exceeds the `express.json()` size limit | `{ "errors": [ { "message": "Request body too large" } ] }` |
 | `502` | Weather provider failed (network error, non-OK status, malformed payload, empty data) | `{ "errors": [ { "message": "Weather data unavailable" } ] }` |
 | `500` | Any other unexpected error | `{ "errors": [ { "message": "Internal server error" } ] }` |
 
