@@ -6,7 +6,7 @@ A backend engine that tells UAE outdoor hobbyists exactly when to go outside.
 
 time-it monitors hourly weather forecasts and sends a push notification when conditions match a user's activity preferences. "Tomorrow, 7am-9am: perfect conditions for cycling."
 
-Users pick an activity, set their thresholds (max temperature, max humidity, wind range, etc.), and the backend handles the rest: fetching forecasts, evaluating conditions, and delivering the alert. The iOS app is a thin interface for preferences and notifications.
+Users author their activities and thresholds (max temperature, max humidity, wind range, etc.) in the iOS app, which sends them to the backend; the backend handles the rest: fetching forecasts, evaluating conditions against the supplied activities, and delivering the alert.
 
 ## How it works
 
@@ -19,12 +19,11 @@ The weather layer uses an adapter pattern, allowing additional data sources to b
 
 ## Activities
 
-Each activity ships with two preset threshold profiles:
+Activities are **caller-supplied**: the iOS client authors each one — an `id`, a label, the metrics to display, a per-metric **threshold** profile, and an optional time-of-day window — and sends them in the `POST /api/v1/rating` body. The backend holds **no** activity list; it evaluates whatever profiles the request carries. Curated starting points ship client-side as **Templates** a user adopts and tweaks.
 
-- **Lite** uses standard weather metrics from free-tier APIs
-- **Pro** unlocks richer data (atmospheric transparency, swell height, Douglas scale, moon phase) sourced from premium APIs, reflected in the subscription price
+**Lite / Pro** is a subscription tier enforced **client-side** as metric-access + quantity gating — which premium metrics you may use (atmospheric transparency, swell height, Douglas scale, moon phase) and how many activities you may author — not separate per-activity profiles.
 
-Activities at launch:
+Pursuits at launch (shipped as client-side Templates):
 
 - Cycling
 - Hiking
@@ -55,8 +54,8 @@ npm run dev        # starts server at http://localhost:3000
 ### Endpoints
 
 ```
-GET /health                                     → { status: "ok", timestamp: "..." }
-GET /api/v1/rating?lat=25.1627&lon=55.2077      → forecast + all activity ratings
+GET  /health                                    → { status: "ok", timestamp: "..." }
+POST /api/v1/rating                             → body { lat, lon, activities[] }; 7-day forecast + per-day ratings
 ```
 
 ### CLI (manual testing)

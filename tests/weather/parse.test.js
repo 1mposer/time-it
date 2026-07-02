@@ -8,8 +8,8 @@ function makeStubAdapter(overrides = {}) {
   return {
     extractHours:     (res) => res.hourly.data,
     extractMoonPhase: (res) => res.astro?.phase,
+    timezone:         (res) => res.timezone ?? 'Asia/Dubai',
     forecastStart:    (row) => row.date,
-    hour:       (h) => h.hour ?? 0,
     temp:       (h) => h.temp ?? 25,
     humidity:   (h) => h.humidity ?? 40,
     windSpeed:  (h) => h.windSpeed ?? 10,
@@ -24,20 +24,31 @@ function makeStubAdapter(overrides = {}) {
 
 function makeRaw(hourCount = 24) {
   return {
-    hourly: { data: Array.from({ length: hourCount }, (_, i) => ({ date: `2026-06-10T${String(i).padStart(2, '0')}:00:00`, hour: i })) },
+    hourly: { data: Array.from({ length: hourCount }, (_, i) => ({ date: `2026-06-10T${String(i % 24).padStart(2, '0')}:00:00`, hour: i })) },
     astro:  { phase: 'waxing crescent' },
   };
 }
 
 test('parseWeather returns forecastStart from the first hour (stub adapter passes through)', () => {
-  // Stub adapter does NOT add Z — this test confirms parseWeather just forwards what the adapter returns
+  // Stub adapter passes the date through — confirms parseWeather just forwards what the adapter returns
   const { forecastStart } = parseWeather(makeRaw(), makeStubAdapter());
   assert.equal(forecastStart, '2026-06-10T00:00:00');
 });
 
-test('parseWeather returns at most 24 hour entries', () => {
-  const { hours } = parseWeather(makeRaw(30), makeStubAdapter());
-  assert.equal(hours.length, 24);
+test('parseWeather surfaces the top-level timezone from the adapter', () => {
+  const { timezone } = parseWeather(makeRaw(), makeStubAdapter());
+  assert.equal(timezone, 'Asia/Dubai');
+});
+
+// ADR-0003: 168 is a CEILING, not a count. Slice caps at 168; fewer passes through.
+test('parseWeather caps the horizon at the 168-hour ceiling', () => {
+  const { hours } = parseWeather(makeRaw(200), makeStubAdapter());
+  assert.equal(hours.length, 168);
+});
+
+test('parseWeather passes through a provider count below the ceiling (never fabricates)', () => {
+  const { hours } = parseWeather(makeRaw(161), makeStubAdapter());
+  assert.equal(hours.length, 161);
 });
 
 test('parseWeather throws UpstreamError when hourly data is empty (A5)', () => {
@@ -63,12 +74,13 @@ test('marine placeholder fields are present with 0/false defaults', () => {
   assert.equal(h.seaWarning, false);
 });
 
-// Contract pin: parseWeather hour-object key order must match the documented
-// API shape. `index` is added later at the route layer (see rating.js).
-test('hour object key order matches the documented contract', () => {
+// Contract pin: parseWeather hour-object key order. `hour` is dropped (ADR-0004b
+// — the client renders from forecastStart + timezone + index); `index` is added
+// at the route layer (see rating.js).
+test('hour object key order matches the documented contract (no `hour`)', () => {
   const { hours } = parseWeather(makeRaw(), makeStubAdapter());
   assert.deepStrictEqual(Object.keys(hours[0]), [
-    'hour', 'temp', 'humidity', 'windSpeed', 'rainFall', 'cloudCover',
+    'temp', 'humidity', 'windSpeed', 'rainFall', 'cloudCover',
     'visibility', 'moon', 'uV', 'dustAlert',
     'darkness', 'douglasScale', 'swellHeight', 'swellLength', 'tide', 'seaWarning',
   ]);

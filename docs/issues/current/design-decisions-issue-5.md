@@ -1,5 +1,7 @@
 # Design decisions — Issue #5 (iOS app)
 
+> ⚠️ **PARTIALLY STALE — predates the Phase 1/2 rebuild.** The visual/UX decisions still hold, but the API-contract notes are outdated: there is **no** server-side "5 activities" list (activities are **caller-supplied** via `POST /api/v1/rating`), the per-hour `hour` field was **dropped**, and a result is now a per-activity **`days[]`** array (not a single top-level `rating`/`startIndex`). Treat the "Activity set" table and the "Mockup vs. API contract" section as outdated and reconcile against [ADR-0004](../../adr/0004-day-bucketed-rating-wire-shape.md) + [ADR-0005](../../adr/0005-custom-activity-request-schema.md) and [STATUS.md](../../STATUS.md) §5.
+
 > Shared reference for both sub-issues #5a and #5b.
 > Do not relitigate these decisions. Visual spec: [`ios/guidelines/Guidelines.md`](../../../ios/guidelines/Guidelines.md).
 

@@ -3,20 +3,26 @@ const { fetchWeather } = require('./src/weather/fetch');
 const { parseWeather } = require('./src/weather/parse');
 const { meteosourceAdapter } = require('./src/weather/adapters/meteosource');
 const { evaluate } = require('./src/decision/decision_engine');
-const { activities } = require('./src/activities');
 
-const PREVIEW_ACTIVITY_ID = 'volleyball';
+// Activities are caller-supplied now (ADR-0005); the curated backend list is gone.
+// This dev CLI carries one inline sample profile just to preview a live evaluation.
+const PREVIEW_ACTIVITY = {
+  id: 'volleyball',
+  label: 'Volleyball',
+  displayMetrics: ['temp', 'windSpeed'],
+  thresholds: {
+    temp: { min: 15, max: 35, required: true },
+    windSpeed: { max: 15, required: false },
+  },
+};
 
 async function main() {
-  const activity = activities.find((a) => a.id === PREVIEW_ACTIVITY_ID);
-  if (!activity) {
-    throw new Error(`Activity "${PREVIEW_ACTIVITY_ID}" not found in src/activities/index.js`);
-  }
+  const activity = PREVIEW_ACTIVITY;
 
   const params = {
     lat: '25.1627',
     lon: '55.2077',
-    timezone: 'UTC',
+    timezone: 'auto',  // flexi exposes the location IANA zone only under auto (ADR-0003)
     language: 'en',
     sections: 'all',
     units: 'metric',

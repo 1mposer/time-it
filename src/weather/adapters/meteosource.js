@@ -1,14 +1,22 @@
 const { UpstreamError } = require('../UpstreamError');
+const { zonedWallTimeToUtcIso } = require('../timeBoundary');
 
 const meteosourceAdapter = {
   extractHours:     (res) => res.hourly.data,
   extractMoonPhase: (res) => res.astro?.data?.[0]?.moon_phase,
-  forecastStart:    (firstRow) => firstRow.date.endsWith('Z') ? firstRow.date : `${firstRow.date}Z`,
-  hour: (h) => {
-    if (typeof h.date !== 'string' || !h.date.includes('T')) {
-      throw new UpstreamError(`Expected ISO 8601 date with 'T' separator, got: ${h.date}`);
+  // Location IANA zone, exposed top-level under timezone=auto (ADR-0003).
+  timezone:         (res) => res.timezone,
+  // Under timezone=auto the provider serves LOCAL wall-time with no designator;
+  // convert to the unified UTC-Z forecastStart contract using the location zone.
+  // Shape-guard first: a malformed/missing provider date is a malformed PAYLOAD
+  // (502, not 500). Without this it reaches Intl(new Date(NaN)) → RangeError →
+  // the route's generic-500 branch, breaking the typed-error contract (ADR-0004).
+  // Guarding here also protects downstream tagLocalDays, which trusts forecastStart.
+  forecastStart:    (firstRow, timezone) => {
+    if (typeof firstRow?.date !== 'string' || !firstRow.date.includes('T')) {
+      throw new UpstreamError(`Expected ISO 8601 date with 'T' separator, got: ${firstRow?.date}`);
     }
-    return parseInt(h.date.split('T')[1].split(':')[0], 10);
+    return zonedWallTimeToUtcIso(firstRow.date, timezone);
   },
   temp:       (h) => h.temperature,
   humidity:   (h) => h.humidity,

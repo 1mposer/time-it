@@ -1,6 +1,6 @@
 # time-it
 
-> **Read the glossary below FIRST** — it defines the ubiquitous language used everywhere in this repo. Note: several terms (**Activity**, **Forecast**, **Index**, **Lite / Pro**, **Display metrics**) describe the *currently shipped code* and are **superseded by locked-but-unbuilt design**. ONLY AFTER you understand the terms, see [`STATUS.md`](STATUS.md) for the current project status and what is changing.
+> **Read the glossary below FIRST** — it defines the ubiquitous language used everywhere in this repo. The Phase-2 contract flip is now built: **Activity** (caller-supplied), **Lite / Pro** (metric-access + quantity, client-enforced), and **Display metrics** (user-chosen) describe the *shipped* code. ONLY AFTER you understand the terms, see [`STATUS.md`](STATUS.md) for the current project status and what remains.
 
 A backend engine that watches hourly weather forecasts and tells UAE outdoor hobbyists when conditions match their activity. Output is consumed by an iOS app that sends the user a push notification.
 
@@ -10,7 +10,7 @@ A backend engine that watches hourly weather forecasts and tells UAE outdoor hob
 The real-world outdoor thing a user does — Boat Fishing, Stargazing, Volleyball, Shore Fishing, and (future) Cycling, Hiking, Padel. A **Pursuit** ships as one or more **Activities** that the engine actually evaluates. The **Lite / Pro** tier split is the usual reason one Pursuit ships as multiple Activities.
 
 **Activity**:
-The code-level entity the decision engine evaluates — a specific configuration with an `id`, **Threshold** profile, and `displayMetrics` (currently `volleyball`, `boat-fishing-pro`, `boat-fishing-lite`, `shore-fishing`, `stargazing-lite`). One **Pursuit** may ship as multiple Activities under the **Lite / Pro** split; each Activity is independently rated and rendered as its own iOS dashboard card.
+The entity the decision engine evaluates — a configuration with a client-authored `id`, **Threshold** profile, `displayMetrics`, and an optional time-of-day **Window**. Activities are **caller-supplied**: the client authors them and sends them in the `POST /api/v1/rating` body; the engine holds **no** activity list and is activity-agnostic ([ADR-0002](adr/0002-activity-agnostic-engine.md), [ADR-0005](adr/0005-custom-activity-request-schema.md)). One **Pursuit** may be authored as multiple Activities; each is independently rated and rendered as its own iOS dashboard card. (Curated seed Activities now live client-side as Templates, not in the backend.)
 
 **Threshold**:
 A min/max constraint on a single weather metric, optionally marked `required`. Failing a required threshold makes the hour **Bad**; failing only non-required thresholds makes it **Good** rather than **Perfect**.
@@ -31,8 +31,17 @@ All required thresholds pass; at least one non-required threshold fails.
 At least one required threshold fails.
 
 **Window**:
-The longest contiguous block of forecast hours sharing the same qualifying **Rating** (Perfect, falling back to Good). The decision engine returns at most one **Window** per evaluation — the best one found.
-_Avoid_: run
+The longest contiguous block of forecast hours sharing the same qualifying **Rating** (Perfect, falling back to Good). The decision engine returns at most one **Window** per bucket (one `days[]` entry per bucket; see [ADR-0004](adr/0004-day-bucketed-rating-wire-shape.md)). For a **diurnal** activity a bucket is one **forecast-location local calendar day**; for a **nocturnal** activity (one whose time-of-day window wraps midnight) a bucket is a **night** (the **night-stitch**). So `days.length` is **per-activity** — never assume it is equal across activities.
+_Avoid_: calling a **Window** a *run* — "run" is a loose synonym for the contiguous block of qualifying hours (it survives only in code comments); use **Window** consistently in domain language.
+
+**Time-of-day window**:
+An optional per-**Activity** `{ startHour, endHour }` (integers `0..23`, **forecast-location local** hours, half-open `[startHour, endHour)`) sent in the request that restricts evaluation to those hours each day. Absent = whole day; `startHour < endHour` = same-day; `startHour > endHour` = **midnight-wrap (nocturnal)**, the only nocturnal signal, which licenses the night-stitch; `startHour === endHour` is rejected. The client sends raw local hours and does **zero** timezone math — the time-boundary module tags each hour's `localHour` and the engine compares integers. See [ADR-0005](adr/0005-custom-activity-request-schema.md).
+
+**Night-stitch**:
+The one controlled cross-midnight exception to per-calendar-day bucketing ([ADR-0003](adr/0003-seven-day-horizon-flat-hours-day-buckets.md) amendment). A wrapped time-of-day window makes an Activity nocturnal; the engine then buckets by **night** — `night N = [day N startHour, day N+1 endHour)`, pairing an evening with the next morning. The bucket's `dayIndex` is the **evening's** calendar day (`0` = tonight); the early-morning tail belongs to that evening, not a separate next-day window; the pre-horizon orphan morning (day-0 hours whose evening precedes the forecast) is dropped. Opt-in and bounded (exactly one midnight crossing), so it cannot resurrect unbounded cross-day fusion.
+
+**Metric catalog**:
+The server-side source of truth (`src/weather/metricCatalog.js`) for which weather metrics carry **live** data versus a **coming-soon** placeholder. Request validation hard-rejects (`400`) any **Threshold** or **Display metric** on a non-live or unknown metric — a threshold on placeholder data would pass trivially (a silent false **Perfect**). See [ADR-0005](adr/0005-custom-activity-request-schema.md).
 
 **Session**:
 The user's actual outdoor activity time (e.g., Abdulla's 3-hour Sunday cycling block). A **Session** is shorter than or equal to a **Window** — the **Window** says when conditions are right; the **Session** is when the user actually goes out.
@@ -41,33 +50,33 @@ The user's actual outdoor activity time (e.g., Abdulla's 3-hour Sunday cycling b
 A user's chosen **Activity** plus their **Threshold** overrides. In code: `userPrefs`.
 
 **Forecast**:
-24 hourly entries starting at "now", fetched from the weather provider via an **Adapter** and normalized to a unified schema.
+A 7-day rolling window of hourly entries starting at "now", fetched from the weather provider via an **Adapter** and normalized to a unified schema. The count is **provider-determined, up to a 168-hour (7×24) ceiling** (Meteosource `flexi` returns ~161–168) — fewer is valid, the last day may be partial, and the system never fabricates hours to hit a target. Consumers must read the actual length, never assume a fixed count. See [ADR-0003](adr/0003-seven-day-horizon-flat-hours-day-buckets.md).
 
 **Forecast start**:
-The ISO 8601 UTC timestamp of the first hourly entry in the **Forecast**, with an explicit `Z` suffix (e.g. `"2026-05-19T15:00:00Z"`). Stored on the parse result as `forecastStart` and propagated to the API response. The `Z` suffix is required so Swift's default `ISO8601DateFormatter` can decode it without custom formatting. The iOS app combines it with each hourly entry's **Index** to render clock times. *(Under the locked design the app renders using the response's `timezone` field — the **forecast location's** IANA zone — not the device timezone, so hour labels and day boundaries match the server's calendar bucketing; see [ADR-0004](adr/0004-day-bucketed-rating-wire-shape.md).)*
+The ISO 8601 UTC timestamp of the first hourly entry in the **Forecast**, with an explicit `Z` suffix (e.g. `"2026-05-19T15:00:00Z"`). Stored on the parse result as `forecastStart` and propagated to the API response. The `Z` suffix is required so Swift's default `ISO8601DateFormatter` can decode it without custom formatting. The response also carries a top-level **`timezone`** — the **forecast location's** IANA zone (e.g. `Asia/Dubai`) — and the iOS app renders clock times and day boundaries in **that** zone (combining `forecastStart` + `timezone` + each entry's **Index**), not the device timezone, so hour labels and day boundaries match the server's calendar bucketing. See [ADR-0004](adr/0004-day-bucketed-rating-wire-shape.md).
 
 **Index**:
-The 0–23 position of a forecast entry within the 24-hour **Forecast** array. Monotonic and timezone-agnostic — `index: 5` always means "the 6th hour after **Forecast start**", regardless of clock time. Used by the decision engine as the canonical position primitive (`startIndex`, `endIndex`, `duration`) and surfaced on every hourly object in the API response as `index`. Introduced in [Issue #1](issues/completed/implement-spec-issue-1.md) to replace **Clock hour** in the engine output after midnight-crossover bugs.
+The `0..N-1` position of a forecast entry within the **Forecast** array (`N` ≤ 168). Monotonic and timezone-agnostic — `index: 5` always means "the 6th hour after **Forecast start**", regardless of clock time. Used by the decision engine as the canonical position primitive (`startIndex`, `endIndex`, `duration` are **global** indices into the array) and surfaced on every hourly object in the API response as `index`. Introduced in [Issue #1](issues/completed/implement-spec-issue-1.md) to replace **Clock hour** in the engine output after midnight-crossover bugs.
 
 **Clock hour**:
-The 0–23 UTC clock hour a forecast entry represents (e.g. `hour: 15` for 15:00 UTC), stored on every hourly object as `hour`. Wraps at midnight, so a chronological scan over clock hours is non-monotonic — unsafe for ordering, duration math, or **Window** detection. Use **Index** for those; reserve `hour` for clients that combine it with **Forecast start** and a known timezone to render local clock times for the user.
-_Avoid_: using `hour` as a position primitive in engine or backend logic — that is the bug pattern [Issue #1](issues/completed/implement-spec-issue-1.md) fixed.
+The 0–23 UTC clock hour a forecast entry represents (e.g. 15:00 UTC). No longer a wire field — the `hour` field was **dropped** from the hourly object ([ADR-0004](adr/0004-day-bucketed-rating-wire-shape.md)); the client derives clock times from **Forecast start** + the response **`timezone`** + **Index**. Clock hour wraps at midnight, so a chronological scan over it is non-monotonic — unsafe for ordering, duration math, or **Window** detection.
+_Avoid_: using a derived clock hour as a position primitive in engine or backend logic — that is the bug pattern [Issue #1](issues/completed/implement-spec-issue-1.md) fixed; use **Index**.
 
 **Adapter**:
 A provider-specific module that extracts the unified hourly fields from a raw API response. Currently only Meteosource.
 
-**Principle — provider-specifics stop at the adapter boundary.** Everything a provider does differently — field names, units, null handling, date format, *and how many hourly entries it serves* — is reconciled in its **Adapter** (with the `parse.js` normalisation step) so the decision engine only ever sees the unified, agnostic schema. A direct corollary: **no provider's forecast horizon is baked into the contract.** The horizon is whatever clean hourly data the provider returns, consumed up to a 7-day (168-hour) **ceiling** — fewer is valid, the last day may be partial, and the engine is count-agnostic. The system **never fabricates or interpolates** hours to hit a target count; doing so would resurrect the false-**Perfect** hazard the absent-data guard (`checkThreshold` null-fails) exists to prevent. *(This horizon model is locked-but-unbuilt — current code still fixes the **Forecast** at 24 entries; see [`STATUS.md`](STATUS.md), [ADR-0003](adr/0003-seven-day-horizon-flat-hours-day-buckets.md).)*
+**Principle — provider-specifics stop at the adapter boundary.** Everything a provider does differently — field names, units, null handling, date format, *and how many hourly entries it serves* — is reconciled in its **Adapter** (with the `parse.js` normalisation step) so the decision engine only ever sees the unified, agnostic schema. A direct corollary: **no provider's forecast horizon is baked into the contract.** The horizon is whatever clean hourly data the provider returns, consumed up to a 7-day (168-hour) **ceiling** — fewer is valid, the last day may be partial, and the engine is count-agnostic. The system **never fabricates or interpolates** hours to hit a target count; doing so would resurrect the false-**Perfect** hazard the absent-data guard (`checkThreshold` null-fails) exists to prevent. *(Built in Phase 1; see [ADR-0003](adr/0003-seven-day-horizon-flat-hours-day-buckets.md).)*
 
-**Principle — locale/time normalises at its own boundary, the same way.** Timezone is the second instance of the adapter pattern. The forecast **location's** IANA zone (supplied by the provider, e.g. `Asia/Dubai` — not a hardcoded offset) is normalised once, and a **time-boundary module** tags each hour with a local-calendar-day key so the decision engine groups results **by day** without ever reasoning about timezones, offsets, or DST. The engine stays agnostic to locale exactly as it is to providers. Day buckets are the **forecast location's** calendar days, not the device's — a client-side location-shift guardrail keeps the user's active location aligned with where they are. *(Locked-but-unbuilt; see [ADR-0003](adr/0003-seven-day-horizon-flat-hours-day-buckets.md), [ADR-0004](adr/0004-day-bucketed-rating-wire-shape.md).)*
+**Principle — locale/time normalises at its own boundary, the same way.** Timezone is the second instance of the adapter pattern. The forecast **location's** IANA zone (supplied by the provider, e.g. `Asia/Dubai` — not a hardcoded offset) is normalised once, and a **time-boundary module** tags each hour with a local-calendar-day key so the decision engine groups results **by day** without ever reasoning about timezones, offsets, or DST. The engine stays agnostic to locale exactly as it is to providers. Day buckets are the **forecast location's** calendar days, not the device's — a client-side location-shift guardrail keeps the user's active location aligned with where they are. *(Built in Phase 1: the time-boundary module is `src/weather/timeBoundary.js`; see [ADR-0003](adr/0003-seven-day-horizon-flat-hours-day-buckets.md), [ADR-0004](adr/0004-day-bucketed-rating-wire-shape.md).)*
 
 **Lite / Pro**:
-Tier variants of a **Pursuit**, each shipped as its own **Activity**, keyed to data availability. **Lite** Activities use fields available on Meteosource's free tier (temperature, wind, cloud cover, humidity, UV); **Pro** Activities use fields requiring premium or specialised data (Douglas scale, swell height — see Issue #7; atmospheric transparency, moon phase — deferred). Not every Pursuit has both tiers: currently only Boat Fishing ships as both `boat-fishing-lite` and `boat-fishing-pro`. Stargazing Pro is deferred until an astronomy data source is integrated.
+The user's subscription tier, enforced as **metric-access + quantity gating** (grill Q3) — **not** as separate `-lite`/`-pro` Activity variants. A tier gates which *metrics* the user may choose and how many *Activities* they may author. This gating is **client-enforced**: the backend stays activity-agnostic and does not check tier. (The `~50`-activity request ceiling in [ADR-0005](adr/0005-custom-activity-request-schema.md) is a DoS guard, **not** a tier/quantity gate.) Premium metrics requiring specialised data (Douglas scale, swell height — see Issue #7; atmospheric transparency, moon phase — deferred) are **coming-soon** in the metric catalog until their adapters land.
 
 **Display metrics**:
-The ordered list of metric key names an **Activity** declares as relevant to its **Rating**. Stored on the activity definition as `displayMetrics`. The backend decides which metrics matter per activity; the iOS app renders them generically without hardcoding per-activity logic. Example: `["temp", "windSpeed", "humidity", "uV"]` for Volleyball.
+The ordered list of metric key names an **Activity** declares as relevant to its **Rating**, carried as `displayMetrics` in the request. **User-chosen** (not backend-decided): the client picks which metrics appear on each card, and the backend echoes the list through. It is the render **superset** — `thresholds.keys ⊆ displayMetrics` — so a metric can be shown without being judged ("show-but-don't-judge"). The iOS app renders them generically without hardcoding per-activity logic. Example: `["temp", "windSpeed", "humidity", "uV"]` for Volleyball.
 
 **Darkness (Bortle scale)**:
-A sky-quality measurement on the standard Bortle scale (1–9). **1 = darkest, most pristine sky (best for stargazing); 9 = heavily light-polluted urban sky (worst)**. A threshold of `max: 4` means the sky must be rural-class or darker to pass. Currently hardcoded to `0` in `parse.js` (no premium data source); marked `required: false` so it downgrades to **Good** rather than **Bad** until real data is integrated. Also omitted from `displayMetrics` so the iOS Stargazing card does not surface the misleading hardcoded value.
+A sky-quality measurement on the standard Bortle scale (1–9). **1 = darkest, most pristine sky (best for stargazing); 9 = heavily light-polluted urban sky (worst)**. A threshold of `max: 4` means the sky must be rural-class or darker to pass. Currently hardcoded to `0` in `parse.js` (no astronomy data source), so it is a **coming-soon** metric: a request that thresholds *or* displays `darkness` is hard-rejected (`400`) until real data is integrated (the false-Perfect guard — see **Metric catalog**). It still appears as a `0` placeholder in the `hours[]` timeline shape.
 _Avoid_: treating higher Bortle numbers as better — that is the inverted convention used in the old code and is incorrect.
 
 **Douglas scale**:
@@ -78,9 +87,9 @@ A boolean flag indicating an active maritime-authority alert (e.g. gale warning,
 
 ## Relationships
 
-- A **Pursuit** ships as one or more **Activities**; each Activity has its own **Threshold** profile and `displayMetrics`.
-- A **User** picks an **Activity** and supplies **User preferences** (threshold overrides).
-- The decision engine evaluates each hour of the **Forecast** against the user's **Thresholds**, producing a **Rating** per hour, then finds the longest **Window**.
+- A **Pursuit** is authored as one or more **Activities**; each Activity has its own **Threshold** profile, `displayMetrics`, and optional time-of-day **Window**.
+- A **User** authors **Activities** client-side (from Templates or scratch) and the iOS app sends them in the `POST /api/v1/rating` body; the backend holds no activity list.
+- The decision engine evaluates each hour of the **Forecast** against each Activity's **Thresholds**, producing a **Rating** per hour, then finds the longest **Window** per bucket (calendar day, or **night** for a nocturnal Activity).
 - A **Session** fits inside a **Window** — the engine produces the **Window**; the user (or iOS app) chooses where to place the **Session**.
 
 ## Example dialogue
@@ -88,7 +97,7 @@ A boolean flag indicating an active maritime-authority alert (e.g. gale warning,
 > **Dev:** "The engine returned a 6-hour **Window** of Perfect cycling weather. Does Abdulla cycle for all 6 hours?"
 > **Domain expert:** "No — Abdulla's **Session** is 3 hours on Sunday. The **Window** tells him *when he could* go out. He picks where his **Session** fits inside it."
 > **Dev:** "What if no hour clears the required **Thresholds**?"
-> **Domain expert:** "Then there's no **Window** for this **Forecast**. The iOS app shows 'no window in the next 24 hours' and sends no notification."
+> **Domain expert:** "Then there's no **Window** for that day. The iOS app shows 'no window' for the day's card (rolling forward to the soonest day that has one, or 'no window in the next 7 days' if none do) and sends no notification."
 
 ## Tests
 
