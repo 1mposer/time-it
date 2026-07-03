@@ -17,9 +17,11 @@ The personalization grill is **complete**: design questions Q1–Q9 are all lock
 | 1 | **this doc** (`docs/personalization_grill.md`) | full decision log + rationale for every personalization choice |
 | 2 | [`adr/0001-no-accounts-guest-first.md`](adr/0001-no-accounts-guest-first.md) | why there are no user accounts (Sign in with Apple cut) |
 | 3 | [`adr/0002-activity-agnostic-engine.md`](adr/0002-activity-agnostic-engine.md) | why the engine evaluates caller-supplied activity profiles (Templates + custom), not a hardcoded list |
-| 4 | [`adr/0003-seven-day-horizon-flat-hours-day-buckets.md`](adr/0003-seven-day-horizon-flat-hours-day-buckets.md) | 7-day forecast, flat hours, day-bucketed evaluation. ⚠️ carries a hard precondition (provider verification) |
-| 5 | [`CONTEXT.md`](CONTEXT.md) | domain glossary — ⚠️ deliberately **not yet** updated for this grill (still the old hardcoded model); pending edits under "CONTEXT.md migration pending" |
-| 6 | `ios/` React mockup | visual reference **only**; real app is SwiftUI native. Its bottom bar is superseded (dropped, Q8). |
+| 4 | [`adr/0003-seven-day-horizon-flat-hours-day-buckets.md`](adr/0003-seven-day-horizon-flat-hours-day-buckets.md) | 7-day forecast, flat hours, day-bucketed evaluation |
+| 5 | [`adr/0004-day-bucketed-rating-wire-shape.md`](adr/0004-day-bucketed-rating-wire-shape.md) | the day-bucketed `/rating` **response** wire shape (`activities[].days[]`) — post-grill; pins the output side of Q6 |
+| 6 | [`adr/0005-custom-activity-request-schema.md`](adr/0005-custom-activity-request-schema.md) | the `POST` **request** body `{ lat, lon, activities[] }` — post-grill; pins the input side of Q2/Q3 |
+| 7 | [`CONTEXT.md`](CONTEXT.md) | domain glossary — **migrated for this grill in Phase 1/2** (Activity/Templates, metric catalog, Lite/Pro, 7-day Forecast are all now current) |
+| 8 | `ios/` React mockup | visual reference **only**; real app is SwiftUI native. Its bottom bar is superseded (dropped, Q8). |
 
 ### LOCKED — build to these (detail in "Decisions locked" + the per-Q sections)
 
@@ -32,13 +34,14 @@ The personalization grill is **complete**: design questions Q1–Q9 are all lock
 - **Forecast:** **7-day / 168 flat hours**; day-bucketed engine output (Q6, ADR-0003).
 - **iOS shape:** **5 surfaces / 8 screens, no bottom bar**; paywall contextual + transparent; onboarding splash-free (Q6–Q9, "Page inventory — final (v1)").
 
-### PENDING — the only open work
+### Open work at grill close — now tracked in STATUS (do NOT read this as current)
 
-1. **Data shapes (tree item 7)** — full custom-activity schema, Template-override schema, sync model. *(Catalog and events-table shapes are done. The day-bucketed `/rating` **response wire shape is now PINNED** — flat 7-entry `activities[].days[]`, singular top-level `rating`/window removed, dense null days, `days[0]` card default; see [ADR-0004](adr/0004-day-bucketed-rating-wire-shape.md). This was audit blocker B2, now resolved. The remaining open shapes are the custom-activity / Template-override / sync schemas above.)*
-2. **v1-vs-fast-follow sequencing** — what ships in the first launch vs fast-follow. Never resolved.
-3. **Provider verification (ADR-0003 precondition)** — confirm Meteosource + Air Quality + Marine return clean *hourly* data across all 7 days, before the horizon change is final.
-4. **Spec rewrites** — fold every locked decision here + in the ADRs into the **#5a / #5b / #6a–#6c** specs. This is the grill's final output.
-5. **CONTEXT.md migration** — apply the glossary edits (see "CONTEXT.md migration pending"); deferred to avoid code/doc drift until specs/code land.
+This was the open-work snapshot at grill close (2026-06-17). **Live status now lives in [`STATUS.md`](STATUS.md) §4–§5** — this doc is a frozen rationale record and no longer tracks progress. Since grill close:
+
+- ✅ **Custom-activity request schema — PINNED** ([ADR-0005](adr/0005-custom-activity-request-schema.md), Phase 2 built): `POST { lat, lon, activities[] }`, half-open local-hour window. The day-bucketed `/rating` *response* shape was likewise pinned in [ADR-0004](adr/0004-day-bucketed-rating-wire-shape.md) (`activities[].days[]`, dense null days, `days[0]` card default — old audit blocker B2, resolved).
+- ✅ **CONTEXT.md migration — DONE** (Phase 1/2): every glossary term was applied; the "CONTEXT.md migration" section near the end is kept only as the record of *what* changed.
+- ✅ **Provider verification — Meteosource base DONE** (`flexi` ~164 clean hourly); Air Quality + Marine still pending, each when its adapter lands.
+- ◻️ **Still open (see [STATUS.md](STATUS.md) §4):** Template-override + client sync schemas; v1-vs-fast-follow launch sequencing; the **spec rewrites** (fold the locked decisions here + in the ADRs into #5a / #5b / #6a–#6c) — the grill's final output, still outstanding.
 
 ### Historical sections (context only — NOT current truth)
 
@@ -141,7 +144,7 @@ Pages implied so far: Dashboard (exists in mockup), Threshold Edit, Add Custom A
 - ✅ **4 Feature scope (what)** — activity-agnostic engine [ADR-0002](adr/0002-activity-agnostic-engine.md); Pro = metrics + quantity; Model-2 Template billing; notification/CRON model. *Open: v1-vs-fast-follow sequencing.*
 - ✅ **5 Page inventory** — DONE (Q6–Q9). **5 top-level surfaces / 8 screens:** Dashboard (root), Timeline detail (push), Authoring sheet (chooser→editor→metric-picker), Paywall sheet, Settings sheet. Nav shell, 7-day horizon, per-day bucketing, read/write split, one-authoring-screen, paywall placement + transparency, onboarding (no splash, device defaults, location-only prompt, 2 free-metric seeds + ghost add-card), settings contents, **no bottom bar** — all locked. See "Page inventory — final (v1)".
 - ◻️ **6 Per-page design** — NOT STARTED.
-- 🟡 **7 Data shapes** — partial: activity profile `{ label, metrics, threshold/metric, window:{startIndex,endIndex} }`, served metric catalog `{ key, label, unit, type, bounds, availability, tier, description, proReason? }` (Q7), events-table shape, **day-bucketed activity result `{ dayIndex 0..6, rating, startIndex, endIndex, duration }`** (Q6). *Open: full custom-activity + Template-override + sync schemas.*
+- 🟡 **7 Data shapes** — partial: activity profile `{ label, metrics, threshold/metric, window:{startIndex,endIndex} }` *(window shape superseded by [ADR-0005](adr/0005-custom-activity-request-schema.md): local-hour `{startHour,endHour}`)*, served metric catalog `{ key, label, unit, type, bounds, availability, tier, description, proReason? }` (Q7), events-table shape, **day-bucketed activity result `{ dayIndex 0..6, rating, startIndex, endIndex, duration }`** (Q6). *Open: full custom-activity + Template-override + sync schemas.*
 
 ---
 
@@ -333,9 +336,9 @@ Opened tree item 5 (page inventory). The visual mockup confirms the dashboard as
 
 ---
 
-## CONTEXT.md migration pending
+## CONTEXT.md migration — DONE (Phase 1/2)
 
-The grill has redefined core glossary terms, but the **code still implements the old hardcoded-activity model**. To avoid glossary/code drift, defer these CONTEXT.md edits until the specs are rewritten / implementation lands:
+The grill redefined these core glossary terms; the migration was **applied to [`CONTEXT.md`](CONTEXT.md) when the Phase 1/2 code landed** (code + docs together, no drift). This list is kept as the record of *what changed* — every term below now reads the new way in CONTEXT.md:
 
 - **Activity** — from "code-level entity the engine evaluates (hardcoded list)" → "user-authored profile; engine is activity-agnostic."
 - **Template** (new term) — curated seed-default Activity.
@@ -350,11 +353,9 @@ The grill has redefined core glossary terms, but the **code still implements the
 
 ## Session status — CLOSED (2026-06-17)
 
-The personalization grill is **complete**; Q1–Q9 are locked. No further grilling is required to start building.
+The personalization grill is **complete**; Q1–Q9 are locked. No further grilling is required to start building. **Forward progress is tracked in [`STATUS.md`](STATUS.md), not here** — the items below are the grill-close to-do snapshot, annotated with what has since landed.
 
-**Next actions (in order), for whoever picks this up:**
-
-1. Resolve the remaining **PENDING** items in the cold-start handoff (data shapes, v1-vs-fast-follow sequencing, provider verification).
-2. Write/update implementation specs — **#5a** (core SwiftUI app), **#5b** (personalization), **#6a→#6c** (push) — folding in every locked decision in this doc and the three ADRs.
-3. Apply the **CONTEXT.md migration** (section above) as the specs/code land, to end the deliberate glossary/code drift.
-4. Verify weather-provider hourly resolution across all 7 days (the ADR-0003 precondition) before committing the horizon change.
+1. ✅ **Engine + contract decisions built** — Phase 1/2 shipped the activity-agnostic POST contract ([ADR-0002](adr/0002-activity-agnostic-engine.md) / [ADR-0004](adr/0004-day-bucketed-rating-wire-shape.md) / [ADR-0005](adr/0005-custom-activity-request-schema.md)).
+2. ◻️ **Spec rewrites still outstanding** — **#5a** (core SwiftUI app), **#5b** (personalization), **#6a→#6c** (push) must fold in every locked decision here + in the ADRs; the current `docs/issues/current/*` specs remain pre-rebuild (see STATUS §5).
+3. ✅ **CONTEXT.md migration applied** with the Phase 1/2 code (section above).
+4. ✅ **Provider verification** — Meteosource base done; Air Quality + Marine pending their adapters (STATUS §4).
