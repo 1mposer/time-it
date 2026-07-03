@@ -1,48 +1,49 @@
 # Design decisions — Issue #5 (iOS app)
 
-> ⚠️ **PARTIALLY STALE — predates the Phase 1/2 rebuild.** The visual/UX decisions still hold, but the API-contract notes are outdated: there is **no** server-side "5 activities" list (activities are **caller-supplied** via `POST /api/v1/rating`), the per-hour `hour` field was **dropped**, and a result is now a per-activity **`days[]`** array (not a single top-level `rating`/`startIndex`). Treat the "Activity set" table and the "Mockup vs. API contract" section as outdated and reconcile against [ADR-0004](../../adr/0004-day-bucketed-rating-wire-shape.md) + [ADR-0005](../../adr/0005-custom-activity-request-schema.md) and [STATUS.md](../../STATUS.md) §5.
+> Shared visual/UX + nav reference for both sub-issues #5a and #5b, reconciled to the Phase 1/2 rebuild and the locked grill decisions. The **visual** decisions (colour, typography, layout, chip tiers) are the source of truth alongside [`ios/guidelines/Guidelines.md`](../../../ios/guidelines/Guidelines.md). The **contract** facts here now match the shipped backend: activities are **caller-supplied** via `POST /api/v1/rating` (no server-side list), the per-hour `hour` field was **dropped**, a result is a per-activity **`days[]`** array (not a single top-level `rating`/`startIndex`), and there are **no accounts** and **no bottom tab bar**. See [ADR-0001](../../adr/0001-no-accounts-guest-first.md) (no accounts), [ADR-0004](../../adr/0004-day-bucketed-rating-wire-shape.md) (response), [ADR-0005](../../adr/0005-custom-activity-request-schema.md) (request), and [STATUS.md](../../STATUS.md) §5.
 
-> Shared reference for both sub-issues #5a and #5b.
 > Do not relitigate these decisions. Visual spec: [`ios/guidelines/Guidelines.md`](../../../ios/guidelines/Guidelines.md).
+> Build specs: [`implement-spec-issue-5a-ios-core.md`](implement-spec-issue-5a-ios-core.md) (core read-only) and #5b (authoring/Pro, to be written).
 
 ---
 
 ## Navigation and first screen
 
-- App opens directly to the dashboard — no welcome screen, no launch gate.
-- Tab bar at the bottom with three tabs: **Activities** (left, default), **+** (middle), **Profile** (right).
-- The **+** tab requires sign-in. Tapping it as a guest triggers the sign-in flow.
+- App opens directly to the dashboard — no welcome screen, no launch gate, **no accounts** (ADR-0001).
+- **No bottom tab bar** (grill Q8). The dashboard is the single root surface inside one `NavigationStack`.
+- **Settings** → top-right **gear** (a sheet). **Add activity** → a ghost "add" card at the end of the list (authoring; #5b). Home is the root.
 
 ## Dashboard
 
-- Header: ocean blue gradient (`#1253a4 → #1a78c2 → #29a8e0 → #3ec6e8`, 160°). Contains: current time (large, centred, SF Pro Display bold, −2.5px tracking), temperature placeholder `—°C` (smaller, SF Pro Display light, −0.5px tracking), wind and humidity placeholders in a row below that. Sign-in icon (`person.crop.circle`) in the top-right corner of the header.
+- Header: ocean blue gradient (`#1253a4 → #1a78c2 → #29a8e0 → #3ec6e8`, 160°). Contains: current time (large, centred, SF Pro Display bold, −2.5px tracking), temperature placeholder `—°C` (smaller, SF Pro Display light, −0.5px tracking), wind and humidity placeholders in a row below that. **Settings gear** (`gearshape`) in the top-right corner of the header (no sign-in icon — accounts are cut).
 - Thin 0.5px divider below the header.
-- Scrollable vertical list of activity cards. The list is the user's personalised activity list — activities can be added/removed via the **+** tab (requires sign-in).
+- Scrollable vertical list of activity cards, one per activity the client POSTs, in **request order**. The list is the user's personalised activity list — activities can be added/removed via the ghost add-card + authoring sheet (#5b).
 - Background colour: `#f2f2f7` (iOS system grouped background).
 - Header weather values (temp, wind, humidity) are `—` placeholders in #5a. Live values from current-hour API data are deferred to a later issue.
 
 ## Activity card (face)
 
 Each card contains:
-1. **Top row:** SF Symbol activity icon (top left, 18×18pt, 75% opacity) + activity name (SF Pro Text, 15pt medium, −0.1px tracking) + optional **PRO** badge (for activities whose `activityId` ends in `-pro`) + gear icon (`gearshape`, top right — requires sign-in).
-2. **Timeline bar:** 6 AM to 12 AM (18 hours). Best window highlighted: green (`#34c759`) for Perfect, orange (`#ff9500`) for Good, no highlight for No Window. Window fill opacity 0.85. Time labels (6am, 12pm, 6pm, 12am) sit 4pt below the bar.
-3. **Metric chips row:** activity's `displayMetrics` (first 3). Each chip shows the metric's value at the **best-window start hour** (index = `startIndex` into the `hours` array). Colour tier is applied per the scale in [`Guidelines.md`](../../../ios/guidelines/Guidelines.md).
+1. **Top row:** SF Symbol activity icon (top left, 18×18pt, 75% opacity) + activity name (SF Pro Text, 15pt medium, −0.1px tracking) + gear icon (`gearshape`, top right — opens threshold/authoring editing; #5b). **No PRO badge** — there are no `-lite`/`-pro` activity variants (grill Q3); Pro is metric-access + quantity, client-enforced, and deferred to #5b.
+2. **Timeline bar:** highlights the day's best **Window**, positioned from the global `startIndex`/`endIndex` against that day's actual hour span (rendered in the response `timezone`). Green (`#34c759`) for Perfect, orange (`#ff9500`) for Good, no highlight for No Window. Window fill opacity 0.85. (The guidelines' "6am–12am" axis is illustrative — do not hardcode it; a Window can fall at any hour.)
+3. **Metric chips row:** activity's `displayMetrics` (first 3). Each chip shows the metric's value at the **best-window start hour** (`startIndex`, a global index into `hours[]`). Colour tier per the scale in [`Guidelines.md`](../../../ios/guidelines/Guidelines.md); nullable metrics (`windSpeed`/`rainFall`/`cloudCover`) render `"—"` when the value is null.
+
+The card summarises the **soonest-actionable day** for the activity (today if windowed, else the earliest non-null day by name, else "no window in the next 7 days") — read `days[]` per activity; never assume 7. See [ADR-0004](../../adr/0004-day-bucketed-rating-wire-shape.md).
 
 Card background: `#ffffff`. Corner radius: 16pt. Shadow: `0 1px 3px rgba(0,0,0,0.08), 0 0 0 0.5px rgba(0,0,0,0.06)`.
 
-## Activity set (5 default activities)
+## Activity set (caller-supplied — no backend list)
 
-The backend returns these 5 activities in this order. Cards appear in backend order on the dashboard.
+The engine is **activity-agnostic** ([ADR-0002](../../adr/0002-activity-agnostic-engine.md)): the client authors activities and POSTs them; the backend holds no list and echoes them back in **request order**. Curated defaults live client-side as **Templates**.
 
-| `activityId` | Label | SF Symbol | `displayMetrics` |
+For **#5a (core read-only)** the app seeds **two free-metric Templates** so the first launch shows real ratings with no locks (grill Q8 — land + water, core audience). Both are diurnal and use only LIVE metrics; provisional threshold numbers are pinned in the #5a build spec (unpinned finalisation is a #5b item, STATUS §4):
+
+| `id` | Label | SF Symbol | `displayMetrics` |
 |---|---|---|---|
-| `boat-fishing-pro` | Boat Fishing Pro | `figure.fishing` | `["temp"]` |
-| `boat-fishing-lite` | Boat Fishing Lite | `figure.fishing` | `["temp", "windSpeed"]` |
-| `shore-fishing` | Shore Fishing | `figure.fishing` | `["temp", "windSpeed"]` |
-| `volleyball` | Volleyball | `figure.volleyball` | `["temp", "windSpeed", "humidity", "uV"]` |
-| `stargazing-lite` | Stargazing Lite | `moon.stars` | `["temp", "cloudCover"]` |
+| `cycling` | Cycling | `figure.outdoor.cycle` | `["temp", "windSpeed", "rainFall", "uV"]` |
+| `fishing-lite` | Fishing Lite | `figure.fishing` | `["temp", "windSpeed", "cloudCover"]` |
 
-The PRO badge is shown on any card whose `activityId` ends in `-pro`. Full StoreKit gating is #5b scope.
+Full authoring (add from Template / from scratch), the metric-picker, and Pro gating are the **#5b** wave. There is no PRO badge and no `-pro` suffix logic.
 
 ## Metric chip colour tiers
 
@@ -61,16 +62,12 @@ Chip style per tier (matches `ios/guidelines/Guidelines.md`):
 
 ## Interactions
 
-- **Tap card body** → navigates to activity detail screen.
-- **Tap gear icon** → threshold editing screen (requires sign-in; triggers sign-in flow if guest).
-- **Tap sign-in icon (header)** → sign-in flow.
-- **Tap + tab** → requires sign-in; triggers sign-in flow if guest.
+- **Tap card body** → pushes the 7-day timeline detail (over all of the activity's `days[]`).
+- **Tap header gear** → Settings sheet.
+- **Tap card gear** → threshold/authoring editor (sheet; #5b).
+- **Tap ghost add-card** → activity creation (from Template or scratch; #5b).
 
-## Sign-in triggers (three entry points)
-
-1. Sign-in icon in the header.
-2. Gear icon on any activity card.
-3. **+** tab in the tab bar.
+There are **no sign-in entry points** — accounts are cut (ADR-0001).
 
 ## Typography
 
@@ -100,7 +97,8 @@ Specific mismatches the SwiftUI agent must NOT replicate:
 
 | Mockup (visual prototype) | Real API (source of truth) | Notes |
 |---|---|---|
-| `condition: 'perfect' \| 'good' \| 'none'` | `rating: "perfect" \| "good" \| null` | The no-window state is JSON `null`, not the string `"none"`. Model it as an optional in Swift. |
-| `bestTimeStart`, `bestTimeEnd` (clock hours, e.g. `6`, `14`) | `startIndex`, `endIndex` (0-based indices into `forecast.hours`) | Indices are NOT clock hours. Derive the clock time with `hours[activity.startIndex].hour` (or by combining `forecastStart` + `index` hours). |
+| Single top-level `condition`/`bestTime` per activity | Per-activity **`days[]`**, each `{ dayIndex, rating, startIndex?, endIndex?, duration? }` | The result is 7-day day-bucketed, not one window. `days.length` is **per-activity** (7/8 diurnal, one shorter nocturnal) — never hardcode 7. The card renders the soonest-actionable day; the detail renders all days. See [ADR-0004](../../adr/0004-day-bucketed-rating-wire-shape.md). |
+| `condition: 'perfect' \| 'good' \| 'none'` | `rating: "perfect" \| "good" \| null` (per day) | The no-window state is JSON `null`, not the string `"none"`. Model as an optional in Swift. |
+| `bestTimeStart`, `bestTimeEnd` (clock hours) | `startIndex`, `endIndex` — **global** 0-based indices into `forecast.hours` | Indices are NOT clock hours. There is **no `hour` field** on the hourly object (dropped, ADR-0004). Derive clock times from `forecastStart` + the response **`timezone`** + `index`, rendered in the **location's** zone (not the device zone). |
 
-The mockup timeline positions the highlight using clock-hour math because the mockup hardcodes a 6am–midnight axis. The SwiftUI implementation must compute the timeline window from `startIndex`/`endIndex` against the actual `hours` array.
+The mockup timeline positions the highlight using clock-hour math because it hardcodes a 6am–midnight axis. The SwiftUI implementation must compute each day's timeline Window from the **global** `startIndex`/`endIndex` against the actual `hours` array, positioned within that day's real hour span.
