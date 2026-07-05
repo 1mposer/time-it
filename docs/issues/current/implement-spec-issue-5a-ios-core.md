@@ -4,6 +4,7 @@
 
 > Design decisions: [`design-decisions-issue-5.md`](design-decisions-issue-5.md) — the shared visual/UX + nav reference, **reconciled to this same contract** (no server-side activity list, `days[]`/`timezone`, no `hour`, no accounts, no tab bar, no `-pro`). Read it for colour/typography/layout; this spec is authoritative for the build shape. Both trace to [ADR-0001](../../adr/0001-no-accounts-guest-first.md) + [ADR-0004](../../adr/0004-day-bucketed-rating-wire-shape.md) (response) + [ADR-0005](../../adr/0005-custom-activity-request-schema.md) (request).
 > Visual spec: [`ios/guidelines/Guidelines.md`](../../../ios/guidelines/Guidelines.md) — the canonical source of truth for all layout, colour, and typography.
+> HIG reference: the **`apple-hig`** skill (installed at `.claude/skills/apple-hig/`) — Apple Human Interface Guidelines distilled for agents. **Consult it** for HIG-compliant layout, colour, materials, typography, navigation, and **SF Symbols usage** (rendering modes, weights, scale, `Label` pairing). See "HIG reference & constraints" below for how to use it correctly.
 > Domain glossary: [`CONTEXT.md`](../../CONTEXT.md) — read **Activity**, **Window**, **Rating**, **Index**, **Forecast start**, **Time-of-day window**, **Night-stitch**, **Display metrics** before starting.
 > Authoritative wire shape: [`CLAUDE.md`](../../../CLAUDE.md) "API response contract".
 > Depends on: the backend running locally at `localhost:3000` (`POST /api/v1/rating`).
@@ -18,6 +19,24 @@
 Build the native iPhone app that `POST`s a request to `/api/v1/rating` with the device location (GPS, falling back silently to Dubai `25.1627, 55.2077`) and a **client-authored list of seed Template activities**, then renders one dashboard card per returned activity in request order. Each card summarises the **soonest-actionable day** for that activity; tapping it opens a 7-day timeline detail. There are **no accounts** — the app opens directly to the dashboard with no sign-in, no gate, and no tab bar.
 
 Because the backend is activity-agnostic and holds no list, the app must ship the activities to evaluate. #5a seeds **two free-metric Templates** (Cycling + Fishing-lite; see §2.3) client-side and POSTs them every load. Full authoring (add/edit/metric-picker/Pro) is #5b.
+
+---
+
+## HIG reference & constraints
+
+The **`apple-hig`** skill (`.claude/skills/apple-hig/`) is the design-fidelity reference for this build. Use it to make the app feel native, but obey these two hard constraints — they are easy to violate silently:
+
+1. **Target iOS 17+ — do NOT adopt post-17 APIs or components.** The skill's HIG corpus is written for the current OS generation (captured 2026-06-09, "OS 27"-era). SF Symbols and components introduced after iOS 17 are **not available** on the deployment target — `Image(systemName:)` with a too-new symbol renders blank, and a too-new modifier/view fails to compile. When the skill describes a control, verify it exists on iOS 17 before using it; when in doubt, use the iOS 17-safe form. Set the project's minimum deployment target to iOS 17.0 and honour `@available` accordingly.
+
+2. **Do NOT bulk-load the whole HIG corpus.** It is ~156 files / ~140k tokens. Follow the skill's own tiered routing (`SKILL.md` + `routing-index.md`): load the Tier-1 foundations (colour, layout, materials, typography, **sf-symbols**), the iOS platform file, and only the Tier-3 component files your current surface needs (e.g. `lists-and-tables`, `buttons`, `materials`, `charts`). Pull niche files on demand, not preemptively.
+
+### SF Symbols — usage vs. names
+
+Two independent failure modes. The skill's `sf-symbols.md` covers **usage** (rendering modes, weight/scale matching, `Label` for accessibility) — follow it. It does **not** guarantee **valid names**: inventing a symbol name that doesn't exist on iOS 17 is the most common failure and renders a blank glyph. Therefore:
+
+- **Use ONLY the exact SF Symbol names in the manifest** in [`design-decisions-issue-5.md`](design-decisions-issue-5.md) ("SF Symbols manifest"). **Do not invent names**, and do not swap in a plausible-looking alternative.
+- **If a needed glyph is not in the manifest, use `questionmark.circle` and flag it** (a `// TODO: verify SF Symbol` comment) rather than guessing a name. A visible-but-wrong placeholder is recoverable; a hallucinated name that renders blank is not obvious in review.
+- Pair every symbol with an accessibility label (`Label`, or `.accessibilityLabel`) per `sf-symbols.md`.
 
 ---
 

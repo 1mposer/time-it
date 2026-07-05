@@ -60,6 +60,53 @@ Chip style per tier (matches `ios/guidelines/Guidelines.md`):
 - Orange: bg `rgba(255,149,0,0.12)` / text `#b85c00`
 - Red: bg `rgba(255,59,48,0.12)` / text `#c0392b`
 
+## SF Symbols manifest (for the SwiftUI agent)
+
+The app uses **SF Symbols** for all iconography (`Image(systemName:)` / `Label`). Follow these rules — hallucinated symbol names are the most common failure and render a **blank glyph**:
+
+- **Use ONLY the exact names in the tables below.** Do **not** invent names and do **not** substitute a plausible-looking alternative.
+- **If a needed glyph is not listed, use `questionmark.circle`** and leave a `// TODO: verify SF Symbol` comment — never guess a name. A visible placeholder is recoverable in review; a blank hallucinated glyph is not.
+- **Availability: iOS 17+.** Symbols introduced after iOS 17 are unavailable on the deployment target and render blank. Do not use newer symbols even if the HIG skill mentions them.
+- **Accessibility:** pair every symbol with a label (`Label`, or `.accessibilityLabel`) per the `apple-hig` skill's `sf-symbols.md`.
+- The **project owner verifies every name below in the SF Symbols app before the build.** Rows marked **⚠︎ verify** are ones the author was less certain exist on iOS 17 — confirm those first (but confirm all).
+
+**A. Activity template icons** (§ Activity set)
+
+| Activity | `id` | SF Symbol | Verify |
+|---|---|---|---|
+| Cycling | `cycling` | `figure.outdoor.cycle` | |
+| Fishing Lite | `fishing-lite` | `figure.fishing` | ⚠︎ verify |
+
+The card icon is chosen per activity; the 5a spec notes `label.contains("fishing")` can cover fishing variants. New Templates (#5b) extend this table.
+
+**B. Metric chip icons** (live metrics; **✓ used by the #5a seed Templates**, others are for #5b completeness)
+
+| Metric | SF Symbol | In #5a seed | Verify |
+|---|---|---|---|
+| `temp` | `thermometer.medium` | ✓ | |
+| `windSpeed` | `wind` | ✓ | |
+| `rainFall` | `cloud.rain.fill` | ✓ | |
+| `uV` | `sun.max.fill` | ✓ | |
+| `cloudCover` | `cloud.fill` | ✓ | |
+| `humidity` | `humidity.fill` | — | ⚠︎ verify |
+| `visibility` | `eye.fill` | — | |
+| `moon` | `moon.stars.fill` | — | |
+| `dustAlert` | `sun.dust.fill` | — | ⚠︎ verify |
+
+Coming-soon metrics (`darkness`/`douglasScale`/`swellHeight`/`swellLength`/`tide`/`seaWarning`) are **not displayable** in #5a (backend rejects them) — no icons needed until their features land.
+
+**C. System / navigation / state**
+
+| Purpose | SF Symbol | Verify |
+|---|---|---|
+| Settings — header top-right gear | `gearshape` | |
+| Card authoring gear (#5b stub; omit or stub in #5a) | `gearshape` | |
+| Error state — `ContentUnavailableView` (provider/server down) | `wifi.slash` | |
+| Location permission note (Settings, optional) | `location.fill` / `location.slash` | |
+| **Unlisted-glyph fallback (the guardrail above)** | `questionmark.circle` | |
+
+Not symbols: the `NavigationLink` disclosure chevron is system-provided (do not add one manually), and the loading state is a `ProgressView` (no symbol).
+
 ## Interactions
 
 - **Tap card body** → pushes the 7-day timeline detail (over all of the activity's `days[]`).

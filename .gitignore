@@ -18,3 +18,9 @@ Thumbs.db
 
 # Generated review reports
 docs/review/out/
+
+# Claude Code local tooling — not committed
+.claude/settings.local.json
+.claude/projects/
+# Vendored apple-hig HIG skill (unlicensed Apple-derived reference; keep local per agent)
+.claude/skills/apple-hig/
