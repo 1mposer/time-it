@@ -9,6 +9,20 @@ node_modules/
 .DS_Store
 Thumbs.db
 
+# Xcode / Swift
+*.xcuserstate
+xcuserdata/
+DerivedData/
+*.xcscmblueprint
+*.xccheckout
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+.build/
+.swiftpm/
+
 # IDE files
 .vscode/
 .idea/
