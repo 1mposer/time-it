@@ -298,7 +298,7 @@ Requires `.env` with `API_KEY=<meteosource key>`.
 
 See [`docs/issues/ROADMAP.md`](docs/issues/ROADMAP.md) for the full critical path.
 
-- **Done:** Issue #3 (backend internals), Issue #4 (HTTP API — Express server), Issue #10 (pre-5a hardening — typed provider errors, null-safe adapter, DI factory router, expanded test coverage). **Rebuild Phase 1** (7-day day-bucketed `days[]`/`timezone` output). **Rebuild Phase 2** (`GET→POST` request flip, caller-supplied `evaluateAll(hours, activities)`, ADR-0005 validation + metric catalog, wrap-gated night-stitch, curated `src/activities/` removed).
-- **Next:** Issue #5a (core iOS SwiftUI app — requires this server running locally on `localhost:3000`)
-- **Then:** Issue #5b (iOS personalization), Issue #6 (deploy + APNs)
+- **Done:** Issue #3 (backend internals), Issue #4 (HTTP API — Express server), Issue #10 (pre-5a hardening — typed provider errors, null-safe adapter, DI factory router, expanded test coverage). **Rebuild Phase 1** (7-day day-bucketed `days[]`/`timezone` output). **Rebuild Phase 2** (`GET→POST` request flip, caller-supplied `evaluateAll(hours, activities)`, ADR-0005 validation + metric catalog, wrap-gated night-stitch, curated `src/activities/` removed). **Issue #5a** (core iOS SwiftUI app — built, live-verified, independently audited + merged to `main` 2026-07-12; iOS 67 tests incl. a real-response decode regression fixture).
+- **Next:** Issue #5b (iOS personalization — client-side activity authoring, local persistence, metric catalog behind a swap seam; spec build-ready)
+- **Then:** Issue #6 (deploy + APNs — note #6a accounts/auth is CUT per ADR-0001; only #6b Railway deploy + #6c device-keyed push remain)
 - **Parallel:** Issue #7 (marine data), Issue #8 (`requireTrue` flag type)
