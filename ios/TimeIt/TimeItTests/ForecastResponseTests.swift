@@ -49,4 +49,16 @@ final class ForecastResponseTests: XCTestCase {
         XCTAssertEqual(forecast.hours[0].rainFall, 0)
         XCTAssertEqual(forecast.hours[0].cloudCover, 15)
     }
+
+    // Regression (live-verify 2026-07-12): Meteosource returns uv_index: null at
+    // night. uV was typed non-nullable, so a single null uV threw and blanked the
+    // WHOLE dashboard. The decoder is now null-tolerant on every metric.
+    func testNullUVDecodesToNilWithoutFailingTheWholeResponse() throws {
+        let forecast = try Fixtures.decodeForecast() // hour 2 has uV: null
+        XCTAssertEqual(forecast.hours.count, 60, "a null uV must not abort the decode")
+        XCTAssertNil(forecast.hours[2].uV)
+        XCTAssertEqual(forecast.hours[2].formatted(for: "uV"), "—")
+        // a present uV still decodes
+        XCTAssertEqual(forecast.hours[0].uV, 3)
+    }
 }

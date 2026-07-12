@@ -24,7 +24,11 @@ const meteosourceAdapter = {
   rainFall:   (h) => h.precipitation?.total ?? null,
   cloudCover: (h) => h.cloud_cover?.total ?? null,
   visibility: (h) => h.visibility,
-  uV:         (h) => h.uv_index,
+  // Meteosource returns uv_index: null at night (no UV after dark). Default to 0
+  // — nighttime UV genuinely IS 0, so this keeps uV a non-nullable number on the
+  // wire (per the contract) rather than passing a null the way the wind/rain/cloud
+  // trio does (where 0 would be a false reading, so those stay nullable).
+  uV:         (h) => h.uv_index ?? 0,
   dustAlert:  (h) => typeof h.weather === "string" && h.weather.includes("sandstorm"),
 };
 

@@ -30,13 +30,15 @@ final class TimeItUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts["Sign In"].exists)
     }
 
-    func testHeaderShowsPlaceholdersAndGear() {
+    func testHeaderShowsCurrentConditionsAndGear() {
         let app = launchApp()
 
         XCTAssertTrue(app.staticTexts["headerTime"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["—°C"].exists)
-        XCTAssertTrue(app.staticTexts["— km/h"].exists)
-        XCTAssertTrue(app.staticTexts["—%"].exists)
+        // The mock fixture's hours[0] is temp 24 / wind 10 / humidity 40 — the
+        // header renders the location's current-hour conditions from hours.first.
+        XCTAssertTrue(app.staticTexts["24°C"].exists)
+        XCTAssertTrue(app.staticTexts["10 km/h"].exists)
+        XCTAssertTrue(app.staticTexts["40%"].exists)
         XCTAssertTrue(app.buttons["settingsGear"].exists, "top-right gear, not a sign-in button")
     }
 

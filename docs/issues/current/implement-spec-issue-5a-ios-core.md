@@ -90,8 +90,7 @@ All response models are `Decodable`; field names must match the JSON keys the ba
 
 **`HourlyWeather`** — one hourly forecast entry. Fields:
 - `index: Int` — `0..N-1`, position in `hours[]`. **There is no `hour` field** — it was dropped (ADR-0004); the client derives clock times from `forecastStart` + `timezone` + `index`.
-- `temp: Double`, `humidity: Double`, `visibility: Double`, `uV: Double`
-- `windSpeed: Double?`, `rainFall: Double?`, `cloudCover: Double?` — **optional**; the backend returns JSON `null` when the upstream provider omits the field. Model as optionals.
+- `temp`, `humidity`, `visibility`, `uV`, `windSpeed`, `rainFall`, `cloudCover` — **all `Double?`**. Originally only the wind/rain/cloud trio was optional, but live-verification (2026-07-12) hit `uV: null` at night (Meteosource returns `uv_index: null` after dark) and a non-optional `uV` failed the *whole* `ForecastResponse` decode. The decoder is now **null-tolerant**: a custom `init(from:)` decodes every metric with `decodeIfPresent` (missing key OR JSON `null` → nil → renders "—"), and non-metric fields default (`moon` → `[]`, flags → `false`, placeholders → `0`); only `index` is required, so a single unexpected null can never blank the dashboard. (Backend-side the adapter also defaults `uv_index ?? 0` so `uV` stays a number on the wire — nighttime UV genuinely is 0.)
 - `moon: [String]`, `dustAlert: Bool`, `seaWarning: Bool`
 - `darkness: Double`, `douglasScale: Double`, `swellHeight: Double`, `swellLength: Double`, `tide: Double` — coming-soon placeholders; they decode as their placeholder values (`0`) and are shown only on the timeline, never thresholded (see §2.3).
 - Computed: `id` (alias of `index`).
@@ -168,7 +167,7 @@ Both satisfy `thresholds.keys ⊆ displayMetrics`, carry unique `id`s, set `requ
 
 Root view inside a single `NavigationStack`. Structure: gradient header → 0.5pt divider → scrollable card list. **No tab bar.** Settings is a **top-right gear** (`gearshape`) that presents a `SettingsView` sheet.
 
-**Header** — gradient, colours/measurements from the guidelines. Shows: current wall-clock time (large, bold), `—°C` placeholder, `— km/h` and `—%` placeholders. Top-right is the **gear** (Settings), **not** a sign-in button. The header ignores the top safe area so the gradient extends behind the status bar. (Live header weather is deferred to a later issue; placeholders stay.)
+**Header** — gradient, colours/measurements from the guidelines. Shows: current wall-clock time (large, bold), and the forecast location's **current-hour** temp / wind / humidity from `hours[0]` (`HeaderView(currentHour:)`, wired 2026-07-12 during live-verification — falls back to `—°C` / `— km/h` / `—%` while loading, on error, or when the provider omitted a metric). Top-right is the **gear** (Settings), **not** a sign-in button. The header keeps its content in the safe area (a control under the status bar is untappable) while the gradient extends behind it.
 
 **Content area** — three states driven by `vm`:
 - Loading: centred `ProgressView` labelled "Checking conditions…".
@@ -278,7 +277,7 @@ Minimal sheet reached from the header gear (grill Q9: ship only live controls; h
 - [ ] Zero build errors and warnings.
 - [ ] Dashboard opens directly — no sign-in, no gate, no tab bar.
 - [ ] App POSTs `{ lat, lon, activities[] }` with the two seed Templates; renders one card per returned activity in request order.
-- [ ] Header shows time and `—` placeholders; top-right gear opens Settings.
+- [ ] Header shows time and the current-hour temp/wind/humidity from `hours[0]` (`—` fallback while loading/error/null); top-right gear opens Settings.
 - [ ] Each card shows the **soonest-actionable** day (today if windowed, else earliest non-null day by name, else "no window in the next 7 days").
 - [ ] Chips show activity-specific metrics with colour tiers, values from the window start hour; nullable metrics render `"—"` when null.
 - [ ] Timeline highlights the Window green (Perfect) / orange (Good) / empty (No Window), positioned from **global** `startIndex`/`endIndex` (no hardcoded 7-day or fixed-axis assumptions).

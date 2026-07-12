@@ -1,10 +1,30 @@
 import SwiftUI
 
-/// Gradient dashboard header: current wall-clock time plus `—` weather
-/// placeholders (live header weather is deferred to a later issue). The
-/// top-right control is the Settings gear — there is no sign-in (ADR-0001).
+/// Gradient dashboard header: current wall-clock time plus the forecast
+/// location's current-hour weather (temp / wind / humidity from `hours[0]`).
+/// Values fall back to `—` while loading, on error, or when the provider
+/// omitted a metric. The top-right control is the Settings gear — there is
+/// no sign-in (ADR-0001).
 struct HeaderView: View {
+    /// The current forecast hour (`forecast.hours.first`); nil while loading
+    /// or on error, in which case the placeholders show.
+    let currentHour: HourlyWeather?
     let onGearTap: () -> Void
+
+    private var tempText: String {
+        guard let t = currentHour?.temp else { return "—°C" }
+        return "\(Int(t.rounded()))°C"
+    }
+
+    private var windText: String {
+        guard let w = currentHour?.windSpeed else { return "— km/h" }
+        return "\(Int(w.rounded())) km/h"
+    }
+
+    private var humidityText: String {
+        guard let h = currentHour?.humidity else { return "—%" }
+        return "\(Int(h.rounded()))%"
+    }
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
@@ -17,24 +37,25 @@ struct HeaderView: View {
                         .accessibilityIdentifier("headerTime")
                 }
 
-                Text("—°C")
+                Text(tempText)
                     .font(.system(size: 28, weight: .light))
                     .tracking(-0.5)
                     .foregroundStyle(.white.opacity(0.92))
+                    .accessibilityIdentifier("headerTemp")
 
                 HStack(spacing: 24) {
                     HStack(spacing: 5) {
                         Image(systemName: "wind")
                             .font(.system(size: 12))
                             .accessibilityLabel("Wind")
-                        Text("— km/h")
+                        Text(windText)
                     }
 
                     HStack(spacing: 5) {
                         Image(systemName: "humidity.fill")
                             .font(.system(size: 12))
                             .accessibilityLabel("Humidity")
-                        Text("—%")
+                        Text(humidityText)
                     }
                 }
                 .font(.system(size: 13))

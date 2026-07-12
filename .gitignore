@@ -22,6 +22,8 @@ DerivedData/
 *.dSYM
 .build/
 .swiftpm/
+# Xcode DerivedData from `xcodebuild -derivedDataPath build`
+ios/TimeIt/build/
 
 # IDE files
 .vscode/

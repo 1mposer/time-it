@@ -13,7 +13,7 @@ struct DashboardView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                HeaderView { showSettings = true }
+                HeaderView(currentHour: viewModel.forecast?.hours.first) { showSettings = true }
                 Theme.divider
                     .frame(height: 0.5)
                 content

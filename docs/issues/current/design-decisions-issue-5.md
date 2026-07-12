@@ -19,7 +19,7 @@
 - Thin 0.5px divider below the header.
 - Scrollable vertical list of activity cards, one per activity the client POSTs, in **request order**. The list is the user's personalised activity list — activities can be added/removed via the ghost add-card + authoring sheet (#5b).
 - Background colour: `#f2f2f7` (iOS system grouped background).
-- Header weather values (temp, wind, humidity) are `—` placeholders in #5a. Live values from current-hour API data are deferred to a later issue.
+- Header weather values (temp, wind, humidity) are the forecast location's **current-hour** values from `hours[0]` (wired 2026-07-12 during #5a live-verification), rendered by `HeaderView(currentHour:)`. They fall back to `—` placeholders while loading, on error, or when the provider omitted a metric.
 
 ## Activity card (face)
 

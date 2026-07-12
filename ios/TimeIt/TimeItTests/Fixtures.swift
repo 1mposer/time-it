@@ -10,7 +10,8 @@ enum Fixtures {
                          humidity: Double = 40,
                          windSpeed: String = "10",
                          rainFall: String = "0",
-                         cloudCover: String = "15") -> String {
+                         cloudCover: String = "15",
+                         uV: String = "3") -> String {
         """
         {
           "index": \(index),
@@ -21,7 +22,7 @@ enum Fixtures {
           "cloudCover": \(cloudCover),
           "visibility": 10,
           "moon": ["waxing crescent"],
-          "uV": 3,
+          "uV": \(uV),
           "dustAlert": false,
           "darkness": 0,
           "douglasScale": 0,
@@ -63,11 +64,14 @@ enum Fixtures {
 
     static func forecastResponseJSON(hourCount: Int = 60) -> String {
         let hours = (0..<hourCount).map { i in
-            // hour 1 exercises the nullable trio (provider omitted the fields → JSON null)
+            // hour 1 exercises the nullable trio (provider omitted the fields → JSON null);
+            // hour 2 exercises a null uV (Meteosource returns uv_index: null at night) —
+            // the live regression: it must decode to nil, not fail the whole response.
             hourJSON(index: i,
                      windSpeed: i == 1 ? "null" : "10",
                      rainFall: i == 1 ? "null" : "0",
-                     cloudCover: i == 1 ? "null" : "15")
+                     cloudCover: i == 1 ? "null" : "15",
+                     uV: i == 2 ? "null" : "3")
         }.joined(separator: ",\n")
         return """
         {
@@ -89,10 +93,10 @@ enum Fixtures {
     // MARK: - In-memory model builders (for ViewModel tests)
 
     static func makeHour(index: Int,
-                         temp: Double = 24,
-                         humidity: Double = 40,
-                         visibility: Double = 10,
-                         uV: Double = 3,
+                         temp: Double? = 24,
+                         humidity: Double? = 40,
+                         visibility: Double? = 10,
+                         uV: Double? = 3,
                          windSpeed: Double? = 10,
                          rainFall: Double? = 0,
                          cloudCover: Double? = 15) -> HourlyWeather {

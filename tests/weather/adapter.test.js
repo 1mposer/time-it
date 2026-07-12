@@ -53,6 +53,26 @@ test('cloudCover returns null when cloud_cover is an object without .total (A3)'
   assert.equal(meteosourceAdapter.cloudCover({ cloud_cover: { low: 5, mid: 0 } }), null);
 });
 
+// ---------- uV (night-null guard) ----------
+
+test('uV returns the value when uv_index is present', () => {
+  assert.equal(meteosourceAdapter.uV({ uv_index: 6 }), 6);
+});
+
+test('uV preserves a real zero (daytime edge / dawn)', () => {
+  assert.equal(meteosourceAdapter.uV({ uv_index: 0 }), 0);
+});
+
+test('uV defaults to 0 when uv_index is null (Meteosource returns null at night)', () => {
+  // The live bug: uv_index is null after dark; passing it through emitted a null
+  // that broke the iOS decoder (uV typed non-nullable) and blanked the dashboard.
+  assert.equal(meteosourceAdapter.uV({ uv_index: null }), 0);
+});
+
+test('uV defaults to 0 when uv_index is absent', () => {
+  assert.equal(meteosourceAdapter.uV({}), 0);
+});
+
 // ---------- timezone (ADR-0003 — location IANA zone) ----------
 
 test('timezone extracts the top-level forecast-location IANA zone', () => {
