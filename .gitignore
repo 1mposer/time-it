@@ -35,6 +35,10 @@ ios/TimeIt/build/
 # Generated review reports
 docs/review/out/
 
+# WIP alternate weather-provider (IQAir) experiment — not ready to merge
+cli-iqair.js
+src/weather/adapters/iqair.js
+
 # Claude Code local tooling — not committed
 .claude/settings.local.json
 .claude/projects/
