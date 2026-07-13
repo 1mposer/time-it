@@ -85,7 +85,7 @@ A `Codable`, `Identifiable`, value-type model — the editable source of truth f
 
 **Projection to the wire:** `AuthoredActivity` maps to the existing `ActivityInput` by dropping UI-only fields (`iconSymbol`, `templateOrigin`) and including `window` only when non-nil. `Threshold` is the existing #5a `Encodable` (numeric `{ min?, max?, required }` with ≥1 bound, or flag `{ type:"flag", forbidTrue:true, required }`).
 
-**Icon resolution:** the #5a card derives the icon partly via `label.contains("fishing")`; #5b makes the icon **explicit** (`iconSymbol`). The card should prefer `iconSymbol` and keep the `contains` heuristic only as a legacy fallback.
+**Icon resolution:** the #5a card derives the icon partly via `label.contains("fishing")`; #5b makes the icon **explicit** (`iconSymbol`). The card should prefer `iconSymbol` and keep the `contains` heuristic only as a legacy fallback. **Icon rendering is a seam:** draw every activity and metric icon through one `ActivityIconView(identifier:)` (or equivalent) that resolves a slot identifier to its glyph, rather than inline `Image(systemName:)` scattered across the card, detail, header, and settings views. This is not a spec expansion — SF Symbols stay exactly as-is for now (no third-party packages, iOS 17+) — but funnelling all icon drawing through one view makes a future icon redesign (custom asset-catalog art, or animated Lottie once the no-package rule is deliberately relaxed) a one-file change instead of a scatter-hunt. **Do not add Lottie or any animation library in #5b.**
 
 ---
 
