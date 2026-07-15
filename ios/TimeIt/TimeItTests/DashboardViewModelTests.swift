@@ -10,6 +10,7 @@ final class FakeRatingService: RatingFetching {
     private(set) var capturedLat: Double?
     private(set) var capturedLon: Double?
     private(set) var capturedActivities: [ActivityInput]?
+    private(set) var fetchCount = 0
 
     init(result: Result<ForecastResponse, Error>) {
         self.result = result
@@ -19,6 +20,7 @@ final class FakeRatingService: RatingFetching {
         capturedLat = lat
         capturedLon = lon
         capturedActivities = activities
+        fetchCount += 1
         if let onFetch {
             await MainActor.run { onFetch() }
         }
@@ -45,19 +47,38 @@ final class FakeLocationProvider: LocationProviding {
 @MainActor
 final class DashboardViewModelTests: XCTestCase {
 
+    private var defaults: UserDefaults!
+    private var suiteName: String!
+
+    override func setUp() {
+        super.setUp()
+        suiteName = "DashboardViewModelTests-\(UUID().uuidString)"
+        defaults = UserDefaults(suiteName: suiteName)
+    }
+
+    override func tearDown() {
+        defaults.removePersistentDomain(forName: suiteName)
+        super.tearDown()
+    }
+
     private func makeVM(result: Result<ForecastResponse, Error>,
-                        location: CLLocation? = nil) -> (DashboardViewModel, FakeRatingService, FakeLocationProvider) {
+                        location: CLLocation? = nil,
+                        seeds: [AuthoredActivity] = SeedTemplates.firstLaunchSeeds)
+        -> (DashboardViewModel, FakeRatingService, FakeLocationProvider, ActivityStore, PreferencesStore) {
         let api = FakeRatingService(result: result)
         let locationProvider = FakeLocationProvider(location: location)
-        let vm = DashboardViewModel(api: api, locationProvider: locationProvider)
-        return (vm, api, locationProvider)
+        let store = ActivityStore(defaults: defaults, seeds: seeds)
+        let preferences = PreferencesStore(defaults: defaults)
+        let vm = DashboardViewModel(api: api, locationProvider: locationProvider,
+                                    store: store, preferences: preferences)
+        return (vm, api, locationProvider, store, preferences)
     }
 
     // MARK: loadForecast
 
     func testLoadForecastSuccessSetsForecast() async throws {
         let forecast = Fixtures.makeForecast(activities: [Fixtures.makeActivity(days: [Fixtures.makeDay(dayIndex: 0)])])
-        let (vm, api, _) = makeVM(result: .success(forecast))
+        let (vm, api, _, _, _) = makeVM(result: .success(forecast))
         api.onFetch = { [weak vm] in
             XCTAssertEqual(vm?.isLoading, true, "isLoading must be true while the request is in flight")
         }
@@ -70,7 +91,7 @@ final class DashboardViewModelTests: XCTestCase {
     }
 
     func testProviderUnavailableMapsToTransientMessage() async {
-        let (vm, _, _) = makeVM(result: .failure(APIError.providerUnavailable))
+        let (vm, _, _, _, _) = makeVM(result: .failure(APIError.providerUnavailable))
 
         await vm.loadForecast()
 
@@ -81,7 +102,7 @@ final class DashboardViewModelTests: XCTestCase {
     }
 
     func testServerErrorMapsToDistinctMessage() async {
-        let (vm, _, _) = makeVM(result: .failure(APIError.serverError(statusCode: 500)))
+        let (vm, _, _, _, _) = makeVM(result: .failure(APIError.serverError(statusCode: 500)))
 
         await vm.loadForecast()
 
@@ -92,8 +113,20 @@ final class DashboardViewModelTests: XCTestCase {
                           "502 and 500 must surface differently")
     }
 
+    func testValidationRejectionSurfacesOffendingActivity() async {
+        let error = APIError.validationRejected(message: "\"Stargazing\" was rejected by the server: min greater than max")
+        let (vm, _, _, _, _) = makeVM(result: .failure(error))
+
+        await vm.loadForecast()
+
+        XCTAssertEqual(vm.errorMessage, error.userMessage)
+        XCTAssertTrue(vm.errorMessage?.contains("Stargazing") == true,
+                      "the 400 backstop names the offending Activity (#5b §7)")
+        XCTAssertFalse(vm.isTransientError)
+    }
+
     func testConnectionFailureSetsErrorMessage() async {
-        let (vm, _, _) = makeVM(result: .failure(URLError(.cannotConnectToHost)))
+        let (vm, _, _, _, _) = makeVM(result: .failure(URLError(.cannotConnectToHost)))
 
         await vm.loadForecast()
 
@@ -102,11 +135,11 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertFalse(vm.isLoading)
     }
 
-    // MARK: location
+    // MARK: location resolution — home → GPS → Dubai
 
     func testFallsBackToDubaiWhenLocationNil() async {
         let forecast = Fixtures.makeForecast(activities: [])
-        let (vm, api, locationProvider) = makeVM(result: .success(forecast), location: nil)
+        let (vm, api, locationProvider, _, _) = makeVM(result: .success(forecast), location: nil)
 
         await vm.loadForecast()
 
@@ -117,8 +150,8 @@ final class DashboardViewModelTests: XCTestCase {
 
     func testUsesDeviceLocationWhenAvailable() async {
         let forecast = Fixtures.makeForecast(activities: [])
-        let (vm, api, _) = makeVM(result: .success(forecast),
-                                  location: CLLocation(latitude: 24.4539, longitude: 54.3773))
+        let (vm, api, _, _, _) = makeVM(result: .success(forecast),
+                                        location: CLLocation(latitude: 24.4539, longitude: 54.3773))
 
         await vm.loadForecast()
 
@@ -126,12 +159,112 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertEqual(api.capturedLon, 54.3773)
     }
 
-    func testSendsSeedTemplates() async {
-        let (vm, api, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])))
+    func testHomeLocationWinsOverGPS() async {
+        let forecast = Fixtures.makeForecast(activities: [])
+        let (vm, api, _, _, preferences) = makeVM(result: .success(forecast),
+                                                  location: CLLocation(latitude: 24.4539, longitude: 54.3773))
+        preferences.homeLocation = SavedLocation(name: "Ras Al Khaimah", lat: 25.8007, lon: 55.9762)
 
         await vm.loadForecast()
 
-        XCTAssertEqual(api.capturedActivities?.map(\.id), ["cycling", "fishing-lite"])
+        XCTAssertEqual(api.capturedLat, 25.8007)
+        XCTAssertEqual(api.capturedLon, 55.9762)
+    }
+
+    // MARK: activities come from the store
+
+    func testPostsTheStoreActivitiesOnFirstLaunch() async {
+        let (vm, api, _, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])))
+
+        await vm.loadForecast()
+
+        XCTAssertEqual(api.capturedActivities?.map(\.id), ["cycling", "fishing-lite"],
+                       "first launch POSTs the seeded Templates — identical to the #5a dashboard")
+    }
+
+    func testProjectsAuthoredWindowIntoTheRequest() async throws {
+        let (vm, api, _, store, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])), seeds: [])
+        store.add(AuthoredActivity(id: "n1", label: "Stargazing", iconSymbol: "moon.stars.fill",
+                                   templateOrigin: nil,
+                                   displayMetrics: ["cloudCover"],
+                                   thresholds: ["cloudCover": Threshold(max: 20, required: true)],
+                                   window: WindowSpec(startHour: 22, endHour: 4)))
+
+        await vm.loadForecast()
+
+        let sent = try XCTUnwrap(api.capturedActivities?.first)
+        XCTAssertEqual(sent.window?.startHour, 22)
+        XCTAssertEqual(sent.window?.endHour, 4)
+    }
+
+    // MARK: empty-list state — never POST an empty activities[]
+
+    func testEmptyStoreSkipsThePostEntirely() async {
+        let (vm, api, _, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])), seeds: [])
+
+        await vm.loadForecast()
+
+        XCTAssertEqual(api.fetchCount, 0, "ADR-0005 requires non-empty activities — no POST when the list is empty")
+        XCTAssertNil(vm.forecast)
+        XCTAssertNil(vm.errorMessage)
+        XCTAssertFalse(vm.isLoading)
+        XCTAssertFalse(vm.hasActivities)
+    }
+
+    func testHasActivitiesReflectsStore() {
+        let (vm, _, _, store, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])))
+
+        XCTAssertTrue(vm.hasActivities)
+        store.delete(id: "cycling")
+        store.delete(id: "fishing-lite")
+        XCTAssertFalse(vm.hasActivities)
+    }
+
+    // MARK: store mutations trigger a refetch
+
+    func testStoreMutationTriggersRefetch() async {
+        let (vm, api, _, store, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])))
+        await vm.loadForecast()
+        XCTAssertEqual(api.fetchCount, 1)
+
+        let refetch = expectation(description: "store mutation triggers a refetch")
+        api.onFetch = { refetch.fulfill() }
+        store.add(AuthoredActivity(id: "p1", label: "Padel", iconSymbol: "questionmark.circle",
+                                   templateOrigin: nil,
+                                   displayMetrics: ["temp"],
+                                   thresholds: [:],
+                                   window: nil))
+
+        await fulfillment(of: [refetch], timeout: 2)
+        XCTAssertEqual(api.capturedActivities?.map(\.id), ["cycling", "fishing-lite", "p1"])
+    }
+
+    func testHomeLocationChangeTriggersRefetch() async {
+        let (vm, api, _, _, preferences) = makeVM(result: .success(Fixtures.makeForecast(activities: [])))
+        await vm.loadForecast()
+
+        let refetch = expectation(description: "home-location change triggers a refetch")
+        api.onFetch = { refetch.fulfill() }
+        preferences.homeLocation = SavedLocation(name: "Fujairah", lat: 25.1288, lon: 56.3265)
+
+        await fulfillment(of: [refetch], timeout: 2)
+        XCTAssertEqual(api.capturedLat, 25.1288)
+    }
+
+    // MARK: authored-activity lookups (icon + nocturnal labels)
+
+    func testAuthoredLookupExposesIconAndNocturnality() {
+        let (vm, _, _, store, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])), seeds: [])
+        store.add(AuthoredActivity(id: "n1", label: "Stargazing", iconSymbol: "moon.stars.fill",
+                                   templateOrigin: nil,
+                                   displayMetrics: ["cloudCover"],
+                                   thresholds: [:],
+                                   window: WindowSpec(startHour: 22, endHour: 4)))
+
+        XCTAssertEqual(vm.iconSymbol(forActivityId: "n1"), "moon.stars.fill")
+        XCTAssertTrue(vm.isNocturnal(activityId: "n1"))
+        XCTAssertFalse(vm.isNocturnal(activityId: "unknown"))
+        XCTAssertNil(vm.iconSymbol(forActivityId: "unknown"))
     }
 
     // MARK: cardDay — soonest-actionable, not best
@@ -141,7 +274,7 @@ final class DashboardViewModelTests: XCTestCase {
             Fixtures.makeDay(dayIndex: 0, rating: "good", startIndex: 1, endIndex: 3, duration: 2),
             Fixtures.makeDay(dayIndex: 1, rating: "perfect", startIndex: 30, endIndex: 35, duration: 5),
         ]
-        let (vm, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])))
+        let (vm, _, _, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])))
 
         let day = vm.cardDay(for: Fixtures.makeActivity(days: days))
 
@@ -156,7 +289,7 @@ final class DashboardViewModelTests: XCTestCase {
             Fixtures.makeDay(dayIndex: 2, rating: "good", startIndex: 52, endIndex: 55, duration: 3),
             Fixtures.makeDay(dayIndex: 3, rating: "perfect", startIndex: 80, endIndex: 90, duration: 10),
         ]
-        let (vm, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])))
+        let (vm, _, _, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])))
 
         let day = vm.cardDay(for: Fixtures.makeActivity(days: days))
 
@@ -165,7 +298,7 @@ final class DashboardViewModelTests: XCTestCase {
 
     func testCardDayReturnsNilWhenAllDaysNil() {
         let days = (0..<8).map { Fixtures.makeDay(dayIndex: $0) }
-        let (vm, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])))
+        let (vm, _, _, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])))
 
         XCTAssertNil(vm.cardDay(for: Fixtures.makeActivity(days: days)))
     }
@@ -174,14 +307,14 @@ final class DashboardViewModelTests: XCTestCase {
 
     func testWindowStartHourUsesGlobalIndex() async {
         let day = Fixtures.makeDay(dayIndex: 2, rating: "good", startIndex: 52, endIndex: 55, duration: 3)
-        let (vm, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [], hourCount: 60)))
+        let (vm, _, _, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [], hourCount: 60)))
         await vm.loadForecast()
 
         XCTAssertEqual(vm.windowStartHour(for: day)?.index, 52)
     }
 
     func testWindowStartHourNilWhenNoIndices() async {
-        let (vm, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])))
+        let (vm, _, _, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])))
         await vm.loadForecast()
 
         XCTAssertNil(vm.windowStartHour(for: Fixtures.makeDay(dayIndex: 1)))
@@ -189,7 +322,7 @@ final class DashboardViewModelTests: XCTestCase {
 
     func testWindowStartHourNilWhenOutOfRange() async {
         let day = Fixtures.makeDay(dayIndex: 0, rating: "good", startIndex: 99, endIndex: 104, duration: 5)
-        let (vm, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [], hourCount: 60)))
+        let (vm, _, _, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [], hourCount: 60)))
         await vm.loadForecast()
 
         XCTAssertNil(vm.windowStartHour(for: day))
@@ -197,7 +330,7 @@ final class DashboardViewModelTests: XCTestCase {
 
     func testWindowHoursReturnsHalfOpenSlice() async {
         let day = Fixtures.makeDay(dayIndex: 2, rating: "good", startIndex: 52, endIndex: 55, duration: 3)
-        let (vm, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [], hourCount: 60)))
+        let (vm, _, _, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [], hourCount: 60)))
         await vm.loadForecast()
 
         let hours = vm.windowHours(for: day)
@@ -206,7 +339,7 @@ final class DashboardViewModelTests: XCTestCase {
     }
 
     func testWindowHoursEmptyWhenIndicesNilOrOutOfRange() async {
-        let (vm, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [], hourCount: 60)))
+        let (vm, _, _, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [], hourCount: 60)))
         await vm.loadForecast()
 
         XCTAssertTrue(vm.windowHours(for: Fixtures.makeDay(dayIndex: 0)).isEmpty)

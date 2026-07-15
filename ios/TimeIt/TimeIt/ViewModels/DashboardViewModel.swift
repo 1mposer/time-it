@@ -1,3 +1,4 @@
+import Combine
 import CoreLocation
 import Foundation
 
@@ -16,42 +17,121 @@ final class DashboardViewModel: ObservableObject {
 
     private let api: RatingFetching
     private let locationProvider: LocationProviding
-    private let activities: [ActivityInput]
+    /// Exposed so views mutate and observe the SAME store the requests are
+    /// built from — a separately-injected copy would silently diverge.
+    let store: ActivityStore
+    private let preferences: PreferencesStore
+    private var cancellables: Set<AnyCancellable> = []
+    /// Monotonic guard: only the newest in-flight load may publish its result,
+    /// so a slow pre-mutation response can't overwrite a newer one.
+    private var loadGeneration = 0
 
     init(api: RatingFetching = APIClient.shared,
          locationProvider: LocationProviding? = nil,
-         activities: [ActivityInput] = SeedTemplates.all) {
+         store: ActivityStore? = nil,
+         preferences: PreferencesStore? = nil) {
         self.api = api
-        // Resolved here, not as a default argument — LocationManager.shared is
+        // Resolved here, not as default arguments — the shared singletons are
         // main-actor-isolated and default arguments evaluate in the caller's context.
         self.locationProvider = locationProvider ?? LocationManager.shared
-        self.activities = activities
+        self.store = store ?? ActivityStore.shared
+        self.preferences = preferences ?? PreferencesStore.shared
+
+        // Any store mutation (add/edit/delete/reorder) or home-location change
+        // re-rates the dashboard (#5b §6). dropFirst skips the seed/initial
+        // publish — the view's initial .task drives the first load.
+        self.store.$activities
+            .dropFirst()
+            .removeDuplicates()
+            .sink { [weak self] _ in
+                Task { await self?.loadForecast() }
+            }
+            .store(in: &cancellables)
+        self.preferences.$homeLocation
+            .dropFirst()
+            .removeDuplicates()
+            .sink { [weak self] _ in
+                Task { await self?.loadForecast() }
+            }
+            .store(in: &cancellables)
     }
 
     var timeDeriver: TimeDeriver? {
         forecast.flatMap { TimeDeriver(forecastStart: $0.forecastStart, timezone: $0.timezone) }
     }
 
+    /// False once the user deletes their last Activity — the dashboard shows
+    /// the empty state instead of POSTing an empty activities[] (ADR-0005
+    /// requires non-empty).
+    var hasActivities: Bool { !store.activities.isEmpty }
+
     func loadForecast() async {
-        locationProvider.requestLocation()
+        loadGeneration += 1
+        let generation = loadGeneration
+
+        guard hasActivities else {
+            // Never POST an empty activities[] — show the empty state.
+            forecast = nil
+            errorMessage = nil
+            isTransientError = false
+            isLoading = false
+            return
+        }
 
         isLoading = true
         errorMessage = nil
         isTransientError = false
 
-        let coordinate = locationProvider.location?.coordinate ?? Self.fallbackCoordinate
+        // Warm the GPS fix on every load (even while a home location covers
+        // this fetch) so clearing the home falls back to a real fix, not Dubai.
+        locationProvider.requestLocation()
+
+        let coordinate = resolveCoordinate()
+        let activities = store.activities.map(\.activityInput)
         do {
-            forecast = try await api.fetchRatings(lat: coordinate.latitude,
-                                                  lon: coordinate.longitude,
-                                                  activities: activities)
+            let result = try await api.fetchRatings(lat: coordinate.latitude,
+                                                    lon: coordinate.longitude,
+                                                    activities: activities)
+            guard generation == loadGeneration else { return }
+            forecast = result
         } catch let error as APIError {
+            guard generation == loadGeneration else { return }
             errorMessage = error.userMessage
             isTransientError = error.isTransient
         } catch {
+            guard generation == loadGeneration else { return }
             errorMessage = "Unable to reach the server. Check that it's running and try again."
             isTransientError = true
         }
         isLoading = false
+    }
+
+    /// Coordinate resolution (#5b §6): home location → device GPS → Dubai.
+    private func resolveCoordinate() -> CLLocationCoordinate2D {
+        if let home = preferences.homeLocation {
+            return CLLocationCoordinate2D(latitude: home.lat, longitude: home.lon)
+        }
+        return locationProvider.location?.coordinate ?? Self.fallbackCoordinate
+    }
+
+    // MARK: authored-activity lookups (icon + nocturnal labels)
+
+    /// The authored source of a response activity, matched by the echoed id.
+    func authoredActivity(forActivityId activityId: String) -> AuthoredActivity? {
+        store.activities.first { $0.id == activityId }
+    }
+
+    /// Explicit icon from the authored model; nil lets the view fall back to
+    /// the legacy label heuristic (#5b §2).
+    func iconSymbol(forActivityId activityId: String) -> String? {
+        authoredActivity(forActivityId: activityId)?.iconSymbol
+    }
+
+    /// Nocturnality comes from the authored wrapped window — the client knows
+    /// it authored the window it sent (ADR-0004 amendment); it drives the
+    /// "Tonight"/"… night" day labels.
+    func isNocturnal(activityId: String) -> Bool {
+        authoredActivity(forActivityId: activityId)?.isNocturnal ?? false
     }
 
     /// The card's day: soonest-actionable, NOT best — the first day with any

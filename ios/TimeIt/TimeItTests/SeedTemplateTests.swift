@@ -1,8 +1,10 @@
 import XCTest
 @testable import TimeIt
 
-/// Tripwire: a seed Template with an invalid body silently 400s the WHOLE dashboard
-/// (validation is atomic server-side). Pins the ADR-0005 invariants on the shipped seeds.
+/// Tripwire: a Template with an invalid body silently 400s the WHOLE dashboard
+/// (validation is atomic server-side). Pins the ADR-0005 invariants on the
+/// Template catalog (#5b §4.1) — every curated starting point must be a valid
+/// body, because a template copy is saved (and POSTed) with minimal edits.
 final class SeedTemplateTests: XCTestCase {
 
     /// Live metrics per src/weather/metricCatalog.js — the only metrics a request may use.
@@ -11,12 +13,17 @@ final class SeedTemplateTests: XCTestCase {
         "visibility", "uV", "moon", "dustAlert",
     ]
 
-    func testShipsTwoSeedsInOrder() {
-        XCTAssertEqual(SeedTemplates.all.map(\.id), ["cycling", "fishing-lite"])
-        XCTAssertEqual(SeedTemplates.all.map(\.label), ["Cycling", "Fishing Lite"])
+    func testTemplateCatalogShipsInOrder() {
+        XCTAssertEqual(SeedTemplates.all.map(\.id), ["cycling", "fishing-lite", "running", "stargazing"])
+        XCTAssertEqual(SeedTemplates.all.map(\.label), ["Cycling", "Fishing Lite", "Running", "Stargazing"])
     }
 
-    func testIdsAreUniqueWithinRequest() {
+    func testFirstLaunchSeedsAreTheTwo5aTemplates() {
+        XCTAssertEqual(SeedTemplates.firstLaunchSeeds.map(\.id), ["cycling", "fishing-lite"],
+                       "first launch must match the #5a dashboard exactly")
+    }
+
+    func testIdsAreUniqueWithinCatalog() {
         let ids = SeedTemplates.all.map(\.id)
         XCTAssertEqual(Set(ids).count, ids.count)
     }
@@ -41,25 +48,43 @@ final class SeedTemplateTests: XCTestCase {
         }
     }
 
-    func testDisplayMetricsNonEmpty() {
+    func testDisplayMetricsLabelIdAndIconNonEmpty() {
         for activity in SeedTemplates.all {
             XCTAssertFalse(activity.displayMetrics.isEmpty)
             XCTAssertFalse(activity.label.isEmpty)
             XCTAssertFalse(activity.id.isEmpty)
+            XCTAssertFalse(activity.iconSymbol.isEmpty, "\(activity.id) needs a manifest icon (#5b §2)")
         }
     }
 
     func testNumericThresholdsCarryAtLeastOneBound() {
         for activity in SeedTemplates.all {
-            for (metric, threshold) in activity.thresholds {
+            for (metric, threshold) in activity.thresholds where threshold.type == nil {
                 XCTAssertTrue(threshold.min != nil || threshold.max != nil,
                               "\(activity.id).\(metric) is bound-less — hard 400")
             }
         }
     }
 
+    func testEveryTemplateIsAValidADR0005Body() {
+        for activity in SeedTemplates.all {
+            XCTAssertTrue(activity.isValid,
+                          "\(activity.id) fails client validation: \(activity.validationIssues)")
+        }
+    }
+
+    func testNocturnalTemplateHasAValidWrapWindow() {
+        let stargazing = SeedTemplates.all.first { $0.id == "stargazing" }
+        let window = stargazing?.window
+
+        XCTAssertNotNil(window, "the catalog needs a nocturnal Template to exercise the night-stitch")
+        XCTAssertGreaterThan(window?.startHour ?? 0, window?.endHour ?? 0, "wrap = startHour > endHour")
+        XCTAssertEqual(stargazing?.isNocturnal, true)
+    }
+
     func testEncodedBodyMatchesADR0005() throws {
-        let request = RatingRequest(lat: 25.1627, lon: 55.2077, activities: SeedTemplates.all)
+        let request = RatingRequest(lat: 25.1627, lon: 55.2077,
+                                    activities: SeedTemplates.all.map(\.activityInput))
         let data = try JSONEncoder().encode(request)
         let body = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
 
@@ -67,14 +92,19 @@ final class SeedTemplateTests: XCTestCase {
         XCTAssertEqual(body["lon"] as? Double, 55.2077)
 
         let activities = try XCTUnwrap(body["activities"] as? [[String: Any]])
-        XCTAssertEqual(activities.count, 2)
+        XCTAssertEqual(activities.count, 4)
 
         for activity in activities {
-            XCTAssertNil(activity["window"], "#5a seeds are diurnal — the window key must be omitted entirely")
             let thresholds = try XCTUnwrap(activity["thresholds"] as? [String: [String: Any]])
             for (metric, threshold) in thresholds {
                 XCTAssertNotNil(threshold["required"], "\(metric) threshold is missing required — hard 400")
                 XCTAssertTrue(threshold["required"] is Bool)
+            }
+            if activity["id"] as? String == "stargazing" {
+                let window = try XCTUnwrap(activity["window"] as? [String: Any], "the nocturnal template sends its window")
+                XCTAssertTrue((window["startHour"] as? Int ?? 0) > (window["endHour"] as? Int ?? 0))
+            } else {
+                XCTAssertNil(activity["window"], "diurnal templates omit the window key entirely")
             }
         }
     }

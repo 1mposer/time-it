@@ -2,12 +2,21 @@ import SwiftUI
 
 /// Root surface: gradient header → 0.5pt divider → scrollable card list.
 /// Single NavigationStack, no tab bar, no sign-in gate (ADR-0001, grill Q8).
+/// #5b: cards are the user's authored list (ActivityStore); a ghost add-card
+/// opens the add flow; each card's gear opens the editor.
 struct DashboardView: View {
     @StateObject private var viewModel: DashboardViewModel
+    @ObservedObject private var store: ActivityStore
     @State private var showSettings = false
+    @State private var showAdd = false
+    @State private var editing: AuthoredActivity?
 
+    @MainActor
     init(viewModel: DashboardViewModel) {
         _viewModel = StateObject(wrappedValue: viewModel)
+        // Always the view model's store — mutations must hit the same list the
+        // POST body is built from (two separately-defaulted stores diverge).
+        _store = ObservedObject(wrappedValue: viewModel.store)
     }
 
     var body: some View {
@@ -23,13 +32,26 @@ struct DashboardView: View {
             .sheet(isPresented: $showSettings) {
                 SettingsView()
             }
+            .sheet(isPresented: $showAdd) {
+                AddActivityView(store: store)
+            }
+            .sheet(item: $editing) { activity in
+                NavigationStack {
+                    ActivityEditorView(existing: activity,
+                                       isNew: false,
+                                       onSave: { store.update($0) },
+                                       onDelete: { store.delete(id: activity.id) })
+                }
+            }
         }
         .task { await viewModel.loadForecast() }
     }
 
     @ViewBuilder
     private var content: some View {
-        if viewModel.isLoading {
+        if !viewModel.hasActivities {
+            emptyState
+        } else if viewModel.isLoading {
             ProgressView("Checking conditions…")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if let message = viewModel.errorMessage {
@@ -39,6 +61,29 @@ struct DashboardView: View {
         } else {
             Color.clear
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+
+    /// No activities → no POST (ADR-0005 requires a non-empty activities[]);
+    /// the add-card stays as the way back in.
+    private var emptyState: some View {
+        ScrollView {
+            VStack(spacing: 12) {
+                Image(systemName: "plus.circle")
+                    .font(.system(size: 40))
+                    .foregroundStyle(Theme.secondaryText)
+                    .padding(.top, 48)
+                Text("No activities yet")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(Theme.primaryText)
+                Text("Add an activity to get started")
+                    .font(.system(size: 14))
+                    .foregroundStyle(Theme.secondaryText)
+                    .accessibilityIdentifier("emptyStateMessage")
+                addCard
+                    .padding(.top, 12)
+            }
+            .padding(14)
         }
     }
 
@@ -61,22 +106,74 @@ struct DashboardView: View {
     private func cardList(_ forecast: ForecastResponse) -> some View {
         ScrollView {
             LazyVStack(spacing: 10) {
-                // One card per returned activity, in request order.
+                // One card per returned activity, in request order (= store order).
                 ForEach(forecast.activities) { activity in
-                    NavigationLink {
-                        ActivityDetailView(activity: activity, viewModel: viewModel)
-                    } label: {
-                        card(for: activity, in: forecast)
+                    ZStack(alignment: .topTrailing) {
+                        NavigationLink {
+                            ActivityDetailView(activity: activity,
+                                               viewModel: viewModel,
+                                               isNocturnal: viewModel.isNocturnal(activityId: activity.activityId))
+                        } label: {
+                            card(for: activity, in: forecast)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("card.\(activity.activityId)")
+                        gearButton(for: activity)
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("card.\(activity.activityId)")
                 }
+                addCard
                 Spacer()
                     .frame(height: 12)
             }
             .padding(.top, 14)
             .padding(.horizontal, 14)
         }
+    }
+
+    /// The card gear — opens the editor for this Activity (#5b §1).
+    private func gearButton(for activity: ActivityRating) -> some View {
+        Button {
+            editing = viewModel.authoredActivity(forActivityId: activity.activityId)
+        } label: {
+            Image(systemName: "gearshape")
+                .font(.system(size: 15))
+                .foregroundStyle(Theme.secondaryText)
+                .frame(width: 34, height: 34)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.borderless)
+        .accessibilityLabel("Edit \(activity.label)")
+        .accessibilityIdentifier("gear.\(activity.activityId)")
+        .padding(.top, 6)
+        .padding(.trailing, 8)
+    }
+
+    /// The ghost add-card (design-decisions §Interactions), after the card
+    /// list. At the soft cap it flips to a friendly limit message (§8).
+    private var addCard: some View {
+        Button {
+            showAdd = true
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "plus.circle")
+                    .font(.system(size: 16))
+                Text(store.isAtCap ? "Activity limit reached (\(ActivityStore.softCap))" : "Add Activity")
+                    .font(.system(size: 15, weight: .medium))
+                    .tracking(-0.1)
+            }
+            .foregroundStyle(Theme.secondaryText)
+            .frame(maxWidth: .infinity)
+            .frame(height: 64)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .strokeBorder(Theme.secondaryText.opacity(0.4),
+                                  style: StrokeStyle(lineWidth: 1, dash: [6, 4]))
+            )
+            .contentShape(RoundedRectangle(cornerRadius: 16))
+        }
+        .buttonStyle(.plain)
+        .disabled(store.isAtCap)
+        .accessibilityIdentifier("addActivityCard")
     }
 
     private func card(for activity: ActivityRating, in forecast: ForecastResponse) -> ActivityCardView {
@@ -86,7 +183,9 @@ struct DashboardView: View {
             day: day,
             windowStartHour: day.flatMap { viewModel.windowStartHour(for: $0) },
             deriver: viewModel.timeDeriver,
-            hoursCount: forecast.hours.count
+            hoursCount: forecast.hours.count,
+            iconSymbol: viewModel.iconSymbol(forActivityId: activity.activityId),
+            isNocturnal: viewModel.isNocturnal(activityId: activity.activityId)
         )
     }
 }

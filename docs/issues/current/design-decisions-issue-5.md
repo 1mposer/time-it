@@ -76,8 +76,10 @@ The app uses **SF Symbols** for all iconography (`Image(systemName:)` / `Label`)
 |---|---|---|---|
 | Cycling | `cycling` | `figure.outdoor.cycle` | |
 | Fishing Lite | `fishing-lite` | `figure.fishing` | ⚠︎ verify |
+| Running (#5b Template) | `running` | `figure.run` | ⚠︎ verify |
+| Stargazing (#5b Template, nocturnal) | `stargazing` | `moon.stars.fill` | |
 
-The card icon is chosen per activity; the 5a spec notes `label.contains("fishing")` can cover fishing variants. New Templates (#5b) extend this table.
+The card icon is explicit per activity as of #5b (`AuthoredActivity.iconSymbol`, drawn through the single `ActivityIconView` seam); the `label.contains("fishing")` heuristic survives only as a legacy fallback. New Templates extend this table — verified names only.
 
 **B. Metric chip icons** (live metrics; **✓ used by the #5a seed Templates**, others are for #5b completeness)
 
@@ -100,9 +102,12 @@ Coming-soon metrics (`darkness`/`douglasScale`/`swellHeight`/`swellLength`/`tide
 | Purpose | SF Symbol | Verify |
 |---|---|---|
 | Settings — header top-right gear | `gearshape` | |
-| Card authoring gear (#5b stub; omit or stub in #5a) | `gearshape` | |
+| Card authoring gear (wired in #5b — opens the editor) | `gearshape` | |
 | Error state — `ContentUnavailableView` (provider/server down) | `wifi.slash` | |
 | Location permission note (Settings, optional) | `location.fill` / `location.slash` | |
+| Ghost add-card / from-scratch / empty state (#5b) | `plus.circle` | |
+| Settings geocode search result row (#5b) | `mappin.and.ellipse` | |
+| Editor metric-picker selection tick (#5b) | `checkmark` | |
 | **Unlisted-glyph fallback (the guardrail above)** | `questionmark.circle` | |
 
 Not symbols: the `NavigationLink` disclosure chevron is system-provided (do not add one manually), and the loading state is a `ProgressView` (no symbol).

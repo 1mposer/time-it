@@ -25,6 +25,20 @@ final class TimeDerivationTests: XCTestCase {
         XCTAssertEqual(deriver.dayName(forDayIndex: 3), "Monday")
     }
 
+    /// ADR-0004 amendment: a nocturnal (wrapped-window) activity's dayIndex is
+    /// the EVENING's ordinal, so its labels are night-phrased (#5b §1).
+    func testNocturnalDayNames() {
+        XCTAssertEqual(deriver.dayName(forDayIndex: 0, nocturnal: true), "Tonight")
+        XCTAssertEqual(deriver.dayName(forDayIndex: 1, nocturnal: true), "Tomorrow night")
+        XCTAssertEqual(deriver.dayName(forDayIndex: 2, nocturnal: true), "Sunday night")
+        XCTAssertEqual(deriver.dayName(forDayIndex: 3, nocturnal: true), "Monday night")
+    }
+
+    func testDiurnalLabelsUnchangedByDefaultArgument() {
+        XCTAssertEqual(deriver.dayName(forDayIndex: 0, nocturnal: false), "Today")
+        XCTAssertEqual(deriver.dayName(forDayIndex: 2, nocturnal: false), "Sunday")
+    }
+
     func testHourRangesMatchLocalDayBuckets() {
         // ADR-0003 worked example: partial day 0 (8h), six full days, partial tail (12h).
         XCTAssertEqual(deriver.hourRange(forDayIndex: 0, hourCount: 164), 0..<8)
@@ -48,6 +62,7 @@ final class TimeDerivationTests: XCTestCase {
         let shifted = TimeDeriver(forecastStart: "2026-06-19T12:00:00Z", timezone: "Asia/Dubai")!
         XCTAssertEqual(shifted.hourLabel(at: 0), "4pm")
         XCTAssertEqual(shifted.dayName(forDayIndex: 2), "Sunday")
+        XCTAssertEqual(shifted.dayName(forDayIndex: 2, nocturnal: true), "Sunday night")
         XCTAssertEqual(shifted.hourRange(forDayIndex: 0, hourCount: 164), 0..<8)
     }
 }

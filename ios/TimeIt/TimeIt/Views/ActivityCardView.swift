@@ -10,6 +10,11 @@ struct ActivityCardView: View {
     let windowStartHour: HourlyWeather?
     let deriver: TimeDeriver?
     let hoursCount: Int
+    /// Explicit icon from the authored Activity (#5b §2); nil falls back to
+    /// the legacy id heuristic below.
+    var iconSymbol: String?
+    /// Wrapped-window activity → night-phrased day labels (ADR-0004 amendment).
+    var isNocturnal: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -29,8 +34,7 @@ struct ActivityCardView: View {
 
     private var topRow: some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Image(systemName: Self.iconName(for: activity))
-                .font(.system(size: 18))
+            ActivityIconView(identifier: iconSymbol ?? Self.iconName(for: activity), size: 18)
                 .foregroundStyle(Theme.primaryText.opacity(0.75))
                 .accessibilityHidden(true) // decorative — the label text follows
             VStack(alignment: .leading, spacing: 2) {
@@ -43,15 +47,18 @@ struct ActivityCardView: View {
                     .foregroundStyle(Theme.secondaryText)
             }
             Spacer()
-            // The card gear (threshold/authoring editor) is a #5b entry point — omitted in #5a.
+            // The card gear is overlaid by DashboardView (it must sit above the
+            // NavigationLink to stay independently tappable).
         }
+        .padding(.trailing, 28) // clears the overlaid gear
     }
 
     /// The card shows the soonest-actionable day, which is not always today —
-    /// name it, derived in the response timezone.
+    /// name it, derived in the response timezone. Nocturnal activities read
+    /// "Tonight"/"… night" (their dayIndex is the evening's ordinal).
     private var dayLabel: String {
         guard let day else { return "No window in the next 7 days" }
-        return deriver?.dayName(forDayIndex: day.dayIndex) ?? "Day \(day.dayIndex)"
+        return deriver?.dayName(forDayIndex: day.dayIndex, nocturnal: isNocturnal) ?? "Day \(day.dayIndex)"
     }
 
     private var chipRow: some View {
@@ -67,8 +74,7 @@ struct ActivityCardView: View {
         let tier = windowStartHour.map { MetricTier.tier(for: metric, value: $0.numericValue(for: metric)) } ?? MetricTier.neutral
         let text = windowStartHour?.formatted(for: metric) ?? HourlyWeather.label(for: metric)
         return HStack(spacing: 4) {
-            Image(systemName: Self.chipIcon(for: metric))
-                .font(.system(size: 12))
+            ActivityIconView(identifier: Self.chipIcon(for: metric), size: 12)
                 .accessibilityHidden(true)
             Text(text)
                 .font(.system(size: 11.5, weight: .medium))
@@ -92,20 +98,11 @@ struct ActivityCardView: View {
         return "questionmark.circle"
     }
 
-    /// Metric chip icons — manifest table B.
+    /// Metric chip icons — read from the metric catalog (single source of
+    /// truth; a second hardcoded table here would silently drift when a
+    /// metric's icon changes or a new metric goes live).
     static func chipIcon(for metric: String) -> String {
-        switch metric {
-        case "temp": return "thermometer.medium"
-        case "windSpeed": return "wind"
-        case "rainFall": return "cloud.rain.fill"
-        case "uV": return "sun.max.fill"
-        case "cloudCover": return "cloud.fill"
-        case "humidity": return "humidity.fill"
-        case "visibility": return "eye.fill"
-        case "moon": return "moon.stars.fill"
-        case "dustAlert": return "sun.dust.fill"
-        default: return "questionmark.circle"
-        }
+        StaticMetricCatalog().descriptor(for: metric)?.iconSymbol ?? "questionmark.circle"
     }
 }
 
@@ -175,9 +172,22 @@ struct TimelineBarView: View {
     let activityId: String
 
     /// The axis span: the shown day's real hours (day 0's span when no window
-    /// exists anywhere, so the empty track still reads as "today").
+    /// exists anywhere, so the empty track still reads as "today"), widened to
+    /// cover the day's window. A nocturnal (night-stitched) window crosses
+    /// past the calendar day's end — its dayIndex is the evening's — so
+    /// without the widening the highlight would draw off the track (or,
+    /// for a morning-tail window, entirely outside it).
     private var axisRange: Range<Int>? {
-        deriver?.hourRange(forDayIndex: day?.dayIndex ?? 0, hourCount: hoursCount)
+        guard let base = deriver?.hourRange(forDayIndex: day?.dayIndex ?? 0, hourCount: hoursCount) else {
+            return nil
+        }
+        guard let day, day.hasWindow,
+              let startIndex = day.startIndex, let endIndex = day.endIndex else {
+            return base
+        }
+        let lower = Swift.min(base.lowerBound, Swift.max(startIndex, 0))
+        let upper = Swift.max(base.upperBound, Swift.min(endIndex, hoursCount))
+        return lower < upper ? lower..<upper : base
     }
 
     var body: some View {

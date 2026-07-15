@@ -6,6 +6,9 @@ import SwiftUI
 struct ActivityDetailView: View {
     let activity: ActivityRating
     @ObservedObject var viewModel: DashboardViewModel
+    /// Wrapped-window activity → night-phrased day headers ("Tonight",
+    /// "Tomorrow night") — its dayIndex is the evening's ordinal (ADR-0004).
+    var isNocturnal: Bool = false
 
     private var deriver: TimeDeriver? { viewModel.timeDeriver }
 
@@ -26,7 +29,7 @@ struct ActivityDetailView: View {
     private func daySection(_ day: Day) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline) {
-                Text(deriver?.dayName(forDayIndex: day.dayIndex) ?? "Day \(day.dayIndex)")
+                Text(deriver?.dayName(forDayIndex: day.dayIndex, nocturnal: isNocturnal) ?? "Day \(day.dayIndex)")
                     .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(Theme.primaryText)
                 Spacer()
@@ -75,8 +78,7 @@ struct ActivityDetailView: View {
         let tier = MetricTier.tier(for: metric, value: hour.numericValue(for: metric))
         let text = hour.formatted(for: metric)
         return HStack(spacing: 3) {
-            Image(systemName: ActivityCardView.chipIcon(for: metric))
-                .font(.system(size: 10))
+            ActivityIconView(identifier: ActivityCardView.chipIcon(for: metric), size: 10)
                 .accessibilityHidden(true)
             Text(text)
                 .font(.system(size: 11, weight: .medium))

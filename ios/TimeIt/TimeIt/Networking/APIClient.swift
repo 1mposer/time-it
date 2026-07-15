@@ -30,9 +30,13 @@ actor APIClient: RatingFetching {
             break
         case 502:
             throw APIError.providerUnavailable
+        case 400:
+            // Should be unreachable — the editor mirrors ADR-0005 — but the
+            // #5b §7 backstop surfaces the structured { errors } envelope,
+            // naming the offending Activity via the error path.
+            throw APIError.validationRejection(body: data, activityLabels: activities.map(\.label))
+                ?? APIError.serverError(statusCode: 400)
         default:
-            // Includes 500 and the (unexpected in #5a) validation 400 — no
-            // 400-specific recovery UI until #5b's stale-activity reconciliation.
             throw APIError.serverError(statusCode: http.statusCode)
         }
 

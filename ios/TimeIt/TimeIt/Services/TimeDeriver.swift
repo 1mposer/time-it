@@ -53,15 +53,21 @@ struct TimeDeriver {
 
     /// "Today" / "Tomorrow" / weekday name, relative to the forecast's day 0
     /// in the location zone (dayIndex 0 is by definition "Today" there).
-    func dayName(forDayIndex dayIndex: Int) -> String {
+    ///
+    /// For a nocturnal activity (wrapped window), `dayIndex` is the EVENING's
+    /// ordinal (ADR-0004 amendment), so labels are night-phrased: "Tonight",
+    /// "Tomorrow night", "<Weekday> night". The early-morning tail belongs to
+    /// its evening, never the next day.
+    func dayName(forDayIndex dayIndex: Int, nocturnal: Bool = false) -> String {
         switch dayIndex {
-        case 0: return "Today"
-        case 1: return "Tomorrow"
+        case 0: return nocturnal ? "Tonight" : "Today"
+        case 1: return nocturnal ? "Tomorrow night" : "Tomorrow"
         default:
             guard let day = calendar.date(byAdding: .day, value: dayIndex, to: calendar.startOfDay(for: start)) else {
                 return "Day \(dayIndex)"
             }
-            return weekdayFormatter.string(from: day)
+            let weekday = weekdayFormatter.string(from: day)
+            return nocturnal ? "\(weekday) night" : weekday
         }
     }
 

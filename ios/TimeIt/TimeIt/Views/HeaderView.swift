@@ -45,15 +45,13 @@ struct HeaderView: View {
 
                 HStack(spacing: 24) {
                     HStack(spacing: 5) {
-                        Image(systemName: "wind")
-                            .font(.system(size: 12))
+                        ActivityIconView(identifier: "wind", size: 12)
                             .accessibilityLabel("Wind")
                         Text(windText)
                     }
 
                     HStack(spacing: 5) {
-                        Image(systemName: "humidity.fill")
-                            .font(.system(size: 12))
+                        ActivityIconView(identifier: "humidity.fill", size: 12)
                             .accessibilityLabel("Humidity")
                         Text(humidityText)
                     }
