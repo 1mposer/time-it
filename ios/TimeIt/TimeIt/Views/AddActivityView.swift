@@ -5,6 +5,7 @@ import SwiftUI
 struct AddActivityView: View {
     @ObservedObject private var store: ActivityStore
     @State private var editorSeed: AuthoredActivity?
+    @State private var showingCapAlert = false
     @Environment(\.dismiss) private var dismiss
 
     private let catalog: MetricCatalogProviding
@@ -48,9 +49,21 @@ struct AddActivityView: View {
                                    isNew: true,
                                    catalog: catalog,
                                    onSave: { activity in
-                                       store.add(activity)
-                                       dismiss() // closes the whole Add sheet
+                                       // add() can refuse: the cap may have been
+                                       // reached since this sheet opened (another
+                                       // scene sharing the store). Dismissing on a
+                                       // refused add would fake a successful save.
+                                       if store.add(activity) {
+                                           dismiss() // closes the whole Add sheet
+                                       } else {
+                                           showingCapAlert = true
+                                       }
                                    })
+            }
+            .alert("Activity limit reached", isPresented: $showingCapAlert) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("You can keep up to \(ActivityStore.softCap) activities. Delete one to add another.")
             }
         }
     }

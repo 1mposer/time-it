@@ -14,13 +14,12 @@ struct ActivityEditorView: View {
     @State private var confirmingDelete = false
     @Environment(\.dismiss) private var dismiss
 
-    /// Manifest activity icons (design-decisions §A) — derived from the
-    /// Template catalog so a new Template's icon appears here without a
-    /// second hand-maintained list; the draft's own icon is always included
-    /// so editing an activity with an unlisted icon can't silently lose it.
+    /// Manifest activity icons (design-decisions §A) — read from the manifest
+    /// list on the icon seam, NOT from the Template catalog: an icon is
+    /// pickable even when no Template uses it. The draft's own icon is always
+    /// included so editing an activity with an unlisted icon can't lose it.
     private var iconChoices: [String] {
-        var choices = SeedTemplates.all.map(\.iconSymbol)
-        choices.append("questionmark.circle")
+        var choices = ActivityIconView.activityIconManifest
         if !choices.contains(draft.iconSymbol) {
             choices.insert(draft.iconSymbol, at: 0)
         }

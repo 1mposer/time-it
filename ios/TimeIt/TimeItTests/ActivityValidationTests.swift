@@ -114,6 +114,24 @@ final class ActivityValidationTests: XCTestCase {
         XCTAssertFalse(activity.isValid)
     }
 
+    // MARK: threshold shape must match the metric's kind (false-Perfect guard)
+
+    func testFlagThresholdOnNumericMetricIsInvalid() {
+        // Server-side, a flag threshold on `temp` NEVER fails an hour — the
+        // silent false-Perfect class. The server doesn't catch this shape
+        // mismatch yet (gap recorded for Issue #8); the mirror must.
+        var activity = makeValid()
+        activity.thresholds["temp"] = Threshold(required: true, type: "flag", forbidTrue: true)
+        XCTAssertFalse(activity.isValid)
+    }
+
+    func testNumericThresholdOnFlagMetricIsInvalid() {
+        var activity = makeValid()
+        activity.displayMetrics = ["temp", "windSpeed", "dustAlert"]
+        activity.thresholds["dustAlert"] = Threshold(min: 0, max: 1, required: true)
+        XCTAssertFalse(activity.isValid, "dustAlert is a flag — min/max bounds are the wrong shape")
+    }
+
     // MARK: flag thresholds
 
     func testFlagThresholdShapeNeverEmitsRequireTrue() throws {

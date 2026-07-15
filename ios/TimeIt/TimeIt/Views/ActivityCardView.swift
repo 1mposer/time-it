@@ -15,6 +15,8 @@ struct ActivityCardView: View {
     var iconSymbol: String?
     /// Wrapped-window activity → night-phrased day labels (ADR-0004 amendment).
     var isNocturnal: Bool = false
+    /// Metric names and chip icons resolve through the catalog seam (#5b §4).
+    var catalog: MetricCatalogProviding = StaticMetricCatalog()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -72,14 +74,14 @@ struct ActivityCardView: View {
 
     private func chip(for metric: String) -> some View {
         let tier = windowStartHour.map { MetricTier.tier(for: metric, value: $0.numericValue(for: metric)) } ?? MetricTier.neutral
-        let text = windowStartHour?.formatted(for: metric) ?? HourlyWeather.label(for: metric)
+        let text = windowStartHour?.formatted(for: metric) ?? catalog.displayName(for: metric)
         return HStack(spacing: 4) {
-            ActivityIconView(identifier: Self.chipIcon(for: metric), size: 12)
+            ActivityIconView(identifier: catalog.iconSymbol(for: metric), size: 12)
                 .accessibilityHidden(true)
             Text(text)
                 .font(.system(size: 11.5, weight: .medium))
                 .tracking(0.05)
-                .accessibilityLabel("\(HourlyWeather.label(for: metric)): \(text)")
+                .accessibilityLabel("\(catalog.displayName(for: metric)): \(text)")
                 .accessibilityIdentifier("chip.\(activity.activityId).\(metric)")
         }
         .padding(.horizontal, 8)
@@ -96,13 +98,6 @@ struct ActivityCardView: View {
         if key.contains("cycling") { return "figure.outdoor.cycle" }
         if key.contains("fishing") { return "figure.fishing" }
         return "questionmark.circle"
-    }
-
-    /// Metric chip icons — read from the metric catalog (single source of
-    /// truth; a second hardcoded table here would silently drift when a
-    /// metric's icon changes or a new metric goes live).
-    static func chipIcon(for metric: String) -> String {
-        StaticMetricCatalog().descriptor(for: metric)?.iconSymbol ?? "questionmark.circle"
     }
 }
 

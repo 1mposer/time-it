@@ -97,18 +97,32 @@ extension AuthoredActivity {
                 issues.append("\(metric) has a threshold but is not shown")
                 continue
             }
-            if catalog.descriptor(for: metric)?.isThresholdable == false {
+            // liveKeys ⊆ catalog keys, so the descriptor always exists here.
+            guard let descriptor = catalog.descriptor(for: metric) else { continue }
+            if !descriptor.isThresholdable {
                 // Applies to flag-shaped thresholds too: the backend would
                 // accept e.g. a flag on `moon` and it would trivially never
                 // fail — the silent false-Perfect this mirror exists to block.
                 issues.append("\(metric) can be shown but not thresholded")
                 continue
             }
+            // The threshold's SHAPE must also match the metric's kind: a flag
+            // threshold on a numeric metric never fails server-side (same
+            // false-Perfect class). The server does not catch this yet — gap
+            // recorded for Issue #8 — so the mirror is the only guard.
             if threshold.isFlag {
+                if descriptor.kind != .flag {
+                    issues.append("\(metric) takes min/max bounds, not an alert flag")
+                    continue
+                }
                 if threshold.forbidTrue != true {
                     issues.append("\(metric): a flag threshold must forbid the alert")
                 }
             } else {
+                if descriptor.kind == .flag {
+                    issues.append("\(metric) is an alert — it can only be thresholded as a flag")
+                    continue
+                }
                 if threshold.min == nil && threshold.max == nil {
                     issues.append("\(metric) needs at least one of min/max")
                 }

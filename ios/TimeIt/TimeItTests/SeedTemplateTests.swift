@@ -108,4 +108,14 @@ final class SeedTemplateTests: XCTestCase {
             }
         }
     }
+
+    func testEveryTemplateIconIsInTheActivityIconManifest() {
+        // Drift tripwire: the editor's icon picker reads the manifest list, not
+        // the Templates — a Template whose icon is missing from the manifest
+        // would silently lose its icon the first time a user edits it.
+        for template in SeedTemplates.all {
+            XCTAssertTrue(ActivityIconView.activityIconManifest.contains(template.iconSymbol),
+                          "\(template.id) uses \(template.iconSymbol), which is not in ActivityIconView.activityIconManifest — update the design-decisions manifest table first, then the list")
+        }
+    }
 }

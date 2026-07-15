@@ -86,15 +86,6 @@ final class ActivityStoreTests: XCTestCase {
         XCTAssertEqual(ActivityStore(defaults: defaults).activities.map(\.id), ["fishing-lite"])
     }
 
-    func testMoveReordersAndPersists() {
-        let store = ActivityStore(defaults: defaults)
-
-        store.move(fromOffsets: IndexSet(integer: 1), toOffset: 0)
-
-        XCTAssertEqual(store.activities.map(\.id), ["fishing-lite", "cycling"])
-        XCTAssertEqual(ActivityStore(defaults: defaults).activities.map(\.id), ["fishing-lite", "cycling"])
-    }
-
     // MARK: robustness
 
     func testCorruptPersistedDataFallsBackToSeeds() {
@@ -113,11 +104,12 @@ final class ActivityStoreTests: XCTestCase {
     func testAddIsRefusedAtTheSoftCap() {
         let store = ActivityStore(defaults: defaults)
         while store.activities.count < ActivityStore.softCap {
-            store.add(makeActivity())
+            XCTAssertTrue(store.add(makeActivity()), "adds under the cap must report success")
         }
 
         XCTAssertTrue(store.isAtCap)
-        store.add(makeActivity(label: "One Too Many"))
+        XCTAssertFalse(store.add(makeActivity(label: "One Too Many")),
+                       "a refused add must report failure so the UI can react — the Add sheet is open when the cap races in via another scene")
         XCTAssertEqual(store.activities.count, ActivityStore.softCap, "the soft cap is enforced")
         XCTAssertLessThan(ActivityStore.softCap, 50, "soft cap must stay under the ADR-0005 hard ceiling")
     }

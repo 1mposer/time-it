@@ -31,10 +31,15 @@ final class ActivityStore: ObservableObject {
 
     // MARK: mutations — every one persists synchronously
 
-    func add(_ activity: AuthoredActivity) {
-        guard !isAtCap else { return }
+    /// Appends and persists. Returns false (storing nothing) at the soft cap —
+    /// callers must not assume success: the cap can be reached between opening
+    /// the Add flow and saving (e.g. a second scene sharing this store).
+    @discardableResult
+    func add(_ activity: AuthoredActivity) -> Bool {
+        guard !isAtCap else { return false }
         activities.append(activity)
         persist()
+        return true
     }
 
     func update(_ activity: AuthoredActivity) {
@@ -45,11 +50,6 @@ final class ActivityStore: ObservableObject {
 
     func delete(id: String) {
         activities.removeAll { $0.id == id }
-        persist()
-    }
-
-    func move(fromOffsets source: IndexSet, toOffset destination: Int) {
-        activities.move(fromOffsets: source, toOffset: destination)
         persist()
     }
 

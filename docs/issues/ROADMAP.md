@@ -19,7 +19,7 @@
 ## Parallel tracks (open now)
 
 - [#7 Marine Data](current/implement-spec-issue-7-marine-data.md) ([GitHub](https://github.com/1mposer/time-it/issues/7)) — investigate Meteosource API tier before writing any code
-- [#8 requireTrue threshold](current/implement-spec-issue-8-require-true-threshold.md) ([GitHub](https://github.com/1mposer/time-it/issues/8)) — small engine change, unblocks future stargazing features
+- [#8 requireTrue threshold](current/implement-spec-issue-8-require-true-threshold.md) ([GitHub](https://github.com/1mposer/time-it/issues/8)) — small engine change, unblocks future stargazing features. **Scope grew (2026-07-15 review finding):** `validateRatingRequest` must also check a threshold's *shape* against its metric's *kind* — today a `type:"flag"` threshold on a numeric metric passes validation and then never fails an hour (silent false-Perfect); needs kind awareness in `metricCatalog.js` (the iOS mirror already rejects it)
 
 ## Notes
 

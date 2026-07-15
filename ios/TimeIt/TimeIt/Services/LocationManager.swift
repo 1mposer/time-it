@@ -1,9 +1,14 @@
+import Combine
 import CoreLocation
 
 /// Seam for injecting a fake location in tests.
 @MainActor
 protocol LocationProviding: AnyObject {
     var location: CLLocation? { get }
+    /// Emits fix updates. `requestLocation()` resolves asynchronously, so a
+    /// consumer that read `location` too early subscribes here to react when
+    /// the real fix lands (e.g. re-rate a forecast fetched on the fallback).
+    var locationPublisher: AnyPublisher<CLLocation?, Never> { get }
     func requestLocation()
 }
 
@@ -14,6 +19,10 @@ final class LocationManager: NSObject, ObservableObject, LocationProviding {
     static let shared = LocationManager()
 
     @Published private(set) var location: CLLocation?
+
+    var locationPublisher: AnyPublisher<CLLocation?, Never> {
+        $location.eraseToAnyPublisher()
+    }
 
     private let manager = CLLocationManager()
 

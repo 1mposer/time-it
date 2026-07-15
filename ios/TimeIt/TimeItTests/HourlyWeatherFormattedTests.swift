@@ -40,12 +40,18 @@ final class HourlyWeatherFormattedTests: XCTestCase {
         XCTAssertEqual(Fixtures.makeHour(index: 0).formatted(for: "swellHeight"), "—")
     }
 
-    func testHumanLabels() {
-        XCTAssertEqual(HourlyWeather.label(for: "temp"), "Temperature")
-        XCTAssertEqual(HourlyWeather.label(for: "windSpeed"), "Wind")
-        XCTAssertEqual(HourlyWeather.label(for: "rainFall"), "Rain")
-        XCTAssertEqual(HourlyWeather.label(for: "uV"), "UV Index")
-        XCTAssertEqual(HourlyWeather.label(for: "cloudCover"), "Cloud Cover")
-        XCTAssertEqual(HourlyWeather.label(for: "humidity"), "Humidity")
+    func testHumanLabelsComeFromTheCatalog() {
+        // The catalog is the ONLY metric name table (HourlyWeather's own copy
+        // drifted from it and was removed) — chips and the editor now show
+        // the same name for the same metric.
+        let catalog = StaticMetricCatalog()
+        XCTAssertEqual(catalog.displayName(for: "temp"), "Temperature")
+        XCTAssertEqual(catalog.displayName(for: "windSpeed"), "Wind Speed")
+        XCTAssertEqual(catalog.displayName(for: "rainFall"), "Rainfall")
+        XCTAssertEqual(catalog.displayName(for: "uV"), "UV Index")
+        XCTAssertEqual(catalog.displayName(for: "cloudCover"), "Cloud Cover")
+        XCTAssertEqual(catalog.displayName(for: "humidity"), "Humidity")
+        XCTAssertEqual(catalog.displayName(for: "swellHeight"), "swellHeight",
+                       "unknown keys fall back to the key itself, never crash")
     }
 }

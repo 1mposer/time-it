@@ -52,6 +52,17 @@ extension MetricCatalogProviding {
     var liveKeys: Set<String> {
         Set(metrics.map(\.key))
     }
+
+    /// Human name for a wire key; the key itself when unknown. The ONLY metric
+    /// name table — a view keeping its own copy would silently drift.
+    func displayName(for key: String) -> String {
+        descriptor(for: key)?.displayName ?? key
+    }
+
+    /// Chip icon for a wire key; the guardrail glyph when unknown.
+    func iconSymbol(for key: String) -> String {
+        descriptor(for: key)?.iconSymbol ?? "questionmark.circle"
+    }
 }
 
 /// Static client-side catalog of the LIVE metrics.

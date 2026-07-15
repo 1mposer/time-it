@@ -21,4 +21,15 @@ struct ActivityIconView: View {
     static func resolve(_ identifier: String) -> String {
         UIImage(systemName: identifier) != nil ? identifier : "questionmark.circle"
     }
+
+    /// The activity-icon manifest (design-decisions §A Table A + the guardrail)
+    /// — the editor's icon picker reads THIS list, not whatever the current
+    /// Templates happen to use. Add to the manifest table first, then here.
+    static let activityIconManifest: [String] = [
+        "figure.outdoor.cycle",
+        "figure.fishing",
+        "figure.run", // TODO: verify SF Symbol (⚠︎ in the manifest)
+        "moon.stars.fill",
+        "questionmark.circle",
+    ]
 }

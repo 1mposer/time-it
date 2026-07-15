@@ -1,4 +1,5 @@
 import XCTest
+import Combine
 import CoreLocation
 @testable import TimeIt
 
@@ -30,11 +31,22 @@ final class FakeRatingService: RatingFetching {
 
 @MainActor
 final class FakeLocationProvider: LocationProviding {
-    var location: CLLocation?
+    private let subject: CurrentValueSubject<CLLocation?, Never>
+
+    /// Setting this publishes, like the real manager's @Published property.
+    var location: CLLocation? {
+        get { subject.value }
+        set { subject.send(newValue) }
+    }
+
+    var locationPublisher: AnyPublisher<CLLocation?, Never> {
+        subject.eraseToAnyPublisher()
+    }
+
     private(set) var requestLocationCalled = false
 
     init(location: CLLocation? = nil) {
-        self.location = location
+        subject = CurrentValueSubject(location)
     }
 
     func requestLocation() {
@@ -249,6 +261,52 @@ final class DashboardViewModelTests: XCTestCase {
 
         await fulfillment(of: [refetch], timeout: 2)
         XCTAssertEqual(api.capturedLat, 25.1288)
+    }
+
+    // MARK: late GPS fix — re-rate once when it moves the forecast
+
+    func testLateGpsFixTriggersRefetchWhenFirstLoadUsedTheFallback() async {
+        let (vm, api, locationProvider, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])))
+        await vm.loadForecast()
+        XCTAssertEqual(api.capturedLat, DashboardViewModel.fallbackCoordinate.latitude,
+                       "no fix and no home → the first load falls back to Dubai")
+
+        let refetch = expectation(description: "the late fix re-rates at the real location")
+        api.onFetch = { refetch.fulfill() }
+        locationProvider.location = CLLocation(latitude: 37.3349, longitude: -122.0090)
+
+        await fulfillment(of: [refetch], timeout: 2)
+        XCTAssertEqual(api.capturedLat, 37.3349, "the refetch uses the fresh fix, not the fallback")
+    }
+
+    func testGpsFixNearTheFetchedCoordinateDoesNotRefetch() async {
+        let (vm, api, locationProvider, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])))
+        await vm.loadForecast()
+        XCTAssertEqual(api.fetchCount, 1)
+
+        // Every load calls requestLocation(), so a same-place fix arrives after
+        // every fetch — refetching on it would loop request→fix→request forever.
+        locationProvider.location = CLLocation(latitude: DashboardViewModel.fallbackCoordinate.latitude,
+                                               longitude: DashboardViewModel.fallbackCoordinate.longitude)
+        await Task.yield()
+
+        XCTAssertEqual(api.fetchCount, 1, "a fix that doesn't move the forecast must not refetch")
+    }
+
+    func testGpsFixWhileHomeLocationSetDoesNotRefetch() async {
+        // Persist the home BEFORE the VM exists — mutating it afterwards would
+        // trigger the home-change refetch sink and race this test.
+        PreferencesStore(defaults: defaults).homeLocation = SavedLocation(name: "Fujairah", lat: 25.1288, lon: 56.3265)
+        let (vm, api, locationProvider, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])))
+        await vm.loadForecast()
+        XCTAssertEqual(api.fetchCount, 1)
+        XCTAssertEqual(api.capturedLat, 25.1288, "the home location covers the fetch")
+
+        locationProvider.location = CLLocation(latitude: 37.3349, longitude: -122.0090)
+        await Task.yield()
+
+        XCTAssertEqual(api.fetchCount, 1,
+                       "while a home location covers the fetch, GPS movement is irrelevant")
     }
 
     // MARK: authored-activity lookups (icon + nocturnal labels)

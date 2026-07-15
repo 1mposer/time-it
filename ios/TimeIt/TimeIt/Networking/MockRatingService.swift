@@ -1,4 +1,5 @@
 #if DEBUG
+import Combine
 import CoreLocation
 import Foundation
 
@@ -27,6 +28,9 @@ struct MockRatingService: RatingFetching {
 @MainActor
 final class StaticLocationProvider: LocationProviding {
     let location: CLLocation? = nil
+    var locationPublisher: AnyPublisher<CLLocation?, Never> {
+        Just(nil).eraseToAnyPublisher()
+    }
     func requestLocation() {}
 }
 

@@ -64,21 +64,9 @@ struct HourlyWeather: Decodable, Identifiable {
         }
     }
 
-    /// Human label for a metric key (used when no window start hour exists).
-    static func label(for metric: String) -> String {
-        switch metric {
-        case "temp": return "Temperature"
-        case "humidity": return "Humidity"
-        case "visibility": return "Visibility"
-        case "uV": return "UV Index"
-        case "windSpeed": return "Wind"
-        case "rainFall": return "Rain"
-        case "cloudCover": return "Cloud Cover"
-        case "moon": return "Moon"
-        case "dustAlert": return "Dust"
-        default: return metric
-        }
-    }
+    // NOTE: there is deliberately no metric-name table here — human names come
+    // from the metric catalog (`MetricCatalogProviding.displayName(for:)`), the
+    // single source of truth; a second table here drifted once already.
 
     private static func millimetres(_ value: Double) -> String {
         if value == value.rounded() {

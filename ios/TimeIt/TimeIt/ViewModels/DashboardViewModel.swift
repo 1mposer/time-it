@@ -25,6 +25,11 @@ final class DashboardViewModel: ObservableObject {
     /// Monotonic guard: only the newest in-flight load may publish its result,
     /// so a slow pre-mutation response can't overwrite a newer one.
     private var loadGeneration = 0
+    /// The coordinate the most recent POST actually used. Lets a late GPS fix
+    /// trigger a reload only when it would move the forecast location — the
+    /// distance gate is what prevents a request→fix→request loop, since every
+    /// load calls requestLocation() and every fix lands back in the sink below.
+    private var lastFetchedCoordinate: CLLocationCoordinate2D?
 
     init(api: RatingFetching = APIClient.shared,
          locationProvider: LocationProviding? = nil,
@@ -37,7 +42,7 @@ final class DashboardViewModel: ObservableObject {
         self.store = store ?? ActivityStore.shared
         self.preferences = preferences ?? PreferencesStore.shared
 
-        // Any store mutation (add/edit/delete/reorder) or home-location change
+        // Any store mutation (add/edit/delete) or home-location change
         // re-rates the dashboard (#5b §6). dropFirst skips the seed/initial
         // publish — the view's initial .task drives the first load.
         self.store.$activities
@@ -54,6 +59,27 @@ final class DashboardViewModel: ObservableObject {
                 Task { await self?.loadForecast() }
             }
             .store(in: &cancellables)
+        // requestLocation() resolves AFTER the load that called it, so the
+        // first fix usually arrives once a fallback forecast (Dubai, or a
+        // stale cache) is already on screen. Re-rate exactly then — but only
+        // while no home location overrides GPS, and only when the fix actually
+        // moves the forecast somewhere new (see lastFetchedCoordinate).
+        self.locationProvider.locationPublisher
+            .compactMap { $0 }
+            .sink { [weak self] fix in
+                guard let self, self.preferences.homeLocation == nil,
+                      let fetched = self.lastFetchedCoordinate,
+                      Self.isMeaningfulMove(from: fetched, to: fix.coordinate) else { return }
+                Task { await self.loadForecast() }
+            }
+            .store(in: &cancellables)
+    }
+
+    /// ~1 km at UAE latitudes — below this a fresh fix wouldn't change the
+    /// hourly forecast, so refetching would only burn provider quota.
+    private static func isMeaningfulMove(from a: CLLocationCoordinate2D,
+                                         to b: CLLocationCoordinate2D) -> Bool {
+        abs(a.latitude - b.latitude) > 0.01 || abs(a.longitude - b.longitude) > 0.01
     }
 
     var timeDeriver: TimeDeriver? {
@@ -83,10 +109,13 @@ final class DashboardViewModel: ObservableObject {
         isTransientError = false
 
         // Warm the GPS fix on every load (even while a home location covers
-        // this fetch) so clearing the home falls back to a real fix, not Dubai.
+        // this fetch). The request resolves asynchronously — this load
+        // proceeds with whatever is already cached (or the fallback); the
+        // locationPublisher sink re-rates once a fresh fix lands somewhere new.
         locationProvider.requestLocation()
 
         let coordinate = resolveCoordinate()
+        lastFetchedCoordinate = coordinate
         let activities = store.activities.map(\.activityInput)
         do {
             let result = try await api.fetchRatings(lat: coordinate.latitude,
