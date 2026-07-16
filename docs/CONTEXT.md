@@ -2,7 +2,7 @@
 
 > **Read the glossary below FIRST** — it defines the ubiquitous language used everywhere in this repo. The Phase-2 contract flip is now built: **Activity** (caller-supplied), **Lite / Pro** (metric-access + quantity, client-enforced), and **Display metrics** (user-chosen) describe the *shipped* code. ONLY AFTER you understand the terms, see [`STATUS.md`](STATUS.md) for the current project status and what remains.
 
-A backend engine that watches hourly weather forecasts and tells UAE outdoor hobbyists when conditions match their activity. Output is consumed by an iOS app that sends the user a push notification.
+A backend engine that watches hourly weather forecasts and tells outdoor hobbyists when conditions match their activity — a **worldwide** product, UAE-first in marketing only. Output is consumed by an iOS app; server-side push (the **Digest** and the **Perfect-window alert**, [ADR-0006](adr/0006-device-keyed-push-evaluation.md)) is built in Issues #6c/#6d.
 
 ## Language
 
@@ -47,7 +47,24 @@ The server-side source of truth (`src/weather/metricCatalog.js`) for which weath
 The user's actual outdoor activity time (e.g., Abdulla's 3-hour Sunday cycling block). A **Session** is shorter than or equal to a **Window** — the **Window** says when conditions are right; the **Session** is when the user actually goes out.
 
 **User preferences**:
-A user's chosen **Activity** plus their **Threshold** overrides. In code: `userPrefs`.
+The user's authored **Activity** list, home location, and settings — **client-side only** (`ActivityStore`/`PreferencesStore` in UserDefaults, Issue #5b; no server-side preferences API, [ADR-0001](adr/0001-no-accounts-guest-first.md)). The **Device snapshot** is a push-only server copy of some of this state, not a preferences store.
+
+**Active location**:
+The location the app currently rates against, resolved client-side in fixed order: home (picked city) → live GPS fix → last resolved location (persisted from the most recent successful rating) → **none**, which renders the grayed empty state with the two onboarding CTAs ("Enable location" / "Place your own location"). The old silent Dubai fallback is **deleted** (Issue #5c) — the app never fabricates a location.
+_Avoid_: letting any fallback location reach push registration — a **Device snapshot** requires a real home or GPS location ([ADR-0006](adr/0006-device-keyed-push-evaluation.md)).
+
+**Device**:
+The anonymous push identity: a client-minted install UUID in the Keychain plus the current APNs token ([ADR-0001](adr/0001-no-accounts-guest-first.md)). Identifies an *install*, never a human — there are no accounts.
+
+**Device snapshot**:
+The device-keyed server-side copy of `{ APNs token, home lat/lon, authored Activities }` a **Device** uploads via full-snapshot upsert (`PUT /api/v1/devices/:deviceId`) when notifications are enabled. Client-authoritative, last-write-wins; re-upserted on any change; deleted on opt-out. Exists **only** for the push path — the `/rating` path stays stateless. See [ADR-0006](adr/0006-device-keyed-push-evaluation.md).
+
+**Digest**:
+The daily push summary, sent at the **Device's local 6am**: today's/tonight's **Window** per Activity, plus week-ahead **Perfect** highlights (buckets 2–6). At most one per Device per day; not sent when nothing qualifies. Issue #6c.
+
+**Perfect-window alert**:
+The event push produced by the hourly *detector* job (Issue #6d): fires on the **first Perfect Window per (Device, Activity, bucket)** within buckets 0–1 (~48h). Perfect-only — a good→perfect upgrade alerts inherently as the bucket's first Perfect; Good windows surface in the **Digest** instead. Deduplicated by bucket date, never by index (indices re-base every fetch).
+_Avoid_: the old grill name *Window Watch* — use **Perfect-window alert**.
 
 **Forecast**:
 A 7-day rolling window of hourly entries starting at "now", fetched from the weather provider via an **Adapter** and normalized to a unified schema. The count is **provider-determined, up to a 168-hour (7×24) ceiling** (Meteosource `flexi` returns ~161–168) — fewer is valid, the last day may be partial, and the system never fabricates hours to hit a target. Consumers must read the actual length, never assume a fixed count. See [ADR-0003](adr/0003-seven-day-horizon-flat-hours-day-buckets.md).
@@ -91,6 +108,7 @@ A boolean flag indicating an active maritime-authority alert (e.g. gale warning,
 - A **User** authors **Activities** client-side (from Templates or scratch) and the iOS app sends them in the `POST /api/v1/rating` body; the backend holds no activity list.
 - The decision engine evaluates each hour of the **Forecast** against each Activity's **Thresholds**, producing a **Rating** per hour, then finds the longest **Window** per bucket (calendar day, or **night** for a nocturnal Activity).
 - A **Session** fits inside a **Window** — the engine produces the **Window**; the user (or iOS app) chooses where to place the **Session**.
+- A **Device** (opt-in) registers a **Device snapshot**; the server's **Digest** and **Perfect-window alert** jobs evaluate the snapshot's Activities with the same engine the `/rating` route uses ([ADR-0006](adr/0006-device-keyed-push-evaluation.md)).
 
 ## Example dialogue
 
