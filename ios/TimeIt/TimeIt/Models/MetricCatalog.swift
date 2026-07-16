@@ -73,7 +73,7 @@ extension MetricCatalogProviding {
 /// `swellHeight`, `swellLength`, `tide`, `seaWarning`): the backend hard-400s
 /// it, and validation is atomic, so one bad metric blanks the whole dashboard.
 ///
-/// TODO: RemoteMetricCatalog via GET /api/v1/metrics (pending ADR-0006, unwritten).
+/// TODO: RemoteMetricCatalog via GET /api/v1/metrics (pending its ADR, unwritten/unnumbered — ADR-0006 is the push ADR).
 struct StaticMetricCatalog: MetricCatalogProviding {
     var metrics: [MetricDescriptor] { Self.all }
 

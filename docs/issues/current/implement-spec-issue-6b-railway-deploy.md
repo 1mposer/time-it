@@ -62,7 +62,7 @@ Also verify a validation `400` (send `"lat": 999`) returns the structured `{ err
 
 ## 4. iOS — build-config base URL
 
-**Already built (audited 2026-07-16):** `ios/TimeIt/Networking/APIConfig.swift:4-8` already carries the `#if DEBUG` switch — Debug → `http://localhost:3000`, Release → an HTTPS placeholder. The only change is **replacing the Release placeholder with the real Railway URL** from step 2.
+**Already built (audited 2026-07-16):** `ios/TimeIt/TimeIt/Networking/APIConfig.swift:4-9` already carries the `#if DEBUG` switch — Debug → `http://localhost:3000`, Release → an HTTPS placeholder. The only change is **replacing the Release placeholder with the real Railway URL** from step 2.
 
 - Debug builds keep working against the local backend; Release builds cannot ship pointing at localhost.
 - `NSAllowsLocalNetworking` lives in the single shared `Config/Info.plist` (both configurations). **Keep it as-is** — a Release build never dials localhost by construction, so the exception is inert there; splitting into per-config plists is optional hardening, not required for acceptance.
