@@ -89,6 +89,12 @@ The same real-world pursuit authored more than once with different ranges — "C
 
 ---
 
+**Header temp encoding** *(planned)*
+The header's gradient is a **temperature signal**, not fixed branding: cool → blue, mid → yellow, hot → salmon, driven by the current hour's temp. The three identity colors are reserved for this — never used as button/accent colors. Bands come from the **band profile**. Spec: [`docs/design/figma_foundations_multi-page_implementation.md`](../docs/design/figma_foundations_multi-page_implementation.md).
+
+**Band profile** *(planned)*
+The region-calibrated temperature bands that pick the header gradient, keyed by the **forecast location's country** (not device locale). Default: cool <20 · mid 20–32 · hot ≥33. UAE (`AE`): cool ≤33 · mid 34–37 · hot >37. Extensible per country code.
+
 ## Figma vocabulary
 
 **Logical screen**
