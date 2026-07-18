@@ -39,6 +39,9 @@ docs/review/out/
 cli-iqair.js
 src/weather/adapters/iqair.js
 
+# Codebase Teacher — local learning tool (learn.html + regenerable source), not committed
+learn/
+
 # Claude Code local tooling — not committed
 .claude/settings.local.json
 .claude/projects/
