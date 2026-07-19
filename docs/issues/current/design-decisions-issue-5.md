@@ -3,7 +3,7 @@
 > Shared visual/UX + nav reference for both sub-issues #5a and #5b, reconciled to the Phase 1/2 rebuild and the locked grill decisions. The **visual** decisions (colour, typography, layout, chip tiers) are the source of truth alongside [`ios/guidelines/Guidelines.md`](../../../ios/guidelines/Guidelines.md). The **contract** facts here now match the shipped backend: activities are **caller-supplied** via `POST /api/v1/rating` (no server-side list), the per-hour `hour` field was **dropped**, a result is a per-activity **`days[]`** array (not a single top-level `rating`/`startIndex`), and there are **no accounts** and **no bottom tab bar**. See [ADR-0001](../../adr/0001-no-accounts-guest-first.md) (no accounts), [ADR-0004](../../adr/0004-day-bucketed-rating-wire-shape.md) (response), [ADR-0005](../../adr/0005-custom-activity-request-schema.md) (request), and [STATUS.md](../../STATUS.md) §5.
 
 > Do not relitigate these decisions. Visual spec: [`ios/guidelines/Guidelines.md`](../../../ios/guidelines/Guidelines.md).
-> Build specs: [`implement-spec-issue-5a-ios-core.md`](implement-spec-issue-5a-ios-core.md) (core read-only) and #5b (authoring/Pro, to be written).
+> Build specs (both ✅ built, now in `completed/`): [`implement-spec-issue-5a-ios-core.md`](../completed/implement-spec-issue-5a-ios-core.md) (core read-only, merged 2026-07-12) and [`implement-spec-issue-5b-ios-personalization.md`](../completed/implement-spec-issue-5b-ios-personalization.md) (authoring, built 2026-07-13; Pro/StoreKit deferred per its §8).
 
 ---
 
@@ -47,18 +47,7 @@ Full authoring (add from Template / from scratch), the metric-picker, and Pro ga
 
 ## Metric chip colour tiers
 
-| Metric | Green | Orange | Red |
-|---|---|---|---|
-| `temp` (°C) | 18–32 | 33–37 | 38+ |
-| `uV` | 0–3 | 4–6 | 7+ |
-| `windSpeed` (km/h) | 0–20 | 21–35 | 36+ |
-| `humidity` (%) | 0–60 | 61–75 | 76+ |
-| `cloudCover` (%) | 0–20 | 21–60 | 61+ |
-
-Chip style per tier (matches `ios/guidelines/Guidelines.md`):
-- Green: bg `rgba(52,199,89,0.12)` / text `#1a7a35`
-- Orange: bg `rgba(255,149,0,0.12)` / text `#b85c00`
-- Red: bg `rgba(255,59,48,0.12)` / text `#c0392b`
+The tier bands (green/orange/red per metric) and the per-tier chip colours live in **one place**: [`ios/guidelines/Guidelines.md`](../../../ios/guidelines/Guidelines.md) "Metric chip colour tiers" — the canonical copy, pinned to code by `MetricTier` (`ActivityCardView.swift`) + `MetricColorTests`. Metrics with no tier table (`rainFall`, `visibility`, `moon`, `dustAlert`) render neutral grey. Not restated here (one source of truth).
 
 ## SF Symbols manifest (for the SwiftUI agent)
 
@@ -143,7 +132,9 @@ iOS 17+, Swift, SwiftUI, MVVM. No third-party Swift packages.
 
 ## Mockup vs. API contract — for the SwiftUI agent
 
-The React/Vite prototype at `ios/src/app/` is a **visual reference only** — it will be deleted once the SwiftUI app exists. Its TypeScript types do **not** match the API contract. Use the backend response shape (Issue #4) as the source of truth, not the mockup types.
+> **Historical (2026-07-19):** the React/Vite prototype was **deleted** as planned (SwiftUI app shipped; the Figma file `Main - Time-it` is now the visual reference). This section stays as the record of why the mockup's types were never to be trusted.
+
+The React/Vite prototype at `ios/src/app/` was a **visual reference only** — deleted once the SwiftUI app existed. Its TypeScript types did **not** match the API contract. Use the backend response shape (Issue #4) as the source of truth, not the mockup types.
 
 Specific mismatches the SwiftUI agent must NOT replicate:
 

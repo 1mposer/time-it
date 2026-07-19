@@ -1,7 +1,7 @@
 # Time It — Design Guidelines
 
-> Source of truth for all UI decisions. Every new screen must be consistent with these principles.
-> Derived from the Figma Make prototype in `ios/src/app/`.
+> **Scope note (2026-07-19):** this file is the visual token truth for the **shipped v1 light-only UI** — `Theme.swift` and `MetricColorTests` pin against it. The **next visual iteration** (temp-encoded header gradients, full Light/Dark semantic tokens, wizard components) lives in the Figma file **Main - Time-it** — see [`docs/design/figma_foundations_multi-page_implementation.md`](../../docs/design/figma_foundations_multi-page_implementation.md). Rows describing a tab bar, sign-in button, or PRO badge are relics of the original mockup — those features were **cut** (ADR-0001 no-accounts; no tab bar) and were never built.
+> (Originally derived from the Figma Make prototype, deleted 2026-07-19 — recover from git history.)
 
 ---
 

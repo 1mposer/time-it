@@ -1,8 +1,24 @@
 # Implementation spec — Figma foundations: multi-page design system
 
+> ✅ **IMPLEMENTED 2026-07-18** — the full system exists in the Figma file; do not re-run this spec. All §8 acceptance items pass.
+> Deviations/decisions from the build session (owner-approved live): **scope expanded** to a redesign pass (as-built page is reference ground, not sacred) + all 9 wizard frames in the Screens galleries; **`App Colors` kept, NOT retired** — the wizard-mind-map arrows bind to it (noted on the 🎨 Color page); the spec's `Cards`/`Transition Screens`/`Wizard screens` pages had already been deleted by the owner; chip tint alpha lives **inside** the Semantic tokens (12% light / 20% dark), which sidesteps quirk §6.1 entirely; logo rebuilt as a vector `Brand/App Icon` (1024/180/40). Key node IDs: agent memory `project_figma_ds_v1_built.md`.
+>
 > For a **fresh agent** with no prior conversation context. Everything needed is in this file.
 > Target: the Figma file **Main - Time-it** (`fileKey: t3ZRvcYPnSRPKElSLAFqmG`).
 > Produced from the design grill of 2026-07-18; palette owner-approved same day. Companion glossary: [`ios/GLOSSARY.md`](../../ios/GLOSSARY.md).
+
+# Skill References
+
+## Your foundation: `docs/design/figma_foundations_multi-page_implementation.md`
+This is authoritative. Follow it exactly.
+
+## Optional guardrails (mention if you hit design questions):
+- "Validate this against atomic design principles (ui-design-system)"
+- "Check contrast ratios (apple-hig-expert)"
+- "Verify component architecture patterns (senior-fullstack)"
+
+These are reference frameworks only — your spec is the source of truth.
+
 
 ---
 
@@ -117,6 +133,14 @@ To build:
 - **`Primitives`** (1 mode): the six gradient stops (`gradient/cool/start|end`, `gradient/mid/start|end`, `gradient/hot/start|end`) — use the **pinned §4.1 values**, not the raw App Colors ones (mid/hot were deepened) — plus gray ramp and any raw values the Semantic layer needs. Scopes `[]` (hidden from pickers).
 - **`Semantic`** (modes **Light / Dark**): surfaces, text, separators, `accent/interactive`, `accent/destructive`, `rating/perfect`, `rating/good`, chip-tier tokens, header-gradient aliases → primitives. Every var: explicit scopes + iOS code syntax (follow the pattern visible on `Theme colors`).
 - **Retire `App Colors`** only after migrating values and confirming zero bindings to it (check with a `boundVariables` scan; the owner's early frames may bind to it — if so, leave it and note where).
+
+
+## Your tools (Claude Code skills to load)
+These three agent skills from `alirezarezvani/claude-skills` will guide rigid, functional design:
+1. **ui-design-system** (`product-team/`) — component architecture, token generation, variant patterns
+2. **apple-hig-expert** (`product-team/`) — HIG audit, accessibility, Liquid Glass (later cross-check)
+3. **senior-fullstack** (`engineering-team/`) — forcing questions, architecture discipline
+
 
 ## 6. Non-obvious Figma facts (hard-won — read before writing)
 

@@ -1,7 +1,9 @@
 # Implementation spec — Issue #8: Add `requireTrue` threshold type to decision engine
 
+> ⚠️ **STALE — predates the Phase 1/2 rebuild.** Any language below about "activity definitions", `starGazingLite`, or editing activity files is obsolete: the curated `src/activities/*` list was **deleted** — activities are **caller-supplied** in the request body ([ADR-0002](../../adr/0002-activity-agnostic-engine.md)/[ADR-0005](../../adr/0005-custom-activity-request-schema.md)); `requireTrue` acceptance now means `validateRatingRequest` + `checkThreshold` + tests, not activity files. **Scope grew 2026-07-15** (fresh-session #5b review; see [STATUS.md](../../STATUS.md) §5(g) + ROADMAP): `validateRatingRequest` never checks that a threshold's *shape* matches its metric's *kind* — a `type:"flag"` threshold on a numeric metric passes validation, then never fails an hour in `checkThreshold` (silent false-Perfect). The server metric catalog needs kind awareness; the iOS client mirror already rejects this. Reconcile against ADR-0005 §6 + STATUS.md before implementing.
+
 > Domain glossary: [`CONTEXT.md`](../../CONTEXT.md)
-> Depends on: [Issue #3 (Backend Internals)](implement-spec-issue-3-backend-internals.md) ([GitHub](https://github.com/1mposer/time-it/issues/3)) — `forbidTrue` flag type must be in place first
+> Depends on: [Issue #3 (Backend Internals)](../completed/implement-spec-issue-3-backend-internals.md) ([GitHub](https://github.com/1mposer/time-it/issues/3)) — `forbidTrue` flag type must be in place first
 
 ---
 
@@ -44,5 +46,5 @@ totalSolarEclipse: { requireTrue: true, type: "flag", required: false },
 
 ## 4. Related artifacts
 
-- [Issue #3 (Backend Internals)](implement-spec-issue-3-backend-internals.md) ([GitHub](https://github.com/1mposer/time-it/issues/3)) — introduced `forbidTrue`; `requireTrue` is its counterpart.
+- [Issue #3 (Backend Internals)](../completed/implement-spec-issue-3-backend-internals.md) ([GitHub](https://github.com/1mposer/time-it/issues/3)) — introduced `forbidTrue`; `requireTrue` is its counterpart.
 - [Issue #7 (Marine Data)](implement-spec-issue-7-marine-data.md) ([GitHub](https://github.com/1mposer/time-it/issues/7)) — same pattern: engine capability before data source.

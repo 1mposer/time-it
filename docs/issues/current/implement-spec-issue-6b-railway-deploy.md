@@ -1,7 +1,7 @@
 # Implementation spec — Issue #6b: Railway deployment
 
 > Domain glossary: [`CONTEXT.md`](../../CONTEXT.md)
-> Depends on: [Issue #4 (HTTP API)](../completed/implement-spec-issue-4-http-api.md) + the Phase 1/2 rebuild (both merged); the iOS app ([#5a](implement-spec-issue-5a-ios-core.md)/[#5b](implement-spec-issue-5b-ios-personalization.md)) must build cleanly.
+> Depends on: [Issue #4 (HTTP API)](../completed/implement-spec-issue-4-http-api.md) + the Phase 1/2 rebuild (both merged); the iOS app ([#5a](../completed/implement-spec-issue-5a-ios-core.md)/[#5b](../completed/implement-spec-issue-5b-ios-personalization.md)) must build cleanly.
 > Required by: [#5c](implement-spec-issue-5c-location-onboarding.md) (ships against the live URL), [#6c](implement-spec-issue-6c-registration-and-digest.md), [#6d](implement-spec-issue-6d-perfect-window-detector.md).
 
 This spec is self-contained. Recreated 2026-07-16 from the #6 grill; supersedes the deleted `implement-spec-issue-6-deploy-and-notifications.md`.

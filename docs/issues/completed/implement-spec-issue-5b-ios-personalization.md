@@ -1,5 +1,7 @@
 # Implementation spec — Issue #5b: Activity authoring & personalization
 
+> ✅ **BUILT (2026-07-13, TDD), independently re-reviewed 2026-07-15 with all 7 findings fixed (branch `issue-5b-authoring`) — historical record; do not build from this.** The future-tense instructions below describe work that is DONE (iOS suite 138 = 124 unit + 14 XCUI). Known post-build drift: `HourlyWeather.label(for:)` (§Rendering note) was **deleted 2026-07-15** in favour of `MetricCatalog.displayName(for:)`; the validation mirror also gained the threshold-shape ↔ metric-kind check the review demanded. Current truth: [STATUS.md](../../STATUS.md) §5 + CLAUDE.md.
+
 > Build the **authoring layer** on top of the #5a core read-only dashboard: the user can **add, edit, and delete** their own Activities (from a Template or from scratch), choose **display metrics**, set **Thresholds** and an optional time-of-day **Window**, set a **home location**, and have all of it **persist** locally across launches. The dashboard stops POSTing a hardcoded two-Template constant and instead POSTs the user's **persisted, mutable Activity list**. The backend is unchanged — it is activity-agnostic ([ADR-0002](../../adr/0002-activity-agnostic-engine.md)) and already accepts any valid `{ lat, lon, activities[] }` body ([ADR-0005](../../adr/0005-custom-activity-request-schema.md)); **all of #5b is client-side.**
 
 > Design decisions: [`design-decisions-issue-5.md`](design-decisions-issue-5.md) — the shared visual/UX + nav reference (ghost add-card, card gear = authoring editor, no PRO badge, no `-pro` variants). Read it for colour/typography/layout.
@@ -265,5 +267,3 @@ Keep all #5a tests green. Add:
 - [ ] **Home location** is settable in Settings and used over GPS; clearing returns to GPS→Dubai.
 - [ ] **No PRO badge, no `-pro` variants, no accounts.** A soft quantity cap is enforced (constant), with StoreKit/Pro fully deferred (§8) unless the owner opted in.
 - [ ] The dashboard still renders per-activity `days[]` correctly (never assumes 7); all clock/day labels remain in the response `timezone`.
-</content>
-</invoke>

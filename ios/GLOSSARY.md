@@ -101,7 +101,7 @@ The region-calibrated temperature bands that pick the header gradient, keyed by 
 A step in the user flow. The wizard has 5. This is the number you *design*.
 
 **Drawn frame**
-An actual Figma frame on the canvas. One logical screen usually needs several drawn frames to show its different states — the wizard's 5 logical screens ≈ **10 drawn frames**. This is the number you *draw*.
+An actual Figma frame on the canvas. One logical screen usually needs several drawn frames to show its different states — the wizard's 5 logical screens = **9 drawn frames** (as built in the Figma design system 2026-07-18: Add sheet 1 · Name + Icon 1 · Range 3 · Metrics 2 · Review 2). This is the number you *draw*.
 
 **State variant**
 A drawn frame showing a screen in one specific state: the Range screen same-day vs wrapped vs invalid; the Metrics screen template-prefilled vs custom-empty; the Review screen diurnal vs nocturnal.

@@ -2,7 +2,7 @@
 
 > Domain glossary: [`CONTEXT.md`](../../CONTEXT.md) — see **Active location**.
 > Design decisions: [`design-decisions-issue-5.md`](design-decisions-issue-5.md) · visual spec: [`ios/guidelines/Guidelines.md`](../../../ios/guidelines/Guidelines.md).
-> Depends on: [#5b](implement-spec-issue-5b-ios-personalization.md) (built — `PreferencesStore`, home-location picker, `GeocodingProviding` seam) and [#6b](implement-spec-issue-6b-railway-deploy.md) (live URL, so onboarding is tested against production).
+> Depends on: [#5b](../completed/implement-spec-issue-5b-ios-personalization.md) (built — `PreferencesStore`, home-location picker, `GeocodingProviding` seam) and [#6b](implement-spec-issue-6b-railway-deploy.md) (live URL, so onboarding is tested against production).
 > Required by: [#6c](implement-spec-issue-6c-registration-and-digest.md) — push registration **requires a real location**; this issue is how a user gets one.
 
 This spec is self-contained. All client-side; the backend is untouched. **TDD required** — keep every #5a/#5b test green.
@@ -35,7 +35,7 @@ The app ships to the **worldwide** App Store (UAE-first marketing, not UAE-only 
 ## 2. Tests
 
 - Unit: resolution-chain precedence (home > GPS > lastResolved > none), lastResolved persistence write-on-success, nil chain → no POST + no-location signal (never coordinates), **first fix with no prior fetch triggers a load** (nil `lastFetchedCoordinate` must not discard the fix — see §1).
-- **Existing-test reconciliation (mandatory — audited 2026-07-16):** the old suite was written *around* Dubai, so "keep everything green" needs surgery, not preservation: (a) **replace** `testFallsBackToDubaiWhenLocationNil` (it asserts the deleted behaviour, pinning `25.1627`) with the nil-chain → no-location test above; (b) the XCUI `StaticLocationProvider` returns `nil` — which used to silently become Dubai and feed every card/header assertion — so add a **`UITEST_LOCATION`** launch arg making the mock provider return a fixed coordinate, keeping the existing card/header XCUI tests fed; (c) **re-record** `testHomeLocationPersistsAcrossRelaunchAndClears` — it taps `settings.searchButton`, which the as-you-type upgrade removes.
+- **Existing-test reconciliation (mandatory — audited 2026-07-16; expanded 2026-07-19):** the old suite was written *around* Dubai, so "keep everything green" needs surgery, not preservation: (a) **replace** `testFallsBackToDubaiWhenLocationNil` (it asserts the deleted behaviour, pinning `25.1627`) with the nil-chain → no-location test above; (a′) **two more unit tests are Dubai-coupled** (2026-07-19 audit): `testLateGpsFixTriggersRefetchWhenFirstLoadUsedTheFallback` (asserts the first load POSTs `fallbackCoordinate`) and `testGpsFixNearTheFetchedCoordinateDoesNotRefetch` (asserts `fetchCount == 1` from a no-location first load, which this issue turns into no-POST) — rewrite both against the new no-location → first-fix flow; (b) the XCUI `StaticLocationProvider` returns `nil` — which used to silently become Dubai and feed every card/header assertion — so add a **`UITEST_LOCATION`** launch arg making the mock provider return a fixed coordinate, keeping the existing card/header XCUI tests fed; (c) **re-record** `testHomeLocationPersistsAcrossRelaunchAndClears` — it taps `settings.searchButton`, which the as-you-type upgrade removes; (d) **extend `UITEST_RESET`** (TimeItApp.swift) to also wipe the new persisted `lastResolvedLocation` key — it currently wipes only `ActivityStore.storageKey` + `PreferencesStore.homeLocationKey`, and without the third wipe the fresh-install XCUI test can inherit a cached location across runs.
 - XCUI (new): fresh install + no location → grayed cards + both CTAs visible; picking a city via the mock-seamed search renders real cards; relaunch with cached lastResolved renders data with the cached label.
 
 ---
@@ -54,4 +54,4 @@ The app ships to the **worldwide** App Store (UAE-first marketing, not UAE-only 
 ## Related artifacts
 
 - [ADR-0006](../../adr/0006-device-keyed-push-evaluation.md) — push registration requires a real location; no fallback-location pushes.
-- [#5b spec §5](implement-spec-issue-5b-ios-personalization.md) — the home-location store/seam this issue extends.
+- [#5b spec §5](../completed/implement-spec-issue-5b-ios-personalization.md) — the home-location store/seam this issue extends.
