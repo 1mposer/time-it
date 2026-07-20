@@ -72,13 +72,15 @@ Also verify a validation `400` (send `"lat": 999`) returns the structured `{ err
 
 ## 5. Acceptance criteria
 
-- [ ] `package.json` `engines` says `>=20.0.0`; `npm test` green (114).
-- [ ] `curl https://YOUR_RAILWAY_URL/health` → 200.
-- [ ] The POST curl above → 200 with valid day-bucketed JSON; the bad-lat probe → 400 `{ errors }`.
-- [ ] Railway app sleeping is off.
-- [ ] Debug simulator build still talks to `localhost:3000`.
-- [ ] Release build on a real device loads cards from the Railway URL.
-- [ ] No Procfile, no Dockerfile, no DB were added.
+> **Deployed 2026-07-20.** Live URL: `https://time-it-production.up.railway.app` (note: `time-it-…`, not the `timeit-…` the old placeholder guessed). "App sleeping" is the **Serverless** toggle in Railway's current UI — confirmed OFF.
+
+- [x] `package.json` `engines` says `>=20.0.0`; `npm test` green (114).
+- [x] `curl https://YOUR_RAILWAY_URL/health` → 200 (verified 2026-07-20).
+- [x] The POST curl above → 200 with valid day-bucketed JSON (8-bucket `days[]`, global indices, `timezone: Asia/Dubai`); the bad-lat probe → 400 `{ errors: [{ path: "lat", … }] }`.
+- [x] Railway app sleeping is off (Serverless toggle disabled).
+- [x] Debug simulator build still talks to `localhost:3000` (`#if DEBUG` branch untouched; full iOS suite green same day).
+- [ ] Release build on a real device loads cards from the Railway URL. *(Owner's step — the Release configuration compiles against the live URL; simulator-verified 2026-07-20.)*
+- [x] No Procfile, no Dockerfile, no DB were added.
 
 ---
 
