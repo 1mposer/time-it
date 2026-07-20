@@ -63,3 +63,7 @@ POST /api/v1/rating                             → body { lat, lon, activities[
 ```bash
 node cli.js | python3 -m json.tool
 ```
+
+## License
+
+© 2026 Yaas Alfalasi. All rights reserved. This repository is shared publicly for portfolio and review purposes only — see [LICENSE](LICENSE).
