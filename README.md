@@ -1,6 +1,6 @@
 # Time-it
 
-A backend engine that tells UAE outdoor hobbyists exactly when to go outside.
+A backend engine that tells outdoor hobbyists exactly when to go outside — a worldwide product, UAE-first in marketing only.
 
 ## What it does
 
@@ -13,7 +13,7 @@ Users author their activities and thresholds (max temperature, max humidity, win
 1. **Fetch** - pulls hourly forecast data from a weather API
 2. **Parse** - normalizes the response into a unified schema (temp, humidity, wind, rainfall, UV, cloud cover, visibility, dust alerts, moon phase, sea conditions)
 3. **Match** - compares each hour against the user's activity thresholds
-4. **Notify** - sends a push notification when a qualifying window is found
+4. **Notify** - sends a push notification when a qualifying window is found (designed in [ADR-0006](docs/adr/0006-device-keyed-push-evaluation.md); ships in #6c/#6d, not yet built)
 
 The weather layer uses an adapter pattern, allowing additional data sources to be swapped in without touching the core logic.
 
@@ -23,14 +23,11 @@ Activities are **caller-supplied**: the iOS client authors each one — an `id`,
 
 **Lite / Pro** is a subscription tier enforced **client-side** as metric-access + quantity gating — which premium metrics you may use (atmospheric transparency, swell height, Douglas scale, moon phase) and how many activities you may author — not separate per-activity profiles.
 
-Pursuits at launch (shipped as client-side Templates):
+Templates shipped today:
 
 - Cycling
-- Hiking
-- Padel
-- Volleyball
-- Shore Fishing
-- Boat Fishing
+- Fishing Lite
+- Running
 - Stargazing
 
 
@@ -38,7 +35,7 @@ Pursuits at launch (shipped as client-side Templates):
 
 - **Runtime**: Node.js + Express
 - **Weather**: Meteosource API (adapter layer supports expansion)
-- **Notifications**: Apple Push Notification service (APNs)
+- **Notifications**: Apple Push Notification service (APNs) — planned, #6c/#6d
 - **Client**: iOS (App Store)
 - **Deployment**: Railway
 
