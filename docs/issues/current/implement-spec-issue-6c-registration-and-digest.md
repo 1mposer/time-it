@@ -12,7 +12,7 @@ This spec is self-contained. Recreated 2026-07-16 from the #6 grill. **TDD requi
 
 ## Context
 
-The backend can now be reached from anywhere (#6b) but holds no device state — and the engine holds no activities ([ADR-0002](../../adr/0002-activity-agnostic-engine.md)). To push, the server needs a device-keyed snapshot to evaluate. This sub-issue builds: Postgres + the `devices` table, the snapshot upsert route, the APNs seam, the weather cache, and the **daily digest** job. The `/rating` path is untouched and stays stateless.
+The backend can now be reached from anywhere (#6b) but holds no device state — and the engine holds no activities ([ADR-0002](../../adr/0002-activity-agnostic-engine.md)). To push, the server needs a device-keyed snapshot to evaluate. This sub-issue builds: Postgres + the `devices` table, the snapshot upsert route, the APNs seam, the weather cache, and the **daily digest** job. The `/rating` path stays stateless — no per-device state — but **amended 2026-07-20**: it now shares the same weather cache as the jobs (§6) instead of calling the provider fresh on every request; see the Decisions-made bullet below and §6 for the reasoning and required change.
 
 **Decisions made (do not relitigate — all from the 2026-07-16 grill, recorded in [ADR-0006](../../adr/0006-device-keyed-push-evaluation.md)):**
 - Full-snapshot upsert, client-authoritative, last-write-wins. No merge, no granular routes, no piggybacking on `/rating`.
@@ -22,7 +22,7 @@ The backend can now be reached from anywhere (#6b) but holds no device state —
 - Storage: Railway Postgres, `pg`, idempotent `initDb()` (`CREATE TABLE IF NOT EXISTS`), activities as JSONB. No migration framework.
 - Jobs: in-process `node-cron` on the always-on web service; **single replica** (2+ replicas duplicate pushes).
 - APNs: `apns2` package behind `src/notifications/`; `.p8` as env-var PEM content (`APNS_KEY`), never a file path.
-- Weather cache: in-memory, 30-min TTL, key = lat/lon rounded to 2 dp (~1.1 km — nearby devices share entries). **Jobs + the device upsert's timezone resolution** — the `/rating` route keeps calling `getWeather` directly (freshness semantics unchanged, zero test churn).
+- Weather cache: in-memory, **60-min TTL** (amended 2026-07-20 from an earlier 30-min figure — owner-confirmed Meteosource's `flexi` tier refreshes upstream somewhere between every 10 min and every 1 hour, not documented in the vendor's OpenAPI export; see [`docs/API_documentation/meteosource/README.md`](../../API_documentation/meteosource/README.md). Policy is to cache at the hourly end of that range, not chase the 10–15 min end — the cost isn't worth it at this traffic scale), key = lat/lon rounded to 2 dp (~1.1 km — nearby devices share entries). **Used by the jobs, the device upsert's timezone resolution, AND `/rating`** (amended 2026-07-20 — reverses the original job-only scoping: live dashboard traffic, not just the hourly cron passes, is the largest source of duplicate provider calls, since every app foreground/pull-to-refresh re-fetches identical data for the same location). Same file, same TTL semantics for every caller — do not build a second cache implementation for `/rating`. See §6 for the resulting required change to `createRatingRouter`'s default wiring.
 
 ---
 
@@ -85,7 +85,7 @@ Wraps `apns2` (never imported elsewhere — provider-specifics stop at the bound
 
 ## 6. Weather cache — `src/services/weatherCache.js`
 
-`getCachedWeather(lat, lon)` → in-memory `Map`, key `` `${lat.toFixed(2)},${lon.toFixed(2)}` ``, 30-min TTL, delegates to `getWeather`. Used by the jobs and the upsert's timezone resolution (§4.2) — never by `/rating`.
+`getCachedWeather(lat, lon)` → in-memory `Map`, key `` `${lat.toFixed(2)},${lon.toFixed(2)}` ``, **60-min TTL** (see Decisions made, and [`docs/API_documentation/meteosource/README.md`](../../API_documentation/meteosource/README.md) for the upstream-cadence rationale), delegates to `getWeather`. Used by the jobs, the upsert's timezone resolution (§4.2), and — **amended 2026-07-20, reversing the original scoping** — `src/routes/rating.js` as well: `createRatingRouter`'s default `getWeather` dependency should resolve to `getCachedWeather` rather than the raw `getWeather`, so live `/rating` traffic shares the same cache as the push jobs instead of issuing a fresh provider call on every request. The router's injected-dependency signature (the same DI pattern `tests/server/rating.test.js` already relies on) does not need to change — only the production wiring in `app.js`/`src/server.js` swaps which function is passed in. The wire response contract is byte-identical; only the fetch is memoized. New test coverage needed: a second `/rating` request for an already-cached location within the TTL must not call the provider twice (existing DI-fake tests currently assume one call per request and will need a cache-aware fake or a shared-cache fixture to catch a regression here).
 
 ---
 
@@ -141,7 +141,7 @@ APNS_TEAM_ID=XXXXXXXXXX
 - [ ] Editing an Activity re-upserts the snapshot (row's `activities` JSONB changes).
 - [ ] Manually invoking the digest job for a device whose local hour is forced to 6 delivers **one** push listing today's windows (+ week-ahead Perfect line when present); a second invocation the same local day sends nothing.
 - [ ] Toggle off deletes the row; a stale-token send deletes the row.
-- [ ] `/rating` behaviour and tests are byte-identical (still stateless, still uncached).
+- [ ] `/rating` response contract is byte-identical (still stateless — no per-device state) — but per the §6 amendment (2026-07-20) it now reads through the shared `getCachedWeather`, not a direct `getWeather` call: a repeat request for an already-cached location within the 60-min TTL must not hit the provider twice (new test, not a passthrough assumption).
 
 ---
 
