@@ -1,11 +1,11 @@
 import SwiftUI
 
-/// Dashboard card: summarises the SOONEST-ACTIONABLE day for one activity —
+/// Dashboard card: summarises DAY 0 (today/tonight) for one activity —
 /// icon + label, day name, timeline bar, first-3 metric chips.
 struct ActivityCardView: View {
     let activity: ActivityRating
-    /// The soonest-actionable day from `DashboardViewModel.cardDay(for:)`; nil
-    /// means no window anywhere in the activity's days[].
+    /// Day 0 from `DashboardViewModel.cardDay(for:)`; nil means today has no
+    /// window (ADR-0004 amendment 2026-07-20 — no roll-forward to later days).
     let day: Day?
     let windowStartHour: HourlyWeather?
     let deriver: TimeDeriver?
@@ -55,11 +55,11 @@ struct ActivityCardView: View {
         .padding(.trailing, 28) // clears the overlaid gear
     }
 
-    /// The card shows the soonest-actionable day, which is not always today —
-    /// name it, derived in the response timezone. Nocturnal activities read
-    /// "Tonight"/"… night" (their dayIndex is the evening's ordinal).
+    /// The card shows day 0 only; a windowless today reads as the none-state
+    /// ("No window today"/"No window tonight" — nocturnal phrasing per the
+    /// night-stitch dayIndex convention). Labels derive in the response zone.
     private var dayLabel: String {
-        guard let day else { return "No window in the next 7 days" }
+        guard let day else { return isNocturnal ? "No window tonight" : "No window today" }
         return deriver?.dayName(forDayIndex: day.dayIndex, nocturnal: isNocturnal) ?? "Day \(day.dayIndex)"
     }
 

@@ -17,6 +17,7 @@
 - [#5c Location onboarding](current/implement-spec-issue-5c-location-onboarding.md) — worldwide launch posture: **Dubai fallback deleted**, grayed empty state + "Enable location" / "Place your own location" (MapKit city search); soft prerequisite of #6c (registration needs a real location)
 - [#6c Device registration + daily digest](current/implement-spec-issue-6c-registration-and-digest.md) — Postgres, snapshot upsert (`PUT /api/v1/devices/:deviceId`), `apns2` seam, per-device local-6am digest ([ADR-0006](../adr/0006-device-keyed-push-evaluation.md))
 - [#6d Perfect-window detector](current/implement-spec-issue-6d-perfect-window-detector.md) — hourly, Perfect-only, once per (device, activity, bucket), buckets 0–1
+- **UX evolution (post-#6d)** — the range-first authoring wizard: every Activity is a user-placed daily time range ("check every day, from X to Y"); design pinned **2026-07-20** in Figma **"Main - Time it"** (wizard mind-map page; the "SwiftUI as-built" page mirrors the current build). Companion decision already landed: card = day 0 only ([ADR-0004 amendment 2026-07-20](../adr/0004-day-bucketed-rating-wire-shape.md)). Range is mandatory **in the UI only** — the wire `window` stays optional (ADR-0005 untouched); ranges are whole-hour; the wizard must make `From == To` unpickable and derive the duration cue (wrap-aware: `22→2` = 4h, and a wrap = nocturnal). Spec deliberately unwritten until the #6 wave completes.
 
 ## Parallel tracks (open now)
 

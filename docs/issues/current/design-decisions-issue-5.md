@@ -28,7 +28,7 @@ Each card contains:
 2. **Timeline bar:** highlights the day's best **Window**, positioned from the global `startIndex`/`endIndex` against that day's actual hour span (rendered in the response `timezone`). Green (`#34c759`) for Perfect, orange (`#ff9500`) for Good, no highlight for No Window. Window fill opacity 0.85. (The guidelines' "6am–12am" axis is illustrative — do not hardcode it; a Window can fall at any hour.)
 3. **Metric chips row:** activity's `displayMetrics` (first 3). Each chip shows the metric's value at the **best-window start hour** (`startIndex`, a global index into `hours[]`). Colour tier per the scale in [`Guidelines.md`](../../../ios/guidelines/Guidelines.md); nullable metrics (`windSpeed`/`rainFall`/`cloudCover`) render `"—"` when the value is null.
 
-The card summarises the **soonest-actionable day** for the activity (today if windowed, else the earliest non-null day by name, else "no window in the next 7 days") — read `days[]` per activity; never assume 7. See [ADR-0004](../../adr/0004-day-bucketed-rating-wire-shape.md).
+The card summarises **day 0 only** (today, or tonight for a nocturnal activity) — a null day 0 renders the none-state ("No window today"/"No window tonight"); it **never rolls forward** to a later day (the soonest-actionable fallback was cancelled 2026-07-20 — [ADR-0004 amendment](../../adr/0004-day-bucketed-rating-wire-shape.md)). Week browsing is the detail timeline's job. Read `days[]` per activity; never assume 7.
 
 Card background: `#ffffff`. Corner radius: 16pt. Shadow: `0 1px 3px rgba(0,0,0,0.08), 0 0 0 0.5px rgba(0,0,0,0.06)`.
 
@@ -140,7 +140,7 @@ Specific mismatches the SwiftUI agent must NOT replicate:
 
 | Mockup (visual prototype) | Real API (source of truth) | Notes |
 |---|---|---|
-| Single top-level `condition`/`bestTime` per activity | Per-activity **`days[]`**, each `{ dayIndex, rating, startIndex?, endIndex?, duration? }` | The result is 7-day day-bucketed, not one window. `days.length` is **per-activity** (7/8 diurnal, one shorter nocturnal) — never hardcode 7. The card renders the soonest-actionable day; the detail renders all days. See [ADR-0004](../../adr/0004-day-bucketed-rating-wire-shape.md). |
+| Single top-level `condition`/`bestTime` per activity | Per-activity **`days[]`**, each `{ dayIndex, rating, startIndex?, endIndex?, duration? }` | The result is 7-day day-bucketed, not one window. `days.length` is **per-activity** (7/8 diurnal, one shorter nocturnal) — never hardcode 7. The card renders day 0 only (roll-forward cancelled 2026-07-20, ADR-0004 amendment); the detail renders all days. See [ADR-0004](../../adr/0004-day-bucketed-rating-wire-shape.md). |
 | `condition: 'perfect' \| 'good' \| 'none'` | `rating: "perfect" \| "good" \| null` (per day) | The no-window state is JSON `null`, not the string `"none"`. Model as an optional in Swift. |
 | `bestTimeStart`, `bestTimeEnd` (clock hours) | `startIndex`, `endIndex` — **global** 0-based indices into `forecast.hours` | Indices are NOT clock hours. There is **no `hour` field** on the hourly object (dropped, ADR-0004). Derive clock times from `forecastStart` + the response **`timezone`** + `index`, rendered in the **location's** zone (not the device zone). |
 

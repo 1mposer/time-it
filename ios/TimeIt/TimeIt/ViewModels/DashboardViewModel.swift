@@ -163,10 +163,12 @@ final class DashboardViewModel: ObservableObject {
         authoredActivity(forActivityId: activityId)?.isNocturnal ?? false
     }
 
-    /// The card's day: soonest-actionable, NOT best — the first day with any
-    /// rating; a later Perfect never beats an earlier Good (ADR-0004).
+    /// The card's day: day 0 (today/tonight) ONLY — the card answers "is my
+    /// range good today?". Nil when today has no window; the card renders its
+    /// none-state and the week stays in the detail timeline. The roll-forward
+    /// to a later day was cancelled (ADR-0004 amendment 2026-07-20).
     func cardDay(for activity: ActivityRating) -> Day? {
-        activity.days.first { $0.rating != nil }
+        activity.days.first.flatMap { $0.rating != nil ? $0 : nil }
     }
 
     /// The hour at the day's window start — chips read their values here.

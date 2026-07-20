@@ -78,9 +78,13 @@ final class TimeItUITests: XCTestCase {
         let app = launchApp()
 
         XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5))
-        // Mock: Cycling is windowed today; Fishing Lite's soonest-actionable day is tomorrow.
+        // Mock: Cycling is windowed today; Fishing Lite's only window is
+        // tomorrow, which the card must NOT roll forward to (ADR-0004
+        // amendment 2026-07-20) — it renders the none-state instead.
         XCTAssertTrue(app.staticTexts["Today"].exists)
-        XCTAssertTrue(app.staticTexts["Tomorrow"].exists)
+        XCTAssertTrue(app.staticTexts["No window today"].exists)
+        XCTAssertFalse(app.staticTexts["Tomorrow"].exists,
+                       "the dashboard never shows a later day — the week lives in the detail")
         XCTAssertTrue(app.otherElements["timeline.cycling"].exists)
         XCTAssertTrue(app.staticTexts["chip.cycling.temp"].exists, "at least one metric chip on the card")
     }

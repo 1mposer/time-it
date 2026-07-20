@@ -37,8 +37,9 @@ final class StaticLocationProvider: LocationProviding {
 extension ForecastResponse {
     /// forecastStart 2026-06-19T12:00:00Z in Asia/Dubai = 16:00 local, so local
     /// day 0 spans indices 0..<8 and day 1 spans 8..<32. The first activity is
-    /// windowed today (perfect), the second tomorrow (good), the rest null —
-    /// covering both card-day paths.
+    /// windowed today (perfect); the second only tomorrow (good), so its card
+    /// renders the none-state ("No window today" — day-0-only rule, ADR-0004
+    /// amendment 2026-07-20) while its detail still shows the tomorrow window.
     static func uiTestFixture(for activities: [ActivityInput]) -> ForecastResponse {
         let hours = (0..<56).map { index in
             HourlyWeather(index: index,

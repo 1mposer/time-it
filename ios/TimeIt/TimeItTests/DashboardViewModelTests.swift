@@ -325,7 +325,7 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertNil(vm.iconSymbol(forActivityId: "unknown"))
     }
 
-    // MARK: cardDay — soonest-actionable, not best
+    // MARK: cardDay — day 0 only, no roll-forward (ADR-0004 amendment 2026-07-20)
 
     func testCardDayReturnsDayZeroWhenTodayWindowed() {
         let days = [
@@ -337,10 +337,13 @@ final class DashboardViewModelTests: XCTestCase {
         let day = vm.cardDay(for: Fixtures.makeActivity(days: days))
 
         XCTAssertEqual(day?.dayIndex, 0)
-        XCTAssertEqual(day?.rating, "good", "soonest wins — a later Perfect must not beat an earlier Good")
+        XCTAssertEqual(day?.rating, "good", "day 0 renders as-is — a later Perfect is irrelevant to the card")
     }
 
-    func testCardDayReturnsEarliestNonNullWhenTodayNil() {
+    func testCardDayReturnsNilWhenTodayNilEvenWithLaterWindows() {
+        // The cancellation's regression test: under the old rule this returned
+        // dayIndex 2 (the "soonest-actionable" roll-forward). The card must now
+        // ignore later days entirely — the week lives in the detail timeline.
         let days = [
             Fixtures.makeDay(dayIndex: 0),
             Fixtures.makeDay(dayIndex: 1),
@@ -349,9 +352,7 @@ final class DashboardViewModelTests: XCTestCase {
         ]
         let (vm, _, _, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])))
 
-        let day = vm.cardDay(for: Fixtures.makeActivity(days: days))
-
-        XCTAssertEqual(day?.dayIndex, 2)
+        XCTAssertNil(vm.cardDay(for: Fixtures.makeActivity(days: days)))
     }
 
     func testCardDayReturnsNilWhenAllDaysNil() {
