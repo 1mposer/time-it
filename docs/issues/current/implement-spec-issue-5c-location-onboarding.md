@@ -2,7 +2,7 @@
 
 > Domain glossary: [`CONTEXT.md`](../../CONTEXT.md) — see **Active location**.
 > Design decisions: [`design-decisions-issue-5.md`](design-decisions-issue-5.md) · visual spec: [`ios/guidelines/Guidelines.md`](../../../ios/guidelines/Guidelines.md).
-> Depends on: [#5b](../completed/implement-spec-issue-5b-ios-personalization.md) (built — `PreferencesStore`, home-location picker, `GeocodingProviding` seam) and [#6b](implement-spec-issue-6b-railway-deploy.md) (live URL, so onboarding is tested against production).
+> Depends on: [#5b](../completed/implement-spec-issue-5b-ios-personalization.md) (built — `PreferencesStore`, home-location picker, `GeocodingProviding` seam) and [#6b](../completed/implement-spec-issue-6b-railway-deploy.md) (live URL, so onboarding is tested against production).
 > Required by: [#6c](implement-spec-issue-6c-registration-and-digest.md) — push registration **requires a real location**; this issue is how a user gets one.
 
 This spec is self-contained. All client-side; the backend is untouched. **TDD required** — keep every #5a/#5b test green.

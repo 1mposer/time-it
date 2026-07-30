@@ -2,7 +2,7 @@
 
 > Domain glossary: [`CONTEXT.md`](../../CONTEXT.md)
 > Depends on: [Issue #3 (Backend Internals)](implement-spec-issue-3-backend-internals.md) ([GitHub](https://github.com/1mposer/time-it/issues/3)) — must be complete first
-> Required by: [Issue #5a (iOS Core)](implement-spec-issue-5a-ios-core.md), [Issue #6b (Deploy)](../current/implement-spec-issue-6b-railway-deploy.md)
+> Required by: [Issue #5a (iOS Core)](implement-spec-issue-5a-ios-core.md), [Issue #6b (Deploy)](implement-spec-issue-6b-railway-deploy.md)
 
 This spec is self-contained. The implementing agent should not need any other conversation context to complete the task.
 
@@ -305,4 +305,4 @@ This file is committed to git so future developers know what variables are neede
 - [`CONTEXT.md`](../../CONTEXT.md) — domain glossary.
 - [Issue #3 (Backend Internals)](implement-spec-issue-3-backend-internals.md) ([GitHub](https://github.com/1mposer/time-it/issues/3)) — must be completed before this issue; provides `evaluateAll`, corrected activity schemas, and the `{ forecastStart, hours }` parse shape.
 - [Issue #5a (iOS Core)](implement-spec-issue-5a-ios-core.md) — the iOS app implements against the JSON contract defined in Section 4 of this issue. Do not change the response shape after Issue #5 begins.
-- [Issue #6b (Deploy)](../current/implement-spec-issue-6b-railway-deploy.md) — deploys the server built here to Railway.
+- [Issue #6b (Deploy)](implement-spec-issue-6b-railway-deploy.md) — deploys the server built here to Railway.
