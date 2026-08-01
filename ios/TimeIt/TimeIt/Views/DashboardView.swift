@@ -213,20 +213,47 @@ struct DashboardView: View {
         }
     }
 
+    /// Explicit Theme colors, not ContentUnavailableView — the system
+    /// component rendered near-white text on the light background on device.
+    /// Mirrors the Figma Error frame's empty-state idiom (same anatomy as
+    /// noLocationState).
     private func errorView(_ message: String) -> some View {
-        ContentUnavailableView {
-            Label("Weather Unavailable", systemImage: "wifi.slash")
-        } description: {
-            Text(message)
-        } actions: {
-            // Retrying is the primary recovery for a transient 502 / unreachable
-            // server; it stays available (but not prominent) for a 500.
-            Button("Try Again") {
-                Task { await viewModel.loadForecast() }
+        ScrollView {
+            VStack(spacing: 0) {
+                Image(systemName: "wifi.exclamationmark")
+                    .font(.system(size: 44))
+                    .foregroundStyle(Theme.secondaryText)
+                    .padding(.top, 96)
+                Text("Weather Unavailable")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(Theme.primaryText)
+                    .padding(.top, 16)
+                Text(message)
+                    .font(.system(size: 14))
+                    .foregroundStyle(Theme.secondaryText)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 280)
+                    .padding(.top, 6)
+                // Retrying is the primary recovery for a transient 502 /
+                // unreachable server; it stays available for a 500 too.
+                Button {
+                    Task { await viewModel.loadForecast() }
+                } label: {
+                    Text("Try Again")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 9)
+                        .background(Capsule().fill(Theme.accentInteractive))
+                        .frame(minHeight: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 8)
             }
-            .buttonStyle(.borderedProminent)
+            .padding(14)
+            .frame(maxWidth: .infinity)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private func cardList(_ forecast: ForecastResponse) -> some View {
