@@ -6,11 +6,13 @@
 // the devices router's default DI wiring in tests) never demands a DATABASE_URL
 // or opens a connection; only the first query does.
 //
-// The devices table is the push path's ONLY state (the /rating path stays
-// stateless). `activities` is the validated ADR-0005 snapshot as JSONB;
-// `last_digest_date` is the sent-today marker the digest job compares against
-// device-local today (DATE — the pg driver returns it as a JS Date object; see
-// the type-trap note in src/jobs/dailyDigest.js).
+// The push path's ONLY state lives here (the /rating path stays stateless):
+// `devices` (one row per opted-in install) and `notification_state` (#6d — the
+// detector's one-alert-per-(device, activity, bucket) dedup ledger, cascading
+// away with its device row). `activities` is the validated ADR-0005 snapshot as
+// JSONB; `last_digest_date` is the sent-today marker the digest job compares
+// against device-local today (DATE — the pg driver returns it as a JS Date
+// object; see the type-trap note in src/jobs/dailyDigest.js).
 
 const { Pool } = require('pg');
 
@@ -37,6 +39,15 @@ async function initDb() {
       activities       JSONB NOT NULL,
       last_digest_date DATE,
       updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+  `);
+  await query(`
+    CREATE TABLE IF NOT EXISTS notification_state (
+      device_id   TEXT NOT NULL REFERENCES devices(device_id) ON DELETE CASCADE,
+      activity_id TEXT NOT NULL,
+      bucket_date DATE NOT NULL,
+      notified_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      PRIMARY KEY (device_id, activity_id, bucket_date)
     );
   `);
 }
