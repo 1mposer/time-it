@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const createRatingRouter = require('./routes/rating');
+const { getCachedWeather } = require('./services/weatherCache');
 
 const app = express();
 app.use(cors());
@@ -25,6 +26,9 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-app.use('/api/v1', createRatingRouter());
+// /rating reads through the shared 60-min weather cache (#6c spec §6 amendment
+// 2026-07-20) — same cache instance as the push jobs and the device upsert. The
+// wire contract is byte-identical; only the provider fetch is memoized.
+app.use('/api/v1', createRatingRouter({ getWeather: getCachedWeather }));
 
 module.exports = app;
