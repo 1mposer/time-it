@@ -50,7 +50,7 @@ The user's actual outdoor activity time (e.g., Abdulla's 3-hour Sunday cycling b
 The user's authored **Activity** list, home location, and settings — **client-side only** (`ActivityStore`/`PreferencesStore` in UserDefaults, Issue #5b; no server-side preferences API, [ADR-0001](adr/0001-no-accounts-guest-first.md)). The **Device snapshot** is a push-only server copy of some of this state, not a preferences store.
 
 **Active location**:
-The location the app currently rates against, resolved client-side in fixed order: home (picked city) → live GPS fix → last resolved location (persisted from the most recent successful rating) → **none**, which renders the grayed empty state with the two onboarding CTAs ("Enable location" / "Place your own location"). *(This chain is the locked #5c design; until that issue lands, the built chain is still home → GPS → silent Dubai fallback.)* The silent Dubai fallback is **deleted by Issue #5c** — the app never fabricates a location.
+The location the app currently rates against, resolved client-side in fixed order: home (picked city) → live GPS fix → last resolved location (persisted from the most recent successful rating) → **none**, which renders the grayed empty state with the two onboarding CTAs ("Enable location" / "Place your own location"). The silent Dubai fallback was **deleted by Issue #5c** — the app never fabricates a location.
 _Avoid_: letting any fallback location reach push registration — a **Device snapshot** requires a real home or GPS location ([ADR-0006](adr/0006-device-keyed-push-evaluation.md)).
 
 **Device**:
