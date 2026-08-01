@@ -1,14 +1,22 @@
 import SwiftUI
 
-/// Gradient dashboard header: current wall-clock time plus the forecast
-/// location's current-hour weather (temp / wind / humidity from `hours[0]`).
-/// Values fall back to `—` while loading, on error, or when the provider
-/// omitted a metric. The top-right control is the Settings gear — there is
-/// no sign-in (ADR-0001).
+/// Gradient dashboard header: the Active location's name (#5c), current
+/// wall-clock time, plus the forecast location's current-hour weather
+/// (temp / wind / humidity from `hours[0]`). Values fall back to `—` while
+/// loading, on error, or when the provider omitted a metric; in the
+/// no-location state the weather rows hide entirely (`showsWeather`) — no
+/// fabricated conditions. The top-right control is the Settings gear — there
+/// is no sign-in (ADR-0001).
 struct HeaderView: View {
+    /// The Active location's display name (picked city, "Current location",
+    /// or the cached name); nil renders "NO LOCATION" (#5c).
+    let locationName: String?
     /// The current forecast hour (`forecast.hours.first`); nil while loading
     /// or on error, in which case the placeholders show.
     let currentHour: HourlyWeather?
+    /// False in the no-location state: hide temp + conditions rather than
+    /// show placeholders for a location that doesn't exist.
+    var showsWeather = true
     let onGearTap: () -> Void
 
     private var tempText: String {
@@ -29,6 +37,12 @@ struct HeaderView: View {
     var body: some View {
         ZStack(alignment: .topTrailing) {
             VStack(spacing: 4) {
+                Text((locationName ?? "No location").uppercased())
+                    .font(.system(size: 11, weight: .medium))
+                    .tracking(1.4)
+                    .foregroundStyle(.white.opacity(0.85))
+                    .accessibilityIdentifier("headerLocation")
+
                 TimelineView(.everyMinute) { context in
                     Text(context.date.formatted(date: .omitted, time: .shortened))
                         .font(.system(size: 60, weight: .bold, design: .default))
@@ -37,29 +51,31 @@ struct HeaderView: View {
                         .accessibilityIdentifier("headerTime")
                 }
 
-                Text(tempText)
-                    .font(.system(size: 28, weight: .light))
-                    .tracking(-0.5)
-                    .foregroundStyle(.white.opacity(0.92))
-                    .accessibilityIdentifier("headerTemp")
+                if showsWeather {
+                    Text(tempText)
+                        .font(.system(size: 28, weight: .light))
+                        .tracking(-0.5)
+                        .foregroundStyle(.white.opacity(0.92))
+                        .accessibilityIdentifier("headerTemp")
 
-                HStack(spacing: 24) {
-                    HStack(spacing: 5) {
-                        ActivityIconView(identifier: "wind", size: 12)
-                            .accessibilityLabel("Wind")
-                        Text(windText)
-                    }
+                    HStack(spacing: 24) {
+                        HStack(spacing: 5) {
+                            ActivityIconView(identifier: "wind", size: 12)
+                                .accessibilityLabel("Wind")
+                            Text(windText)
+                        }
 
-                    HStack(spacing: 5) {
-                        ActivityIconView(identifier: "humidity.fill", size: 12)
-                            .accessibilityLabel("Humidity")
-                        Text(humidityText)
+                        HStack(spacing: 5) {
+                            ActivityIconView(identifier: "humidity.fill", size: 12)
+                                .accessibilityLabel("Humidity")
+                            Text(humidityText)
+                        }
                     }
+                    .font(.system(size: 13))
+                    .tracking(0.1)
+                    .foregroundStyle(.white.opacity(0.8))
+                    .padding(.top, 6)
                 }
-                .font(.system(size: 13))
-                .tracking(0.1)
-                .foregroundStyle(.white.opacity(0.8))
-                .padding(.top, 6)
             }
             .frame(maxWidth: .infinity)
             .padding(.top, 8)

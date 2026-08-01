@@ -24,13 +24,26 @@ struct MockRatingService: RatingFetching {
     }
 }
 
-/// Location stand-in that never resolves — exercises the Dubai fallback.
+/// Fixed-fix location stand-in for UI tests: seeded with a coordinate via
+/// UITEST_LOCATION, or left nil to exercise the #5c no-location path.
 @MainActor
 final class StaticLocationProvider: LocationProviding {
-    let location: CLLocation? = nil
-    var locationPublisher: AnyPublisher<CLLocation?, Never> {
-        Just(nil).eraseToAnyPublisher()
+    let location: CLLocation?
+    let authorizationStatus: CLAuthorizationStatus
+
+    init(location: CLLocation? = nil) {
+        self.location = location
+        authorizationStatus = location == nil ? .notDetermined : .authorizedWhenInUse
     }
+
+    var locationPublisher: AnyPublisher<CLLocation?, Never> {
+        Just(location).eraseToAnyPublisher()
+    }
+
+    var authorizationPublisher: AnyPublisher<CLAuthorizationStatus, Never> {
+        Just(authorizationStatus).eraseToAnyPublisher()
+    }
+
     func requestLocation() {}
 }
 

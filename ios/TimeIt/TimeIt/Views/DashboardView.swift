@@ -1,14 +1,18 @@
 import SwiftUI
+import UIKit
 
 /// Root surface: gradient header → 0.5pt divider → scrollable card list.
 /// Single NavigationStack, no tab bar, no sign-in gate (ADR-0001, grill Q8).
 /// #5b: cards are the user's authored list (ActivityStore); a ghost add-card
-/// opens the add flow; each card's gear opens the editor.
+/// opens the add flow; each card's gear opens the editor. #5c: with no
+/// resolvable location, grayed skeleton cards + the two location CTAs — never
+/// fabricated weather.
 struct DashboardView: View {
     @StateObject private var viewModel: DashboardViewModel
     @ObservedObject private var store: ActivityStore
     @State private var showSettings = false
     @State private var showAdd = false
+    @State private var showCityPicker = false
     @State private var editing: AuthoredActivity?
 
     @MainActor
@@ -22,7 +26,9 @@ struct DashboardView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                HeaderView(currentHour: viewModel.forecast?.hours.first) { showSettings = true }
+                HeaderView(locationName: viewModel.activeLocationName,
+                           currentHour: viewModel.forecast?.hours.first,
+                           showsWeather: !viewModel.hasNoLocation) { showSettings = true }
                 Theme.divider
                     .frame(height: 0.5)
                 content
@@ -34,6 +40,11 @@ struct DashboardView: View {
             }
             .sheet(isPresented: $showAdd) {
                 AddActivityView(store: store)
+            }
+            .sheet(isPresented: $showCityPicker) {
+                // The VM's preferences, not .shared — the picker must write to
+                // the same store the requests resolve from.
+                CityPickerView(preferences: viewModel.preferences)
             }
             .sheet(item: $editing) { activity in
                 NavigationStack {
@@ -51,6 +62,8 @@ struct DashboardView: View {
     private var content: some View {
         if !viewModel.hasActivities {
             emptyState
+        } else if viewModel.hasNoLocation {
+            noLocationState
         } else if viewModel.isLoading {
             ProgressView("Checking conditions…")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -84,6 +97,102 @@ struct DashboardView: View {
                     .padding(.top, 12)
             }
             .padding(14)
+        }
+    }
+
+    /// #5c no-location empty state: grayed skeleton cards (unrendered data —
+    /// deliberately text-free so they can't be mistaken for weather) above the
+    /// two CTAs. "Enable Location" prompts (or deep-links to system Settings
+    /// after a denial); "Place your own location" opens the city picker.
+    private var noLocationState: some View {
+        ScrollView {
+            VStack(spacing: 0) {
+                skeletonCard(0)
+                    .padding(.bottom, 10)
+                skeletonCard(1)
+                Image(systemName: "location.slash")
+                    .font(.system(size: 44))
+                    .foregroundStyle(Theme.secondaryText)
+                    .padding(.top, 32)
+                Text("No location yet")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(Theme.primaryText)
+                    .padding(.top, 16)
+                Text("Time It needs a location to rate your activities. Enable access or pick a city.")
+                    .font(.system(size: 14))
+                    .foregroundStyle(Theme.secondaryText)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 280)
+                    .padding(.top, 6)
+                    .accessibilityIdentifier("noLocationMessage")
+                Button(action: enableLocation) {
+                    Text("Enable Location")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 9)
+                        .background(Capsule().fill(Theme.accentInteractive))
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 16)
+                .accessibilityIdentifier("enableLocationButton")
+                Button {
+                    showCityPicker = true
+                } label: {
+                    Text("Place your own location")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Theme.accentInteractive)
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 18)
+                .accessibilityIdentifier("placeLocationButton")
+            }
+            .padding(14)
+        }
+    }
+
+    /// One grayed skeleton card: the real card's anatomy (title, day, track,
+    /// chips) as flat shapes — no values, no false Perfect.
+    private func skeletonCard(_ index: Int) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            RoundedRectangle(cornerRadius: 999)
+                .fill(Theme.timelineTrack)
+                .frame(width: 120, height: 14)
+            RoundedRectangle(cornerRadius: 999)
+                .fill(Theme.timelineTrack)
+                .frame(width: 60, height: 10)
+            RoundedRectangle(cornerRadius: 6)
+                .fill(Theme.timelineTrack)
+                .frame(maxWidth: .infinity)
+                .frame(height: 22)
+            HStack(spacing: 8) {
+                ForEach(0..<3, id: \.self) { _ in
+                    RoundedRectangle(cornerRadius: 999)
+                        .fill(Theme.timelineTrack)
+                        .frame(width: 48, height: 20)
+                }
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 16).fill(Theme.cardBackground))
+        .opacity(0.55)
+        // Bare shapes aren't accessibility elements — collapse to one so the
+        // identifier reaches the XCUI hierarchy.
+        .accessibilityElement(children: .ignore)
+        .accessibilityIdentifier("skeletonCard.\(index)")
+    }
+
+    private func enableLocation() {
+        if viewModel.locationPermissionDenied {
+            // The prompt can only be shown once — after a denial the only
+            // path is the app's page in system Settings.
+            if let url = URL(string: UIApplication.openSettingsURLString) {
+                UIApplication.shared.open(url)
+            }
+        } else {
+            viewModel.requestLocationAccess()
         }
     }
 

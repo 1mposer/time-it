@@ -48,4 +48,38 @@ final class PreferencesStoreTests: XCTestCase {
 
         XCTAssertNil(PreferencesStore(defaults: defaults).homeLocation)
     }
+
+    // MARK: last-resolved cache (#5c)
+
+    func testLastResolvedLocationPersistsAndRestores() {
+        let store = PreferencesStore(defaults: defaults)
+        store.lastResolvedLocation = SavedLocation(name: "Toronto", lat: 43.6532, lon: -79.3832)
+
+        let fresh = PreferencesStore(defaults: defaults)
+
+        XCTAssertEqual(fresh.lastResolvedLocation, SavedLocation(name: "Toronto", lat: 43.6532, lon: -79.3832))
+    }
+
+    func testClearingHomeDoesNotClearLastResolved() {
+        let store = PreferencesStore(defaults: defaults)
+        store.homeLocation = SavedLocation(name: "Abu Dhabi", lat: 24.4539, lon: 54.3773)
+        store.lastResolvedLocation = SavedLocation(name: "Abu Dhabi", lat: 24.4539, lon: 54.3773)
+
+        store.homeLocation = nil
+
+        XCTAssertEqual(PreferencesStore(defaults: defaults).lastResolvedLocation?.name, "Abu Dhabi",
+                       "the cache is the safety net for exactly this case — clearing home must not empty it")
+    }
+
+    func testPreFiveCSavedLocationDecodesWithoutRegion() throws {
+        // #5b persisted SavedLocation without the optional `region` — a #5c
+        // build must still decode it.
+        let legacy = Data(#"{"name":"Dubai Marina","lat":25.08,"lon":55.14}"#.utf8)
+        defaults.set(legacy, forKey: PreferencesStore.homeLocationKey)
+
+        let store = PreferencesStore(defaults: defaults)
+
+        XCTAssertEqual(store.homeLocation?.name, "Dubai Marina")
+        XCTAssertNil(store.homeLocation?.region)
+    }
 }

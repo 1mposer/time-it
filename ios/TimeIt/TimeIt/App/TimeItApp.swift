@@ -1,3 +1,4 @@
+import CoreLocation
 import SwiftUI
 
 @main
@@ -10,6 +11,7 @@ struct TimeItApp: App {
         if ProcessInfo.processInfo.arguments.contains("UITEST_RESET") {
             UserDefaults.standard.removeObject(forKey: ActivityStore.storageKey)
             UserDefaults.standard.removeObject(forKey: PreferencesStore.homeLocationKey)
+            UserDefaults.standard.removeObject(forKey: PreferencesStore.lastResolvedLocationKey)
         }
         #endif
     }
@@ -26,13 +28,26 @@ struct TimeItApp: App {
         let arguments = ProcessInfo.processInfo.arguments
         if arguments.contains("UITEST_MOCK_SUCCESS") {
             return DashboardViewModel(api: MockRatingService(mode: .success),
-                                      locationProvider: StaticLocationProvider())
+                                      locationProvider: uiTestLocationProvider())
         }
         if arguments.contains("UITEST_MOCK_FAILURE") {
             return DashboardViewModel(api: MockRatingService(mode: .failure),
-                                      locationProvider: StaticLocationProvider())
+                                      locationProvider: uiTestLocationProvider())
         }
         #endif
         return DashboardViewModel()
     }
+
+    #if DEBUG
+    /// UITEST_LOCATION feeds the mock provider a fixed fix so the card/header
+    /// tests stay fed; without it the provider never resolves — the
+    /// no-location path (#5c).
+    @MainActor
+    private static func uiTestLocationProvider() -> StaticLocationProvider {
+        if ProcessInfo.processInfo.arguments.contains("UITEST_LOCATION") {
+            return StaticLocationProvider(location: CLLocation(latitude: 25.2048, longitude: 55.2708))
+        }
+        return StaticLocationProvider()
+    }
+    #endif
 }

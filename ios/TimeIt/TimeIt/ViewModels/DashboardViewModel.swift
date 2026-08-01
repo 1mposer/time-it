@@ -7,20 +7,28 @@ final class DashboardViewModel: ObservableObject {
     @Published private(set) var forecast: ForecastResponse?
     @Published private(set) var isLoading = false
     @Published private(set) var errorMessage: String?
+    /// #5c: true when the Active-location chain resolved to nothing — the
+    /// dashboard shows the no-location empty state (grayed cards + the two
+    /// location CTAs). Distinct from `!hasActivities`, which is a different
+    /// screen.
+    @Published private(set) var hasNoLocation = false
+    /// #5c: what the header's location line shows for the Active location —
+    /// the picked city name, "Current location", or the cached name. nil when
+    /// the chain resolved to nothing.
+    @Published private(set) var activeLocationName: String?
 
     /// True when the last failure is worth retrying (502 / unreachable server),
     /// as opposed to a server defect (500). Drives the error view's framing.
     private(set) var isTransientError = false
-
-    /// Fallback when no device location is available (Simulator, denied, timeout).
-    static let fallbackCoordinate = CLLocationCoordinate2D(latitude: 25.1627, longitude: 55.2077) // Dubai
 
     private let api: RatingFetching
     private let locationProvider: LocationProviding
     /// Exposed so views mutate and observe the SAME store the requests are
     /// built from — a separately-injected copy would silently diverge.
     let store: ActivityStore
-    private let preferences: PreferencesStore
+    /// Exposed for the same reason as `store`: the city-picker sheet must
+    /// write to the SAME preferences the requests resolve from.
+    let preferences: PreferencesStore
     private var cancellables: Set<AnyCancellable> = []
     /// Monotonic guard: only the newest in-flight load may publish its result,
     /// so a slow pre-mutation response can't overwrite a newer one.
@@ -29,7 +37,49 @@ final class DashboardViewModel: ObservableObject {
     /// trigger a reload only when it would move the forecast location — the
     /// distance gate is what prevents a request→fix→request loop, since every
     /// load calls requestLocation() and every fix lands back in the sink below.
+    /// nil = no POST has happened yet, so any first fix is a meaningful move
+    /// (#5c: the no-location empty state must react to the first grant).
     private var lastFetchedCoordinate: CLLocationCoordinate2D?
+
+    /// Where the Active-location chain resolved (#5c): home → GPS →
+    /// last-resolved cache. Drives the POST coordinate, the header label, and
+    /// what gets persisted back to the cache on success.
+    private enum ActiveLocation {
+        case home(SavedLocation)
+        case gps(CLLocationCoordinate2D)
+        case cached(SavedLocation)
+
+        var coordinate: CLLocationCoordinate2D {
+            switch self {
+            case .home(let saved), .cached(let saved):
+                return CLLocationCoordinate2D(latitude: saved.lat, longitude: saved.lon)
+            case .gps(let coordinate):
+                return coordinate
+            }
+        }
+
+        var displayName: String {
+            switch self {
+            case .home(let saved):
+                return saved.name
+            case .gps:
+                return "Current location"
+            case .cached(let saved):
+                return saved.name.isEmpty ? "Last known location" : saved.name
+            }
+        }
+
+        /// What a successful fetch writes to `lastResolvedLocation`. A GPS fix
+        /// has no known place name — persist empty rather than fabricate one.
+        var savedLocation: SavedLocation {
+            switch self {
+            case .home(let saved), .cached(let saved):
+                return saved
+            case .gps(let coordinate):
+                return SavedLocation(name: "", lat: coordinate.latitude, lon: coordinate.longitude)
+            }
+        }
+    }
 
     init(api: RatingFetching = APIClient.shared,
          locationProvider: LocationProviding? = nil,
@@ -60,19 +110,42 @@ final class DashboardViewModel: ObservableObject {
             }
             .store(in: &cancellables)
         // requestLocation() resolves AFTER the load that called it, so the
-        // first fix usually arrives once a fallback forecast (Dubai, or a
-        // stale cache) is already on screen. Re-rate exactly then — but only
-        // while no home location overrides GPS, and only when the fix actually
-        // moves the forecast somewhere new (see lastFetchedCoordinate).
+        // first fix usually arrives once a forecast (or the no-location empty
+        // state) is already on screen. Re-rate exactly then — but only while
+        // no home location overrides GPS, and only when the fix actually moves
+        // the forecast somewhere new. A fix with no prior POST is always a
+        // meaningful move (#5c) — that's how granting access revives the
+        // empty state. dropFirst skips the subscription replay so a seeded
+        // provider doesn't race the view's initial load.
         self.locationProvider.locationPublisher
+            .dropFirst()
             .compactMap { $0 }
             .sink { [weak self] fix in
-                guard let self, self.preferences.homeLocation == nil,
-                      let fetched = self.lastFetchedCoordinate,
-                      Self.isMeaningfulMove(from: fetched, to: fix.coordinate) else { return }
+                guard let self, self.preferences.homeLocation == nil else { return }
+                if let fetched = self.lastFetchedCoordinate,
+                   !Self.isMeaningfulMove(from: fetched, to: fix.coordinate) { return }
                 Task { await self.loadForecast() }
             }
             .store(in: &cancellables)
+        // #5c: a grant (from the prompt, or from system Settings after a
+        // denial) warms a fresh fix; the fix then lands in the sink above.
+        // removeDuplicates BEFORE dropFirst: CLLocationManager always fires
+        // one no-change callback shortly after creation — deduping it against
+        // the replayed seed (then dropping the seed) keeps this sink to
+        // genuine status changes instead of a spurious GPS spin-up per launch.
+        self.locationProvider.authorizationPublisher
+            .removeDuplicates()
+            .dropFirst()
+            .sink { [weak self] status in
+                guard status == .authorizedWhenInUse || status == .authorizedAlways else { return }
+                self?.locationProvider.requestLocation()
+            }
+            .store(in: &cancellables)
+
+        // Seed the header label synchronously — the first load runs from the
+        // view's .task, one frame later, and a user with a resolvable
+        // location must not see a "NO LOCATION" flash on launch.
+        activeLocationName = resolveActiveLocation()?.displayName
     }
 
     /// ~1 km at UAE latitudes — below this a fresh fix wouldn't change the
@@ -91,16 +164,34 @@ final class DashboardViewModel: ObservableObject {
     /// requires non-empty).
     var hasActivities: Bool { !store.activities.isEmpty }
 
+    /// #5c: true when "Enable location" should deep-link to system Settings
+    /// instead of firing the (now impossible) permission prompt.
+    var locationPermissionDenied: Bool {
+        locationProvider.authorizationStatus == .denied
+            || locationProvider.authorizationStatus == .restricted
+    }
+
+    /// #5c: the "Enable location" CTA for the not-yet-asked case — fires the
+    /// system prompt (and warms a fix if already authorized).
+    func requestLocationAccess() {
+        locationProvider.requestLocation()
+    }
+
     func loadForecast() async {
         loadGeneration += 1
         let generation = loadGeneration
 
         guard hasActivities else {
-            // Never POST an empty activities[] — show the empty state.
+            // Never POST an empty activities[] — show the empty state. Still
+            // resolve the chain so the header label and the no-location flag
+            // stay truthful (different screens, but one shared header).
             forecast = nil
             errorMessage = nil
             isTransientError = false
             isLoading = false
+            let active = resolveActiveLocation()
+            hasNoLocation = active == nil
+            activeLocationName = active?.displayName
             return
         }
 
@@ -110,11 +201,23 @@ final class DashboardViewModel: ObservableObject {
 
         // Warm the GPS fix on every load (even while a home location covers
         // this fetch). The request resolves asynchronously — this load
-        // proceeds with whatever is already cached (or the fallback); the
-        // locationPublisher sink re-rates once a fresh fix lands somewhere new.
+        // proceeds with whatever the chain resolves now; the locationPublisher
+        // sink re-rates once a fresh fix lands somewhere new.
         locationProvider.requestLocation()
 
-        let coordinate = resolveCoordinate()
+        guard let active = resolveActiveLocation() else {
+            // #5c: the chain resolved to nothing — no POST, no fabricated
+            // coordinates. The empty state's CTAs are the way forward.
+            forecast = nil
+            hasNoLocation = true
+            activeLocationName = nil
+            isLoading = false
+            return
+        }
+        hasNoLocation = false
+        activeLocationName = active.displayName
+
+        let coordinate = active.coordinate
         lastFetchedCoordinate = coordinate
         let activities = store.activities.map(\.activityInput)
         do {
@@ -123,6 +226,12 @@ final class DashboardViewModel: ObservableObject {
                                                     activities: activities)
             guard generation == loadGeneration else { return }
             forecast = result
+            // #5c: remember what actually worked — the launch-with-nothing
+            // case rates against this instead of going empty. Skip when
+            // unchanged: the write churns defaults + every store observer.
+            if preferences.lastResolvedLocation != active.savedLocation {
+                preferences.lastResolvedLocation = active.savedLocation
+            }
         } catch let error as APIError {
             guard generation == loadGeneration else { return }
             errorMessage = error.userMessage
@@ -135,12 +244,20 @@ final class DashboardViewModel: ObservableObject {
         isLoading = false
     }
 
-    /// Coordinate resolution (#5b §6): home location → device GPS → Dubai.
-    private func resolveCoordinate() -> CLLocationCoordinate2D {
+    /// The Active-location chain (#5c): home → live GPS fix → last-resolved
+    /// cache → nil. The Dubai fallback is deleted — nil means "show the
+    /// no-location empty state", never a substitute coordinate.
+    private func resolveActiveLocation() -> ActiveLocation? {
         if let home = preferences.homeLocation {
-            return CLLocationCoordinate2D(latitude: home.lat, longitude: home.lon)
+            return .home(home)
         }
-        return locationProvider.location?.coordinate ?? Self.fallbackCoordinate
+        if let fix = locationProvider.location {
+            return .gps(fix.coordinate)
+        }
+        if let cached = preferences.lastResolvedLocation {
+            return .cached(cached)
+        }
+        return nil
     }
 
     // MARK: authored-activity lookups (icon + nocturnal labels)

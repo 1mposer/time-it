@@ -7,15 +7,19 @@ import XCTest
 /// - `UITEST_MOCK_SUCCESS`: canned ForecastResponse (first activity windowed
 ///   today, second windowed tomorrow, the rest null).
 /// - `UITEST_MOCK_FAILURE`: the API throws providerUnavailable (server down / 502).
-/// - `UITEST_RESET`: wipes persisted activities + preferences so each test
-///   starts from the first-launch seed state (omit it to test persistence).
+/// - `UITEST_RESET`: wipes persisted activities + preferences (including the
+///   #5c last-resolved cache) so each test starts from the first-launch seed
+///   state (omit it to test persistence).
+/// - `UITEST_LOCATION`: the mock location provider returns a fixed fix (#5c —
+///   without it the provider never resolves and the app shows the no-location
+///   empty state, since the Dubai fallback is deleted).
 final class TimeItUITests: XCTestCase {
 
     override func setUpWithError() throws {
         continueAfterFailure = false
     }
 
-    private func launchApp(arguments: [String] = ["UITEST_MOCK_SUCCESS", "UITEST_RESET"]) -> XCUIApplication {
+    private func launchApp(arguments: [String] = ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_LOCATION"]) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = arguments
         app.launch()
@@ -121,7 +125,9 @@ final class TimeItUITests: XCTestCase {
     // MARK: error state (#5a)
 
     func testServerFailureShowsErrorState() {
-        let app = launchApp(arguments: ["UITEST_MOCK_FAILURE", "UITEST_RESET"])
+        // UITEST_LOCATION matters here: without a resolvable location the #5c
+        // no-location state wins and the failing API is never even called.
+        let app = launchApp(arguments: ["UITEST_MOCK_FAILURE", "UITEST_RESET", "UITEST_LOCATION"])
 
         XCTAssertTrue(app.staticTexts["Weather Unavailable"].waitForExistence(timeout: 5),
                       "provider failure renders the ContentUnavailableView error state")
@@ -258,7 +264,7 @@ final class TimeItUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Running"].waitForExistence(timeout: 5))
 
         app.terminate()
-        app = launchApp(arguments: ["UITEST_MOCK_SUCCESS"]) // no RESET — keep the authored list
+        app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_LOCATION"]) // no RESET — keep the authored list
 
         XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5))
         app.swipeUp()
@@ -266,32 +272,95 @@ final class TimeItUITests: XCTestCase {
                       "the authored list (not the seeds) survives a relaunch")
     }
 
-    // MARK: home location (#5b)
+    // MARK: home location (#5b, city picker re-recorded for #5c)
+
+    /// Searches the city picker (#5c as-you-type — no Search button) and taps
+    /// the first mock result. The picker sheet must already be on screen.
+    private func pickCity(_ name: String, in app: XCUIApplication) {
+        let search = app.textFields["cityPicker.search"]
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        search.tap()
+        search.typeText(name)
+        let result = app.buttons["cityPicker.result.0"]
+        XCTAssertTrue(result.waitForExistence(timeout: 5), "the (mock) geocoder returns a debounced result")
+        result.tap()
+    }
 
     func testHomeLocationPersistsAcrossRelaunchAndClears() {
         var app = launchApp()
         XCTAssertTrue(app.buttons["settingsGear"].waitForExistence(timeout: 5))
         app.buttons["settingsGear"].tap()
 
-        let search = app.textFields["settings.locationSearch"]
-        XCTAssertTrue(search.waitForExistence(timeout: 5))
-        search.tap()
-        search.typeText("Dubai Marina")
-        app.buttons["settings.searchButton"].tap()
-
-        let result = app.buttons["settings.result.0"]
-        XCTAssertTrue(result.waitForExistence(timeout: 5), "the (mock) geocoder returns a result")
-        result.tap()
+        let setHome = app.buttons["settings.setHome"]
+        XCTAssertTrue(setHome.waitForExistence(timeout: 5))
+        setHome.tap()
+        pickCity("Dubai Marina", in: app)
         XCTAssertTrue(app.staticTexts["Dubai Marina"].waitForExistence(timeout: 5), "home location is set")
         app.buttons["Done"].tap()
 
         app.terminate()
-        app = launchApp(arguments: ["UITEST_MOCK_SUCCESS"]) // no RESET
+        app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_LOCATION"]) // no RESET
         XCTAssertTrue(app.buttons["settingsGear"].waitForExistence(timeout: 5))
         app.buttons["settingsGear"].tap()
         XCTAssertTrue(app.staticTexts["Dubai Marina"].waitForExistence(timeout: 5), "home location survives a relaunch")
 
         app.buttons["settings.useCurrentLocation"].tap()
         XCTAssertTrue(app.staticTexts["Using current location"].waitForExistence(timeout: 5), "clearing returns to GPS")
+    }
+
+    // MARK: no-location onboarding (#5c)
+
+    func testNoLocationShowsSkeletonsAndCTAsWithNoWeather() {
+        // No UITEST_LOCATION: the provider never resolves — fresh install with
+        // nothing in the chain.
+        let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET"])
+
+        XCTAssertTrue(app.buttons["enableLocationButton"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["placeLocationButton"].exists)
+        XCTAssertTrue(app.staticTexts["NO LOCATION"].exists, "the header is honest about the missing location")
+        XCTAssertTrue(app.otherElements["skeletonCard.0"].exists, "grayed skeleton cards render (spec §2)")
+        XCTAssertTrue(app.otherElements["skeletonCard.1"].exists)
+        XCTAssertEqual(cardCount(in: app), 0, "no rated cards")
+        XCTAssertFalse(app.staticTexts["24°C"].exists, "no fabricated current conditions in the header")
+    }
+
+    func testPlacingOwnLocationLoadsRatings() {
+        let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET"])
+
+        let place = app.buttons["placeLocationButton"]
+        XCTAssertTrue(place.waitForExistence(timeout: 5))
+        place.tap()
+        pickCity("Dubai Marina", in: app)
+
+        XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5),
+                      "picking a city rates immediately — the home-change sink refetches")
+        XCTAssertTrue(app.staticTexts["DUBAI MARINA"].exists, "the picked city names the header")
+    }
+
+    func testCachedLastResolvedFeedsARelaunchWithNothingElse() {
+        // First run: place a city so a successful rating persists the cache…
+        var app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET"])
+        let place = app.buttons["placeLocationButton"]
+        XCTAssertTrue(place.waitForExistence(timeout: 5))
+        place.tap()
+        pickCity("Dubai Marina", in: app)
+        XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5))
+
+        // …then clear home, so on relaunch only the cache can feed the chain.
+        app.buttons["settingsGear"].tap()
+        let clear = app.buttons["settings.useCurrentLocation"]
+        XCTAssertTrue(clear.waitForExistence(timeout: 5))
+        clear.tap()
+        app.buttons["Done"].tap()
+        XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5),
+                      "with home cleared and no GPS, the cache keeps the dashboard rated")
+
+        app.terminate()
+        app = launchApp(arguments: ["UITEST_MOCK_SUCCESS"]) // no RESET, no UITEST_LOCATION
+
+        XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5),
+                      "a previously successful location renders real data on a bare relaunch")
+        XCTAssertTrue(app.staticTexts["DUBAI MARINA"].exists, "the cached name labels the header")
+        XCTAssertFalse(app.buttons["enableLocationButton"].exists, "not the empty state")
     }
 }
