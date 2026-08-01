@@ -13,6 +13,8 @@ import XCTest
 /// - `UITEST_LOCATION`: the mock location provider returns a fixed fix (#5c —
 ///   without it the provider never resolves and the app shows the no-location
 ///   empty state, since the Dubai fallback is deleted).
+/// - `UITEST_LOCATION_DENIED`: no fix and a `.denied` status — acceptance
+///   §3.1's "fresh install, location denied" path.
 final class TimeItUITests: XCTestCase {
 
     override func setUpWithError() throws {
@@ -321,7 +323,22 @@ final class TimeItUITests: XCTestCase {
         XCTAssertTrue(app.otherElements["skeletonCard.0"].exists, "grayed skeleton cards render (spec §2)")
         XCTAssertTrue(app.otherElements["skeletonCard.1"].exists)
         XCTAssertEqual(cardCount(in: app), 0, "no rated cards")
-        XCTAssertFalse(app.staticTexts["24°C"].exists, "no fabricated current conditions in the header")
+        XCTAssertFalse(app.staticTexts["headerTemp"].exists,
+                       "the header's weather rows are gone entirely — not just showing placeholders")
+    }
+
+    func testFreshInstallWithLocationDeniedShowsTheSameEmptyState() {
+        // Acceptance §3.1 verbatim: "Fresh install, location denied". The
+        // provider reports .denied with no fix — the CTA would deep-link to
+        // system Settings (not provable hermetically), but the honest empty
+        // state must render identically.
+        let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_LOCATION_DENIED"])
+
+        XCTAssertTrue(app.buttons["enableLocationButton"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["placeLocationButton"].exists)
+        XCTAssertTrue(app.staticTexts["NO LOCATION"].exists)
+        XCTAssertEqual(cardCount(in: app), 0, "no weather data shown")
+        XCTAssertFalse(app.staticTexts["headerTemp"].exists)
     }
 
     func testPlacingOwnLocationLoadsRatings() {

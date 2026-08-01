@@ -32,6 +32,10 @@ struct MapKitGeocoderService: GeocodingProviding {
         return response.mapItems.compactMap { item -> SavedLocation? in
             let placemark = item.placemark
             guard let locality = placemark.locality else { return nil }
+            // Street-level rows also carry a locality — "123 Main St" is not
+            // a city (audit F4). A thoroughfare marks them; neighborhoods
+            // ("Dubai Marina") have none and stay.
+            guard placemark.thoroughfare == nil else { return nil }
             // placemark.name keeps neighborhood-level queries ("Dubai
             // Marina") honest — locality alone would flatten them to the
             // parent city (and regress the #5b CLGeocoder behavior).
@@ -54,8 +58,7 @@ enum GeocoderFactory {
     /// else searches for real.
     static func makeDefault() -> GeocodingProviding {
         #if DEBUG
-        let arguments = ProcessInfo.processInfo.arguments
-        if arguments.contains("UITEST_MOCK_SUCCESS") || arguments.contains("UITEST_MOCK_FAILURE") {
+        if ProcessInfo.processInfo.isUITestMockRun {
             return MockGeocoderService()
         }
         #endif
@@ -64,6 +67,14 @@ enum GeocoderFactory {
 }
 
 #if DEBUG
+extension ProcessInfo {
+    /// True when the XCUI suite launched us with a hermetic mock backend —
+    /// the one definition both the app factory and the geocoder factory read.
+    var isUITestMockRun: Bool {
+        arguments.contains("UITEST_MOCK_SUCCESS") || arguments.contains("UITEST_MOCK_FAILURE")
+    }
+}
+
 /// Hermetic geocoder for XCUI tests: echoes the query as a Dubai-area result.
 struct MockGeocoderService: GeocodingProviding {
     func geocode(_ query: String) async throws -> [SavedLocation] {

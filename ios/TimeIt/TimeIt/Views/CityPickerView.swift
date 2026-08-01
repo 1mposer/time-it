@@ -10,13 +10,17 @@ struct CityPickerView: View {
     @ObservedObject private var preferences: PreferencesStore
     private let geocoder: GeocodingProviding
 
+    /// The last completed search's outcome — `empty` (genuinely no results)
+    /// and `errored` (geocoder threw: connectivity, throttling) get different
+    /// messages, since "no places found" would send an offline user retyping
+    /// in vain.
+    private enum SearchOutcome {
+        case idle, found, empty, errored
+    }
+
     @State private var query = ""
     @State private var results: [SavedLocation] = []
-    /// Search ran and genuinely found nothing.
-    @State private var searchFailed = false
-    /// The geocoder threw (connectivity, throttling) — a different message
-    /// than "no results", which would send the user retyping in vain.
-    @State private var searchErrored = false
+    @State private var outcome: SearchOutcome = .idle
 
     @MainActor
     init(preferences: PreferencesStore? = nil, geocoder: GeocodingProviding? = nil) {
@@ -37,12 +41,12 @@ struct CityPickerView: View {
                             .autocorrectionDisabled()
                             .accessibilityIdentifier("cityPicker.search")
                     }
-                    if searchFailed {
+                    if outcome == .empty {
                         Text("No places found — try a different search.")
                             .font(.system(size: 13))
                             .foregroundStyle(Theme.secondaryText)
                     }
-                    if searchErrored {
+                    if outcome == .errored {
                         Text("Search failed — check your connection and try again.")
                             .font(.system(size: 13))
                             .foregroundStyle(Theme.secondaryText)
@@ -88,8 +92,7 @@ struct CityPickerView: View {
         let trimmed = query.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else {
             results = []
-            searchFailed = false
-            searchErrored = false
+            outcome = .idle
             return
         }
         try? await Task.sleep(nanoseconds: 300_000_000)
@@ -98,13 +101,11 @@ struct CityPickerView: View {
             let found = try await geocoder.geocode(trimmed)
             guard !Task.isCancelled else { return }
             results = found
-            searchFailed = found.isEmpty
-            searchErrored = false
+            outcome = found.isEmpty ? .empty : .found
         } catch {
             guard !Task.isCancelled else { return }
             results = []
-            searchFailed = false
-            searchErrored = true
+            outcome = .errored
         }
     }
 }

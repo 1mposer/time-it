@@ -15,6 +15,7 @@
 | Primary text | `#1c1c1e` | Activity names, main content |
 | Secondary text | `#8e8e93` | Time labels, inactive icons, gear icon |
 | Accent (orange) | `#ff9500` | Active tab, buttons, Good window highlight, PRO badge |
+| Accent interactive (blue) | `#007aff` | Location CTAs (#5c) — Figma Semantic `accent/interactive`; standalone interactive controls outside the orange rating context |
 | Perfect green | `#34c759` | Perfect window highlight |
 | Header text | `#ffffff` | All text inside the header |
 | Header secondary | `rgba(255,255,255,0.8)` | Wind / humidity row in header |

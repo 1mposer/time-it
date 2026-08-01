@@ -55,6 +55,7 @@ final class FakeLocationProvider: LocationProviding {
     }
 
     private(set) var requestLocationCalled = false
+    private(set) var requestAuthorizationCalled = false
 
     init(location: CLLocation? = nil, authorization: CLAuthorizationStatus = .notDetermined) {
         subject = CurrentValueSubject(location)
@@ -63,6 +64,10 @@ final class FakeLocationProvider: LocationProviding {
 
     func requestLocation() {
         requestLocationCalled = true
+    }
+
+    func requestAuthorization() {
+        requestAuthorizationCalled = true
     }
 }
 
@@ -90,10 +95,11 @@ final class DashboardViewModelTests: XCTestCase {
     /// resolves anywhere). Chain tests pass `location: nil` explicitly.
     private func makeVM(result: Result<ForecastResponse, Error>,
                         location: CLLocation? = CLLocation(latitude: 25.2048, longitude: 55.2708),
+                        authorization: CLAuthorizationStatus = .notDetermined,
                         seeds: [AuthoredActivity] = SeedTemplates.firstLaunchSeeds)
         -> (DashboardViewModel, FakeRatingService, FakeLocationProvider, ActivityStore, PreferencesStore) {
         let api = FakeRatingService(result: result)
-        let locationProvider = FakeLocationProvider(location: location)
+        let locationProvider = FakeLocationProvider(location: location, authorization: authorization)
         let store = ActivityStore(defaults: defaults, seeds: seeds)
         let preferences = PreferencesStore(defaults: defaults)
         let vm = DashboardViewModel(api: api, locationProvider: locationProvider,
@@ -170,12 +176,62 @@ final class DashboardViewModelTests: XCTestCase {
 
         await vm.loadForecast()
 
-        XCTAssertTrue(locationProvider.requestLocationCalled, "the load still warms a fix — it's the recovery path")
+        XCTAssertFalse(locationProvider.requestLocationCalled,
+                       "not authorized → no fix request from a load (audit F1: the CTA owns onboarding)")
+        XCTAssertFalse(locationProvider.requestAuthorizationCalled,
+                       "a load must NEVER fire the permission prompt — that would pre-empt the CTA")
         XCTAssertEqual(api.fetchCount, 0, "the Dubai fallback is deleted — a nil chain never POSTs coordinates")
         XCTAssertNil(vm.forecast)
         XCTAssertTrue(vm.hasNoLocation)
         XCTAssertNil(vm.activeLocationName)
         XCTAssertFalse(vm.isLoading)
+    }
+
+    // MARK: "Enable location" CTA routing (#5c audit F1/F5/F6)
+
+    func testLoadWarmsAFixOnlyWhenAuthorized() async {
+        let forecast = Fixtures.makeForecast(activities: [])
+        let (vm, _, locationProvider, _, _) = makeVM(result: .success(forecast),
+                                                     authorization: .authorizedWhenInUse)
+
+        await vm.loadForecast()
+
+        XCTAssertTrue(locationProvider.requestLocationCalled, "authorized loads still warm a fresh fix")
+        XCTAssertFalse(locationProvider.requestAuthorizationCalled)
+    }
+
+    func testEnableCTAFiresThePromptWhenNotYetAsked() {
+        let (vm, _, locationProvider, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])),
+                                                     location: nil)
+
+        vm.requestLocationAccess()
+
+        XCTAssertTrue(locationProvider.requestAuthorizationCalled, "not-determined → the system prompt")
+        XCTAssertFalse(locationProvider.requestLocationCalled, "no premature fix request before the grant")
+    }
+
+    func testEnableCTAWarmsAFixWhenAlreadyAuthorized() {
+        let (vm, _, locationProvider, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])),
+                                                     location: nil,
+                                                     authorization: .authorizedWhenInUse)
+
+        vm.requestLocationAccess()
+
+        XCTAssertTrue(locationProvider.requestLocationCalled, "authorized-but-fixless just needs a fix")
+        XCTAssertFalse(locationProvider.requestAuthorizationCalled, "the prompt is a no-op here — don't ask")
+    }
+
+    func testDeniedAndRestrictedAreDistinctRoutes() {
+        let (deniedVM, _, _, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])),
+                                            location: nil, authorization: .denied)
+        XCTAssertTrue(deniedVM.locationPermissionDenied, "denied → the view deep-links to system Settings")
+        XCTAssertFalse(deniedVM.locationPermissionRestricted)
+
+        let (restrictedVM, _, _, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])),
+                                                location: nil, authorization: .restricted)
+        XCTAssertTrue(restrictedVM.locationPermissionRestricted,
+                      "restricted (MDM/parental) → honest copy, not a dead-end Settings link (audit F5)")
+        XCTAssertFalse(restrictedVM.locationPermissionDenied)
     }
 
     func testUsesDeviceLocationWhenAvailable() async {

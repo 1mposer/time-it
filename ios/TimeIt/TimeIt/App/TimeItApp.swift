@@ -25,13 +25,10 @@ struct TimeItApp: App {
     @MainActor
     private static func makeViewModel() -> DashboardViewModel {
         #if DEBUG
-        let arguments = ProcessInfo.processInfo.arguments
-        if arguments.contains("UITEST_MOCK_SUCCESS") {
-            return DashboardViewModel(api: MockRatingService(mode: .success),
-                                      locationProvider: uiTestLocationProvider())
-        }
-        if arguments.contains("UITEST_MOCK_FAILURE") {
-            return DashboardViewModel(api: MockRatingService(mode: .failure),
+        if ProcessInfo.processInfo.isUITestMockRun {
+            let mode: MockRatingService.Mode =
+                ProcessInfo.processInfo.arguments.contains("UITEST_MOCK_FAILURE") ? .failure : .success
+            return DashboardViewModel(api: MockRatingService(mode: mode),
                                       locationProvider: uiTestLocationProvider())
         }
         #endif
@@ -40,12 +37,17 @@ struct TimeItApp: App {
 
     #if DEBUG
     /// UITEST_LOCATION feeds the mock provider a fixed fix so the card/header
-    /// tests stay fed; without it the provider never resolves — the
-    /// no-location path (#5c).
+    /// tests stay fed; UITEST_LOCATION_DENIED forces the denied status
+    /// (acceptance §3.1's "fresh install, location denied"); with neither the
+    /// provider never resolves — the not-yet-asked no-location path (#5c).
     @MainActor
     private static func uiTestLocationProvider() -> StaticLocationProvider {
-        if ProcessInfo.processInfo.arguments.contains("UITEST_LOCATION") {
+        let arguments = ProcessInfo.processInfo.arguments
+        if arguments.contains("UITEST_LOCATION") {
             return StaticLocationProvider(location: CLLocation(latitude: 25.2048, longitude: 55.2708))
+        }
+        if arguments.contains("UITEST_LOCATION_DENIED") {
+            return StaticLocationProvider(authorization: .denied)
         }
         return StaticLocationProvider()
     }

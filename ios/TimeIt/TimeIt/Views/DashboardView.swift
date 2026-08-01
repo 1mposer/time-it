@@ -125,26 +125,43 @@ struct DashboardView: View {
                     .frame(maxWidth: 280)
                     .padding(.top, 6)
                     .accessibilityIdentifier("noLocationMessage")
-                Button(action: enableLocation) {
-                    Text("Enable Location")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 9)
-                        .background(Capsule().fill(Theme.accentInteractive))
+                if viewModel.locationPermissionRestricted {
+                    // Parental controls / MDM: the user cannot flip the
+                    // switch, so a prompt or a Settings deep-link is a dead
+                    // end (audit F5) — say so instead of pretending.
+                    Text("Location access is restricted on this device.")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Theme.secondaryText)
+                        .padding(.top, 16)
+                        .accessibilityIdentifier("locationRestrictedMessage")
+                } else {
+                    Button(action: enableLocation) {
+                        Text("Enable Location")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 9)
+                            .background(Capsule().fill(Theme.accentInteractive))
+                            // 44pt touch target (Guidelines.md) without
+                            // growing the 33pt visual capsule.
+                            .frame(minHeight: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.top, 8)
+                    .accessibilityIdentifier("enableLocationButton")
                 }
-                .buttonStyle(.plain)
-                .padding(.top, 16)
-                .accessibilityIdentifier("enableLocationButton")
                 Button {
                     showCityPicker = true
                 } label: {
                     Text("Place your own location")
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(Theme.accentInteractive)
+                        .frame(minHeight: 44)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .padding(.top, 18)
+                .padding(.top, 5)
                 .accessibilityIdentifier("placeLocationButton")
             }
             .padding(14)

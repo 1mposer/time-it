@@ -99,14 +99,14 @@ final class DashboardViewModel: ObservableObject {
             .dropFirst()
             .removeDuplicates()
             .sink { [weak self] _ in
-                Task { await self?.loadForecast() }
+                self?.scheduleReload()
             }
             .store(in: &cancellables)
         self.preferences.$homeLocation
             .dropFirst()
             .removeDuplicates()
             .sink { [weak self] _ in
-                Task { await self?.loadForecast() }
+                self?.scheduleReload()
             }
             .store(in: &cancellables)
         // requestLocation() resolves AFTER the load that called it, so the
@@ -124,7 +124,7 @@ final class DashboardViewModel: ObservableObject {
                 guard let self, self.preferences.homeLocation == nil else { return }
                 if let fetched = self.lastFetchedCoordinate,
                    !Self.isMeaningfulMove(from: fetched, to: fix.coordinate) { return }
-                Task { await self.loadForecast() }
+                self.scheduleReload()
             }
             .store(in: &cancellables)
         // #5c: a grant (from the prompt, or from system Settings after a
@@ -148,6 +148,15 @@ final class DashboardViewModel: ObservableObject {
         activeLocationName = resolveActiveLocation()?.displayName
     }
 
+    /// Reload off a state change. Bumps the generation BEFORE scheduling —
+    /// the scheduled load's own increment happens only when the task runs, a
+    /// window in which an in-flight load's response could still publish (and
+    /// write a stale location into the cache).
+    private func scheduleReload() {
+        loadGeneration += 1
+        Task { await loadForecast() }
+    }
+
     /// ~1 km at UAE latitudes — below this a fresh fix wouldn't change the
     /// hourly forecast, so refetching would only burn provider quota.
     private static func isMeaningfulMove(from a: CLLocationCoordinate2D,
@@ -168,13 +177,30 @@ final class DashboardViewModel: ObservableObject {
     /// instead of firing the (now impossible) permission prompt.
     var locationPermissionDenied: Bool {
         locationProvider.authorizationStatus == .denied
-            || locationProvider.authorizationStatus == .restricted
     }
 
-    /// #5c: the "Enable location" CTA for the not-yet-asked case — fires the
-    /// system prompt (and warms a fix if already authorized).
+    /// #5c audit F5: restricted (parental controls / MDM) users CANNOT toggle
+    /// the switch — deep-linking them to Settings is a dead end, so the view
+    /// shows honest copy instead of the CTA.
+    var locationPermissionRestricted: Bool {
+        locationProvider.authorizationStatus == .restricted
+    }
+
+    private var isAuthorized: Bool {
+        locationProvider.authorizationStatus == .authorizedWhenInUse
+            || locationProvider.authorizationStatus == .authorizedAlways
+    }
+
+    /// #5c: the "Enable location" CTA. Not-yet-asked → fire the system prompt
+    /// (audit F1: the prompt belongs HERE, never to a load); already
+    /// authorized but fixless → just warm a fix. The denied case never
+    /// reaches this — the view deep-links to system Settings instead.
     func requestLocationAccess() {
-        locationProvider.requestLocation()
+        if isAuthorized {
+            locationProvider.requestLocation()
+        } else {
+            locationProvider.requestAuthorization()
+        }
     }
 
     func loadForecast() async {
@@ -200,10 +226,16 @@ final class DashboardViewModel: ObservableObject {
         isTransientError = false
 
         // Warm the GPS fix on every load (even while a home location covers
-        // this fetch). The request resolves asynchronously — this load
-        // proceeds with whatever the chain resolves now; the locationPublisher
-        // sink re-rates once a fresh fix lands somewhere new.
-        locationProvider.requestLocation()
+        // this fetch) — but ONLY when already authorized. Requesting without
+        // authorization used to fire the permission prompt at launch, before
+        // the empty state's CTA ever rendered (audit F1); now the CTA owns
+        // the prompt and this is a pure fix refresh. The request resolves
+        // asynchronously — this load proceeds with whatever the chain
+        // resolves now; the locationPublisher sink re-rates once a fresh fix
+        // lands somewhere new.
+        if isAuthorized {
+            locationProvider.requestLocation()
+        }
 
         guard let active = resolveActiveLocation() else {
             // #5c: the chain resolved to nothing — no POST, no fabricated

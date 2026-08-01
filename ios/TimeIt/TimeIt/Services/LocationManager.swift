@@ -16,7 +16,13 @@ protocol LocationProviding: AnyObject {
     /// Emits when authorization changes (e.g. the user returns from system
     /// Settings after granting access).
     var authorizationPublisher: AnyPublisher<CLAuthorizationStatus, Never> { get }
+    /// Ask for a fresh fix. Fix-only — never triggers the permission prompt;
+    /// callers check `authorizationStatus` first (#5c audit F1: the prompt
+    /// belongs to the "Enable location" CTA, not to every load).
     func requestLocation()
+    /// Fire the When-In-Use permission prompt. Only the CTA calls this — a
+    /// no-op once the status is determined.
+    func requestAuthorization()
 }
 
 /// Thin CLLocationManager wrapper. Silent failure by design — when nothing
@@ -49,8 +55,11 @@ final class LocationManager: NSObject, ObservableObject, LocationProviding {
     }
 
     func requestLocation() {
-        manager.requestWhenInUseAuthorization()
         manager.requestLocation()
+    }
+
+    func requestAuthorization() {
+        manager.requestWhenInUseAuthorization()
     }
 }
 

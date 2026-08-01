@@ -25,15 +25,16 @@ struct MockRatingService: RatingFetching {
 }
 
 /// Fixed-fix location stand-in for UI tests: seeded with a coordinate via
-/// UITEST_LOCATION, or left nil to exercise the #5c no-location path.
+/// UITEST_LOCATION, left nil to exercise the #5c no-location path, or forced
+/// to .denied via UITEST_LOCATION_DENIED for the fresh-install-denied case.
 @MainActor
 final class StaticLocationProvider: LocationProviding {
     let location: CLLocation?
     let authorizationStatus: CLAuthorizationStatus
 
-    init(location: CLLocation? = nil) {
+    init(location: CLLocation? = nil, authorization: CLAuthorizationStatus? = nil) {
         self.location = location
-        authorizationStatus = location == nil ? .notDetermined : .authorizedWhenInUse
+        authorizationStatus = authorization ?? (location == nil ? .notDetermined : .authorizedWhenInUse)
     }
 
     var locationPublisher: AnyPublisher<CLLocation?, Never> {
@@ -45,6 +46,7 @@ final class StaticLocationProvider: LocationProviding {
     }
 
     func requestLocation() {}
+    func requestAuthorization() {}
 }
 
 extension ForecastResponse {
