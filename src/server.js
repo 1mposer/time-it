@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const createRatingRouter = require('./routes/rating');
+const createDevicesRouter = require('./routes/devices');
 const { getCachedWeather } = require('./services/weatherCache');
 
 const app = express();
@@ -30,5 +31,8 @@ app.get('/health', (_req, res) => {
 // 2026-07-20) — same cache instance as the push jobs and the device upsert. The
 // wire contract is byte-identical; only the provider fetch is memoized.
 app.use('/api/v1', createRatingRouter({ getWeather: getCachedWeather }));
+// Push-path registration (#6c, ADR-0006): the devices router defaults its own
+// getWeather to the same shared cache; db defaults to src/db.js (lazy pool).
+app.use('/api/v1', createDevicesRouter());
 
 module.exports = app;
