@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { tagLocalDays, zonedWallTimeToUtcIso } = require('../../src/weather/timeBoundary');
+const { tagLocalDays, zonedWallTimeToUtcIso, bucketDate } = require('../../src/weather/timeBoundary');
 
 // ADR-0003 worked example (real probe numbers): Meteosource `flexi` returned
 // 164 hourly entries starting 2026-06-19T12:00:00Z = 16:00 in Asia/Dubai.
@@ -99,4 +99,19 @@ test('localDay is computed from the UTC instant, not the host timezone', () => {
   // 2026-06-19T20:00:00Z = 00:00 next day in Asia/Dubai (+4) -> already 2026-06-20.
   const tagged = tagLocalDays(makeHours(1), '2026-06-19T20:00:00Z', TIMEZONE);
   assert.equal(tagged[0].localDay, '2026-06-20');
+});
+
+// bucketDate — the calendar date a bucket's dayIndex refers to (date-of-day-0 +
+// dayIndex). Shared by the #6c digest's week-ahead labels and #6d's bucket_date
+// dedup key.
+test('bucketDate is date-of-day-0 plus dayIndex, in the forecast location zone', () => {
+  // 2026-06-19T20:00:00Z = 00:00 2026-06-20 in Asia/Dubai — day 0 is ALREADY
+  // the 20th, a blind UTC read would say the 19th.
+  assert.equal(bucketDate('2026-06-19T20:00:00Z', TIMEZONE, 0), '2026-06-20');
+  assert.equal(bucketDate('2026-06-19T20:00:00Z', TIMEZONE, 3), '2026-06-23');
+});
+
+test('bucketDate rolls over month and year boundaries', () => {
+  assert.equal(bucketDate('2026-08-30T02:00:00Z', TIMEZONE, 4), '2026-09-03');
+  assert.equal(bucketDate('2026-12-29T02:00:00Z', TIMEZONE, 5), '2027-01-03');
 });

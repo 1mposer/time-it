@@ -82,6 +82,18 @@ function zonedWallTimeToUtcIso(wallTime, timezone) {
   return new Date(utcMs).toISOString().replace(/\.\d{3}Z$/, 'Z');
 }
 
+// The calendar date a bucket's dayIndex refers to: date-of-day-0 (the local day
+// of the forecastStart instant) + dayIndex days, as 'YYYY-MM-DD'. dayIndex 0 is
+// today (for a nocturnal activity, the EVENING's day — the night-stitch
+// convention), so plain date arithmetic on the day-0 string is exact. Shared by
+// the #6c digest's week-ahead labels and #6d's bucket_date dedup key — do not
+// hand-roll a sibling.
+function bucketDate(forecastStart, timezone, dayIndex) {
+  const day0 = localDay(Date.parse(forecastStart), timezone);
+  const [y, m, d] = day0.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d + dayIndex)).toISOString().slice(0, 10);
+}
+
 function tagLocalDays(hours, forecastStart, timezone) {
   const startMs = Date.parse(forecastStart);
   return hours.map((hour, index) => {
@@ -94,4 +106,4 @@ function tagLocalDays(hours, forecastStart, timezone) {
   });
 }
 
-module.exports = { tagLocalDays, localDay, localHour, zonedWallTimeToUtcIso };
+module.exports = { tagLocalDays, localDay, localHour, zonedWallTimeToUtcIso, bucketDate };
