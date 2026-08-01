@@ -1,16 +1,8 @@
 const express = require('express');
 const { getWeather: defaultGetWeather } = require('../weather');
 const { evaluateAll: defaultEvaluateAll } = require('../decision');
-const { UpstreamError } = require('../weather/UpstreamError');
 const { validateRatingRequest } = require('./validateRatingRequest');
-
-// Uniform error envelope (ADR-0005 §6): EVERY error response — 400 validation,
-// 502 provider, 500 unexpected — returns a structured { errors: [{ path?, message }] }
-// array so the iOS decoder parses one shape (502/500 are single-element arrays).
-function errorBody(message, path) {
-  const err = path === undefined ? { message } : { path, message };
-  return { errors: [err] };
-}
+const { sendRouteError } = require('./errorEnvelope');
 
 function createRatingRouter({ getWeather = defaultGetWeather, evaluateAll = defaultEvaluateAll } = {}) {
   const router = express.Router();
@@ -37,11 +29,7 @@ function createRatingRouter({ getWeather = defaultGetWeather, evaluateAll = defa
       const indexedHours = hours.map(({ localDay, localHour, ...h }, i) => ({ index: i, ...h }));
       res.json({ forecastStart, timezone, activities: resultActivities, hours: indexedHours });
     } catch (err) {
-      if (err instanceof UpstreamError) {
-        return res.status(502).json(errorBody('Weather data unavailable'));
-      }
-      console.error(err);
-      res.status(500).json(errorBody('Internal server error'));
+      sendRouteError(res, err);
     }
   });
 
