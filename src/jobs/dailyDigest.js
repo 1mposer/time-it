@@ -15,6 +15,7 @@
 
 const { localDay, localHour, bucketDate } = require('../weather/timeBoundary');
 const { StaleTokenError } = require('../notifications/apns');
+const { rangeLabel } = require('./labels');
 
 const MS_PER_HOUR = 3600 * 1000;
 const DIGEST_START_HOUR = 6;
@@ -37,22 +38,8 @@ function markerDateString(marker) {
   return String(marker).slice(0, 10);
 }
 
-// --- copy composition (the server-side twin of the iOS TimeDeriver) ---
-// Known shared limitation (STATUS §5): half-hour zones (e.g. Asia/Kolkata
-// +05:30) render these ha-style labels :30 off — cosmetic, tracked.
-
-function hourLabel(h) {
-  if (h === 0) return '12am';
-  if (h === 12) return '12pm';
-  return h < 12 ? `${h}am` : `${h - 12}pm`;
-}
-
-function rangeLabel(startH, endH) {
-  const start = hourLabel(startH);
-  const end = hourLabel(endH);
-  // Same meridiem → suffix once ("7–10am"); crossing → both ("10pm–2am").
-  return start.slice(-2) === end.slice(-2) ? `${start.slice(0, -2)}–${end}` : `${start}–${end}`;
-}
+// --- copy composition ---
+// hourLabel/rangeLabel live in ./labels.js (shared with the #6d detector).
 
 const WEEKDAY_FMT = new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: 'UTC' });
 function weekdayLabel(dateString) {
