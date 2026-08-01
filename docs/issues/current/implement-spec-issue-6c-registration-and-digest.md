@@ -2,7 +2,7 @@
 
 > Domain glossary: [`CONTEXT.md`](../../CONTEXT.md) — see **Device**, **Device snapshot**, **Digest**, **Active location**.
 > Architecture of record: [ADR-0006](../../adr/0006-device-keyed-push-evaluation.md) (server-eval, device-keyed; read it first) + [ADR-0001](../../adr/0001-no-accounts-guest-first.md) (anonymous install ID, no accounts).
-> Depends on: [#6b](../completed/implement-spec-issue-6b-railway-deploy.md) (live deploy) and [#5c](implement-spec-issue-5c-location-onboarding.md) (real-location onboarding — registration requires one).
+> Depends on: [#6b](../completed/implement-spec-issue-6b-railway-deploy.md) (live deploy) and [#5c](../completed/implement-spec-issue-5c-location-onboarding.md) (real-location onboarding — ✅ built 2026-08-01; registration requires one).
 > Required by: [#6d](implement-spec-issue-6d-perfect-window-detector.md) (reuses every piece of infrastructure built here).
 > **Prerequisite (owner, before starting):** Apple Developer account ($99/yr); APNs Auth Key (`.p8`) + Key ID + Team ID from the portal; app registered with bundle ID `com.timeit.app`; a real device (APNs does not work in the Simulator).
 

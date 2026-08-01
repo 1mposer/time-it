@@ -1,5 +1,9 @@
 # Handoff — #5c audit findings, for the implementing agent
 
+> ✅ **RESOLVED 2026-08-01** — F1–F6 all fixed in `00cf4d4` (+ error-view visibility fix
+> `c7eb41f`); both suites green (137 unit / 18 XCUI); owner ran the three real-device checks
+> (CTA-gated prompt, denied → Settings deep-link, live city search) — all passed.
+
 **Date:** 2026-08-01
 **Audited commits:** `0db0c99` (feat, 14 files, +797/−173) + `ec4230d` (docs handoff) on `main` — still **not pushed**.
 **Audit method:** two-axis review (Standards vs Spec) via independent subagents over

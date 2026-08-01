@@ -1,9 +1,14 @@
 # Implementation spec — Issue #5c: Location onboarding (worldwide) — delete the Dubai fallback
 
+> ✅ **COMPLETE 2026-08-01** — built TDD against the owner-approved Figma frames, independently
+> reviewed (3 subagents), owner-audited (findings F1–F6 all fixed), and **real-device verified by
+> the owner**: CTA-gated permission prompt, denied → Settings deep-link, worldwide city search
+> (street results filtered, neighborhoods preserved). Commits `0db0c99` → `c7eb41f`.
+
 > Domain glossary: [`CONTEXT.md`](../../CONTEXT.md) — see **Active location**.
-> Design decisions: [`design-decisions-issue-5.md`](design-decisions-issue-5.md) · visual spec: [`ios/guidelines/Guidelines.md`](../../../ios/guidelines/Guidelines.md).
-> Depends on: [#5b](../completed/implement-spec-issue-5b-ios-personalization.md) (built — `PreferencesStore`, home-location picker, `GeocodingProviding` seam) and [#6b](../completed/implement-spec-issue-6b-railway-deploy.md) (live URL, so onboarding is tested against production).
-> Required by: [#6c](implement-spec-issue-6c-registration-and-digest.md) — push registration **requires a real location**; this issue is how a user gets one.
+> Design decisions: [`design-decisions-issue-5.md`](../current/design-decisions-issue-5.md) · visual spec: [`ios/guidelines/Guidelines.md`](../../../ios/guidelines/Guidelines.md).
+> Depends on: [#5b](implement-spec-issue-5b-ios-personalization.md) (built — `PreferencesStore`, home-location picker, `GeocodingProviding` seam) and [#6b](implement-spec-issue-6b-railway-deploy.md) (live URL, so onboarding is tested against production).
+> Required by: [#6c](../current/implement-spec-issue-6c-registration-and-digest.md) — push registration **requires a real location**; this issue is how a user gets one.
 
 This spec is self-contained. All client-side; the backend is untouched. **TDD required** — keep every #5a/#5b test green.
 
@@ -54,4 +59,5 @@ The app ships to the **worldwide** App Store (UAE-first marketing, not UAE-only 
 ## Related artifacts
 
 - [ADR-0006](../../adr/0006-device-keyed-push-evaluation.md) — push registration requires a real location; no fallback-location pushes.
-- [#5b spec §5](../completed/implement-spec-issue-5b-ios-personalization.md) — the home-location store/seam this issue extends.
+- [#5b spec §5](implement-spec-issue-5b-ios-personalization.md) — the home-location store/seam this issue extends.
+- [Audit findings + resolutions](handoff-5c-audit-findings.md) — the owner's pre-push audit (F1–F6), all addressed.

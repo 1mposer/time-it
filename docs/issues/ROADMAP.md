@@ -2,7 +2,7 @@
 
 ## Build order
 
-**#5a and #5b are built; next: #6b → #5c → #6c → #6d (grilled + re-specced 2026-07-16, [ADR-0006](../adr/0006-device-keyed-push-evaluation.md)). Compact between each sub-issue. #7 and #8 can be done any time after #4.**
+**#5a, #5b, #6b and #5c are built; next: #6c → #6d (grilled + re-specced 2026-07-16, [ADR-0006](../adr/0006-device-keyed-push-evaluation.md)). Compact between each sub-issue. #7 and #8 can be done any time after #4.**
 
 ## Critical path
 
@@ -14,7 +14,7 @@
 - Shared: [design-decisions-issue-5.md](current/design-decisions-issue-5.md) · [ios/guidelines/Guidelines.md](../../ios/guidelines/Guidelines.md)
 - #6a Backend infrastructure — **CUT ([ADR-0001](../adr/0001-no-accounts-guest-first.md))**: accounts/auth removed; user prefs are client-side (#5b)
 - [#6b Railway deployment](completed/implement-spec-issue-6b-railway-deploy.md) — ✅ **complete 2026-07-20** (`https://time-it-production.up.railway.app`; health/POST/400 probes green, Serverless off, Release URL wired into `APIConfig.swift`, real-device Release install confirmed by owner)
-- [#5c Location onboarding](current/implement-spec-issue-5c-location-onboarding.md) — worldwide launch posture: **Dubai fallback deleted**, grayed empty state + "Enable location" / "Place your own location" (MapKit city search); soft prerequisite of #6c (registration needs a real location)
+- [#5c Location onboarding](completed/implement-spec-issue-5c-location-onboarding.md) — ✅ **complete 2026-08-01** (Figma-first: owner-approved frames → SwiftUI mirror, TDD; **Dubai fallback deleted**, Active-location chain home → GPS → last-resolved cache → grayed empty state + CTA-gated permission prompt + MapKit city picker; owner-audited, findings [F1–F6](completed/handoff-5c-audit-findings.md) fixed, real-device verified)
 - [#6c Device registration + daily digest](current/implement-spec-issue-6c-registration-and-digest.md) — Postgres, snapshot upsert (`PUT /api/v1/devices/:deviceId`), `apns2` seam, per-device local-6am digest ([ADR-0006](../adr/0006-device-keyed-push-evaluation.md))
 - [#6d Perfect-window detector](current/implement-spec-issue-6d-perfect-window-detector.md) — hourly, Perfect-only, once per (device, activity, bucket), buckets 0–1
 - **UX evolution (post-#6d)** — the range-first authoring wizard: every Activity is a user-placed daily time range ("check every day, from X to Y"); design pinned **2026-07-20** in Figma **"Main - Time it"** (wizard mind-map page; the "SwiftUI as-built" page mirrors the current build). Companion decision already landed: card = day 0 only ([ADR-0004 amendment 2026-07-20](../adr/0004-day-bucketed-rating-wire-shape.md)). Range is mandatory **in the UI only** — the wire `window` stays optional (ADR-0005 untouched); ranges are whole-hour; the wizard must make `From == To` unpickable and derive the duration cue (wrap-aware: `22→2` = 4h, and a wrap = nocturnal). Spec deliberately unwritten until the #6 wave completes.

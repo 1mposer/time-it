@@ -27,7 +27,7 @@ explorations live there; polished results graduate to the Screens — Light / Da
 - **Do not touch** `src/weather/` or the WeatherKit agent's files (see §6).
 
 **Read order for project context:** `CLAUDE.md` → `docs/CONTEXT.md` → `docs/STATUS.md` → the
-#5c spec (`implement-spec-issue-5c-location-onboarding.md`).
+#5c spec (`docs/issues/completed/implement-spec-issue-5c-location-onboarding.md` — built 2026-08-01).
 
 ---
 
@@ -158,7 +158,7 @@ than guessing a PUA value.
 
 ## 5. Context on what the screens are for (so iteration stays on-spec)
 
-- **#5c location screens** (spec: `implement-spec-issue-5c-location-onboarding.md`): the silent
+- **#5c location screens** (spec: `docs/issues/completed/implement-spec-issue-5c-location-onboarding.md`, built 2026-08-01): the silent
   Dubai fallback is deleted; the Active-location chain is home → GPS → last-resolved cache →
   none → honest empty state with "Enable location" + "Place your own location". The city picker
   is worldwide, `MKLocalSearch`-backed, debounced as-you-type, no Search button. The picker
