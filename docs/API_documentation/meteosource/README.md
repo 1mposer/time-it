@@ -19,7 +19,7 @@ Trimmed for agent lookup — read this first. Full raw export: [`openapi.json`](
 
 ## Refresh cadence / rate limits — NOT in the OpenAPI export
 
-This file documents request/response *shape* only — the Swagger export says nothing about how often Meteosource refreshes `flexi` data upstream, or account rate limits. **Owner-confirmed (2026-07-20): upstream refresh cadence is somewhere between every 10 minutes and every 1 hour.** Chosen policy: cache/poll at the **hourly** end of that range — do not build a cache TTL or cron cadence tighter than 60 minutes chasing the fast end of that window; at this traffic scale the cost isn't worth it. This is the stated basis for the 60-min `getCachedWeather` TTL in [`implement-spec-issue-6c-registration-and-digest.md`](../../issues/completed/implement-spec-issue-6c-registration-and-digest.md) §6.
+This file documents request/response *shape* only — the Swagger export says nothing about how often Meteosource refreshes `flexi` data upstream, or account rate limits. **Owner-confirmed (2026-07-20): upstream refresh cadence is somewhere between every 10 minutes and every 1 hour.** Chosen policy: cache/poll at the **hourly** end of that range — do not build a cache TTL or cron cadence tighter than 60 minutes chasing the fast end of that window; at this traffic scale the cost isn't worth it. This is the stated basis for the 60-min `getCachedWeather` TTL in [`implement-spec-issue-6c-registration-and-digest.md`](../../issues/current/implement-spec-issue-6c-registration-and-digest.md) §6.
 
 ## Other endpoints in this plan (present in `openapi.json`, unused today)
 
