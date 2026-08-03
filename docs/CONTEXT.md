@@ -2,7 +2,7 @@
 
 > **Read the glossary below FIRST** — it defines the ubiquitous language used everywhere in this repo. The Phase-2 contract flip is now built: **Activity** (caller-supplied), **Lite / Pro** (metric-access + quantity, client-enforced), and **Display metrics** (user-chosen) describe the *shipped* code. ONLY AFTER you understand the terms, see [`STATUS.md`](STATUS.md) for the current project status and what remains.
 
-A backend engine that watches hourly weather forecasts and tells outdoor hobbyists when conditions match their activity — a **worldwide** product, UAE-first in marketing only. Output is consumed by an iOS app; server-side push is designed in [ADR-0006](adr/0006-device-keyed-push-evaluation.md): the **Digest** backend (Issue #6c — registration, Postgres, APNs seam, digest job) is built and merged (2026-08-01), and the **Perfect-window alert** backend (Issue #6d — hourly detector, bucket-date dedup) is built (2026-08-01, pending audit); the iOS opt-in client is still to come.
+A backend engine that watches hourly weather forecasts and tells outdoor hobbyists when conditions match their activity — a **worldwide** product, UAE-first in marketing only. Output is consumed by an iOS app; server-side push is designed in [ADR-0006](adr/0006-device-keyed-push-evaluation.md): the **Digest** backend (Issue #6c — registration, Postgres, APNs seam, digest job) and the **Perfect-window alert** backend (Issue #6d — hourly detector, bucket-date dedup) are both built, merged (2026-08-01), and deployed live (2026-08-03); the iOS opt-in client is still to come.
 
 ## Language
 
