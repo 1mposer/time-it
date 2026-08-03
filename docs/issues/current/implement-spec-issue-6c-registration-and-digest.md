@@ -4,7 +4,7 @@
 > Architecture of record: [ADR-0006](../../adr/0006-device-keyed-push-evaluation.md) (server-eval, device-keyed; read it first) + [ADR-0001](../../adr/0001-no-accounts-guest-first.md) (anonymous install ID, no accounts).
 > Depends on: [#6b](../completed/implement-spec-issue-6b-railway-deploy.md) (live deploy) and [#5c](../completed/implement-spec-issue-5c-location-onboarding.md) (real-location onboarding — ✅ built 2026-08-01; registration requires one).
 > Required by: [#6d](implement-spec-issue-6d-perfect-window-detector.md) (reuses every piece of infrastructure built here).
-> **Prerequisite (owner, before starting):** Apple Developer account ($99/yr); APNs Auth Key (`.p8`) + Key ID + Team ID from the portal; app registered with bundle ID `com.timeit.app`; a real device (APNs does not work in the Simulator).
+> **Prerequisite (owner, before starting):** Apple Developer account ($99/yr); APNs Auth Key (`.p8`) + Key ID + Team ID from the portal; app registered with bundle ID `com.timeit.app.dev` (the un-suffixed `com.timeit.app` belongs to another Apple account — owner decision 2026-08-03); a real device (APNs does not work in the Simulator).
 
 This spec is self-contained. Recreated 2026-07-16 from the #6 grill. **TDD required** — the backend suite (114) stays green; new modules get DI-factory tests like `createRatingRouter`.
 
@@ -81,7 +81,7 @@ No auth: the deviceId is an unguessable UUID and the stored data is a weather-pr
 
 ## 5. APNs seam — `src/notifications/apns.js`
 
-Wraps `apns2` (never imported elsewhere — provider-specifics stop at the boundary). Exports `sendPush(apnsToken, { title, body, payload })`. Config from env: `APNS_KEY` (PEM content), `APNS_KEY_ID`, `APNS_TEAM_ID`; topic `com.timeit.app`; production host when `NODE_ENV === 'production'`, sandbox otherwise. **On APNs `410 Unregistered`** (or `BadDeviceToken`): throw a typed `StaleTokenError` so callers delete the device row — dead tokens must not accumulate.
+Wraps `apns2` (never imported elsewhere — provider-specifics stop at the boundary). Exports `sendPush(apnsToken, { title, body, payload })`. Config from env: `APNS_KEY` (PEM content), `APNS_KEY_ID`, `APNS_TEAM_ID`; topic from optional `APNS_TOPIC`, defaulting to `com.timeit.app.dev` (must equal the installed app's bundle ID — `1f22706`); production host when `NODE_ENV === 'production'`, sandbox otherwise. **On APNs `410 Unregistered`** (or `BadDeviceToken`): throw a typed `StaleTokenError` so callers delete the device row — dead tokens must not accumulate.
 
 ## 6. Weather cache — `src/services/weatherCache.js`
 
