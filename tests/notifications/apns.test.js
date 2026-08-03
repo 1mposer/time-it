@@ -34,7 +34,7 @@ test('any other APNs failure is rethrown as-is, not swallowed into StaleTokenErr
 });
 
 // --- config from env ---
-test('buildApnsConfig maps env to the apns2 options with topic com.timeit.app', () => {
+test('buildApnsConfig maps env to the apns2 options with the default topic', () => {
   const config = buildApnsConfig({
     APNS_KEY: '-----BEGIN PRIVATE KEY-----\\nabc\\n-----END PRIVATE KEY-----',
     APNS_KEY_ID: 'KEYID12345',
@@ -42,9 +42,19 @@ test('buildApnsConfig maps env to the apns2 options with topic com.timeit.app', 
   });
   assert.equal(config.team, 'TEAM123456');
   assert.equal(config.keyId, 'KEYID12345');
-  assert.equal(config.defaultTopic, 'com.timeit.app');
+  assert.equal(config.defaultTopic, 'com.timeit.app.dev');
   assert.equal(config.signingKey, '-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----',
     'literal \\n escapes from a pasted env var are normalised to newlines');
+});
+
+test('APNS_TOPIC overrides the default topic', () => {
+  const config = buildApnsConfig({
+    APNS_KEY: 'k',
+    APNS_KEY_ID: 'i',
+    APNS_TEAM_ID: 't',
+    APNS_TOPIC: 'com.example.other',
+  });
+  assert.equal(config.defaultTopic, 'com.example.other');
 });
 
 test('host is sandbox by default and production only when NODE_ENV=production', () => {

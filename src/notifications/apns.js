@@ -35,7 +35,10 @@ function buildApnsConfig(env) {
     team: env.APNS_TEAM_ID,
     keyId: env.APNS_KEY_ID,
     signingKey: env.APNS_KEY.replace(/\\n/g, '\n'),
-    defaultTopic: 'com.timeit.app',
+    // The push topic MUST equal the installed app's bundle identifier —
+    // com.timeit.app.dev (the un-suffixed ID is owned by another Apple
+    // account and was never ours). APNS_TOPIC overrides for future builds.
+    defaultTopic: env.APNS_TOPIC || 'com.timeit.app.dev',
     host: env.NODE_ENV === 'production' ? 'api.push.apple.com' : 'api.sandbox.push.apple.com',
   };
 }

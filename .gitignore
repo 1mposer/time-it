@@ -4,6 +4,8 @@ node_modules/
 .env*
 !.env.example
 .flaskenv*
+# Owner-private notes — never commit (bundle-ID/APNs facts, session-to-session)
+docs/OWNER_NOTES.local.md
 
 # OS files
 .DS_Store
