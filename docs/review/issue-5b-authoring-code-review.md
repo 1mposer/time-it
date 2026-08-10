@@ -1,5 +1,7 @@
 # Code Review — `issue-5b-authoring` → `main`
 
+> ✅ **RESOLVED** — all 7 findings triaged and fixed on `issue-5b-authoring` the same day (2026-07-15); the #5b spec banner records it. Historical record.
+
 **Date:** 2026-07-15
 **Scope:** `git diff main...issue-5b-authoring` (local branch diff, not a GitHub PR). 36 files changed, all iOS/Swift — the backend engine is untouched by this branch.
 **Method:** 7 parallel finder passes (line-by-line scan, removed-behavior audit, cross-file tracer, reuse, simplification, efficiency, altitude/conventions) against the diff, each candidate re-verified by reading the current source directly. Judged from code and diff alone.

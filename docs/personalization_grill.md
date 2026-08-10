@@ -31,17 +31,17 @@ The personalization grill is **complete**: design questions Q1–Q9 are all lock
 - **Pre-launch data:** wire **Air Quality + Marine** swappable adapters (Q4).
 - **Notifications:** type follows **activity shape** (Daily Digest vs Window Watch); live whole-day alerts = Pro (Notification/CRON model).
 - **Storage:** drop Supabase; one **Node + Railway Postgres**; append-only events table at launch (Q5).
-- **Forecast:** **7-day / 168 flat hours**; day-bucketed engine output (Q6, ADR-0003).
+- **Forecast:** **7-day / 168 flat hours** *(superseded detail: 168 is a **ceiling**, the count is provider-determined ~161–168 — ADR-0003)*; day-bucketed engine output (Q6, ADR-0003).
 - **iOS shape:** **5 surfaces / 8 screens, no bottom bar**; paywall contextual + transparent; onboarding splash-free (Q6–Q9, "Page inventory — final (v1)").
 
 ### Open work at grill close — now tracked in STATUS (do NOT read this as current)
 
-This was the open-work snapshot at grill close (2026-06-17). **Live status now lives in [`STATUS.md`](STATUS.md) §4–§5** — this doc is a frozen rationale record and no longer tracks progress. Since grill close:
+This was the open-work snapshot at grill close (2026-06-17). **Live status now lives in [`STATUS.md`](STATUS.md) + [`issues/ROADMAP.md`](issues/ROADMAP.md)** — this doc is a frozen rationale record and no longer tracks progress. Since grill close:
 
 - ✅ **Custom-activity request schema — PINNED** ([ADR-0005](adr/0005-custom-activity-request-schema.md), Phase 2 built): `POST { lat, lon, activities[] }`, half-open local-hour window. The day-bucketed `/rating` *response* shape was likewise pinned in [ADR-0004](adr/0004-day-bucketed-rating-wire-shape.md) (`activities[].days[]`, dense null days, `days[0]` card default — old audit blocker B2, resolved).
 - ✅ **CONTEXT.md migration — DONE** (Phase 1/2): every glossary term was applied; the "CONTEXT.md migration" section near the end is kept only as the record of *what* changed.
 - ✅ **Provider verification — Meteosource base DONE** (`flexi` ~164 clean hourly); Air Quality + Marine still pending, each when its adapter lands.
-- ◻️ **Still open (see [STATUS.md](STATUS.md) §4):** Template-override + client sync schemas; v1-vs-fast-follow launch sequencing; the **spec rewrites** (fold the locked decisions here + in the ADRs into #5a / #5b / #6a–#6c) — the grill's final output, still outstanding.
+- ◻️ **Still open (now tracked in [issues/ROADMAP.md](issues/ROADMAP.md) §Deferred):** Template-override + client sync schemas; v1-vs-fast-follow launch sequencing. *(The spec rewrites listed here at grill close were since completed — the #5a/#5b/#6b–#6d specs were recreated and built.)*
 
 ### Historical sections (context only — NOT current truth)
 
@@ -77,8 +77,8 @@ Conclusion: grill first, lock the design, then start #5a. Doing #5a first risks 
 | Notifications | Type follows **activity shape**, not tier. Whole-day → Daily Digest; ranged → Window Watch. Tier gates quantity + metrics. Live intra-day whole-day alerts = **Pro**. See Notification / CRON model. |
 | Storage | **Drop Supabase. One Node/Express backend + Railway Postgres.** Minimal append-only events table at launch (anonymous install id + flexible details field); notifications phase adds device/push/state tables to the same database. Holidays + astronomy = static reference files (or a future adapter), not the database. |
 | Navigation shell | **Dashboard = single home surface; NO bottom bar** (the mockup's bar was dropped in Q8 — settings → top-right gear, add → ghost card, home is the root). Authoring / settings / paywall present as **sheets**; card → timeline = **detail push**. See "Page inventory — final (v1)". |
-| Forecast horizon | **Extend 24h → 7-day (168 hourly).** Wire stays **flat**: `hours[]` is 168 entries, addressed by `index` 0..167 against `forecastStart`. **Rolling window** — always day 0..6 relative to "now"; no absolute/running day counter ("day 299" never arises). Calendar *layout* deferred post-launch. |
-| Evaluation bucketing | **Per-day buckets, derived — not a nested week object.** Engine searches *within each day* (no cross-midnight window fusion). Each activity result is up to 7 day-results: `{ dayIndex 0..6, rating, startIndex, endIndex, duration }` (or `rating: null`). The week **is** the response — no `week{}` container in the contract. Optional single `bestDayIndex` summary field if a page needs it. Absolute dates derived on demand (`forecastStart + index`), never a day number. See [ADR-0003](adr/0003-seven-day-horizon-flat-hours-day-buckets.md). |
+| Forecast horizon | **Extend 24h → 7-day (168 hourly).** *(Superseded by [ADR-0003](adr/0003-seven-day-horizon-flat-hours-day-buckets.md): 168 is a **ceiling**, not a count — `hours.length` is provider-determined, ~161–168.)* Wire stays **flat**: `hours[]` is up to 168 entries, addressed by `index` against `forecastStart`. **Rolling window** — always day 0..6 relative to "now"; no absolute/running day counter ("day 299" never arises). Calendar *layout* deferred post-launch. |
+| Evaluation bucketing | **Per-day buckets, derived — not a nested week object.** Engine searches *within each day* (no cross-midnight window fusion). Each activity result is up to 7 day-results: `{ dayIndex 0..6, rating, startIndex, endIndex, duration }` (or `rating: null`). The week **is** the response — no `week{}` container in the contract. Optional single `bestDayIndex` summary field if a page needs it. Absolute dates derived on demand (`forecastStart + index`), never a day number. *(Two details superseded: `bestDayIndex` was later **rejected** in [ADR-0004](adr/0004-day-bucketed-rating-wire-shape.md); "day" became a **local calendar day** — `dayIndex` 0..6 *or* 0..7 — not a derived 24h slice, [ADR-0003](adr/0003-seven-day-horizon-flat-hours-day-buckets.md).)* See [ADR-0003](adr/0003-seven-day-horizon-flat-hours-day-buckets.md). |
 
 ---
 
@@ -184,14 +184,14 @@ Q1 deleted the auth half of the original "auth + DB" question. Before the storag
 > **Cross-contamination this opens (the real cost):**
 > 1. **Pro/Lite collapses** → must be redefined (resolved in Q3).
 > 2. **Placeholder-data trap** — the curated list silently hid fake-data metrics (`darkness=0`, etc.); free authoring would let a user threshold on them and get a silent false **Perfect**. The metric catalog must flag *available* vs *coming-soon* and hide the latter from authoring.
-> 3. **Time-of-day is a new dimension** — engine has no "only these hours" concept today, and "12–2pm" is *local* (timezone). **RESOLVED in Q2 loose-end (b):** the activity carries `window: { startIndex, endIndex }` (UTC indices, client-converted) and the backend evaluates the range. (Earlier "client clips" lean was rejected — Window Watch needs the backend to evaluate the range server-side while the app is closed.)
+> 3. **Time-of-day is a new dimension** — engine has no "only these hours" concept today, and "12–2pm" is *local* (timezone). **RESOLVED in Q2 loose-end (b):** the activity carries `window: { startIndex, endIndex }` (UTC indices, client-converted) and the backend evaluates the range. *(Encoding later superseded by [ADR-0005](adr/0005-custom-activity-request-schema.md): local-hour `{startHour,endHour}`, all tz math server-side.)* (Earlier "client clips" lean was rejected — Window Watch needs the backend to evaluate the range server-side while the app is closed.)
 > 4. **Metric catalog becomes a first-class contract** — key, label, unit, type (numeric vs `flag`), bounds, availability flag. Lean: **served by backend** (`GET /api/v1/metrics`) so it auto-adapts as new sources land.
 > 5. **`displayMetrics` shifts** — user-chosen now, not backend-decided. CONTEXT.md needs updating.
 > 6. Lesser: `flag`-vs-numeric authoring controls; user sets `required` (must-have vs nice-to-have); backend input validation; golden-snapshot / `activities.length` tests reworked.
 
 **Q2 loose ends (RESOLVED 2026-06-17):**
 - **(a) Metric catalog — served, `GET /api/v1/metrics`.** Updates server-side as AQI/Marine/NCM land; the available→coming-soon flip is a backend change, no App Store release. Baking it in would couple metric growth to app releases — wrong, given the whole pre-launch plan is *adding sources*.
-- **(b) Time-ranged window — `window: { startIndex, endIndex }` (UTC indices) on the Activity profile.** Client converts "2–4pm local" → UTC once (UAE +4, no DST). Engine constrains its search to the window; absent window = whole-day. One representation serves both the dashboard rating and the cron Window Watch (the backend *must* receive the range — Window Watch evaluates it server-side while the app is closed, so client-clipping alone won't do).
+- **(b) Time-ranged window — `window: { startIndex, endIndex }` (UTC indices) on the Activity profile.** *(Superseded by [ADR-0005](adr/0005-custom-activity-request-schema.md): local-hour `{startHour,endHour}`.)* Client converts "2–4pm local" → UTC once (UAE +4, no DST). Engine constrains its search to the window; absent window = whole-day. One representation serves both the dashboard rating and the cron Window Watch (the backend *must* receive the range — Window Watch evaluates it server-side while the app is closed, so client-clipping alone won't do).
 
 ### Q3 — Pro model redefinition (LOCKED)
 
@@ -239,7 +239,7 @@ The blur: notification type was wrongly mapped to *tier*. It actually maps to **
 - **P1 — Notification type follows activity shape, never tier.** Whole-day → **Daily Digest** (one morning push). Time-ranged → **Window Watch** (hourly re-eval until the window opens; push only on rating *change*).
 - **P2 — Tier gates quantity + metrics only.** A free user's ranged custom activity gets Window Watch exactly like a Pro's; free users just get ≤3 activities and basic metrics. *(This corrected the earlier wrong "digest=free, realtime=pro" framing.)*
 - **P3 — Window Watch is bounded:** stop watching after the window-start passes; notify only on meaningful transitions (None→Good/Perfect; Good/Perfect→Bad), de-duped via `notification_state` — not hourly. Cheap because the 30-min location cache collapses weather fetches in a geographically concentrated market, leaving only CPU-cheap threshold eval.
-- **P4 — Timezone:** window is user-local; client converts to a UTC index-range on sync. UAE has no DST + fixed +4, so trivially safe for launch.
+- **P4 — Timezone:** window is user-local; client converts to a UTC index-range on sync. UAE has no DST + fixed +4, so trivially safe for launch. *(Superseded by [ADR-0005](adr/0005-custom-activity-request-schema.md): the client sends raw local hours; the server owns all tz math.)*
 - **P5 — Push requires server-side activities.** For the cron to evaluate a custom activity while the app is closed, the activity definition must sync to the backend (anonymous-device-ID store, identity Tier 1). Local-first for the dashboard; server-side copy required for push. **Feeds Q5** (activities table keyed by anon device ID).
 
 **The one fork, resolved:** live intra-day *"a new Perfect window just opened"* alerts for **whole-day** activities = **Pro feature.** Free users get the morning **Daily Digest** for their (set-list + custom) activities; Pro adds live whole-day alerts on top. Ranged-activity **Window Watch** stays available to both tiers (it's intrinsic to the feature). Checks out against all three user stories (pro paraglider = watch; free tanning/cycling = digest; free morning yoga = watch).
@@ -271,9 +271,9 @@ Opened tree item 5 (page inventory). The visual mockup confirms the dashboard as
 > - **Timeline view = drill-down detail screen** from a card, not a peer surface. Fits the dashboard-as-home shell.
 >
 > **Bucketing — the real design consequence.** The single-best-window search assumed a 24h bucket. Over 168h it would return windows days away or fuse a Thu-evening + Fri-morning block into a meaningless "30-hour Perfect window." Resolution:
-> - **Wire stays flat.** `hours[]` = 168, addressed by `index` 0..167 against `forecastStart`. "Day" is a *derived* view (`floor(index/24)` → 7 buckets), not a stored container.
+> - **Wire stays flat.** `hours[]` = 168, addressed by `index` 0..167 against `forecastStart`. "Day" is a *derived* view (`floor(index/24)` → 7 buckets), not a stored container. *(The `floor(index/24)` rule was superseded by [ADR-0003](adr/0003-seven-day-horizon-flat-hours-day-buckets.md): local-calendar-day buckets, `days.length` 7 or 8.)*
 > - **Evaluation output is day-bucketed.** Each activity result → up to 7 `{ dayIndex 0..6, rating, startIndex, endIndex, duration }`. Engine searches within each day. Dashboard card shows day 0 by default; timeline view renders all 7.
-> - **No `week{}` nested object.** A week container carries no payload of its own (box around 7 boxes) and would harden a grouping the client may want to slice differently (e.g. "next 48h" spanning two days). The week *is* the response. Optional single derived `bestDayIndex` ("best cycling day: Thu") only if a page wants it.
+> - **No `week{}` nested object.** A week container carries no payload of its own (box around 7 boxes) and would harden a grouping the client may want to slice differently (e.g. "next 48h" spanning two days). The week *is* the response. Optional single derived `bestDayIndex` ("best cycling day: Thu") only if a page wants it. *(Later rejected — [ADR-0004](adr/0004-day-bucketed-rating-wire-shape.md); stays rejected per its 2026-07-20 amendment.)*
 > - **"Day 299" is a non-problem.** Rolling window — every request is a fresh day 0..6 relative to `forecastStart`. No running day counter. Absolute calendar position, when ever needed, is the **derived date** (`forecastStart + index → 2026-06-22`), not a day number.
 >
 > **Code cost (explored 2026-06-17):** the decision engine (`findLongestWindow`, midnight logic) iterates `ratings.length` — **zero engine changes** to handle 168. Core change is one line in `parse.js` (`slice(0,24)` → `slice(0, FORECAST_HOURS)` behind a constant). Remainder is test churn (~15 fixtures + ~6 assertions hardcode `24`/`0..23`). ~half a day, mechanical. Difficulty: **moderate, not invasive.**
@@ -347,7 +347,7 @@ The grill redefined these core glossary terms; the migration was **applied to [`
 - **Metric catalog** (new term) — the authoritative set of pickable metrics + per-metric `{ availability, tier, description, proReason? }`; served by the backend so copy/availability change without an app release.
 - **Forecast** — from "24 hourly entries" → "168 hourly entries (7-day rolling), flat-addressed by `index` 0..167 against `forecastStart`" (Q6).
 - **Index** — drop "0–23"; now "0 to N-1 (0..167 for the 7-day forecast)" (Q6).
-- **Day bucket** (new term) — a derived 24-hour slice of the forecast (`floor(index/24)`, `dayIndex` 0..6); the unit the engine searches for a best **Window**. Not a stored container.
+- **Day bucket** (new term) — a derived 24-hour slice of the forecast (`floor(index/24)`, `dayIndex` 0..6); the unit the engine searches for a best **Window**. Not a stored container. *(Superseded by [ADR-0003](adr/0003-seven-day-horizon-flat-hours-day-buckets.md): buckets are **local calendar days** — CONTEXT.md carries the current definition.)*
 
 ---
 

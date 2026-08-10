@@ -1,5 +1,7 @@
 # Implementation spec — Issue #4: HTTP API server (Express)
 
+> ✅ **COMPLETE (merged; historical record — do not build from this).** The `GET /api/v1/rating?lat&lon&timezone` contract below was superseded by the Phase 1/2 rebuild: `POST` body `{ lat, lon, activities[] }`, day-bucketed `days[]`, no request `timezone`, structured `{ errors[] }` (ADR-0003/0004/0005). Current truth: `CLAUDE.md`.
+
 > Domain glossary: [`CONTEXT.md`](../../CONTEXT.md)
 > Depends on: [Issue #3 (Backend Internals)](implement-spec-issue-3-backend-internals.md) ([GitHub](https://github.com/1mposer/time-it/issues/3)) — must be complete first
 > Required by: [Issue #5a (iOS Core)](implement-spec-issue-5a-ios-core.md), [Issue #6b (Deploy)](implement-spec-issue-6b-railway-deploy.md)

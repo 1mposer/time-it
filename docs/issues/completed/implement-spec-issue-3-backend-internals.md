@@ -1,5 +1,7 @@
 # Implementation spec — Issue #3: Fix backend internals — activity schemas, forecastStart, multi-activity evaluator
 
+> ✅ **COMPLETE (merged; historical record — do not build from this).** The server-side activity files this spec creates were later **deleted** by the Phase 2 rebuild (activities are caller-supplied, ADR-0002/0005); the engine/threshold work survives. Current truth: `CLAUDE.md`.
+
 > Domain glossary: [`CONTEXT.md`](../../CONTEXT.md)
 > Depends on: nothing — implement this first
 > Required by: [Issue #4 (HTTP API)](implement-spec-issue-4-http-api.md) ([GitHub](https://github.com/1mposer/time-it/issues/4)), [Issue #5a (iOS Core)](implement-spec-issue-5a-ios-core.md)

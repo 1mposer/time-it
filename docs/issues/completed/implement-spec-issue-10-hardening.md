@@ -1,5 +1,7 @@
 # Issue #10 — Pre-5a hardening: bugs, incoherences, and test gaps
 
+> ✅ **COMPLETE (resolved pre-#5a; historical record — do not act on this).** Group D targets the React mockup deleted 2026-07-19; F1's `engines` gap was closed by #6b. Current truth: `CLAUDE.md`.
+
 > Review context: max-effort automated review run after Issue #4 merged, before Issue #5a starts.
 > Domain glossary: [`CONTEXT.md`](../../CONTEXT.md)
 > Depends on: Issues #3 and #4 complete — this is hardening of those, not new features.
