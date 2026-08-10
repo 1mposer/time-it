@@ -1,5 +1,7 @@
 # Implementation spec — Issue #6d: Perfect-window detector
 
+> ✅ **Backend BUILT + AUDITED + MERGED 2026-08-01, DEPLOYED 2026-08-03 — historical record; do not build from this.** As-built truth: `CLAUDE.md` (push-path section). The §4 live-acceptance pass is **extracted** to [`../current/implement-spec-push-client.md`](../current/implement-spec-push-client.md).
+
 > Domain glossary: [`CONTEXT.md`](../../CONTEXT.md) — see **Perfect-window alert**, **Device snapshot**.
 > Architecture of record: [ADR-0006](../../adr/0006-device-keyed-push-evaluation.md).
 > Depends on: [#6c](implement-spec-issue-6c-registration-and-digest.md) — reuses the `devices` table, weather cache, APNs seam, cron bootstrap, and per-device error isolation verbatim.
@@ -58,7 +60,9 @@ Fake clock/db/weather/apns:
 
 ## 4. Acceptance criteria
 
-- [ ] Full backend suite green (#6c suites untouched).
+> The suite box is ticked (2026-08-10); the live boxes are extracted to the [push-client spec](../current/implement-spec-push-client.md) §6.
+
+- [x] Full backend suite green (#6c suites untouched; 172 total).
 - [ ] Live: force a Perfect window (loose thresholds) → exactly one push; the next hourly run re-sends nothing.
 - [ ] Tighten thresholds so the bucket is Good-only, then loosen → the upgrade push arrives.
 - [ ] A Perfect day 3+ days out never triggers the detector but shows in the next digest's week-ahead line.

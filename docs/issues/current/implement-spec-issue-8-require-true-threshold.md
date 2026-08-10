@@ -1,50 +1,13 @@
-# Implementation spec — Issue #8: Add `requireTrue` threshold type to decision engine
+# Issue #8 — `requireTrue` threshold type + threshold-kind validation (stub)
 
-> ⚠️ **STALE — predates the Phase 1/2 rebuild.** Any language below about "activity definitions", `starGazingLite`, or editing activity files is obsolete: the curated `src/activities/*` list was **deleted** — activities are **caller-supplied** in the request body ([ADR-0002](../../adr/0002-activity-agnostic-engine.md)/[ADR-0005](../../adr/0005-custom-activity-request-schema.md)); `requireTrue` acceptance now means `validateRatingRequest` + `checkThreshold` + tests, not activity files. **Scope grew 2026-07-15** (fresh-session #5b review; see [STATUS.md](../../STATUS.md) §5(g) + ROADMAP): `validateRatingRequest` never checks that a threshold's *shape* matches its metric's *kind* — a `type:"flag"` threshold on a numeric metric passes validation, then never fails an hour in `checkThreshold` (silent false-Perfect). The server metric catalog needs kind awareness; the iOS client mirror already rejects this. Reconcile against ADR-0005 §6 + STATUS.md before implementing.
+> **Stub (2026-08-10):** the original spec predated the Phase 1/2 rebuild and prescribed edits to the deleted `src/activities/*` files; it was replaced by this stub so nothing stale can be executed (git history keeps the original). Expand into a full spec only when promoted. [GitHub #8](https://github.com/1mposer/time-it/issues/8) · glossary: [`CONTEXT.md`](../../CONTEXT.md).
 
-> Domain glossary: [`CONTEXT.md`](../../CONTEXT.md)
-> Depends on: [Issue #3 (Backend Internals)](../completed/implement-spec-issue-3-backend-internals.md) ([GitHub](https://github.com/1mposer/time-it/issues/3)) — `forbidTrue` flag type must be in place first
+Two work items, one issue:
 
----
+1. **`requireTrue` flag threshold** — the inverse of `forbidTrue`: `{ type: "flag", requireTrue: true, required: false }` fails the hour when the field is not `true` (meteor showers, eclipses — rare events the user wants to *catch*; `required: false` downgrades to Good rather than Bad). Engine: one branch in `checkThreshold` (`src/decision/decision_engine.js`). Wire: [ADR-0005](../../adr/0005-custom-activity-request-schema.md) currently hard-rejects `requireTrue` ("no wire surface for unbuilt behaviour") — lifting that rejection is part of this issue. Blocked on an astronomy/calendar data source (not Meteosource).
 
-## 1. Context
+2. **Threshold-shape vs metric-kind validation** (2026-07-15 review finding) — `validateRatingRequest` accepts a `type:"flag"` threshold on a *numeric* metric; it then never fails an hour in `checkThreshold` (a silent false-Perfect). Fix: `src/weather/metricCatalog.js` gains a per-metric kind (`numeric` | `flag`); validation rejects mismatches. The iOS client mirror already rejects this, so the server change is parity/defence-in-depth — unreachable from the shipped client.
 
-The decision engine's `checkThreshold` supports numeric bounds (`min`/`max`) and `forbidTrue`
-(penalise a boolean alert being present). There is no inverse: a condition that must be
-**present** to pass. This blocks activity definitions where a rare event is desirable:
+**Mirror tax note:** once spec 14's `HourQuality` client evaluator exists, any new threshold semantics (including `requireTrue`) must land in **both** engines — see [ADR-0007](../../adr/0007-client-side-mirrors.md).
 
-- `totalSolarEclipse: true` — removed from `starGazingLite` in Issue #3 for this reason
-- Meteor shower peaks, planet oppositions — calendar-driven events the user wants to catch
-
----
-
-## 2. Proposed change
-
-Add a `requireTrue` branch to `checkThreshold` in `src/decision/decision_engine.js`:
-
-```js
-if (config.type === "flag" && config.requireTrue && value !== true) return false;
-```
-
-Activity definitions would use:
-
-```js
-totalSolarEclipse: { requireTrue: true, type: "flag", required: false },
-```
-
-`required: false` downgrades to **Good** rather than **Bad** — appropriate for optional events.
-
----
-
-## 3. Out of scope
-
-- Astronomy data source — `totalSolarEclipse` is not in Meteosource. This issue adds the
-  engine capability only; wiring real calendar data is a separate concern.
-- Changes to activity files — updated once the data source is confirmed.
-
----
-
-## 4. Related artifacts
-
-- [Issue #3 (Backend Internals)](../completed/implement-spec-issue-3-backend-internals.md) ([GitHub](https://github.com/1mposer/time-it/issues/3)) — introduced `forbidTrue`; `requireTrue` is its counterpart.
-- [Issue #7 (Marine Data)](implement-spec-issue-7-marine-data.md) ([GitHub](https://github.com/1mposer/time-it/issues/7)) — same pattern: engine capability before data source.
+**Promote when:** an astronomy source is identified, or a non-mirrored client can author activities. Until then: DEFER ([ROADMAP](../ROADMAP.md)).

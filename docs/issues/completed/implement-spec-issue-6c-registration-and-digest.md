@@ -1,8 +1,10 @@
 # Implementation spec — Issue #6c: Device registration + daily digest push
 
+> ✅ **Backend BUILT + MERGED 2026-08-01, DEPLOYED 2026-08-03 — historical record; do not build from this.** As-built truth: `CLAUDE.md` (push-path section). The remaining work — the §9 iOS opt-in client and the unticked live-acceptance boxes in §11 — is **extracted** to [`../current/implement-spec-push-client.md`](../current/implement-spec-push-client.md).
+
 > Domain glossary: [`CONTEXT.md`](../../CONTEXT.md) — see **Device**, **Device snapshot**, **Digest**, **Active location**.
 > Architecture of record: [ADR-0006](../../adr/0006-device-keyed-push-evaluation.md) (server-eval, device-keyed; read it first) + [ADR-0001](../../adr/0001-no-accounts-guest-first.md) (anonymous install ID, no accounts).
-> Depends on: [#6b](../completed/implement-spec-issue-6b-railway-deploy.md) (live deploy) and [#5c](../completed/implement-spec-issue-5c-location-onboarding.md) (real-location onboarding — ✅ built 2026-08-01; registration requires one).
+> Depends on: [#6b](implement-spec-issue-6b-railway-deploy.md) (live deploy) and [#5c](implement-spec-issue-5c-location-onboarding.md) (real-location onboarding — ✅ built 2026-08-01; registration requires one).
 > Required by: [#6d](implement-spec-issue-6d-perfect-window-detector.md) (reuses every piece of infrastructure built here).
 > **Prerequisite (owner, before starting):** Apple Developer account ($99/yr); APNs Auth Key (`.p8`) + Key ID + Team ID from the portal; app registered with bundle ID `com.timeit.app.dev` (the un-suffixed `com.timeit.app` belongs to another Apple account — owner decision 2026-08-03); a real device (APNs does not work in the Simulator).
 
@@ -114,7 +116,7 @@ APNS_TEAM_ID=XXXXXXXXXX
 
 ---
 
-## 9. iOS — opt-in, registration, sync
+## 9. iOS — opt-in, registration, sync *(EXTRACTED 2026-08-10 → [`../current/implement-spec-push-client.md`](../current/implement-spec-push-client.md); the text below is the original record)*
 
 - **Settings toggle "Notifications"** (the real switch) + a **one-time dismissible dashboard callout** ("Get a morning digest + Perfect-window alerts") that deep-links to it.
 - Toggle ON: if no real Active location (picked home or GPS grant), first route the user through the #5c onboarding; then `UNUserNotificationCenter.requestAuthorization` → `registerForRemoteNotifications`.
@@ -135,13 +137,15 @@ APNS_TEAM_ID=XXXXXXXXXX
 
 ## 11. Acceptance criteria
 
-- [ ] `npm test` green (114 + new suites); iOS suite green.
-- [ ] Fresh Railway deploy: `initDb()` creates tables; `/health` still 200 with the DB paused (liveness independent of Postgres).
+> Backend boxes ticked 2026-08-10 (built, merged, deployed); the unticked device/live boxes are extracted to the [push-client spec](../current/implement-spec-push-client.md) §6.
+
+- [x] `npm test` green (backend suite now 172); iOS suite green (138).
+- [x] Fresh Railway deploy: `initDb()` created both tables in production 2026-08-03; `/health` 200.
 - [ ] Real device: toggle on → permission prompt → row appears in `devices` with resolved IANA timezone.
 - [ ] Editing an Activity re-upserts the snapshot (row's `activities` JSONB changes).
 - [ ] Manually invoking the digest job for a device whose local hour is forced to 6 delivers **one** push listing today's windows (+ week-ahead Perfect line when present); a second invocation the same local day sends nothing.
 - [ ] Toggle off deletes the row; a stale-token send deletes the row.
-- [ ] `/rating` response contract is byte-identical (still stateless — no per-device state) — but per the §6 amendment (2026-07-20) it now reads through the shared `getCachedWeather`, not a direct `getWeather` call: a repeat request for an already-cached location within the 60-min TTL must not hit the provider twice (new test, not a passthrough assumption).
+- [x] `/rating` response contract is byte-identical (still stateless — no per-device state) — but per the §6 amendment (2026-07-20) it now reads through the shared `getCachedWeather`, not a direct `getWeather` call: a repeat request for an already-cached location within the 60-min TTL must not hit the provider twice (pinned by `tests/server/ratingCache.test.js`).
 
 ---
 

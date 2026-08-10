@@ -1,5 +1,7 @@
 # Design decisions — Issue #5 (iOS app)
 
+> 📦 **ARCHIVED 2026-08-10 — historical record.** Both child specs (#5a/#5b) are built; the still-live content — the SF-Symbols manifest and the card-face/day-0 rules — was absorbed into [`ios/guidelines/Guidelines.md`](../../../ios/guidelines/Guidelines.md) (the single visual-truth home). Do not build from this file.
+
 > Shared visual/UX + nav reference for both sub-issues #5a and #5b, reconciled to the Phase 1/2 rebuild and the locked grill decisions. The **visual** decisions (colour, typography, layout, chip tiers) are the source of truth alongside [`ios/guidelines/Guidelines.md`](../../../ios/guidelines/Guidelines.md). The **contract** facts here now match the shipped backend: activities are **caller-supplied** via `POST /api/v1/rating` (no server-side list), the per-hour `hour` field was **dropped**, a result is a per-activity **`days[]`** array (not a single top-level `rating`/`startIndex`), and there are **no accounts** and **no bottom tab bar**. See [ADR-0001](../../adr/0001-no-accounts-guest-first.md) (no accounts), [ADR-0004](../../adr/0004-day-bucketed-rating-wire-shape.md) (response), [ADR-0005](../../adr/0005-custom-activity-request-schema.md) (request), and [STATUS.md](../../STATUS.md) §5.
 
 > Do not relitigate these decisions. Visual spec: [`ios/guidelines/Guidelines.md`](../../../ios/guidelines/Guidelines.md).

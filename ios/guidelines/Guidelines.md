@@ -1,6 +1,6 @@
 # Time It — Design Guidelines
 
-> **Scope note (2026-07-19):** this file is the visual token truth for the **shipped v1 light-only UI** — `Theme.swift` and `MetricColorTests` pin against it. The **next visual iteration** (temp-encoded header gradients, full Light/Dark semantic tokens, wizard components) lives in the Figma file **Main - Time-it** — see [`docs/design/figma_foundations_multi-page_implementation.md`](../../docs/design/figma_foundations_multi-page_implementation.md). Rows describing a tab bar, sign-in button, or PRO badge are relics of the original mockup — those features were **cut** (ADR-0001 no-accounts; no tab bar) and were never built.
+> **Scope note (updated 2026-08-10):** this file is the visual token truth for the **shipped v1 light-only UI** — `Theme.swift` and `MetricColorTests` pin against it. The **next visual iteration** (temp-encoded header gradients, full Light/Dark semantic tokens, wizard components, the spec 14 gradient card) lives in the Figma file **Main - Time-it** — see [`docs/design/FIGMA.md`](../../docs/design/FIGMA.md). The mockup-relic rows (tab bar, sign-in, PRO badge — cut features, never built) were **deleted 2026-08-10**; the SF-Symbols manifest + card-face rules from the retired `design-decisions-issue-5.md` were absorbed here the same day.
 > (Originally derived from the Figma Make prototype, deleted 2026-07-19 — recover from git history.)
 
 ---
@@ -14,16 +14,13 @@
 | Card background | `#ffffff` | Activity card surface |
 | Primary text | `#1c1c1e` | Activity names, main content |
 | Secondary text | `#8e8e93` | Time labels, inactive icons, gear icon |
-| Accent (orange) | `#ff9500` | Active tab, buttons, Good window highlight, PRO badge |
+| Accent (orange) | `#ff9500` | Buttons, Good window highlight |
 | Accent interactive (blue) | `#007aff` | Location CTAs (#5c) — Figma Semantic `accent/interactive`; standalone interactive controls outside the orange rating context |
 | Perfect green | `#34c759` | Perfect window highlight |
 | Header text | `#ffffff` | All text inside the header |
 | Header secondary | `rgba(255,255,255,0.8)` | Wind / humidity row in header |
 | Header temp | `rgba(255,255,255,0.92)` | Temperature line in header |
 | Divider | `rgba(60,60,67,0.18)`, 0.5px | Header–content separator |
-| Tab bar bg | `rgba(255,255,255,0.82)` + 20px backdrop blur | Tab bar surface |
-| Tab bar border | `rgba(60,60,67,0.2)`, 0.5px | Top edge of tab bar |
-| Sign-in button bg | `rgba(255,255,255,0.18)` | Circular button in header top-right |
 | Timeline track | `#f2f2f7` | Empty part of timeline bar |
 
 ### Metric chip colour tiers
@@ -56,7 +53,6 @@ Chip colours per tier:
 | Activity name | SF Pro Text | 15pt | Medium (500) | −0.1px |
 | Time-axis labels | SF Pro Text | 10pt | Regular | +0.1px |
 | Metric chip label | SF Pro Text | 11.5pt | Medium (500) | +0.05px |
-| PRO badge | SF Pro Text | 9pt | Bold (700) | +0.5px |
 
 Use SF Pro Display for the header (time, temperature). Use SF Pro Text everywhere else.
 
@@ -66,11 +62,11 @@ Use SF Pro Display for the header (time, temperature). Use SF Pro Text everywher
 
 ### Screen
 - Background: `#f2f2f7`
-- Structure (top to bottom): header → 0.5px divider → scrollable card list → tab bar
+- Structure (top to bottom): header → 0.5px divider → scrollable card list (no tab bar — grill Q8)
 
 ### Header
 - Padding: 52pt top (clears status bar), 20pt horizontal, 22pt bottom
-- Sign-in button: 34×34pt, `borderRadius: 20pt`, positioned `top: 16`, `right: 18`
+- Settings gear button: 34×34pt, positioned `top: 16`, `right: 18` (header top-right)
 - Content centred vertically with time → temp → wind/humidity row
 
 ### Card list
@@ -98,11 +94,8 @@ Use SF Pro Display for the header (time, temperature). Use SF Pro Text everywher
 - Icon size: 12pt (w-3 h-3)
 - Maximum 3 chips per card face
 
-### Tab bar
-- Height: 82pt
-- Bottom padding (home indicator clearance): 18pt
-- Horizontal padding: 20pt
-- Each button minimum touch target: 44×44pt
+### Touch targets
+- Every interactive element: minimum 44×44pt (the rule the #5c audit F2 pinned)
 
 ---
 
@@ -112,7 +105,7 @@ Use SF Pro Display for the header (time, temperature). Use SF Pro Text everywher
 
 ```
 ┌─────────────────────────────────────────┐
-│ [icon] Activity Name  [PRO]    [gear]   │  ← top row
+│ [icon] Activity Name           [gear]   │  ← top row
 │                                         │
 │ ░░░░░░░████████░░░░░░░░░░░░░░░░░░░░░░░ │  ← timeline
 │ 6am        12pm        6pm        12am  │  ← axis labels
@@ -121,46 +114,93 @@ Use SF Pro Display for the header (time, temperature). Use SF Pro Text everywher
 └─────────────────────────────────────────┘
 ```
 
-- Icon: SF Symbol, 18×18pt, primary at 75% opacity
+- Icon: SF Symbol, 18×18pt, primary at 75% opacity (explicit per activity — `AuthoredActivity.iconSymbol` through the single `ActivityIconView` seam)
 - Activity name: 15pt medium
-- PRO badge: only on activities with `-pro` suffix in their ID; orange text + faint orange bg
-- Gear icon: 15pt, secondary colour; requires sign-in to act
-- Timeline: 6am–12am (18 hours). Green fill = Perfect, orange fill = Good, no fill = No Window
-- Chips: `displayMetrics` first 3, values from best-window start hour
+- Gear icon: 15pt, secondary colour; opens the authoring editor (#5b)
+- Timeline: the day's **real hour span**, positioned from the **global** `startIndex`/`endIndex` rendered in the response `timezone` — the sketch's 6am–12am axis is illustrative, never hardcode it. Green fill = Perfect, orange fill = Good, no fill = No Window
+- The card summarises **day 0 only** ("Today" / "Tonight" for nocturnal); a null day 0 renders the none-state copy ("No window today"/"No window tonight") and never rolls forward (ADR-0004 amendment 2026-07-20). Read each activity's own `days.length`; never assume 7
+- Chips: `displayMetrics` first 3, values from best-window start hour; nullable metrics (`windSpeed`/`rainFall`/`cloudCover`) render `—`
 
 ### Header
 
 ```
 ┌─────────────────────────────────────────┐
-│                              [person]   │  ← sign-in button
+│                              [gear]     │  ← settings gear
 │              9:41 AM                    │  ← 60pt bold
 │               —°C                      │  ← 28pt light
 │   💨 — km/h             💧 —%          │  ← 13pt
 └─────────────────────────────────────────┘
 ```
 
-Header weather values (temp, wind, humidity) are placeholders (`—`) until a live data source is wired in.
-
-### Tab bar
-
-Three tabs: **Activities** (active = orange), **+** (requires sign-in), **Profile**.
-No labels — icon only.
+Header weather values (temp, wind, humidity) are the forecast location's **current-hour** values from `hours[0]` (`HeaderView(currentHour:)`, wired 2026-07-12); they fall back to `—` while loading, on error, or when the provider omitted a metric.
 
 ---
 
 ## Interaction rules
 
-- No sign-in gate on launch. App opens directly to the dashboard.
-- Three sign-in entry points: header person icon, card gear icon, + tab.
-- Tapping a card body navigates to the activity detail screen.
+- App opens directly to the dashboard — no launch gate, no accounts (ADR-0001), no bottom bar (grill Q8).
+- Tapping a card body pushes the 7-day detail; header gear → Settings sheet; card gear → editor sheet; ghost add-card → activity creation.
 - All interactive elements have a minimum 44×44pt touch target.
 - Cards use `.plain` button style — no system highlight ring on tap.
 
 ---
 
+## SF Symbols manifest
+
+*(Absorbed 2026-08-10 from the retired `design-decisions-issue-5.md`.)* The app uses **SF Symbols** for all iconography (`Image(systemName:)` / `Label`). Rules — hallucinated symbol names are the most common failure and render a **blank glyph**:
+
+- **Use ONLY the exact names in the tables below.** Never invent or substitute a plausible-looking name.
+- **If a needed glyph is not listed, use `questionmark.circle`** and leave a `// TODO: verify SF Symbol` comment. A visible placeholder is recoverable in review; a blank hallucinated glyph is not.
+- **Availability: iOS 17+.** Newer symbols render blank on the deployment target.
+- **Accessibility:** pair every symbol with a label (`Label` or `.accessibilityLabel`).
+- Rows marked **⚠︎ verify** await the owner's SF-Symbols-app confirmation.
+
+**A. Activity template icons**
+
+| Activity | `id` | SF Symbol | Verify |
+|---|---|---|---|
+| Cycling | `cycling` | `figure.outdoor.cycle` | |
+| Fishing Lite | `fishing-lite` | `figure.fishing` | ⚠︎ verify |
+| Running | `running` | `figure.run` | ⚠︎ verify |
+| Stargazing (nocturnal) | `stargazing` | `moon.stars.fill` | |
+
+New Templates extend this table — verified names only. The `label.contains("fishing")` heuristic survives only as a legacy fallback.
+
+**B. Metric chip icons (live metrics)**
+
+| Metric | SF Symbol | Verify |
+|---|---|---|
+| `temp` | `thermometer.medium` | |
+| `windSpeed` | `wind` | |
+| `rainFall` | `cloud.rain.fill` | |
+| `uV` | `sun.max.fill` | |
+| `cloudCover` | `cloud.fill` | |
+| `humidity` | `humidity.fill` | ⚠︎ verify |
+| `visibility` | `eye.fill` | |
+| `moon` | `moon.stars.fill` | |
+| `dustAlert` | `sun.dust.fill` | ⚠︎ verify |
+
+Coming-soon metrics (`darkness`/`douglasScale`/`swellHeight`/`swellLength`/`tide`/`seaWarning`) are not displayable (the backend rejects them) — no icons until their adapters land.
+
+**C. System / navigation / state**
+
+| Purpose | SF Symbol |
+|---|---|
+| Settings gear (header) + card authoring gear | `gearshape` |
+| Error state (`ContentUnavailableView`) | `wifi.slash` |
+| Location permission / no-location | `location.fill` / `location.slash` |
+| Ghost add-card / from-scratch / empty state | `plus.circle` |
+| Geocode search result row | `mappin.and.ellipse` |
+| Metric-picker selection tick | `checkmark` |
+| **Unlisted-glyph fallback (the guardrail)** | `questionmark.circle` |
+
+Not symbols: the `NavigationLink` disclosure chevron is system-provided; the loading state is a `ProgressView`.
+
+---
+
 ## Dark mode
 
-Deferred. Light mode only at launch.
+Deferred. Light mode only at launch. (Full Light/Dark Semantic tokens are pinned in Figma — [`docs/design/FIGMA.md`](../../docs/design/FIGMA.md) — for the post-ship adoption wave.)
 
 ---
 
