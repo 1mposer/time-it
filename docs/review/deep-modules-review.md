@@ -34,13 +34,7 @@ Explore organically; note where you feel friction. These questions orient, they 
 
 > Replace this whole section per run. Everything above and below is durable.
 
-**Leverage moment:** the `POST` body shape, `days[]`, and the module surfaces (`getWeather`, `evaluateAll`, `validateRatingRequest`) are about to be bound by iOS #5a/#5b. Interfaces are cheapest to change **now**, before downstream code calcifies around them.
-
-**Author's priors — test and try to refute these.** They are hypotheses, not conclusions. If they are *not* the real friction, say so plainly and surface what is.
-
-1. **The `evaluateAll` tagging seam (top suspect).** `evaluateAll` requires `hours` pre-tagged with `localDay`/`localHour` by `getWeather`, and silently collapses to one bucket if they're missing — an unenforced precondition and temporal coupling across the module boundary, failing silently. A deep module would enforce it or own the tagging. Refute or confirm.
-2. **The night-stitch.** Clean branch inside bucketing, or a special case that complicates the engine's general model — a wart the mental model now has to carry?
-3. **`validateRatingRequest` (~165 lines).** Narrow interface (`(body) → errors[]`, promising) — but is the implementation a deep module or a god-validator accreting atomic rules?
+**No active run.** (Last run: pre-#5a, June 2026 — its priors are resolved history; report in `docs/review/out/` if kept. The 2026-06-30 run's three internal-seam deepening candidates remain advisory, not blockers.) Write a fresh leverage-moment + priors block here when starting a run.
 
 ## 4. Output — a self-contained HTML report
 
