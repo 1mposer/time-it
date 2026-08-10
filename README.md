@@ -13,7 +13,7 @@ Users author their activities and thresholds (max temperature, max humidity, win
 1. **Fetch** - pulls hourly forecast data from a weather API
 2. **Parse** - normalizes the response into a unified schema (temp, humidity, wind, rainfall, UV, cloud cover, visibility, dust alerts, moon phase, sea conditions)
 3. **Match** - compares each hour against the user's activity thresholds
-4. **Notify** - sends a push notification when a qualifying window is found (designed in [ADR-0006](docs/adr/0006-device-keyed-push-evaluation.md); ships in #6c/#6d, not yet built)
+4. **Notify** - sends a push notification when a qualifying window is found (designed in [ADR-0006](docs/adr/0006-device-keyed-push-evaluation.md); the server side — daily digest #6c + Perfect-window detector #6d — is built and deployed; the iOS opt-in client is pending)
 
 The weather layer uses an adapter pattern, allowing additional data sources to be swapped in without touching the core logic.
 
@@ -21,7 +21,7 @@ The weather layer uses an adapter pattern, allowing additional data sources to b
 
 Activities are **caller-supplied**: the iOS client authors each one — an `id`, a label, the metrics to display, a per-metric **threshold** profile, and an optional time-of-day window — and sends them in the `POST /api/v1/rating` body. The backend holds **no** activity list; it evaluates whatever profiles the request carries. Curated starting points ship client-side as **Templates** a user adopts and tweaks.
 
-**Lite / Pro** is a subscription tier enforced **client-side** as metric-access + quantity gating — which premium metrics you may use (atmospheric transparency, swell height, Douglas scale, moon phase) and how many activities you may author — not separate per-activity profiles.
+**Lite / Pro** is a subscription tier enforced **client-side** as metric-access + quantity gating — which premium metrics you may use (atmospheric transparency, swell height, Douglas scale) and how many activities you may author — not separate per-activity profiles. (Pro is currently **deferred**: no live metric is Pro-gated and no cap is enforced yet.)
 
 Templates shipped today:
 
@@ -35,7 +35,7 @@ Templates shipped today:
 
 - **Runtime**: Node.js + Express
 - **Weather**: Meteosource API (adapter layer supports expansion)
-- **Notifications**: Apple Push Notification service (APNs) — planned, #6c/#6d
+- **Notifications**: Apple Push Notification service (APNs) — server side live (#6c/#6d); iOS opt-in client pending
 - **Client**: iOS (App Store)
 - **Deployment**: Railway
 
@@ -51,8 +51,10 @@ npm run dev        # starts server at http://localhost:3000
 ### Endpoints
 
 ```
-GET  /health                                    → { status: "ok", timestamp: "..." }
-POST /api/v1/rating                             → body { lat, lon, activities[] }; 7-day forecast + per-day ratings
+GET    /health                                  → { status: "ok", timestamp: "..." }
+POST   /api/v1/rating                           → body { lat, lon, activities[] }; up-to-7-day forecast (provider-determined ≤168 h) + per-day ratings
+PUT    /api/v1/devices/:deviceId                → push-path device snapshot upsert (204)
+DELETE /api/v1/devices/:deviceId                → push opt-out (204, idempotent)
 ```
 
 ### CLI (manual testing)
