@@ -176,7 +176,7 @@ midnight, "Tonight · …" phrasing, night rows ("Tonight", "Tomorrow night", po
 
 ## 9. Figma supersession (prerequisite/parallel — owner + Figma agent)
 
-This spec evolves page `92:17` (see `handoff-figma-design-iteration.md` for the Figma
+This spec evolves page `92:17` (see [`docs/design/FIGMA.md`](../../design/FIGMA.md) for the Figma
 workflow and approval gate). The designed frames need a catch-up pass:
 
 - **Card:** drop the rating word top-right; flat bar → gradient slice; sublabel "Today ·
@@ -229,7 +229,7 @@ approval gate.
 
 ## Related artifacts
 
-- Figma: page `92:17` (predecessor design; §9 supersession) · `handoff-figma-design-iteration.md`
+- Figma: page `92:17` (predecessor design; §9 supersession) · [`docs/design/FIGMA.md`](../../design/FIGMA.md)
 - ADR-0004 (card reads `days[0]`; unchanged) · ADR-0005 (`window` optional on the wire; unchanged —
   mandatory-ness is client policy)
 - `implement-spec-issue-6c-registration-and-digest.md` §9 (the future registration client
