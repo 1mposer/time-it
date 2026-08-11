@@ -356,6 +356,6 @@ The grill redefined these core glossary terms; the migration was **applied to [`
 The personalization grill is **complete**; Q1–Q9 are locked. No further grilling is required to start building. **Forward progress is tracked in [`STATUS.md`](STATUS.md), not here** — the items below are the grill-close to-do snapshot, annotated with what has since landed.
 
 1. ✅ **Engine + contract decisions built** — Phase 1/2 shipped the activity-agnostic POST contract ([ADR-0002](adr/0002-activity-agnostic-engine.md) / [ADR-0004](adr/0004-day-bucketed-rating-wire-shape.md) / [ADR-0005](adr/0005-custom-activity-request-schema.md)).
-2. ◻️ **Spec rewrites still outstanding** — **#5a** (core SwiftUI app), **#5b** (personalization), **#6a→#6c** (push) must fold in every locked decision here + in the ADRs; the current `docs/issues/current/*` specs remain pre-rebuild (see STATUS §5).
+2. ✅ **Spec rewrites — since completed** — the #5a/#5b/#6b–#6d specs were recreated post-grill and built (see [`issues/ROADMAP.md`](issues/ROADMAP.md) §Completed).
 3. ✅ **CONTEXT.md migration applied** with the Phase 1/2 code (section above).
-4. ✅ **Provider verification** — Meteosource base done; Air Quality + Marine pending their adapters (STATUS §4).
+4. ✅ **Provider verification** — Meteosource base done; Air Quality + Marine pending their adapters (deferred — [`issues/ROADMAP.md`](issues/ROADMAP.md)).
