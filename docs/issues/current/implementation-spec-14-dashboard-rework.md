@@ -4,8 +4,9 @@
 **Status:** locked spec, unbuilt. **In SHIP scope as the *minimal cut* (gate decision 2026-08-10):**
 §4 (±1h flexibility) and the 4-step-wizard reading of §6 are **DEFERRED** to the post-ship design
 wave — §6's prefills land via the existing `AddActivityView` → `ActivityEditorView` flow (prefill
-loaded, confirmation = saving); §9 is decoupled (data layer + provisional rendering now, visual
-polish tracks approved frames without gating TestFlight). Full cut + ambiguity resolutions
+loaded, confirmation = saving); **§9 amended 2026-08-11 ([ADR-0008](../../adr/0008-figma-first-ui-gate.md)):
+the catch-up frames gate the rendering** — approved frames precede UI code; the non-visual
+layer is not gated. Full cut + ambiguity resolutions
 (I1–I7, incl. the all-dormant header state and the owner-device first-launch note):
 [`../../audit/AI_audit/SPEC_14_FEASIBILITY.md`](../../audit/AI_audit/SPEC_14_FEASIBILITY.md).
 **Scope:** iOS client ONLY. The server contract, engine, wire shape, ADR-0004/0005, and the
@@ -187,9 +188,10 @@ workflow and approval gate). The designed frames need a catch-up pass:
 - **Settings:** add the phrases row.
 - Dormant cards, wizard structure, prefills: already designed — unchanged.
 
-Code does not wait on pixel-perfect frames for the mechanical parts (§1, §3, §4 data
-behavior), but card/detail rendering should track the approved frames per the established
-approval gate.
+**Amended 2026-08-11 ([ADR-0008](../../adr/0008-figma-first-ui-gate.md)): this pass is a
+prerequisite, not a parallel track.** Card/detail/Settings rendering lands only after the
+owner approves these frames; the non-visual layer (§1 store semantics, §3 `HourQuality`,
+projections, tests) is not gated.
 
 ## 10. Tests (all iOS; `npm test` is untouched — nothing server-side changes)
 

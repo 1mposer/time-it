@@ -73,10 +73,10 @@ Key Screens — Light frames: Dashboard Loaded `111:2` · Loading `111:17` · Em
 
 ## 6. Workflow rules
 
-- **Approval gate:** nothing is mirrored to code until the owner approves the frames. Scratch work lives on "mess around"; polished results graduate to the Screens pages.
+- **Approval gate — frames precede code ([ADR-0008](../adr/0008-figma-first-ui-gate.md), the decision of record):** nothing user-visible is mirrored to code until the owner approves the frames. Scratch work lives on "mess around"; polished results graduate to the Screens pages.
 - Load the `figma-use` skill before any `use_figma` call; ≤10 ops per call; return node IDs.
 - The as-built page (`74:4`) and `Theme colors` stay untouched (frozen reference, §3).
 
 ## 7. Pending design pass — spec 14 catch-up (§9 of the spec)
 
-The Screens-page frames predate spec 14; when this pass runs: card drops the rating word + flat bar → **gradient slice** + "Today · 6–8pm" sublabel + all-red state; detail screen → the §7 skeleton (header / setup-once / aligned range-zoomed week / tap-to-expand); Settings gains the phrases row. *(The ±1h flex toggle is deferred with spec 14's cut.)* Dormant cards, wizard structure, prefills: already designed — unchanged. **Code does not wait on this pass** — the spec 14 minimal cut builds data-first with provisional rendering; visuals reconcile when frames are approved.
+The Screens-page frames predate spec 14; when this pass runs: card drops the rating word + flat bar → **gradient slice** + "Today · 6–8pm" sublabel + all-red state; detail screen → the §7 skeleton (header / setup-once / aligned range-zoomed week / tap-to-expand); Settings gains the phrases row. *(The ±1h flex toggle is deferred with spec 14's cut.)* Dormant cards, wizard structure, prefills: already designed — unchanged. **This pass gates the spec 14 rendering ([ADR-0008](../adr/0008-figma-first-ui-gate.md))** — approved frames precede UI code. Also in this backlog (push-client spec §1, same gate): the Settings "Notifications" row and the one-time dashboard callout.

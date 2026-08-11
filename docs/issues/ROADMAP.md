@@ -10,10 +10,11 @@
 | 2 | Renew Meteosource ([#11](https://github.com/1mposer/time-it/issues/11)) — everything live 502s until then | owner | pending ("soon") |
 | 3 | Railway **Hobby** upgrade before the trial credit dies | owner | pending |
 | 4 | Bundle-ID rename → `com.timeit.app.dev` (Debug + Release, Xcode UI) — unshippable until done | owner | pending |
-| 5 | **Spec 14 minimal cut** — [spec](current/implementation-spec-14-dashboard-rework.md) (cut + ambiguity resolutions: [feasibility audit](../audit/AI_audit/SPEC_14_FEASIBILITY.md)) | agent | unbuilt — next engineering |
-| 6 | **iOS push opt-in client** — [spec](current/implement-spec-push-client.md) (owner-side prerequisite: the APNs entitlement in Xcode) | agent | unbuilt — after/alongside 5 |
-| 7 | #6c/#6d live acceptance (checklist inside the push-client spec) | both | blocked on 2 + 6 |
-| 8 | **TestFlight distribution** — App Store Connect, archive/upload, `NODE_ENV=production` on Railway for the production APNs host | owner | new — the ship step |
+| 5 | **Spec 14 Figma catch-up pass** — frames built + owner-approved ([FIGMA.md §7](../design/FIGMA.md), incl. the push client's opt-in surfaces) | owner + agent | pending — gates 6's rendering ([ADR-0008](../adr/0008-figma-first-ui-gate.md)) |
+| 6 | **Spec 14 minimal cut** — [spec](current/implementation-spec-14-dashboard-rework.md) (cut + ambiguity resolutions: [feasibility audit](../audit/AI_audit/SPEC_14_FEASIBILITY.md)) | agent | unbuilt — logic layer free now; rendering blocked on 5 |
+| 7 | **iOS push opt-in client** — [spec](current/implement-spec-push-client.md) (owner-side prerequisite: the APNs entitlement in Xcode) | agent | unbuilt — after/alongside 6; opt-in UI blocked on 5 |
+| 8 | #6c/#6d live acceptance (checklist inside the push-client spec) | both | blocked on 2 + 7 |
+| 9 | **TestFlight distribution** — App Store Connect, archive/upload, `NODE_ENV=production` on Railway for the production APNs host | owner | new — the ship step |
 
 ## Deferred (with promote conditions)
 
@@ -45,3 +46,4 @@
 - The tree is the source of truth (the #5/#6 GitHub issues were removed; #7/#8/#11 remain on GitHub).
 - A spec moves to `completed/` — boxes ticked, one-line banner added — in the **same commit** that merges its build; completed bodies are never edited again.
 - `current/` holds only living work orders; handoffs carry a fold-in-by date at creation.
+- **UI is Figma-first** — frames precede code ([ADR-0008](../adr/0008-figma-first-ui-gate.md), the decision of record).

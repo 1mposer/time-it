@@ -1,6 +1,8 @@
 # PRIORITY_RESET — one ranked list, four buckets, one provable use case
 
 > **Folded into [`docs/issues/ROADMAP.md`](../issues/ROADMAP.md) 2026-08-10** — the ROADMAP is the living copy; this file is the archived rationale.
+>
+> ⚠️ **Amended 2026-08-11 ([ADR-0008](../../adr/0008-figma-first-ui-gate.md)):** the "Figma design-iteration track" deferral's rationale ("design exploration must not gate code") is reversed — frames now precede UI code. Everything else stands.
 
 **Audit date:** 2026-08-10 · Phase 3 of the reconciliation audit (branch `reconcil`).
 **Gate passed 2026-08-10 — owner answers folded in below** (spec 14 promoted to SHIP;

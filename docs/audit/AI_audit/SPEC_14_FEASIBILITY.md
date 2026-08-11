@@ -4,6 +4,10 @@
 Subject: `implementation-spec-14-dashboard-rework.md` (locked 2026-08-09, unbuilt,
 untracked in git and absent from the ROADMAP).
 
+> ⚠️ **Partially superseded 2026-08-11 ([ADR-0008](../../adr/0008-figma-first-ui-gate.md)):**
+> the cut's **§9 DEFER is reversed** — frames now gate the spec 14 rendering. The wizard
+> and ±1h deferrals stand. The body below is the 2026-08-10 record, unedited.
+
 ---
 
 ## Verdict
