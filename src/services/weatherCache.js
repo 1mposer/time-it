@@ -5,7 +5,7 @@
 // not the hourly crons, is the largest source of duplicate provider calls).
 // Do not build a second cache implementation for any of them.
 //
-// - TTL 60 min: owner-confirmed Meteosource flexi refreshes upstream somewhere
+// - TTL 60 min: owner-confirmed Meteosource refreshes upstream somewhere
 //   between every 10 min and every 1 hour; policy is to cache at the hourly end
 //   of that range (docs/API_documentation/meteosource/README.md).
 // - Key = lat/lon rounded to 2 dp (~1.1 km) so nearby devices share entries.

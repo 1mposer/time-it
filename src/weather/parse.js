@@ -2,7 +2,7 @@ const { UpstreamError } = require('./UpstreamError');
 
 // 7-day rolling horizon ceiling (ADR-0003). 168 = 7 x 24 is a CEILING, not a
 // fixed count: the provider serves however many clean hourly entries it returns
-// (Meteosource flexi ~161-168), capped here. We never fabricate hours to a target.
+// (Meteosource standard ~161-168), capped here. We never fabricate hours to a target.
 const FORECAST_HOURS = 168;
 
 function parseWeather(rawResponse, adapter) {

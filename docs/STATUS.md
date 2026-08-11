@@ -1,6 +1,6 @@
 # STATUS — now / next / blocked
 
-> **Last updated: 2026-08-11** — Figma-first UI gate recorded ([ADR-0008](adr/0008-figma-first-ui-gate.md)). Prior: priority reset + docs consolidation 2026-08-10 on `reconcil` (rationale + full audit: [`docs/audit/AI_audit/`](audit/AI_audit/)). This file is deliberately one screen: a snapshot only. Per-item status and the ship order live in [ROADMAP](issues/ROADMAP.md) — the single home; nothing here restates it.
+> **Last updated: 2026-08-11** — Meteosource renewed on the **Standard** plan (endpoint switched `flexi`→`standard`) + Railway Hobby upgrade; earlier same day: Figma-first UI gate recorded ([ADR-0008](adr/0008-figma-first-ui-gate.md)). Prior: priority reset + docs consolidation 2026-08-10 on `reconcil` (rationale + full audit: [`docs/audit/AI_audit/`](audit/AI_audit/)). This file is deliberately one screen: a snapshot only. Per-item status and the ship order live in [ROADMAP](issues/ROADMAP.md) — the single home; nothing here restates it.
 
 **Read order:** [`CLAUDE.md`](../CLAUDE.md) → [`CONTEXT.md`](CONTEXT.md) → this file → [ROADMAP](issues/ROADMAP.md).
 
@@ -22,8 +22,8 @@ A fact stated in two homes is a bug — link, don't restate. Completed specs (in
 ## 2. Now / next / blocked
 
 - **NOW:** nothing in flight. The WeatherKit track was discarded and deferred post-ship (owner decision 2026-08-10); the working tree is clean.
-- **NEXT (ship order — ROADMAP has the full table):** owner ops (renew Meteosource [#11](https://github.com/1mposer/time-it/issues/11) · Railway Hobby upgrade · bundle-ID rename to `com.timeit.app.dev`) → spec 14 Figma catch-up pass → spec 14 minimal cut → iOS push opt-in client → live acceptance → **TestFlight**.
-- **BLOCKED:** all live traffic 502s until #11 (Meteosource lapsed — the push jobs log and retry by design, nothing crashes); spec 14 rendering + the push client's opt-in UI wait on the Figma catch-up approval ([ADR-0008](adr/0008-figma-first-ui-gate.md)); live acceptance additionally needs the push client; TestFlight needs the bundle-ID rename + `NODE_ENV=production` (production APNs host).
+- **NEXT (ship order — ROADMAP has the full table):** owner ops (bundle-ID rename to `com.timeit.app.dev`) → spec 14 Figma catch-up pass → spec 14 minimal cut → iOS push opt-in client → live acceptance → **TestFlight**.
+- **BLOCKED:** live traffic 502s clear when the `standard`-endpoint switch (2026-08-11) deploys — [#11](https://github.com/1mposer/time-it/issues/11) is renewed on the Standard plan; spec 14 rendering + the push client's opt-in UI wait on the Figma catch-up approval ([ADR-0008](adr/0008-figma-first-ui-gate.md)); live acceptance additionally needs the push client; TestFlight needs the bundle-ID rename + `NODE_ENV=production` (production APNs host).
 
 ## 3. Standing flags (not blockers)
 

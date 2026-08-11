@@ -53,13 +53,13 @@ test('getWeather requests timezone=auto so the provider exposes the location zon
   assert.ok(!url.includes('timezone=UTC'), `timezone=UTC must not be sent, got: ${url}`);
 });
 
-test('getWeather targets the flexi 7-day endpoint, not /free/ (ADR-0003)', async (t) => {
+test('getWeather targets the standard 7-day endpoint, not /free/ (ADR-0003)', async (t) => {
   t.after(restore);
   process.env.API_KEY = 'test-key';
   const getLastUrl = captureFetch();
   await getWeather(25.16, 55.20);
   const url = getLastUrl();
-  assert.ok(url.includes('/flexi/point'), `expected /flexi/point endpoint, got: ${url}`);
+  assert.ok(url.includes('/standard/point'), `expected /standard/point endpoint, got: ${url}`);
   assert.ok(!url.includes('/free/point'), `must not hit /free/point (caps at 24h), got: ${url}`);
 });
 
