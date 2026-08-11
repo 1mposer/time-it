@@ -1,6 +1,6 @@
 # Roadmap — the single home for per-item status
 
-> Reset 2026-08-10 (owner-gated; rationale: [`docs/audit-2026-08-10/PRIORITY_RESET.md`](../audit-2026-08-10/PRIORITY_RESET.md)). Objective: **ship one provable use case so the feedback loop starts** — a TestFlight user authors one Activity with their own hours at their real location; the dashboard answers truthfully for those hours; a Perfect window inside ~48h pushes unprompted; at least one user acts on it and reports whether reality matched.
+> Reset 2026-08-10 (owner-gated; rationale: [`docs/audit/AI_audit/PRIORITY_RESET.md`](../audit/AI_audit/PRIORITY_RESET.md)). Objective: **ship one provable use case so the feedback loop starts** — a TestFlight user authors one Activity with their own hours at their real location; the dashboard answers truthfully for those hours; a Perfect window inside ~48h pushes unprompted; at least one user acts on it and reports whether reality matched.
 
 ## Ship path (in order)
 
@@ -10,7 +10,7 @@
 | 2 | Renew Meteosource ([#11](https://github.com/1mposer/time-it/issues/11)) — everything live 502s until then | owner | pending ("soon") |
 | 3 | Railway **Hobby** upgrade before the trial credit dies | owner | pending |
 | 4 | Bundle-ID rename → `com.timeit.app.dev` (Debug + Release, Xcode UI) — unshippable until done | owner | pending |
-| 5 | **Spec 14 minimal cut** — [spec](current/implementation-spec-14-dashboard-rework.md) (cut + ambiguity resolutions: [feasibility audit](../audit-2026-08-10/SPEC_14_FEASIBILITY.md)) | agent | unbuilt — next engineering |
+| 5 | **Spec 14 minimal cut** — [spec](current/implementation-spec-14-dashboard-rework.md) (cut + ambiguity resolutions: [feasibility audit](../audit/AI_audit/SPEC_14_FEASIBILITY.md)) | agent | unbuilt — next engineering |
 | 6 | **iOS push opt-in client** — [spec](current/implement-spec-push-client.md) (owner-side prerequisite: the APNs entitlement in Xcode) | agent | unbuilt — after/alongside 5 |
 | 7 | #6c/#6d live acceptance (checklist inside the push-client spec) | both | blocked on 2 + 6 |
 | 8 | **TestFlight distribution** — App Store Connect, archive/upload, `NODE_ENV=production` on Railway for the production APNs host | owner | new — the ship step |

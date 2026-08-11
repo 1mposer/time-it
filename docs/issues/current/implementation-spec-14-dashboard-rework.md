@@ -7,7 +7,7 @@ wave — §6's prefills land via the existing `AddActivityView` → `ActivityEdi
 loaded, confirmation = saving); §9 is decoupled (data layer + provisional rendering now, visual
 polish tracks approved frames without gating TestFlight). Full cut + ambiguity resolutions
 (I1–I7, incl. the all-dormant header state and the owner-device first-launch note):
-[`../../audit-2026-08-10/SPEC_14_FEASIBILITY.md`](../../audit-2026-08-10/SPEC_14_FEASIBILITY.md).
+[`../../audit/AI_audit/SPEC_14_FEASIBILITY.md`](../../audit/AI_audit/SPEC_14_FEASIBILITY.md).
 **Scope:** iOS client ONLY. The server contract, engine, wire shape, ADR-0004/0005, and the
 push backends are **untouched** — this is a hard constraint, not a preference. Everything
 here is client policy layered over the existing `getWeather → evaluateAll` contract.

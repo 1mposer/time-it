@@ -1,6 +1,6 @@
 # STATUS — now / next / blocked
 
-> **Last updated: 2026-08-10** — priority reset + docs consolidation executed on `reconcil` (rationale + full audit: [`docs/audit-2026-08-10/`](audit-2026-08-10/)). This file is deliberately one screen: a snapshot only. Per-item status and the ship order live in [ROADMAP](issues/ROADMAP.md) — the single home; nothing here restates it.
+> **Last updated: 2026-08-10** — priority reset + docs consolidation executed on `reconcil` (rationale + full audit: [`docs/audit/AI_audit/`](audit/AI_audit/)). This file is deliberately one screen: a snapshot only. Per-item status and the ship order live in [ROADMAP](issues/ROADMAP.md) — the single home; nothing here restates it.
 
 **Read order:** [`CLAUDE.md`](../CLAUDE.md) → [`CONTEXT.md`](CONTEXT.md) → this file → [ROADMAP](issues/ROADMAP.md).
 
