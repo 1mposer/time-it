@@ -1,6 +1,6 @@
 # time-it — codebase guide
 
-Domain language is defined in [`docs/CONTEXT.md`](docs/CONTEXT.md). Read it before touching any logic. The terms **Pursuit**, **Activity**, **Threshold**, **Rating**, **Window**, **Index**, **Forecast start**, **Lite/Pro**, and **Display metrics** have precise meanings there.
+Domain language is defined in [`docs/CONTEXT.md`](docs/CONTEXT.md). Read it before touching any logic. The terms **Pursuit**, **Activity**, **Threshold**, **Rating**, **Range**, **Window**, **Index**, **Forecast start**, **Lite/Pro**, and **Display metrics** have precise meanings there.
 
 Then, **before assuming any contract**, read [`docs/STATUS.md`](docs/STATUS.md) for the current project status — which terms/contracts describe code-as-it-exists vs locked-but-unbuilt design, and what is currently blocked. Order: **CLAUDE.md → CONTEXT.md (learn the terms) → STATUS.md (current status)**.
 

@@ -66,8 +66,8 @@ The rule that every Activity is created through the wizard — which is what gua
 
 ## Time & ranges
 
-**Range** *(planned as mandatory)*
-The From/To time-of-day slice the app checks **every day** for an Activity (e.g. 9:00 → 11:00). Design-speak for what the backend calls the *time-of-day window*. Mandatory in the new wizard — but only as a client rule; the server still accepts window-less activities (the deferred surprise feature depends on that).
+**Range** *(domain term — owned by [`docs/CONTEXT.md`](../docs/CONTEXT.md) since 2026-08-11)*
+The From/To slice the app checks **every day** for an Activity — full definition in **CONTEXT.md → Range**. Kept here: it is mandatory in the wizard as a **client rule only**; the server still accepts window-less activities (the deferred surprise feature depends on that).
 
 **Range-first** *(planned)*
 The product direction: the app's core promise is "you pick a range, we check it daily." No "any time" option in the wizard.

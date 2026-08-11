@@ -1,19 +1,19 @@
 # Time-it
 
-A backend engine that tells outdoor hobbyists exactly when to go outside — a worldwide product, UAE-first in marketing only.
+A backend engine that tells outdoor hobbyists whether their chosen hours are worth going outside — a worldwide product, UAE-first in marketing only.
 
 ## What it does
 
-time-it monitors hourly weather forecasts and sends a push notification when conditions match a user's activity preferences. "Tomorrow, 7am-9am: perfect conditions for cycling."
+time-it checks hourly weather forecasts against the time **range** a user sets for each activity and rates each day's range Bad, Good, or Perfect. "Tomorrow, 7am-9am: perfect conditions for cycling."
 
-Users author their activities and thresholds (max temperature, max humidity, wind range, etc.) in the iOS app, which sends them to the backend; the backend handles the rest: fetching forecasts, evaluating conditions against the supplied activities, and delivering the alert.
+Users author their activities in the iOS app — thresholds (max temperature, max humidity, wind limits, etc.) plus the time range to watch — and the app sends them to the backend; the backend handles the rest: fetching forecasts, evaluating each activity's range against them, and reporting the verdict — on the dashboard, and by push for opted-in devices.
 
 ## How it works
 
 1. **Fetch** - pulls hourly forecast data from a weather API
 2. **Parse** - normalizes the response into a unified schema (temp, humidity, wind, rainfall, UV, cloud cover, visibility, dust alerts, moon phase, sea conditions)
-3. **Match** - compares each hour against the user's activity thresholds
-4. **Notify** - sends a push notification when a qualifying window is found (designed in [ADR-0006](docs/adr/0006-device-keyed-push-evaluation.md); the server side — daily digest #6c + Perfect-window detector #6d — is built and deployed; the iOS opt-in client is pending)
+3. **Match** - rates each hour inside the activity's range against its thresholds, then finds the best qualifying window per day
+4. **Notify** - returns per-day verdicts to the app; opted-in devices also get the daily digest and an alert when their range first rates Perfect within ~48h (designed in [ADR-0006](docs/adr/0006-device-keyed-push-evaluation.md); the server side — #6c + #6d — is built and deployed; the iOS opt-in client is pending)
 
 The weather layer uses an adapter pattern, allowing additional data sources to be swapped in without touching the core logic.
 
