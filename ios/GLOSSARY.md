@@ -4,7 +4,7 @@ Plain-language definitions for the terms used in the wizard redesign (July 2026 
 Backend/domain terms (**Activity**, **Threshold**, **Window**, **Rating**, **Pursuit**…) are owned by
 [`docs/CONTEXT.md`](../docs/CONTEXT.md) — this file only covers the iOS design & Figma vocabulary layered on top.
 
-Tags: **(shipped)** = in the built #5a/#5b app · **(planned)** = decided in the wizard redesign, not built · **(legacy)** = shipped but being replaced · **(deferred)** = post-release.
+Tags: **(shipped)** = in the built #5a/#5b app · **(ship scope — unbuilt)** = in the spec 14 minimal cut ([ROADMAP](../docs/issues/ROADMAP.md) ship item 6) · **(deferred)** = post-ship design wave ([ROADMAP §Deferred](../docs/issues/ROADMAP.md)).
 
 ---
 
@@ -13,53 +13,53 @@ Tags: **(shipped)** = in the built #5a/#5b app · **(planned)** = decided in the
 **Template** *(shipped)*
 A curated, pre-filled Activity starting point (Cycling, Fishing Lite, Running, Stargazing) that lives **only inside the app** (`SeedTemplates.swift`) — the server has never heard of it. Adding from a Template *copies* it; from that moment it's the user's own Activity, indistinguishable from one made from scratch.
 
-**Seed / first-launch seeds** *(legacy)*
-The two Templates (Cycling, Fishing Lite) that today get auto-inserted as **real, active** Activities on first launch. Being replaced by the **showcase** — in the new vision the store starts empty and nothing is real until it passes through the wizard.
+**Seed / first-launch seeds** *(shipped — changes under spec 14)*
+The two Templates (Cycling, Fishing Lite) auto-inserted on first launch (`SeedTemplates.firstLaunchSeeds`). Today they land as **real, active** whole-day Activities (#5b). Under the spec 14 minimal cut they land **dormant** instead (`window == nil`) and render as the **showcase**. Either way the store is never empty on first launch; under spec 14 nothing rates until a range is confirmed.
 
-**Showcase card** *(planned)*
-A first-launch dashboard card that *previews* a Template. It is **not an Activity**: it's never sent to the server, never saved to the store, shows no weather and no rating. It exists purely to advertise the wizard.
+**Showcase card** *(ship scope — unbuilt)*
+The dashboard rendering of a **dormant** Activity — a seeded template card showing "Set your range →" instead of weather. It **is** a stored Activity (spec 14 §1: `window == nil` — stored, visible, never evaluated): it lives in the store but is excluded from every request body and device snapshot until its range is confirmed. *(Ruled 2026-08-12 — supersedes this file's earlier not-an-Activity overlay model.)*
 
-**Showcase card button** *(planned)*
-The "Set your range →" call-to-action on a showcase card. Tapping it opens the wizard with that Template preloaded, jumping straight to the Range screen (the shortest path: 3 screens).
+**Showcase card button** *(ship scope — unbuilt)*
+The "Set your range →" call-to-action on a showcase card — the only door out of dormancy. Minimal cut: opens the existing editor with the Range prefill loaded (spec 14 header). Full scope *(deferred)*: jumps straight into the wizard's Range screen (the shortest path: 3 screens).
 
-**Dismissed template** *(planned)*
-A showcase card the user hid with "✕ not for me". Remembered in preferences so it stays gone; the showcase as a whole returns if the user ever deletes all their real Activities (it doubles as the empty state).
+**Dismissed template** *(ship scope — unbuilt)*
+A showcase card the user hid with "✕ not for me" — its dormant Activity is removed and the dismissal is remembered in preferences so it stays gone. Deleting the **last** Activity re-seeds the dormant showcase *(ruled 2026-08-12, recorded in spec 14 §6)* — the no-activities dashboard is always the showcase, never a bare void; dismissals survive the re-seed.
 
 **Ghost add-card** *(shipped)*
 The "+" card at the end of the dashboard that opens the Add flow.
 
 **Live card / Activity card** *(shipped)*
-The dashboard card of a real authored Activity: rating dot, range chip, metric chips. What a showcase card becomes after the wizard.
+The dashboard card of a live authored Activity: rating dot, range chip, metric chips. What a showcase card becomes once its range is confirmed.
 
 ---
 
 ## The wizard
 
-**Wizard** *(planned)*
-The multi-step Add flow replacing the single #5b editor screen. **5 logical screens**: Add sheet → Name + Icon → Range → Metrics → Review. No journey visits all 5 — see paths below.
+**Wizard** *(deferred)*
+The **5-screen** Add flow replacing the single #5b editor screen: Add sheet → Name + Icon → Range → Metrics → Review. Screen 1 (the Add sheet) is shipped; screens 2–5 are the deferred build ([ROADMAP §Deferred](../docs/issues/ROADMAP.md)). No journey visits all 5 — see paths below.
 
 **Add sheet** *(shipped — becomes wizard screen 1)*
 The entry screen listing Templates plus "Start from scratch".
 
-**Template path** *(planned)*
+**Template path** *(deferred)*
 Journey that starts from a Template. Skips Name + Icon (renaming lives on the Review screen). 4 screens.
 
-**Custom path** *(planned)*
+**Custom path** *(deferred)*
 Journey that starts from scratch. The only path that sees Name + Icon. 5 screens.
 
-**Showcase path** *(planned)*
+**Showcase path** *(deferred)*
 Journey that starts from a **showcase card button**. Skips the Add sheet *and* Name + Icon: Range → Metrics → Review. 3 screens.
 
-**Range screen** *(planned)*
+**Range screen** *(deferred)*
 Wizard step where the user picks From / To (whole hours only). Picking From later than To makes the range **wrapped** (overnight).
 
-**Metrics screen** *(planned)*
+**Metrics screen** *(deferred)*
 One screen doing double duty: pick which metrics the card shows, and expand a metric's row to set its threshold. A metric can be **show-only** (displayed but never judged — the backend's "show-but-don't-judge").
 
-**Review screen** *(planned)*
+**Review screen** *(deferred)*
 Final wizard step: summary of everything chosen, rename field, Save. Saving is what turns the draft into a real Activity (and triggers the first/next rating request).
 
-**Wizard-born** *(planned)*
+**Wizard-born** *(deferred)*
 The rule that every Activity is created through the wizard — which is what guarantees every Activity has a range *the user personally confirmed*.
 
 ---
@@ -69,11 +69,11 @@ The rule that every Activity is created through the wizard — which is what gua
 **Range** *(domain term — owned by [`docs/CONTEXT.md`](../docs/CONTEXT.md) since 2026-08-11)*
 The From/To slice the app checks **every day** for an Activity — full definition in **CONTEXT.md → Range**. Kept here: it is mandatory in the wizard as a **client rule only**; the server still accepts window-less activities (the deferred surprise feature depends on that).
 
-**Range-first** *(planned)*
+**Range-first** *(locked direction 2026-07-20)*
 The product direction: the app's core promise is "you pick a range, we check it daily." No "any time" option in the wizard.
 
-**Suggested range** *(planned)*
-The per-Template prefill the Range screen opens with (Cycling → 6:00–10:00). Purely a starting value — it never becomes real without the user confirming it in the wizard.
+**Suggested range** *(ship scope — unbuilt)*
+The per-Template prefill the Range step opens with (minimal cut: the existing editor; full prefill table: spec 14 §6). Purely a starting value — it never becomes real without the user confirming it.
 
 **Wrapped / overnight range** *(shipped)*
 A range whose From is later than its To (22:00 → 02:00), meaning it crosses midnight. The one and only thing that makes an Activity nocturnal.
@@ -89,10 +89,10 @@ The same real-world pursuit authored more than once with different ranges — "C
 
 ---
 
-**Header temp encoding** *(planned)*
+**Header temp encoding** *(deferred)*
 The header's gradient is a **temperature signal**, not fixed branding: cool → blue, mid → yellow, hot → salmon, driven by the current hour's temp. The three identity colors are reserved for this — never used as button/accent colors. Bands come from the **band profile**. Spec: [`docs/design/FIGMA.md`](../docs/design/FIGMA.md) §4.
 
-**Band profile** *(planned)*
+**Band profile** *(deferred)*
 The region-calibrated temperature bands that pick the header gradient, keyed by the **forecast location's country** (not device locale). Default: cool <20 · mid 20–32 · hot ≥33. UAE (`AE`): cool ≤33 · mid 34–37 · hot >37. Extensible per country code.
 
 ## Figma vocabulary

@@ -20,7 +20,7 @@
 
 | Item | Promote when |
 |---|---|
-| Spec 14 full scope: the 4-step wizard (needs its own spec) + ±1h flexibility | post-ship design wave |
+| Spec 14 full scope: the 5-screen wizard's unbuilt screens 2–5 (Name+Icon → Range → Metrics → Review — needs its own spec; screen 1, the Add sheet, is shipped) + ±1h flexibility | post-ship design wave |
 | WeatherKit provider abstraction ([analysis](completed/handoff-weatherkit-provider-abstraction.md)) | post-ship, or Meteosource cost/reliability bites — write the provider-descriptor ADR first |
 | #8 `requireTrue` + threshold-kind validation ([stub](current/implement-spec-issue-8-require-true-threshold.md)) | an astronomy source lands, or a non-mirrored client can author |
 | `GET /api/v1/metrics` route + its ADR · `RemoteMetricCatalog` conformer · ADR-0005 error-`code` enum · client stale-activity reconciliation | the first metric flip (#7-class event) is scheduled |

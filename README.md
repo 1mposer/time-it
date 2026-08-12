@@ -43,7 +43,8 @@ Templates shipped today:
 
 ```bash
 cp .env.example .env
-# Add your API_KEY to .env
+# Add API_KEY (Meteosource) AND DATABASE_URL (a reachable Postgres) to .env —
+# both are required: initDb() runs at boot and the server exits non-zero without them
 npm install
 npm run dev        # starts server at http://localhost:3000
 ```

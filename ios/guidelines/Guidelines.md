@@ -1,6 +1,6 @@
 # Time It — Design Guidelines
 
-> **Scope note (updated 2026-08-10):** this file is the visual token truth for the **shipped v1 light-only UI** — `Theme.swift` and `MetricColorTests` pin against it. The **next visual iteration** (temp-encoded header gradients, full Light/Dark semantic tokens, wizard components, the spec 14 gradient card) lives in the Figma file **Main - Time-it** — see [`docs/design/FIGMA.md`](../../docs/design/FIGMA.md). The mockup-relic rows (tab bar, sign-in, PRO badge — cut features, never built) were **deleted 2026-08-10**; the SF-Symbols manifest + card-face rules from the retired `design-decisions-issue-5.md` were absorbed here the same day.
+> **Scope note (updated 2026-08-10):** this file is the visual token truth for the **shipped v1 light-only UI** — `Theme.swift` and `MetricColorTests` pin against it. The **next visual iteration** (temp-encoded header gradients, full Light/Dark semantic tokens, wizard components, the spec 14 gradient card) lives in the Figma file **Main - Time it** — see [`docs/design/FIGMA.md`](../../docs/design/FIGMA.md). The mockup-relic rows (tab bar, sign-in, PRO badge — cut features, never built) were **deleted 2026-08-10**; the SF-Symbols manifest + card-face rules from the retired `design-decisions-issue-5.md` were absorbed here the same day.
 > (Originally derived from the Figma Make prototype, deleted 2026-07-19 — recover from git history.)
 
 ---
