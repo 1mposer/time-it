@@ -58,7 +58,7 @@ Behavioral rules kept here:
 
 - Icon: SF Symbol, explicit per activity — `AuthoredActivity.iconSymbol` through the single `ActivityIconView` seam
 - Gear icon opens the authoring editor (#5b)
-- Timeline: the day's **real hour span**, positioned from the **global** `startIndex`/`endIndex` rendered in the response `timezone` — the sketch's 6am–12am axis is illustrative, never hardcode it. Green fill = Perfect, orange fill = Good, no fill = No Window
+- Timeline: the day's **real hour span**, positioned from the **global** `startIndex`/`endIndex` rendered in the response `timezone` — the sketch's 6am–12am axis is illustrative, never hardcode it. Green fill = Perfect, orange fill = Good, no fill = No Window *(shipped v1 — spec 14 §2 replaces the flat fill with the gradient slice; sweep this bullet in that build commit)*
 - The card summarises **day 0 only** ("Today" / "Tonight" for nocturnal); a null day 0 renders the none-state copy ("No window today"/"No window tonight") and never rolls forward (ADR-0004 amendment 2026-07-20). Read each activity's own `days.length`; never assume 7
 - Chips: `displayMetrics` first 3, values from best-window start hour; nullable metrics (`windSpeed`/`rainFall`/`cloudCover`) render `—`
 

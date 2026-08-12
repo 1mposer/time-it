@@ -208,7 +208,8 @@ projections, tests) is not gated.
 - **Phrase reduction** — all 9 (first, last) cases; interior-escape → "Mixed conditions";
   flat cases; all-bad copy.
 - **Dormancy** — window-less Activity excluded from the POST projection and (when built)
-  the snapshot; all-dormant → no request issued; dormant card state chosen.
+  the snapshot; all-dormant → no request issued; dormant card state chosen; delete-all
+  re-seeds the dormant showcase (dismissals survive — §6).
 - **±1h** — widened projection (rating body); diurnal clamp at 0/23 (incl. the 9am–11pm
   no-flip case); nocturnal free wrap; strict default.
 - **Prefills** — `SeedTemplateTests` updated: prefill table above; first-launch seeds land

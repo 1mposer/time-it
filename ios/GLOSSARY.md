@@ -84,7 +84,7 @@ Fancy word for a **daytime activity** — its range stays inside one calendar da
 **Nocturnal** *(shipped)*
 A **night activity** — its range wraps midnight. Rated per *night* (an evening plus the next morning count as one unit); cards say "Tonight". Stargazing is the shipped example.
 
-**Variant** *(planned affordance)*
+**Variant** *(deferred affordance)*
 The same real-world pursuit authored more than once with different ranges — "Cycling — Morning 9–11" and "Cycling — Evening 16–19". Each variant is a full, independent Activity with its own card and rating. (The backend already supports this; the glossary term for the shared real-world thing is **Pursuit** in `docs/CONTEXT.md`.)
 
 ---
