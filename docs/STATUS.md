@@ -1,12 +1,15 @@
 # STATUS — now / next / blocked
 
-> **Last updated: 2026-08-11** — Meteosource renewed on the **Standard** plan (endpoint switched `flexi`→`standard`) + Railway Hobby upgrade; earlier same day: Figma-first UI gate recorded ([ADR-0008](adr/0008-figma-first-ui-gate.md)). Prior: priority reset + docs consolidation 2026-08-10 on `reconcil` (rationale + full audit: [`docs/audit/AI_audit/`](audit/AI_audit/)). This file is deliberately one screen: a snapshot only. Per-item status and the ship order live in [ROADMAP](issues/ROADMAP.md) — the single home; nothing here restates it.
+> **Last updated: 2026-08-12** — docs-truth adjudication: tiered rule adopted ([ADR-0009](adr/0009-tiered-doc-truth.md)), redundancy audit resolved ([`docs/audit/AI_audit/`](audit/AI_audit/)). Events of record: [ROADMAP](issues/ROADMAP.md). This file is deliberately one screen: a snapshot only.
 
 **Read order:** [`CLAUDE.md`](../CLAUDE.md) → [`CONTEXT.md`](CONTEXT.md) → this file → [ROADMAP](issues/ROADMAP.md).
 
-## 1. Truth rule — which doc owns which facts
+## 1. Truth rule — which doc owns which facts ([ADR-0009](adr/0009-tiered-doc-truth.md))
 
-| Fact class | Single home |
+- A **volatile fact** is true *as of a date* — status, plan names, built/unbuilt, dates, in-flux decisions. Test: *can it become false just by the project moving forward?* It lives in **exactly one** home (table below); everywhere else links.
+- A **contract fact** is a timeless rule — wire shapes, semantics, invariants; only a deliberate redesign changes it. It **may** be restated where readers need it inline (CLAUDE.md stays self-contained); the owner file is the reference of record, and changing one means sweeping its mirrors in the same change.
+
+| Fact class | Home |
 |---|---|
 | Code as it exists (architecture, contracts, tests) | [`CLAUDE.md`](../CLAUDE.md) |
 | Domain vocabulary | [`CONTEXT.md`](CONTEXT.md) |
@@ -14,10 +17,11 @@
 | Per-item status, ship order, deferrals + promote conditions | [`issues/ROADMAP.md`](issues/ROADMAP.md) |
 | Now / next / blocked snapshot | this file |
 | Vendor API behavior | [`API_documentation/`](API_documentation/) |
-| Figma / design-system truth | [`design/FIGMA.md`](design/FIGMA.md) |
+| Figma addresses, workflow rules, gate state | [`design/FIGMA.md`](design/FIGMA.md) |
+| Design values (tokens, palette, geometry) | **never a doc** — the Figma file (design truth) + code (`Theme.swift`, views — shipped truth) |
 | Private operational facts | `OWNER_NOTES.local.md` (git-ignored) |
 
-A fact stated in two homes is a bug — link, don't restate. Completed specs (in [`issues/completed/`](issues/completed/)) are historical records: bannered, never edited again.
+Completed specs (in [`issues/completed/`](issues/completed/)) are historical records: bannered, never edited again.
 
 ## 2. Now / next / blocked
 

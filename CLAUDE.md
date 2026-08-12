@@ -4,6 +4,8 @@ Domain language is defined in [`docs/CONTEXT.md`](docs/CONTEXT.md). Read it befo
 
 Then, **before assuming any contract**, read [`docs/STATUS.md`](docs/STATUS.md) for the current project status — which terms/contracts describe code-as-it-exists vs locked-but-unbuilt design, and what is currently blocked. Order: **CLAUDE.md → CONTEXT.md (learn the terms) → STATUS.md (current status)**.
 
+Before **writing** to any doc, check the truth rule in [STATUS §1](docs/STATUS.md) ([ADR-0009](docs/adr/0009-tiered-doc-truth.md)): a **volatile fact** (status, dates, plan names — anything the project's progress can falsify) has exactly one home — link, don't restate; a **contract fact** (timeless rules, like the ones in this file) may be mirrored, with the owner file as reference of record — and changing one means sweeping its mirrors in the same change. Design *values* are never homed in a doc — Figma holds design truth, code holds shipped truth.
+
 Vendor/provider API specifics — request params, response schema, known field behavior, rate limits/refresh cadence — live in `docs/API_documentation/<provider>/` (one directory per adapter: a trimmed `README.md` for agent lookup + the raw vendor export). Not part of the read order above, but check there **before** asking a question about a specific weather provider's behavior — it exists precisely so that question doesn't need re-deriving. Currently: [`docs/API_documentation/meteosource/README.md`](docs/API_documentation/meteosource/README.md).
 
 ---
