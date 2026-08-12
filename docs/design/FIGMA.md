@@ -1,10 +1,10 @@
-# FIGMA.md — the single Figma / design-system truth
+# FIGMA.md — Figma reference of record (access, addresses, workflow)
 
-> Consolidated 2026-08-10 from `figma_foundations_multi-page_implementation.md` (the build spec, implemented 2026-07-18) and `handoff-figma-design-iteration.md` (the working handoff) — both deleted; git history keeps them. This file is the **one** place for Figma access, page map, token truth, pinned values, and workflow rules.
+> Consolidated 2026-08-10 from `figma_foundations_multi-page_implementation.md` (the build spec, implemented 2026-07-18) and `handoff-figma-design-iteration.md` (the working handoff) — both deleted; git history keeps them. This file is the reference of record for Figma **access, addresses (fileKey, page map, node IDs), and workflow rules**. Design *values* live in the Figma file itself (design truth — agent-queryable via the Figma MCP server) and in code (`Theme.swift`, the views — shipped truth); docs never carry the values ([ADR-0009](../adr/0009-tiered-doc-truth.md)).
 
 **File:** "Main - Time it" · **fileKey:** `t3ZRvcYPnSRPKElSLAFqmG`
 
-**History:** design system v1 (foundations, 8 component sheets, Light/Dark screen galleries incl. all 9 wizard frames) built 2026-07-18; #5c location frames built 2026-07-30, approved and shipped 2026-08-01; the "mess around" page is the owner's brainstorm scratchpad.
+**History:** design system v1 (foundations, component sheets, Light/Dark screen galleries incl. all 9 wizard frames) built 2026-07-18; #5c location frames built 2026-07-30, approved and shipped 2026-08-01; the "mess around" page is the owner's brainstorm scratchpad.
 
 ---
 
@@ -54,22 +54,15 @@ Key Screens — Light frames: Dashboard Loaded `111:2` · Loading `111:17` · Em
 
 **Redundancy rule (owner's standing instruction):** before creating any token, component, or style, check the foundations — they match the iOS app letter-for-letter. New primitives are a last resort.
 
-## 4. Pinned palette (owner-approved 2026-07-18 — use these exact values)
+## 4. Header temp encoding + band profiles (owner-approved 2026-07-18)
 
-**Header gradients** (~160°, identical Light/Dark — a *temperature encoding for the header only*, never buttons/accents): `Temp=Cool` `#1774FF→#68D7FC` · `Temp=Mid` `#E39A22→#F2C95C` · `Temp=Hot` `#EE6A4D→#FA9C86`. The as-built ocean-blue `#1253A4→#3EC6E8` survives only on the as-built page. Bands are region-profiled by the **forecast location's** country, driven by `hours[0].temp`: Default `<20` / `20–32` / `≥33`; UAE (`AE`) `≤33` / `34–37` / `>37` (table extensible by country code; app-side detection = reverse-geocode → country code).
+The header gradient is a **temperature encoding for the header only** (cool / mid / hot), never buttons/accents; the exact gradient stops live in the file's `Semantic` `gradient/*` variables (§3 IDs). The as-built ocean-blue gradient survives only on the as-built page (`Theme colors`, §3). Bands are region-profiled by the **forecast location's** country, driven by `hours[0].temp`: Default `<20` / `20–32` / `≥33`; UAE (`AE`) `≤33` / `34–37` / `>37` (table extensible by country code; app-side detection = reverse-geocode → country code).
 
-**Semantic values** (Light / Dark): surface/background `#F2F2F7`/`#000000` · surface/card `#FFFFFF`/`#1C1C1E` (elevated `#2C2C2E` replaces the shadow) · text/primary `#1C1C1E`/`#F2F2F7` · text/secondary `#8E8E93`/`#98989F` · separator `#3C3C43@18%`/`#545458@60%` · rating/perfect `#34C759`/`#30D158` · rating/good `#FF9500`/`#FF9F0A` · accent/interactive `#007AFF`/`#0A84FF` · accent/destructive `#FF3B30`/`#FF453A` · timeline/track `#F2F2F7`/`#2C2C2E`.
-
-**Metric chips:** Light = tier color @12% bg, deep tier text (`#1A7A35`/`#B85C00`/`#C0392B`/`#636366`); Dark = dark sibling @20% bg, bright sibling text (`#30D158`/`#FF9F0A`/`#FF453A`/`#98989F`).
-
-**Typography:** SF Pro only; the 14 `TimeIt/*` text styles grouped Display / Title / Label / Body / Caption / Micro. **Elevation:** exactly two levels (card, sheet). **Logo:** `Brand/App Icon` vector, 1024/180/40.
+**Values (palette, chip colours, typography):** read them from the file — the `Semantic` collection (§3 key IDs), the 14 `TimeIt/*` text styles (SF Pro only), the component sheets (§2). Shipped values: `Theme.swift`. Docs carry no values ([ADR-0009](../adr/0009-tiered-doc-truth.md)). **Elevation:** exactly two levels (card, sheet). **Logo:** `Brand/App Icon` vector.
 
 ## 5. Design idioms (match, don't reinvent)
 
-- **Empty/error state:** centered 44pt gray SF symbol → Semibold 17 title → Regular 14 `text/secondary` subtitle (~280w) → capsule CTA (radius/full, `accent/interactive`, pad 20/9, Semibold 15 white) → optional plain accent-text secondary CTA.
-- **Grouped list:** radius 10 `surface/card` container, rows 361×44 (pad 16, gap 12), 345×1 `separator` hairlines right-aligned.
-- **Sheet:** scrim #000@40%, grabber 36×5, Semibold 17 title, Regular 15 gray Cancel.
-- **Cards:** 365w, radius 16, pad 14/12, gap 8–10. Screen frames 393×852.
+Four pinned idioms — **empty/error state**, **grouped list**, **sheet**, **card** — exist as drawn components and frames (§2 page map): measure them in the file, don't work from a doc. Screen frames are drawn at 393×852 (the canvas convention for new frames).
 
 ## 6. Workflow rules
 

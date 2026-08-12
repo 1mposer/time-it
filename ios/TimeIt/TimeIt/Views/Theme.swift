@@ -11,7 +11,8 @@ extension Color {
     }
 }
 
-/// Colour tokens from ios/guidelines/Guidelines.md — the visual source of truth.
+/// Shipped colour tokens — the shipped-truth home (ADR-0009 two-home rule).
+/// Design truth is the Figma file (addresses: docs/design/FIGMA.md); docs carry no values.
 enum Theme {
     static let appBackground = Color(hex: 0xf2f2f7)
     static let cardBackground = Color.white

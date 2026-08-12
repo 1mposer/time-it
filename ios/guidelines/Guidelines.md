@@ -1,31 +1,17 @@
 # Time It — Design Guidelines
 
-> **Scope note (updated 2026-08-10):** this file is the visual token truth for the **shipped v1 light-only UI** — `Theme.swift` and `MetricColorTests` pin against it. The **next visual iteration** (temp-encoded header gradients, full Light/Dark semantic tokens, wizard components, the spec 14 gradient card) lives in the Figma file **Main - Time it** — see [`docs/design/FIGMA.md`](../../docs/design/FIGMA.md). The mockup-relic rows (tab bar, sign-in, PRO badge — cut features, never built) were **deleted 2026-08-10**; the SF-Symbols manifest + card-face rules from the retired `design-decisions-issue-5.md` were absorbed here the same day.
+> **Scope note (updated 2026-08-12, [ADR-0009](../../docs/adr/0009-tiered-doc-truth.md)):** this file is the **behavioral + iconography guide** for the shipped v1 light-only UI — card composition rules, chip tiers (pinned by `MetricColorTests`), interaction rules, the SF-Symbols manifest. It carries **no colour/type/spacing values**: shipped values live in code (`Theme.swift`, the views — the shipped truth); design values live in the Figma file (the design truth — addresses in [`docs/design/FIGMA.md`](../../docs/design/FIGMA.md)). The mockup-relic rows were deleted 2026-08-10; the SF-Symbols manifest + card-face rules from the retired `design-decisions-issue-5.md` were absorbed the same day.
 > (Originally derived from the Figma Make prototype, deleted 2026-07-19 — recover from git history.)
 
 ---
 
-## Colour palette
+## Colour
 
-| Token | Value | Usage |
-|---|---|---|
-| Header gradient | `#1253a4 → #1a78c2 → #29a8e0 → #3ec6e8` at 160° | Dashboard header background |
-| App background | `#f2f2f7` | Screen background (iOS system grouped) |
-| Card background | `#ffffff` | Activity card surface |
-| Primary text | `#1c1c1e` | Activity names, main content |
-| Secondary text | `#8e8e93` | Time labels, inactive icons, gear icon |
-| Accent (orange) | `#ff9500` | Buttons, Good window highlight |
-| Accent interactive (blue) | `#007aff` | Location CTAs (#5c) — Figma Semantic `accent/interactive`; standalone interactive controls outside the orange rating context |
-| Perfect green | `#34c759` | Perfect window highlight |
-| Header text | `#ffffff` | All text inside the header |
-| Header secondary | `rgba(255,255,255,0.8)` | Wind / humidity row in header |
-| Header temp | `rgba(255,255,255,0.92)` | Temperature line in header |
-| Divider | `rgba(60,60,67,0.18)`, 0.5px | Header–content separator |
-| Timeline track | `#f2f2f7` | Empty part of timeline bar |
+Colour values live in `Theme.swift` (shipped truth) and the Figma `Semantic` collection (design truth — [FIGMA.md §3](../../docs/design/FIGMA.md)); this file carries none ([ADR-0009](../../docs/adr/0009-tiered-doc-truth.md)).
 
-### Metric chip colour tiers
+### Metric chip colour tiers (behavioral — pinned by `MetricColorTests`)
 
-Three-tier system: green (good) → orange (caution) → red (avoid).
+Three-tier system: green (good) → orange (caution) → red (avoid), plus a neutral "no data" state (renders `—`).
 
 | Metric | Green | Orange | Red |
 |---|---|---|---|
@@ -35,67 +21,23 @@ Three-tier system: green (good) → orange (caution) → red (avoid).
 | Humidity (%) | 0–60 | 61–75 | 76+ |
 | Cloud Cover (%) | 0–20 | 21–60 | 61+ |
 
-Chip colours per tier:
-- Green: bg `rgba(52,199,89,0.12)` / text `#1a7a35`
-- Orange: bg `rgba(255,149,0,0.12)` / text `#b85c00`
-- Red: bg `rgba(255,59,48,0.12)` / text `#c0392b`
-- No data: bg `rgba(142,142,147,0.12)` / text `#636366`
+Chip tier *colours* (bg/text per tier): `Theme.swift` + the Figma `chip/*` variables.
 
 ---
 
 ## Typography
 
-| Role | Font | Size | Weight | Tracking |
-|---|---|---|---|---|
-| Header time | SF Pro Display | 60pt | Bold (700) | −2.5px |
-| Header temp | SF Pro Display | 28pt | Light (300) | −0.5px |
-| Header wind/humidity | SF Pro Text | 13pt | Regular (400) | +0.1px |
-| Activity name | SF Pro Text | 15pt | Medium (500) | −0.1px |
-| Time-axis labels | SF Pro Text | 10pt | Regular | +0.1px |
-| Metric chip label | SF Pro Text | 11.5pt | Medium (500) | +0.05px |
-
-Use SF Pro Display for the header (time, temperature). Use SF Pro Text everywhere else.
+SF Pro only — SF Pro Display for the header (time, temperature), SF Pro Text everywhere else. Sizes/weights/tracking: shipped truth in the views; the 14 `TimeIt/*` text styles in Figma ([FIGMA.md](../../docs/design/FIGMA.md)).
 
 ---
 
 ## Layout & spacing
 
-### Screen
-- Background: `#f2f2f7`
-- Structure (top to bottom): header → 0.5px divider → scrollable card list (no tab bar — grill Q8)
+Structure (top to bottom): header → hairline divider → scrollable card list (no tab bar — grill Q8). Geometry values (paddings, radii, gaps, shadows): shipped truth in the SwiftUI views; drawn truth in the Figma component sheets ([FIGMA.md §2](../../docs/design/FIGMA.md)).
 
-### Header
-- Padding: 52pt top (clears status bar), 20pt horizontal, 22pt bottom
-- Settings gear button: 34×34pt, positioned `top: 16`, `right: 18` (header top-right)
-- Content centred vertically with time → temp → wind/humidity row
-
-### Card list
-- Padding: 14pt all sides (top/left/right), 0pt bottom (bottom padding is a 12pt spacer inside the scroll)
-- Gap between cards: 10pt
-
-### Activity card
-- Background: `#ffffff`
-- Corner radius: 16pt
-- Padding: 14pt top, 16pt horizontal, 12pt bottom
-- Shadow: `0 1px 3px rgba(0,0,0,0.08), 0 0 0 0.5px rgba(0,0,0,0.06)`
-- Internal row gaps: top-row → 10pt gap → timeline → 10pt gap → chips
-
-### Timeline bar
-- Height: 22pt
-- Track corner radius: 6pt
-- Window fill corner radius: 5pt
-- Window fill opacity: 0.85
-- Time-axis labels sit 4pt below the bar with 2pt horizontal inset
-
-### Metric chips
-- Corner radius: 20pt (capsule)
-- Padding: 8pt horizontal, 3pt vertical
-- Gap between chips: 6pt
-- Icon size: 12pt (w-3 h-3)
-- Maximum 3 chips per card face
-
-### Touch targets
-- Every interactive element: minimum 44×44pt (the rule the #5c audit F2 pinned)
+Behavioral rules kept here:
+- Every interactive element: minimum **44×44pt** touch target (the rule the #5c audit F2 pinned).
+- Maximum **3 chips** per card face.
 
 ---
 
@@ -114,9 +56,8 @@ Use SF Pro Display for the header (time, temperature). Use SF Pro Text everywher
 └─────────────────────────────────────────┘
 ```
 
-- Icon: SF Symbol, 18×18pt, primary at 75% opacity (explicit per activity — `AuthoredActivity.iconSymbol` through the single `ActivityIconView` seam)
-- Activity name: 15pt medium
-- Gear icon: 15pt, secondary colour; opens the authoring editor (#5b)
+- Icon: SF Symbol, explicit per activity — `AuthoredActivity.iconSymbol` through the single `ActivityIconView` seam
+- Gear icon opens the authoring editor (#5b)
 - Timeline: the day's **real hour span**, positioned from the **global** `startIndex`/`endIndex` rendered in the response `timezone` — the sketch's 6am–12am axis is illustrative, never hardcode it. Green fill = Perfect, orange fill = Good, no fill = No Window
 - The card summarises **day 0 only** ("Today" / "Tonight" for nocturnal); a null day 0 renders the none-state copy ("No window today"/"No window tonight") and never rolls forward (ADR-0004 amendment 2026-07-20). Read each activity's own `days.length`; never assume 7
 - Chips: `displayMetrics` first 3, values from best-window start hour; nullable metrics (`windSpeed`/`rainFall`/`cloudCover`) render `—`

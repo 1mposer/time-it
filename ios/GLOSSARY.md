@@ -93,7 +93,7 @@ The same real-world pursuit authored more than once with different ranges — "C
 The header's gradient is a **temperature signal**, not fixed branding: cool → blue, mid → yellow, hot → salmon, driven by the current hour's temp. The three identity colors are reserved for this — never used as button/accent colors. Bands come from the **band profile**. Spec: [`docs/design/FIGMA.md`](../docs/design/FIGMA.md) §4.
 
 **Band profile** *(deferred)*
-The region-calibrated temperature bands that pick the header gradient, keyed by the **forecast location's country** (not device locale). Default: cool <20 · mid 20–32 · hot ≥33. UAE (`AE`): cool ≤33 · mid 34–37 · hot >37. Extensible per country code.
+The region-calibrated temperature bands that pick the header gradient, keyed by the **forecast location's country** (not device locale). Band values + extension rule: [`docs/design/FIGMA.md`](../docs/design/FIGMA.md) §4.
 
 ## Figma vocabulary
 
@@ -101,7 +101,7 @@ The region-calibrated temperature bands that pick the header gradient, keyed by 
 A step in the user flow. The wizard has 5. This is the number you *design*.
 
 **Drawn frame**
-An actual Figma frame on the canvas. One logical screen usually needs several drawn frames to show its different states — the wizard's 5 logical screens = **9 drawn frames** (as built in the Figma design system 2026-07-18: Add sheet 1 · Name + Icon 1 · Range 3 · Metrics 2 · Review 2). This is the number you *draw*.
+An actual Figma frame on the canvas. One logical screen usually needs several drawn frames to show its different states — the wizard's 5 logical screens = **9 drawn frames** (inventory: [FIGMA.md §2](../docs/design/FIGMA.md)). This is the number you *draw*.
 
 **State variant**
 A drawn frame showing a screen in one specific state: the Range screen same-day vs wrapped vs invalid; the Metrics screen template-prefilled vs custom-empty; the Review screen diurnal vs nocturnal.
