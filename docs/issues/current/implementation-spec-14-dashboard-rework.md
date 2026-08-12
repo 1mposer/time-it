@@ -146,10 +146,12 @@ confirm a range before the Activity exists (or leaves dormancy). Prefills:
 wizard preloads-but-requires-confirmation-of — implementation's choice, but **first-launch
 seeds must land dormant**, i.e. `window: nil` in the store until confirmed).
 
-**Delete-all re-seeds (owner ruling 2026-08-12):** deleting the last Activity re-seeds the two
-template cards dormant — the no-activities dashboard is always the showcase (Figma
-Empty—Showcase `111:32`), never a bare void. Dismissed templates stay dismissed
-(preferences), so a dismissal survives the re-seed.
+**Delete-all re-seeds (owner rulings 2026-08-12):** deleting the last Activity re-seeds the
+**non-dismissed** template cards dormant (Figma Empty—Showcase `111:32`). Dismissed templates
+stay dismissed (preferences) — a dismissal survives the re-seed. If **every** template is
+dismissed, the dashboard renders the **true-empty state** instead: an "Add activities +" CTA
+opening the Add flow (the shipped Add sheet; the wizard when it lands). Standing invariant:
+the dashboard always offers a next action — showcase or Add CTA — never a dead end.
 
 ## 7. Detail page redesign (`ActivityDetailView`)
 
@@ -209,7 +211,8 @@ projections, tests) is not gated.
   flat cases; all-bad copy.
 - **Dormancy** — window-less Activity excluded from the POST projection and (when built)
   the snapshot; all-dormant → no request issued; dormant card state chosen; delete-all
-  re-seeds the dormant showcase (dismissals survive — §6).
+  re-seeds the non-dismissed showcase (dismissals survive — §6); all-dismissed + delete-all
+  → the true-empty Add-CTA state.
 - **±1h** — widened projection (rating body); diurnal clamp at 0/23 (incl. the 9am–11pm
   no-flip case); nocturnal free wrap; strict default.
 - **Prefills** — `SeedTemplateTests` updated: prefill table above; first-launch seeds land

@@ -23,7 +23,7 @@ The dashboard rendering of a **dormant** Activity — a seeded template card sho
 The "Set your range →" call-to-action on a showcase card — the only door out of dormancy. Minimal cut: opens the existing editor with the Range prefill loaded (spec 14 header). Full scope *(deferred)*: jumps straight into the wizard's Range screen (the shortest path: 3 screens).
 
 **Dismissed template** *(ship scope — unbuilt)*
-A showcase card the user hid with "✕ not for me" — its dormant Activity is removed and the dismissal is remembered in preferences so it stays gone. Deleting the **last** Activity re-seeds the dormant showcase *(ruled 2026-08-12, recorded in spec 14 §6)* — the no-activities dashboard is always the showcase, never a bare void; dismissals survive the re-seed.
+A showcase card the user hid with "✕ not for me" — its dormant Activity is removed and the dismissal is remembered in preferences so it stays gone. Deleting the **last** Activity re-seeds the **non-dismissed** showcase cards; dismissals survive the re-seed, and if every template is dismissed the dashboard shows the **true-empty state** — an "Add activities +" CTA into the Add flow — instead *(rulings 2026-08-12, recorded in spec 14 §6)*.
 
 **Ghost add-card** *(shipped)*
 The "+" card at the end of the dashboard that opens the Add flow.
