@@ -16,7 +16,7 @@ Trimmed for agent lookup — read this first. Full raw export: [`openapi.json`](
 
 - The `standard` tier returns ~161–168 hourly entries — the 7×24 ceiling `parse.js` slices to (ADR-0003). Live-verified 2026-08-11: 166 hourly entries for Dubai, `timezone: Asia/Dubai`. `/free/` caps at 24h and is unusable for our 7-day horizon.
 - `uv_index` is `null` at night upstream — the adapter defaults it to `0` (a true reading, not a placeholder; this is what fixed the live decode bug found 2026-07-12).
-- `wind.speed`, `precipitation.total`, `cloud_cover.total` can each be individually absent/null per hour — the adapter maps these to `null`; `checkThreshold` fails a threshold on `null`/`undefined` rather than coercing.
+- `wind.speed`, `precipitation.total`, `cloud_cover.total` can each be individually absent/null per hour — the adapter maps these to `null` (how the engine treats `null`: [CLAUDE.md](../../../CLAUDE.md) — absent data fails thresholds).
 
 ## What the export does NOT document
 

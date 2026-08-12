@@ -4,7 +4,7 @@
 > **Depends on:** the APNs entitlement in Xcode (owner, Signing & Capabilities) and the `PRODUCT_BUNDLE_IDENTIFIER` → `com.timeit.app.dev` rename (ROADMAP ship item 4). *(The Meteosource renewal — [#11](https://github.com/1mposer/time-it/issues/11) — was done 2026-08-11.)*
 > **Build order:** preferably after spec 14's minimal cut lands — its dormancy model changes the snapshot projection (§2) — but this is a preference, not an essential dependency.
 > **UI gate ([ADR-0008](../../adr/0008-figma-first-ui-gate.md)):** the §1 opt-in surfaces (Settings "Notifications" row + dashboard callout) need owner-approved frames first — they are in the [FIGMA.md §7](../../design/FIGMA.md) backlog; the §2 plumbing is not gated.
-> **TDD required.** A real device is required (APNs does not work in the Simulator). The backend selects the sandbox APNs host while Railway `NODE_ENV` is unset — correct for Xcode dev builds; **TestFlight builds need `NODE_ENV=production`**.
+> **TDD required.** A real device is required (APNs does not work in the Simulator). The backend selects the sandbox APNs host while Railway `NODE_ENV` is unset — correct for Xcode dev builds (the TestFlight `NODE_ENV=production` step: [ROADMAP](../ROADMAP.md) item 9).
 
 ---
 

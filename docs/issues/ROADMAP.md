@@ -30,6 +30,7 @@
 | Air-Quality adapter (`cli-iqair.js` experiment) | a user persona demands it |
 | Marine data (#7 — [GitHub](https://github.com/1mposer/time-it/issues/7); the stale spec was deleted 2026-08-10) | a validated fishing persona exists |
 | Pro/StoreKit + paywall · iCloud sync | post-loop (per #5b spec §8) |
+| Surprise notification (out-of-range Perfect alert — the whole-day-discovery descendant; definition: [`ios/GLOSSARY.md`](../../ios/GLOSSARY.md)) | post-ship, when a validated user asks for out-of-range alerts |
 
 ## Killed (stays killed)
 
