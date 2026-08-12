@@ -40,7 +40,7 @@ This was the open-work snapshot at grill close (2026-06-17). **Live status now l
 
 - ✅ **Custom-activity request schema — PINNED** ([ADR-0005](adr/0005-custom-activity-request-schema.md), Phase 2 built): `POST { lat, lon, activities[] }`, half-open local-hour window. The day-bucketed `/rating` *response* shape was likewise pinned in [ADR-0004](adr/0004-day-bucketed-rating-wire-shape.md) (`activities[].days[]`, dense null days, `days[0]` card default — old audit blocker B2, resolved).
 - ✅ **CONTEXT.md migration — DONE** (Phase 1/2): every glossary term was applied; the "CONTEXT.md migration" section near the end is kept only as the record of *what* changed.
-- ✅ **Provider verification — Meteosource base DONE** (`flexi` ~164 clean hourly); Air Quality + Marine still pending, each when its adapter lands.
+- ✅ **Provider verification — Meteosource base DONE** (`flexi` ~164 clean hourly at the time; the plan was since upgraded to `standard`, 2026-08-11 — see [ROADMAP](issues/ROADMAP.md)); Air Quality + Marine still pending, each when its adapter lands.
 - ◻️ **Still open (now tracked in [issues/ROADMAP.md](issues/ROADMAP.md) §Deferred):** Template-override + client sync schemas; v1-vs-fast-follow launch sequencing. *(The spec rewrites listed here at grill close were since completed — the #5a/#5b/#6b–#6d specs were recreated and built.)*
 
 ### Historical sections (context only — NOT current truth)

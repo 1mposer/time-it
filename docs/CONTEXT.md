@@ -2,7 +2,7 @@
 
 > **Read the glossary below FIRST** — it defines the ubiquitous language used everywhere in this repo. The Phase-2 contract flip is now built: **Activity** (caller-supplied), **Lite / Pro** (metric-access + quantity, client-enforced), and **Display metrics** (user-chosen) describe the *shipped* code. ONLY AFTER you understand the terms, see [`STATUS.md`](STATUS.md) for the current project status and what remains.
 
-A backend engine that watches hourly weather forecasts and tells outdoor hobbyists when conditions match the **Range** they set for their activity — a **worldwide** product, UAE-first in marketing only. Output is consumed by an iOS app; server-side push is designed in [ADR-0006](adr/0006-device-keyed-push-evaluation.md): the **Digest** backend (Issue #6c — registration, Postgres, APNs seam, digest job) and the **Perfect-window alert** backend (Issue #6d — hourly detector, bucket-date dedup) are both built, merged (2026-08-01), and deployed live (2026-08-03); the iOS opt-in client is still to come.
+A backend engine that watches hourly weather forecasts and tells outdoor hobbyists when conditions match the **Range** they set for their activity — a **worldwide** product, UAE-first in marketing only. Output is consumed by an iOS app; server-side push is designed in [ADR-0006](adr/0006-device-keyed-push-evaluation.md): the **Digest** backend (Issue #6c — registration, Postgres, APNs seam, digest job) and the **Perfect-window alert** backend (Issue #6d — hourly detector, bucket-date dedup) evaluate Device snapshots with the same engine (build status: [ROADMAP](issues/ROADMAP.md)).
 
 ## Language
 
@@ -64,7 +64,7 @@ The anonymous push identity: a client-minted install UUID in the Keychain plus t
 The device-keyed server-side copy of `{ APNs token, home lat/lon, authored Activities }` a **Device** uploads via full-snapshot upsert (`PUT /api/v1/devices/:deviceId`) when notifications are enabled. Client-authoritative, last-write-wins; re-upserted on any change; deleted on opt-out. Exists **only** for the push path — the `/rating` path stays stateless. See [ADR-0006](adr/0006-device-keyed-push-evaluation.md).
 
 **Digest**:
-The daily push summary, sent at the **Device's local 6am**: today's/tonight's **Window** per Activity, plus week-ahead **Perfect** highlights (buckets 2 through the end of each Activity's horizon — `days.length` is per-Activity, never a fixed 7). At most one per Device per day; not sent when nothing qualifies. Issue #6c.
+The daily push summary, sent in the Device's local **6–11am morning band** (delivery mechanics: [`CLAUDE.md`](../CLAUDE.md)): today's/tonight's **Window** per Activity, plus week-ahead **Perfect** highlights (buckets 2 through the end of each Activity's horizon — `days.length` is per-Activity, never a fixed 7). At most one per Device per day; not sent when nothing qualifies. Issue #6c.
 
 **Perfect-window alert**:
 The event push produced by the hourly *detector* job (Issue #6d): fires on the **first Perfect Window per (Device, Activity, bucket)** within buckets 0–1 (~48h). Perfect-only — a good→perfect upgrade alerts inherently as the bucket's first Perfect; Good windows surface in the **Digest** instead. Deduplicated by bucket date, never by index (indices re-base every fetch).

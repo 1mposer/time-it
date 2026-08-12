@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-09 (grill session, owner + agent — all decisions below are owner-confirmed)
 **Status:** locked spec, unbuilt. **In SHIP scope as the *minimal cut* (gate decision 2026-08-10):**
-§4 (±1h flexibility) and the 4-step-wizard reading of §6 are **DEFERRED** to the post-ship design
+§4 (±1h flexibility) and the full-wizard reading of §6 (screens 2–5 of the **5-screen wizard**) are **DEFERRED** to the post-ship design
 wave — §6's prefills land via the existing `AddActivityView` → `ActivityEditorView` flow (prefill
 loaded, confirmation = saving); **§9 amended 2026-08-11 ([ADR-0008](../../adr/0008-figma-first-ui-gate.md)):
 the catch-up frames gate the rendering** — approved frames precede UI code; the non-visual
@@ -29,7 +29,7 @@ survives *inside* the range (the best sub-window, the gradient's shape, the ±1h
 not across hours the user excluded on purpose.
 
 Predecessor design: the Figma Screens page (`92:17`, file `t3ZRvcYPnSRPKElSLAFqmG`) already
-designed the 4-step wizard, the mandatory Range step, and the dormant "Set your range →"
+designed the 5-screen wizard, the mandatory Range step, and the dormant "Set your range →"
 first-launch cards. **This spec supersedes that page where they conflict** (§9) — the page
 shows a rating word top-right and flat-color bars; both are replaced below.
 
@@ -130,7 +130,7 @@ a client bug. A fixture test against `RealBackendResponseFixture` enforces this 
 
 ## 6. Templates, wizard, first launch
 
-Per the designed 4-step wizard (Name/Icon — scratch only → **Range** → Metrics → Review):
+Per the designed 5-screen wizard (Add sheet → Name/Icon — scratch only → **Range** → Metrics → Review):
 templates carry **Range-step prefills, never active defaults**. The user must see and
 confirm a range before the Activity exists (or leaves dormancy). Prefills:
 
@@ -145,6 +145,11 @@ confirm a range before the Activity exists (or leaves dormancy). Prefills:
 `SeedTemplates` gains the prefill values (as prefill metadata or as the `window` value the
 wizard preloads-but-requires-confirmation-of — implementation's choice, but **first-launch
 seeds must land dormant**, i.e. `window: nil` in the store until confirmed).
+
+**Delete-all re-seeds (owner ruling 2026-08-12):** deleting the last Activity re-seeds the two
+template cards dormant — the no-activities dashboard is always the showcase (Figma
+Empty—Showcase `111:32`), never a bare void. Dismissed templates stay dismissed
+(preferences), so a dismissal survives the re-seed.
 
 ## 7. Detail page redesign (`ActivityDetailView`)
 

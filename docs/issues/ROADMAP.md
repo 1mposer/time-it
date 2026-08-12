@@ -20,7 +20,7 @@
 
 | Item | Promote when |
 |---|---|
-| Spec 14 full scope: the 4-step wizard (needs its own spec) + ±1h flexibility | post-ship design wave |
+| Spec 14 full scope: the 5-screen wizard's unbuilt screens 2–5 (Name+Icon → Range → Metrics → Review — needs its own spec; screen 1, the Add sheet, is shipped) + ±1h flexibility | post-ship design wave |
 | WeatherKit provider abstraction ([analysis](completed/handoff-weatherkit-provider-abstraction.md)) | post-ship, or Meteosource cost/reliability bites — write the provider-descriptor ADR first |
 | #8 `requireTrue` + threshold-kind validation ([stub](current/implement-spec-issue-8-require-true-threshold.md)) | an astronomy source lands, or a non-mirrored client can author |
 | `GET /api/v1/metrics` route + its ADR · `RemoteMetricCatalog` conformer · ADR-0005 error-`code` enum · client stale-activity reconciliation | the first metric flip (#7-class event) is scheduled |
@@ -30,6 +30,7 @@
 | Air-Quality adapter (`cli-iqair.js` experiment) | a user persona demands it |
 | Marine data (#7 — [GitHub](https://github.com/1mposer/time-it/issues/7); the stale spec was deleted 2026-08-10) | a validated fishing persona exists |
 | Pro/StoreKit + paywall · iCloud sync | post-loop (per #5b spec §8) |
+| Surprise notification (out-of-range Perfect alert — the whole-day-discovery descendant; definition: [`ios/GLOSSARY.md`](../../ios/GLOSSARY.md)) | post-ship, when a validated user asks for out-of-range alerts |
 
 ## Killed (stays killed)
 
