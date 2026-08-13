@@ -1,6 +1,6 @@
 # STATUS — now / next / blocked
 
-> **Last updated: 2026-08-12** — docs-truth adjudication: tiered rule adopted ([ADR-0009](adr/0009-tiered-doc-truth.md)), redundancy audit resolved ([`docs/audit/AI_audit/`](audit/AI_audit/)). Events of record: [ROADMAP](issues/ROADMAP.md). This file is deliberately one screen: a snapshot only.
+> **Last updated: 2026-08-13** — spec 14 logic layer committed; Figma catch-up frames built, approval pending. Events of record: [ROADMAP](issues/ROADMAP.md). This file is deliberately one screen: a snapshot only.
 
 **Read order:** [`CLAUDE.md`](../CLAUDE.md) → [`CONTEXT.md`](CONTEXT.md) → this file → [ROADMAP](issues/ROADMAP.md).
 
@@ -25,9 +25,9 @@ Completed specs (in [`issues/completed/`](issues/completed/)) are historical rec
 
 ## 2. Now / next / blocked
 
-- **NOW:** spec 14 minimal cut — the **logic layer is built** (2026-08-12; [ROADMAP](issues/ROADMAP.md) item 6 has the inventory); its rendering waits on the Figma catch-up pass.
-- **NEXT (ship order — ROADMAP has the full table):** owner ops (bundle-ID rename to `com.timeit.app.dev`) → spec 14 Figma catch-up pass → spec 14 rendering → iOS push opt-in client → live acceptance → **TestFlight**.
-- **BLOCKED:** spec 14 rendering + the push client's opt-in UI wait on the Figma catch-up approval ([ADR-0008](adr/0008-figma-first-ui-gate.md)) — until then the all-dormant dashboard (incl. any dev install, whose seeded activities are now dormant) renders no cards by design, not by regression (feasibility I2); live acceptance additionally needs the push client; TestFlight waits on the owner-ops items ([ROADMAP](issues/ROADMAP.md) items 4 + 9).
+- **NOW:** spec 14 minimal cut — the **logic layer is built and committed** (2026-08-12, amended 2026-08-13; [ROADMAP](issues/ROADMAP.md) item 6 has the inventory) and the **Figma catch-up frames are built** (2026-08-13; inventory: [FIGMA.md §7](design/FIGMA.md)) — **awaiting owner approval**.
+- **NEXT (ship order — ROADMAP has the full table):** owner ops (bundle-ID rename to `com.timeit.app.dev`) + frame approval → spec 14 rendering → iOS push opt-in client → live acceptance → **TestFlight**.
+- **BLOCKED:** spec 14 rendering + the push client's opt-in UI wait on the frame **approval** ([ADR-0008](adr/0008-figma-first-ui-gate.md)) — until then the all-dormant dashboard (incl. any dev install, whose seeded activities are now dormant) renders no cards by design, not by regression (feasibility I2); live acceptance additionally needs the push client; TestFlight waits on the owner-ops items ([ROADMAP](issues/ROADMAP.md) items 4 + 9).
 
 ## 3. Standing flags (not blockers)
 

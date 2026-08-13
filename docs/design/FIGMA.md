@@ -4,7 +4,7 @@
 
 **File:** "Main - Time it" · **fileKey:** `t3ZRvcYPnSRPKElSLAFqmG`
 
-**History:** design system v1 (foundations, component sheets, Light/Dark screen galleries incl. all 9 wizard frames) built 2026-07-18; #5c location frames built 2026-07-30, approved and shipped 2026-08-01; the "mess around" page is the owner's brainstorm scratchpad.
+**History:** design system v1 (foundations, component sheets, Light/Dark screen galleries incl. all 9 wizard frames) built 2026-07-18; #5c location frames built 2026-07-30, approved and shipped 2026-08-01; spec 14 catch-up frames built 2026-08-13, approval pending (§7); the "mess around" page is the owner's brainstorm scratchpad.
 
 ---
 
@@ -42,11 +42,11 @@
 | Screens — Light | `92:17` | 18 frames incl. the wizard set + #5c pair |
 | Screens — Dark | `92:18` | Dark twins (`explicitVariableModes` Semantic→Dark at frame root — clone from them) |
 
-Key Screens — Light frames: Dashboard Loaded `111:2` · Loading `111:17` · Empty—Showcase `111:32` (*no-activities*, not no-location) · Error `111:47` · Activity Detail `111:62` · Settings `111:77` · Activity Editor `111:92` · Wizard Add Sheet `111:372` · Name+Icon `111:387` · Range Same-Day `111:402` · Range Overnight `111:417` · Range Error `111:432` · Metrics Template `111:447` · Metrics Custom `111:462` · Review Day `111:477` · Review Night `111:492` · Dashboard/No-Location `172:492` · City Picker `172:1266` (Dark twins `173:996` / `173:1295`).
+Key Screens — Light frames: Dashboard Loaded `111:2` · Loading `111:17` · Empty—Showcase `111:32` (*all-dormant showcase*, not no-location) · Error `111:47` · Activity Detail `111:62` · Settings `111:77` · Activity Editor `111:92` · Wizard Add Sheet `111:372` · Name+Icon `111:387` · Range Same-Day `111:402` · Range Overnight `111:417` · Range Error `111:432` · Metrics Template `111:447` · Metrics Custom `111:462` · Review Day `111:477` · Review Night `111:492` · Dashboard/No-Location `172:492` · City Picker `172:1266` (Dark twins `173:996` / `173:1295`). Added by the 2026-08-13 catch-up pass (Dark twins in parens): Dashboard Empty—True `266:1651` (`266:1764`) · Dashboard Push Callout `266:5` (`266:1562`) · Settings phrases-locked state `265:5` (`265:14`).
 
 ## 3. Token truth (the collection-authority ruling — resolves the old docs' contradiction)
 
-- **`Semantic`** (`VariableCollectionId 91:3`, modes Light `91:1` / Dark `91:2`) — **the layer to bind, nothing else**: `surface/*`, `text/*`, `separator`, `rating/*`, `accent/*`, `timeline/track`, `chip/{green,orange,red,neutral}/{bg,text}`, `gradient/{cool,mid,hot}/{start,end}`. Key IDs (`VariableID:91:NNN`): surface/background=206 · surface/card=207 · text/primary=209 · text/secondary=210 · text/on-gradient=211 · separator=212 · rating/perfect=213 · rating/good=214 · accent/interactive=215 · timeline/track=217 · chip/green/bg=218 · chip/neutral/bg=221 · gradients cool=226/227 · mid=228/229 · hot=230/231.
+- **`Semantic`** (`VariableCollectionId 91:3`, modes Light `91:1` / Dark `91:2`) — **the layer to bind, nothing else**: `surface/*`, `text/*`, `separator`, `rating/*`, `accent/*`, `timeline/track`, `chip/{green,orange,red,neutral}/{bg,text}`, `gradient/{cool,mid,hot}/{start,end}`. Key IDs (`VariableID:91:NNN`): surface/background=206 · surface/card=207 · text/primary=209 · text/secondary=210 · text/on-gradient=211 · separator=212 · rating/perfect=213 · rating/good=214 · accent/interactive=215 · timeline/track=217 · chip/green/bg=218 · chip/neutral/bg=221 · gradients cool=226/227 · mid=228/229 · hot=230/231 · **rating/bad=`VariableID:254:5`** (added 2026-08-13 — aliases `red/light`/`red/dark`; the HourTier red for gradient slices; gray track = no-data only).
 - **`Layout`** (`91:4`) — `space/{xs,sm,md,lg,xl}` = 4·8·10·14·16 · `radius/{sm,md,lg,full}` = 6·10·16·999.
 - **`Primitives`** — raw palette; reference via Semantic, never bind directly to screens.
 - **`Theme colors`** (`36:4`) — the **frozen as-built mirror of `Theme.swift`**; the as-built page binds to it. Do not modify, do not bind new work. Retire it only when the spec 14 rendering wave replaces `Theme.swift`'s raw hex with adaptive tokens.
@@ -70,6 +70,8 @@ Four pinned idioms — **empty/error state**, **grouped list**, **sheet**, **car
 - Load the `figma-use` skill before any `use_figma` call; ≤10 ops per call; return node IDs.
 - The as-built page (`74:4`) and `Theme colors` stay untouched (frozen reference, §3).
 
-## 7. Pending design pass — spec 14 catch-up (§9 of the spec)
+## 7. Spec 14 catch-up pass — frames built 2026-08-13, awaiting owner approval
 
-The Screens-page frames predate spec 14; when this pass runs: card drops the rating word + flat bar → **gradient slice** + "Today · 6–8pm" sublabel + all-red state; detail screen → the §7 skeleton (header / setup-once / aligned range-zoomed week / tap-to-expand); Settings gains the phrases row; a **true-empty dashboard** frame (all templates dismissed + no Activities: "Add activities +" CTA, the §5 empty-state idiom — spec 14 §6 ruling). *(The ±1h flex toggle is deferred with spec 14's cut.)* Dormant cards, wizard structure, prefills: already designed — unchanged. **This pass gates the spec 14 rendering ([ADR-0008](../adr/0008-figma-first-ui-gate.md))** — approved frames precede UI code. Also in this backlog (push-client spec §1, same gate): the Settings "Notifications" row and the one-time dashboard callout.
+The pass ran 2026-08-13 (agent), mirrored on Light `92:17` + Dark `92:18`. Delivered: **card** — rating word dropped, flat highlight → per-hour **gradient slice** (stops bound to `rating/*` incl. the new `rating/bad`), best-stretch sublabel ("Today · 7–10am"), `Rating=None` repurposed as the **all-red day** (solid red slice, plain day name, visible "Nothing in your range" phrase, neutral chips), hidden-by-default Phrase slot on every variant, the I3 **provisional phrase strings** review block on the Activity Card sheet (`92:9`); **detail** — the §7 skeleton (window header + Edit range / setup-once thresholds / 7 aligned range-zoomed day rows / axis once / Today expanded with hourly chips); **Settings** — NOTIFICATIONS row + DASHBOARD "Show phrases" row (both off) + the phrases-locked state frame (Differentiate Without Color); **new frames** — Dashboard Empty—True ("Add activities +" CTA) and Dashboard Push Callout (push-client spec §1). Frame/node ids: §2. *(The ±1h flex toggle stays deferred with spec 14's cut — the Range step is untouched.)* Dormant cards, wizard structure, prefills: already designed — unchanged.
+
+**The ADR-0008 gate is still closed:** rendering (and the push client's opt-in UI) lands only after the **owner approves** these frames ([ADR-0008](../adr/0008-figma-first-ui-gate.md)); status: [ROADMAP item 5](../issues/ROADMAP.md).
