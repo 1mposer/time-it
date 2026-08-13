@@ -68,6 +68,14 @@ final class AuthoredActivityProjectionTests: XCTestCase {
         XCTAssertEqual(decoded, original, "local persistence round-trips the full editable model")
     }
 
+    func testWindowlessActivityIsDormant() {
+        // Spec 14 §1: nil no longer means "whole day" — it means dormant
+        // (stored, visible, never evaluated). Whole-day activities no longer exist.
+        XCTAssertTrue(makeAuthored(window: nil).isDormant)
+        XCTAssertFalse(makeAuthored(window: WindowSpec(startHour: 6, endHour: 10)).isDormant)
+        XCTAssertFalse(makeAuthored(window: WindowSpec(startHour: 22, endHour: 4)).isDormant)
+    }
+
     func testIsNocturnalFollowsWrappedWindowOnly() {
         XCTAssertTrue(makeAuthored(window: WindowSpec(startHour: 22, endHour: 4)).isNocturnal)
         XCTAssertFalse(makeAuthored(window: WindowSpec(startHour: 6, endHour: 10)).isNocturnal, "same-day window is diurnal")

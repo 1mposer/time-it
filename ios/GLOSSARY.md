@@ -13,16 +13,16 @@ Tags: **(shipped)** = in the built #5a/#5b app · **(ship scope — unbuilt)** =
 **Template** *(shipped)*
 A curated, pre-filled Activity starting point (Cycling, Fishing Lite, Running, Stargazing) that lives **only inside the app** (`SeedTemplates.swift`) — the server has never heard of it. Adding from a Template *copies* it; from that moment it's the user's own Activity, indistinguishable from one made from scratch.
 
-**Seed / first-launch seeds** *(shipped — changes under spec 14)*
-The two Templates (Cycling, Fishing Lite) auto-inserted on first launch (`SeedTemplates.firstLaunchSeeds`). Today they land as **real, active** whole-day Activities (#5b). Under the spec 14 minimal cut they land **dormant** instead (`window == nil`) and render as the **showcase**. Either way the store is never empty on first launch; under spec 14 nothing rates until a range is confirmed.
+**Seed / first-launch seeds** *(shipped — spec 14 semantics since 2026-08-12; four-card ruling 2026-08-13)*
+All four Templates (Cycling, Fishing Lite, Running, Stargazing — the full catalog, per the Figma Empty — Showcase frame) auto-inserted on first launch (`SeedTemplates.firstLaunchSeeds`). They land **dormant** (`window == nil`, the template's Range prefill stripped) and belong on the **showcase**; nothing rates or POSTs until a range is confirmed. The store is never empty on first launch. (The old #5b behavior — active whole-day seeds — is gone: whole-day Activities no longer exist.)
 
-**Showcase card** *(ship scope — unbuilt)*
+**Showcase card** *(ship scope — dormancy model shipped 2026-08-12; rendering gated on the Figma catch-up pass, ADR-0008)*
 The dashboard rendering of a **dormant** Activity — a seeded template card showing "Set your range →" instead of weather. It **is** a stored Activity (spec 14 §1: `window == nil` — stored, visible, never evaluated): it lives in the store but is excluded from every request body and device snapshot until its range is confirmed. *(Ruled 2026-08-12 — supersedes this file's earlier not-an-Activity overlay model.)*
 
 **Showcase card button** *(ship scope — unbuilt)*
 The "Set your range →" call-to-action on a showcase card — the only door out of dormancy. Minimal cut: opens the existing editor with the Range prefill loaded (spec 14 header). Full scope *(deferred)*: jumps straight into the wizard's Range screen (the shortest path: 3 screens).
 
-**Dismissed template** *(ship scope — unbuilt)*
+**Dismissed template** *(ship scope — store/preference logic shipped 2026-08-12 (`dismissTemplate`, re-seed filter); the "✕ not for me" UI is rendering-gated)*
 A showcase card the user hid with "✕ not for me" — its dormant Activity is removed and the dismissal is remembered in preferences so it stays gone. Deleting the **last** Activity re-seeds the **non-dismissed** showcase cards; dismissals survive the re-seed, and if every template is dismissed the dashboard shows the **true-empty state** — an "Add activities +" CTA into the Add flow — instead *(rulings 2026-08-12, recorded in spec 14 §6)*.
 
 **Ghost add-card** *(shipped)*
@@ -72,8 +72,8 @@ The From/To slice the app checks **every day** for an Activity — full definiti
 **Range-first** *(locked direction 2026-07-20)*
 The product direction: the app's core promise is "you pick a range, we check it daily." No "any time" option in the wizard.
 
-**Suggested range** *(ship scope — unbuilt)*
-The per-Template prefill the Range step opens with (minimal cut: the existing editor; full prefill table: spec 14 §6). Purely a starting value — it never becomes real without the user confirming it.
+**Suggested range** *(shipped 2026-08-12 — minimal cut: each Template's `window` is its prefill, preloaded by the existing editor; the wizard Range step is deferred)*
+The per-Template prefill the Range step opens with (full prefill table: spec 14 §6; from-scratch defaults to 6–10am). Purely a starting value — it never becomes real without the user confirming it by saving.
 
 **Wrapped / overnight range** *(shipped)*
 A range whose From is later than its To (22:00 → 02:00), meaning it crosses midnight. The one and only thing that makes an Activity nocturnal.

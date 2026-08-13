@@ -50,8 +50,10 @@ Vocabulary used throughout:
   **excluded from the `/rating` POST body**, and is **excluded from the device snapshot**
   (when the §9-of-#6c registration client is built). It can never rate, never push, never
   reach the server window-less. The wizard's Range step is the only door out of dormancy.
-- An **all-dormant dashboard makes no network call.** First launch seeds the two template
-  cards dormant; nothing POSTs until the first range is confirmed. "Checking conditions…"
+- An **all-dormant dashboard makes no network call.** First launch seeds **all four**
+  template cards dormant *(amended 2026-08-13, owner ruling: the Figma Empty — Showcase
+  frame is authoritative over this spec's earlier "two" — the full catalog shows)*;
+  nothing POSTs until the first range is confirmed. "Checking conditions…"
   appears only once ≥1 Activity is live.
 - **Whole-day Activities no longer exist.** Delete the editor's "Only at certain hours"
   toggle (`ActivityEditorView.windowSection`, `ActivityDraft.windowEnabled`) and the

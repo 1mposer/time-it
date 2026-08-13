@@ -157,10 +157,21 @@ final class ActivityValidationTests: XCTestCase {
 
     // MARK: window
 
+    func testBlankDraftDefaultsToTheFromScratchPrefillRange() {
+        // Spec 14 §6: from scratch prefills 6–10am (the design's "Morning
+        // Ride" example) — loaded into the pickers, confirmed only by saving.
+        let draft = ActivityDraft(from: .blank())
+        XCTAssertEqual(draft.startHour, 6)
+        XCTAssertEqual(draft.endHour, 10)
+        XCTAssertFalse(draft.windowEnabled, "a blank draft is dormant until the range is confirmed")
+    }
+
     func testWindowWithEqualHoursIsInvalid() {
         var activity = makeValid()
         activity.window = WindowSpec(startHour: 8, endHour: 8)
         XCTAssertFalse(activity.isValid, "startHour === endHour is rejected (empty half-open window)")
+        XCTAssertFalse(activity.validationIssues.joined().contains("whole-day"),
+                       "spec 14 §1: whole-day activities no longer exist — the copy must stop offering the window-off fix")
     }
 
     func testWrappedWindowIsValid() {

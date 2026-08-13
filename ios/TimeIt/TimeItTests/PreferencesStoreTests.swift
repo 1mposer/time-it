@@ -71,6 +71,28 @@ final class PreferencesStoreTests: XCTestCase {
                        "the cache is the safety net for exactly this case — clearing home must not empty it")
     }
 
+    // MARK: spec 14 — dismissed templates + the phrases toggle
+
+    func testDismissedTemplateIdsDefaultEmptyAndPersist() {
+        XCTAssertTrue(PreferencesStore(defaults: defaults).dismissedTemplateIds.isEmpty)
+
+        let store = PreferencesStore(defaults: defaults)
+        store.dismissedTemplateIds = ["cycling"]
+
+        XCTAssertEqual(PreferencesStore(defaults: defaults).dismissedTemplateIds, ["cycling"],
+                       "a dismissal must survive relaunch — it is what keeps a dismissed showcase card gone (spec 14 §6)")
+    }
+
+    func testShowPhrasesDefaultsOffAndPersists() {
+        XCTAssertFalse(PreferencesStore(defaults: defaults).showPhrases,
+                       "spec 14 §5: phrases default OFF — the card shows no words")
+
+        let store = PreferencesStore(defaults: defaults)
+        store.showPhrases = true
+
+        XCTAssertTrue(PreferencesStore(defaults: defaults).showPhrases)
+    }
+
     func testPreFiveCSavedLocationDecodesWithoutRegion() throws {
         // #5b persisted SavedLocation without the optional `region` — a #5c
         // build must still decode it.

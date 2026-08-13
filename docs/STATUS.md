@@ -25,9 +25,9 @@ Completed specs (in [`issues/completed/`](issues/completed/)) are historical rec
 
 ## 2. Now / next / blocked
 
-- **NOW:** nothing in flight; the working tree is clean.
-- **NEXT (ship order — ROADMAP has the full table):** owner ops (bundle-ID rename to `com.timeit.app.dev`) → spec 14 Figma catch-up pass → spec 14 minimal cut → iOS push opt-in client → live acceptance → **TestFlight**.
-- **BLOCKED:** spec 14 rendering + the push client's opt-in UI wait on the Figma catch-up approval ([ADR-0008](adr/0008-figma-first-ui-gate.md)); live acceptance additionally needs the push client; TestFlight waits on the owner-ops items ([ROADMAP](issues/ROADMAP.md) items 4 + 9).
+- **NOW:** spec 14 minimal cut — the **logic layer is built** (2026-08-12; [ROADMAP](issues/ROADMAP.md) item 6 has the inventory); its rendering waits on the Figma catch-up pass.
+- **NEXT (ship order — ROADMAP has the full table):** owner ops (bundle-ID rename to `com.timeit.app.dev`) → spec 14 Figma catch-up pass → spec 14 rendering → iOS push opt-in client → live acceptance → **TestFlight**.
+- **BLOCKED:** spec 14 rendering + the push client's opt-in UI wait on the Figma catch-up approval ([ADR-0008](adr/0008-figma-first-ui-gate.md)) — until then the all-dormant dashboard (incl. any dev install, whose seeded activities are now dormant) renders no cards by design, not by regression (feasibility I2); live acceptance additionally needs the push client; TestFlight waits on the owner-ops items ([ROADMAP](issues/ROADMAP.md) items 4 + 9).
 
 ## 3. Standing flags (not blockers)
 

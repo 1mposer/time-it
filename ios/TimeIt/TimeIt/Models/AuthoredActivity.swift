@@ -18,12 +18,19 @@ struct AuthoredActivity: Codable, Identifiable, Hashable {
     /// The evaluated subset — `thresholds.keys ⊆ displayMetrics`. May be empty
     /// (show-but-don't-judge is legal).
     var thresholds: [String: Threshold]
-    /// nil = whole day; wrap (startHour > endHour) = nocturnal night-stitch.
+    /// nil = DORMANT (spec 14 §1) — stored and visible, but excluded from
+    /// every request body and device snapshot, never evaluated. Whole-day
+    /// activities no longer exist; the Range step is the only door out of
+    /// dormancy. Wrap (startHour > endHour) = nocturnal night-stitch.
     var window: WindowSpec?
 
     /// A wrapped window is the only nocturnal signal (ADR-0005 §5) — it drives
     /// the "Tonight"/"… night" day labels.
     var isNocturnal: Bool { window?.isWrapped == true }
+
+    /// Spec 14 §1: an Activity without a confirmed Range never rates, never
+    /// pushes, never reaches the server window-less.
+    var isDormant: Bool { window == nil }
 
     /// Projection to the wire: drops UI-only fields; includes `window` only
     /// when present.
@@ -143,7 +150,9 @@ extension AuthoredActivity {
             if !hours.contains(window.startHour) || !hours.contains(window.endHour) {
                 issues.append("Window hours must be between 0 and 23")
             } else if window.startHour == window.endHour {
-                issues.append("Window start and end can't match — turn the window off for whole-day")
+                // Spec 14 §1: whole-day is no longer offered as the fix —
+                // a range-less Activity is dormant, not whole-day.
+                issues.append("Window start and end can't match")
             }
         }
 

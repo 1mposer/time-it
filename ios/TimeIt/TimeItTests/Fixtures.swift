@@ -92,6 +92,26 @@ enum Fixtures {
 
     // MARK: - In-memory model builders (for ViewModel tests)
 
+    /// Two LIVE (windowed) authored activities in the ids most VM tests key
+    /// on. A test scaffold, NOT the product's first-launch state — spec 14 §1:
+    /// real first-launch seeds land dormant and never POST.
+    static let liveSeeds: [AuthoredActivity] = [
+        AuthoredActivity(id: "cycling",
+                         label: "Cycling",
+                         iconSymbol: "figure.outdoor.cycle",
+                         templateOrigin: nil,
+                         displayMetrics: ["temp", "windSpeed", "rainFall", "uV"],
+                         thresholds: ["temp": Threshold(min: 15, max: 32, required: true)],
+                         window: WindowSpec(startHour: 6, endHour: 10)),
+        AuthoredActivity(id: "fishing-lite",
+                         label: "Fishing Lite",
+                         iconSymbol: "figure.fishing",
+                         templateOrigin: nil,
+                         displayMetrics: ["temp", "windSpeed", "cloudCover"],
+                         thresholds: ["temp": Threshold(min: 12, max: 36, required: true)],
+                         window: WindowSpec(startHour: 15, endHour: 19)),
+    ]
+
     static func makeHour(index: Int,
                          temp: Double? = 24,
                          humidity: Double? = 40,

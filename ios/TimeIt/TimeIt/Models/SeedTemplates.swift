@@ -6,13 +6,19 @@ import Foundation
 /// (a) seeds on first launch (`firstLaunchSeeds`) and (b) populates the
 /// "Add from Template" list (`all`).
 ///
+/// Each template's `window` is its spec 14 §6 **Range prefill** — the range
+/// the editor preloads when adding from the Template; the user confirms it by
+/// saving (prefills, never active defaults). First-launch seeds strip it and
+/// land DORMANT: nothing rates until the first range is confirmed.
+///
 /// Hard constraint: every metric here must be LIVE (`src/weather/metricCatalog.js`) —
 /// one coming-soon metric is an atomic 400 that blanks the whole dashboard.
 /// Icons come from the SF Symbols manifest (design-decisions §A) — never invent
 /// a name.
 ///
 /// ⚠️ PROVISIONAL threshold values — the exact numbers are unpinned (STATUS.md
-/// §4). Do not treat them as product decisions.
+/// §4). Do not treat them as product decisions. (The prefill ranges ARE
+/// owner-picked — spec 14 §6.)
 enum SeedTemplates {
 
     static let cycling = AuthoredActivity(
@@ -27,7 +33,7 @@ enum SeedTemplates {
             "rainFall": Threshold(max: 0.2, required: true),
             "uV": Threshold(max: 8, required: false),
         ],
-        window: nil
+        window: WindowSpec(startHour: 6, endHour: 10)
     )
 
     static let fishingLite = AuthoredActivity(
@@ -41,7 +47,7 @@ enum SeedTemplates {
             "windSpeed": Threshold(max: 25, required: true),
             "cloudCover": Threshold(max: 80, required: false),
         ],
-        window: nil
+        window: WindowSpec(startHour: 15, endHour: 19)
     )
 
     /// Diurnal land activity (#5b §4.1 suggested addition).
@@ -56,7 +62,7 @@ enum SeedTemplates {
             "humidity": Threshold(max: 70, required: false),
             "uV": Threshold(max: 7, required: false),
         ],
-        window: nil
+        window: WindowSpec(startHour: 6, endHour: 9)
     )
 
     /// Nocturnal activity — its wrapped window exercises the night-stitch
@@ -78,7 +84,17 @@ enum SeedTemplates {
     /// The "Add from Template" catalog, in display order.
     static let all: [AuthoredActivity] = [cycling, fishingLite, running, stargazing]
 
-    /// What ActivityStore seeds on first launch — the two #5a Templates, so
-    /// the first run matches the #5a dashboard exactly (#5b §3).
-    static let firstLaunchSeeds: [AuthoredActivity] = [cycling, fishingLite]
+    /// What ActivityStore seeds on first launch — the FULL catalog as showcase
+    /// cards (all four, per the Figma Empty — Showcase frame; owner ruling
+    /// 2026-08-13 superseding spec 14's earlier "two"), landing DORMANT
+    /// (spec 14 §6): stored and visible, but window-less until the user
+    /// confirms a range, so nothing POSTs on first launch.
+    static let firstLaunchSeeds: [AuthoredActivity] = all.map(dormant)
+
+    /// The template minus its Range prefill — the store shape of a showcase card.
+    private static func dormant(_ template: AuthoredActivity) -> AuthoredActivity {
+        var copy = template
+        copy.window = nil
+        return copy
+    }
 }

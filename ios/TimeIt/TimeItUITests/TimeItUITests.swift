@@ -8,8 +8,11 @@ import XCTest
 ///   today, second windowed tomorrow, the rest null).
 /// - `UITEST_MOCK_FAILURE`: the API throws providerUnavailable (server down / 502).
 /// - `UITEST_RESET`: wipes persisted activities + preferences (including the
-///   #5c last-resolved cache) so each test starts from the first-launch seed
-///   state (omit it to test persistence).
+///   #5c last-resolved cache and the spec 14 dismissals/phrases keys) so each
+///   test starts from the first-launch state (omit it to test persistence).
+/// - `UITEST_SEED_LIVE`: pre-persists the two templates as LIVE (ranges
+///   confirmed). Spec 14 §1 made the real first launch dormant — no request,
+///   no rated cards — so every card/flow test scaffolds on this instead.
 /// - `UITEST_LOCATION`: the mock location provider returns a fixed fix (#5c —
 ///   without it the provider never resolves and the app shows the no-location
 ///   empty state, since the Dubai fallback is deleted).
@@ -21,7 +24,7 @@ final class TimeItUITests: XCTestCase {
         continueAfterFailure = false
     }
 
-    private func launchApp(arguments: [String] = ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_LOCATION"]) -> XCUIApplication {
+    private func launchApp(arguments: [String] = ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_SEED_LIVE", "UITEST_LOCATION"]) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = arguments
         app.launch()
@@ -124,12 +127,29 @@ final class TimeItUITests: XCTestCase {
         XCTAssertTrue(app.buttons["settingsGear"].waitForExistence(timeout: 5))
     }
 
+    // MARK: first launch is dormant (spec 14 §1/§6)
+
+    func testFirstLaunchIsDormantWithNoRatedCards() {
+        // The REAL first launch (no UITEST_SEED_LIVE): seeds land dormant, no
+        // request is made, no rated cards render. The showcase-card rendering
+        // of this state lands with the Figma catch-up pass (ADR-0008); until
+        // then this pins the logic-layer truth only.
+        let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_LOCATION"])
+
+        XCTAssertTrue(app.staticTexts["headerTime"].waitForExistence(timeout: 5), "the header still renders")
+        XCTAssertEqual(cardCount(in: app), 0, "dormant activities never rate — no cards without a confirmed range")
+        XCTAssertFalse(app.staticTexts["emptyStateMessage"].exists,
+                       "dormant is NOT the no-activities empty state — the store is seeded")
+        XCTAssertFalse(app.staticTexts["Weather Unavailable"].exists, "and it is not an error — no request was made")
+    }
+
     // MARK: error state (#5a)
 
     func testServerFailureShowsErrorState() {
         // UITEST_LOCATION matters here: without a resolvable location the #5c
-        // no-location state wins and the failing API is never even called.
-        let app = launchApp(arguments: ["UITEST_MOCK_FAILURE", "UITEST_RESET", "UITEST_LOCATION"])
+        // no-location state wins and the failing API is never even called —
+        // and the store must be seeded LIVE or no request happens at all.
+        let app = launchApp(arguments: ["UITEST_MOCK_FAILURE", "UITEST_RESET", "UITEST_SEED_LIVE", "UITEST_LOCATION"])
 
         XCTAssertTrue(app.staticTexts["Weather Unavailable"].waitForExistence(timeout: 5),
                       "provider failure renders the ContentUnavailableView error state")
@@ -200,8 +220,19 @@ final class TimeItUITests: XCTestCase {
         minField.typeText("15")
         XCTAssertTrue(save.isEnabled, "one bound satisfies the numeric threshold rule")
 
+        // Spec 14: saving without a range lands DORMANT (stored, never rated,
+        // no card). Confirm the prefilled 6–10am range so the card renders.
+        // The identifier sits on the whole Toggle row — tapping its center
+        // hits the label, not the switch — so tap the nested switch control.
+        let windowToggle = app.switches["editor.windowToggle"]
+        scrollTo(windowToggle, in: app)
+        let control = windowToggle.switches.firstMatch
+        (control.exists ? control : windowToggle).tap()
+        XCTAssertEqual(windowToggle.value as? String, "1", "the range toggle must be ON before saving")
+
         save.tap()
-        XCTAssertTrue(app.staticTexts["Padel"].waitForExistence(timeout: 5), "the scratch-built card renders")
+        XCTAssertTrue(app.staticTexts["Padel"].waitForExistence(timeout: 5),
+                      "the scratch-built card renders once its range is confirmed")
     }
 
     // MARK: edit + delete via the card gear (#5b)
@@ -222,7 +253,7 @@ final class TimeItUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Cycling Pro"].waitForExistence(timeout: 5), "the card reflects the edit after refetch")
     }
 
-    func testDeletingActivitiesShowsEmptyStateAfterLastOne() {
+    func testDeletingLastActivityReseedsDormantShowcaseNotEmptyState() {
         let app = launchApp()
         XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5))
 
@@ -247,10 +278,15 @@ final class TimeItUITests: XCTestCase {
         XCTAssertTrue(app.buttons["editor.confirmDelete"].firstMatch.waitForExistence(timeout: 5))
         app.buttons["editor.confirmDelete"].firstMatch.tap()
 
-        XCTAssertTrue(app.staticTexts["emptyStateMessage"].waitForExistence(timeout: 5),
-                      "deleting the last Activity shows the empty state, no crash, no POST")
-        XCTAssertTrue(app.buttons["addActivityCard"].exists, "the add-card remains the way back in")
+        // Spec 14 §6 ruling: deleting the last Activity re-seeds the showcase
+        // DORMANT — no rated cards, no request, and NOT the no-activities
+        // empty state (the store is not empty). The showcase-card rendering of
+        // this state lands with the Figma catch-up pass (ADR-0008).
+        XCTAssertTrue(app.buttons["card.fishing-lite"].waitForNonExistence(timeout: 5),
+                      "no rated cards — the re-seeded showcase is dormant")
         XCTAssertEqual(cardCount(in: app), 0)
+        XCTAssertFalse(app.staticTexts["emptyStateMessage"].exists,
+                       "the re-seeded showcase is not the empty state — deleting everything is not a dead end")
     }
 
     // MARK: persistence across relaunch (#5b)
@@ -266,7 +302,9 @@ final class TimeItUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Running"].waitForExistence(timeout: 5))
 
         app.terminate()
-        app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_LOCATION"]) // no RESET — keep the authored list
+        // No RESET and no SEED_LIVE — the persisted authored list must feed
+        // the relaunch on its own.
+        app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_LOCATION"])
 
         XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5))
         app.swipeUp()
@@ -342,7 +380,7 @@ final class TimeItUITests: XCTestCase {
     }
 
     func testPlacingOwnLocationLoadsRatings() {
-        let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET"])
+        let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_SEED_LIVE"])
 
         let place = app.buttons["placeLocationButton"]
         XCTAssertTrue(place.waitForExistence(timeout: 5))
@@ -356,7 +394,7 @@ final class TimeItUITests: XCTestCase {
 
     func testCachedLastResolvedFeedsARelaunchWithNothingElse() {
         // First run: place a city so a successful rating persists the cache…
-        var app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET"])
+        var app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_SEED_LIVE"])
         let place = app.buttons["placeLocationButton"]
         XCTAssertTrue(place.waitForExistence(timeout: 5))
         place.tap()

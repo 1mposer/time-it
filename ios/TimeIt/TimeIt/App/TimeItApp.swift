@@ -12,6 +12,16 @@ struct TimeItApp: App {
             UserDefaults.standard.removeObject(forKey: ActivityStore.storageKey)
             UserDefaults.standard.removeObject(forKey: PreferencesStore.homeLocationKey)
             UserDefaults.standard.removeObject(forKey: PreferencesStore.lastResolvedLocationKey)
+            UserDefaults.standard.removeObject(forKey: PreferencesStore.dismissedTemplatesKey)
+            UserDefaults.standard.removeObject(forKey: PreferencesStore.showPhrasesKey)
+        }
+        // Spec 14 §1 made the REAL first launch dormant (no request, no rated
+        // cards), so card/flow tests pre-persist a LIVE store instead: the two
+        // templates with their prefill ranges confirmed. Harness-only — the
+        // product never seeds live.
+        if ProcessInfo.processInfo.arguments.contains("UITEST_SEED_LIVE"),
+           let data = try? JSONEncoder().encode([SeedTemplates.cycling, SeedTemplates.fishingLite]) {
+            UserDefaults.standard.set(data, forKey: ActivityStore.storageKey)
         }
         #endif
     }

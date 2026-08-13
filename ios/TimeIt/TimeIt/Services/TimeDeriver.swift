@@ -71,6 +71,30 @@ struct TimeDeriver {
         }
     }
 
+    /// "4–7pm" / "10pm–2am" — the best-stretch range label (spec 14 §2), the
+    /// word-for-word twin of the server push copy's `rangeLabel`
+    /// (`src/jobs/labels.js`): same meridiem → suffix once; crossing → both.
+    /// `endIndex` is exclusive, so its label is the stretch's end boundary.
+    /// Indices are not bounds-checked against the horizon — an out-of-range
+    /// index extrapolates to its (still correct) clock time rather than trap.
+    /// Shares the known half-hour-zone limitation with `hourLabel`.
+    func rangeLabel(startIndex: Int, endIndex: Int) -> String {
+        let start = hourLabel(at: startIndex)
+        let end = hourLabel(at: endIndex)
+        guard start.suffix(2) == end.suffix(2) else { return "\(start)–\(end)" }
+        return "\(start.dropLast(2))–\(end)"
+    }
+
+    /// The card sublabel (spec 14 §2): "Today · 6–8pm" / "Tonight · 10pm–2am",
+    /// matching push copy so a tapped push lands on its own receipt. With no
+    /// stretch (a red day — server rating null) it is the plain day name:
+    /// there is no window, the solid red slice carries the verdict.
+    func sublabel(forDayIndex dayIndex: Int, startIndex: Int?, endIndex: Int?, nocturnal: Bool) -> String {
+        let day = dayName(forDayIndex: dayIndex, nocturnal: nocturnal)
+        guard let startIndex, let endIndex else { return day }
+        return "\(day) · \(rangeLabel(startIndex: startIndex, endIndex: endIndex))"
+    }
+
     /// The contiguous hours[] index range belonging to a local calendar day —
     /// the card timeline's real axis (never a hardcoded 6am–midnight span).
     /// Nil when the day is beyond the forecast horizon.

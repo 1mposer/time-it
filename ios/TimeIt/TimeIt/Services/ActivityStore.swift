@@ -19,11 +19,19 @@ final class ActivityStore: ObservableObject {
 
     private let defaults: UserDefaults
     private let seeds: [AuthoredActivity]
+    /// Read at delete time: dismissed template ids filter the spec 14 §6
+    /// delete-all re-seed (a dismissal survives, a mere deletion does not).
+    private let preferences: PreferencesStore
 
     init(defaults: UserDefaults = .standard,
-         seeds: [AuthoredActivity] = SeedTemplates.firstLaunchSeeds) {
+         seeds: [AuthoredActivity] = SeedTemplates.firstLaunchSeeds,
+         preferences: PreferencesStore? = nil) {
         self.defaults = defaults
         self.seeds = seeds
+        // Resolved here, not as a default argument — the shared singleton is
+        // main-actor-isolated and default arguments evaluate in the caller's
+        // context (same rule as DashboardViewModel's dependencies).
+        self.preferences = preferences ?? PreferencesStore.shared
         load()
     }
 
@@ -49,8 +57,37 @@ final class ActivityStore: ObservableObject {
     }
 
     func delete(id: String) {
+        let countBefore = activities.count
         activities.removeAll { $0.id == id }
+        // No removal → no persist and, critically, no re-seed: a stray delete
+        // on the true-empty state must not resurrect the showcase.
+        guard activities.count != countBefore else { return }
+        if activities.isEmpty {
+            activities = reseededShowcase()
+        }
         persist()
+    }
+
+    /// Spec 14 §6: "✕ not for me" on a showcase card — records the dismissal
+    /// (so it survives every future re-seed) BEFORE deleting, so dismissing
+    /// the last card re-seeds without it.
+    func dismissTemplate(id: String) {
+        preferences.dismissedTemplateIds.insert(id)
+        delete(id: id)
+    }
+
+    /// The delete-all re-seed (owner ruling 2026-08-12): the non-dismissed
+    /// seed templates come back DORMANT — forced structurally, not trusted to
+    /// the seed data — so the dashboard always offers a next action (showcase
+    /// cards, or the true-empty Add CTA when every template is dismissed).
+    private func reseededShowcase() -> [AuthoredActivity] {
+        seeds
+            .filter { !preferences.dismissedTemplateIds.contains($0.id) }
+            .map { seed in
+                var dormant = seed
+                dormant.window = nil
+                return dormant
+            }
     }
 
     // MARK: persistence

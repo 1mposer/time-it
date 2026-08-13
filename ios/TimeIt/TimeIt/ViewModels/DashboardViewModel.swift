@@ -173,6 +173,14 @@ final class DashboardViewModel: ObservableObject {
     /// requires non-empty).
     var hasActivities: Bool { !store.activities.isEmpty }
 
+    /// Spec 14 §1: only LIVE activities (confirmed Range) are ever sent — a
+    /// dormant Activity is stored and visible but excluded from every request.
+    var liveActivities: [AuthoredActivity] { store.activities.filter { !$0.isDormant } }
+
+    /// False when nothing is live (store empty OR all-dormant): no request is
+    /// made and "Checking conditions…" never shows (spec 14 §1).
+    var hasLiveActivities: Bool { !liveActivities.isEmpty }
+
     /// #5c: true when "Enable location" should deep-link to system Settings
     /// instead of firing the (now impossible) permission prompt.
     var locationPermissionDenied: Bool {
@@ -207,10 +215,11 @@ final class DashboardViewModel: ObservableObject {
         loadGeneration += 1
         let generation = loadGeneration
 
-        guard hasActivities else {
-            // Never POST an empty activities[] — show the empty state. Still
-            // resolve the chain so the header label and the no-location flag
-            // stay truthful (different screens, but one shared header).
+        guard hasLiveActivities else {
+            // Never POST an empty activities[] (ADR-0005), and an all-dormant
+            // dashboard makes no network call (spec 14 §1). Still resolve the
+            // chain so the header label and the no-location flag stay
+            // truthful (different screens, but one shared header).
             forecast = nil
             errorMessage = nil
             isTransientError = false
@@ -251,7 +260,8 @@ final class DashboardViewModel: ObservableObject {
 
         let coordinate = active.coordinate
         lastFetchedCoordinate = coordinate
-        let activities = store.activities.map(\.activityInput)
+        // Spec 14 §1: dormant activities never reach the wire.
+        let activities = liveActivities.map(\.activityInput)
         do {
             let result = try await api.fetchRatings(lat: coordinate.latitude,
                                                     lon: coordinate.longitude,

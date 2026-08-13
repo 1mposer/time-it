@@ -22,6 +22,8 @@ final class PreferencesStore: ObservableObject {
 
     static let homeLocationKey = "homeLocation"
     static let lastResolvedLocationKey = "lastResolvedLocation"
+    static let dismissedTemplatesKey = "dismissedTemplates"
+    static let showPhrasesKey = "showPhrases"
 
     /// nil = follow the device location (#5c: then the last-resolved cache).
     @Published var homeLocation: SavedLocation? {
@@ -36,21 +38,36 @@ final class PreferencesStore: ObservableObject {
         didSet { persist(lastResolvedLocation, key: Self.lastResolvedLocationKey) }
     }
 
+    /// Spec 14 §6: showcase templates the user dismissed ("✕ not for me").
+    /// A dismissal survives the delete-all re-seed — only these ids stay gone.
+    @Published var dismissedTemplateIds: Set<String> {
+        didSet { persist(dismissedTemplateIds.isEmpty ? nil : dismissedTemplateIds, key: Self.dismissedTemplatesKey) }
+    }
+
+    /// Spec 14 §5: the phrases toggle — default OFF (the card carries quality
+    /// in color alone). The system's Differentiate Without Color force-enables
+    /// phrases regardless of this value (`TrajectoryPhrase.phrasesEnabled`).
+    @Published var showPhrases: Bool {
+        didSet { defaults.set(showPhrases, forKey: Self.showPhrasesKey) }
+    }
+
     private let defaults: UserDefaults
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         homeLocation = Self.load(Self.homeLocationKey, from: defaults)
         lastResolvedLocation = Self.load(Self.lastResolvedLocationKey, from: defaults)
+        dismissedTemplateIds = Self.load(Self.dismissedTemplatesKey, from: defaults) ?? []
+        showPhrases = defaults.bool(forKey: Self.showPhrasesKey)
     }
 
-    private static func load(_ key: String, from defaults: UserDefaults) -> SavedLocation? {
+    private static func load<Value: Decodable>(_ key: String, from defaults: UserDefaults) -> Value? {
         guard let data = defaults.data(forKey: key) else { return nil }
-        return try? JSONDecoder().decode(SavedLocation.self, from: data)
+        return try? JSONDecoder().decode(Value.self, from: data)
     }
 
-    private func persist(_ location: SavedLocation?, key: String) {
-        if let location, let data = try? JSONEncoder().encode(location) {
+    private func persist<Value: Encodable>(_ value: Value?, key: String) {
+        if let value, let data = try? JSONEncoder().encode(value) {
             defaults.set(data, forKey: key)
         } else {
             defaults.removeObject(forKey: key)

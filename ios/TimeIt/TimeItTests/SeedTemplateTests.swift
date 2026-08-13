@@ -18,9 +18,41 @@ final class SeedTemplateTests: XCTestCase {
         XCTAssertEqual(SeedTemplates.all.map(\.label), ["Cycling", "Fishing Lite", "Running", "Stargazing"])
     }
 
-    func testFirstLaunchSeedsAreTheTwo5aTemplates() {
-        XCTAssertEqual(SeedTemplates.firstLaunchSeeds.map(\.id), ["cycling", "fishing-lite"],
-                       "first launch must match the #5a dashboard exactly")
+    func testFirstLaunchSeedsAreTheFullCatalogLandingDormant() {
+        // Spec 14 §6 (amended 2026-08-13, owner ruling: the Figma
+        // Empty — Showcase frame is authoritative — all FOUR templates, not
+        // two): first-launch seeds land DORMANT (window nil in the store
+        // until the user confirms a range) — nothing POSTs on first launch;
+        // the dashboard shows the showcase cards.
+        XCTAssertEqual(SeedTemplates.firstLaunchSeeds.map(\.id),
+                       ["cycling", "fishing-lite", "running", "stargazing"])
+        for seed in SeedTemplates.firstLaunchSeeds {
+            XCTAssertTrue(seed.isDormant, "\(seed.id) must seed dormant — a range is confirmed, never defaulted")
+        }
+    }
+
+    func testFirstLaunchSeedsCarryTheFullTemplateBodyApartFromTheRange() {
+        // The seed is the template minus its prefill range — thresholds,
+        // metrics, and icon must not fork from the catalog entry.
+        XCTAssertEqual(SeedTemplates.firstLaunchSeeds.count, SeedTemplates.all.count)
+        for (seed, template) in zip(SeedTemplates.firstLaunchSeeds, SeedTemplates.all) {
+            XCTAssertEqual(seed.id, template.id)
+            XCTAssertEqual(seed.label, template.label)
+            XCTAssertEqual(seed.iconSymbol, template.iconSymbol)
+            XCTAssertEqual(seed.displayMetrics, template.displayMetrics)
+            XCTAssertEqual(seed.thresholds, template.thresholds)
+        }
+    }
+
+    func testTemplatesCarryTheSpec14PrefillRanges() {
+        // The §6 prefill table (owner-picked): the range the editor preloads
+        // when adding from a Template — a starting value the user must
+        // confirm by saving, never an active default.
+        XCTAssertEqual(SeedTemplates.cycling.window, WindowSpec(startHour: 6, endHour: 10))
+        XCTAssertEqual(SeedTemplates.fishingLite.window, WindowSpec(startHour: 15, endHour: 19))
+        XCTAssertEqual(SeedTemplates.running.window, WindowSpec(startHour: 6, endHour: 9))
+        XCTAssertEqual(SeedTemplates.stargazing.window, WindowSpec(startHour: 22, endHour: 4),
+                       "already authored nocturnal — unchanged")
     }
 
     func testIdsAreUniqueWithinCatalog() {
@@ -100,11 +132,16 @@ final class SeedTemplateTests: XCTestCase {
                 XCTAssertNotNil(threshold["required"], "\(metric) threshold is missing required — hard 400")
                 XCTAssertTrue(threshold["required"] is Bool)
             }
+            // Spec 14 §6: every template carries its prefill range, so a
+            // template copy saved as-is is a LIVE windowed body.
+            let window = try XCTUnwrap(activity["window"] as? [String: Any],
+                                       "\(activity["id"] ?? "?") must send its prefill window")
             if activity["id"] as? String == "stargazing" {
-                let window = try XCTUnwrap(activity["window"] as? [String: Any], "the nocturnal template sends its window")
-                XCTAssertTrue((window["startHour"] as? Int ?? 0) > (window["endHour"] as? Int ?? 0))
+                XCTAssertTrue((window["startHour"] as? Int ?? 0) > (window["endHour"] as? Int ?? 0),
+                              "the nocturnal template's window wraps midnight")
             } else {
-                XCTAssertNil(activity["window"], "diurnal templates omit the window key entirely")
+                XCTAssertTrue((window["startHour"] as? Int ?? 0) < (window["endHour"] as? Int ?? 24),
+                              "diurnal prefills are same-day windows")
             }
         }
     }

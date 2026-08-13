@@ -90,18 +90,21 @@ final class DashboardViewModelTests: XCTestCase {
         super.tearDown()
     }
 
-    /// The default location is a real fix — most tests just need a POST to
-    /// happen (#5c deleted the Dubai fallback, so a nil location no longer
-    /// resolves anywhere). Chain tests pass `location: nil` explicitly.
+    /// The default location is a real fix and the default seeds are LIVE
+    /// (windowed) — most tests just need a POST to happen (#5c deleted the
+    /// Dubai fallback; spec 14 §1 made dormant activities non-POSTing). Chain
+    /// tests pass `location: nil`, dormancy tests pass their own seeds.
     private func makeVM(result: Result<ForecastResponse, Error>,
                         location: CLLocation? = CLLocation(latitude: 25.2048, longitude: 55.2708),
                         authorization: CLAuthorizationStatus = .notDetermined,
-                        seeds: [AuthoredActivity] = SeedTemplates.firstLaunchSeeds)
+                        seeds: [AuthoredActivity] = Fixtures.liveSeeds)
         -> (DashboardViewModel, FakeRatingService, FakeLocationProvider, ActivityStore, PreferencesStore) {
         let api = FakeRatingService(result: result)
         let locationProvider = FakeLocationProvider(location: location, authorization: authorization)
-        let store = ActivityStore(defaults: defaults, seeds: seeds)
         let preferences = PreferencesStore(defaults: defaults)
+        // The store gets THIS suite's preferences — its delete-time re-seed
+        // reads dismissed template ids, and .shared would leak across tests.
+        let store = ActivityStore(defaults: defaults, seeds: seeds, preferences: preferences)
         let vm = DashboardViewModel(api: api, locationProvider: locationProvider,
                                     store: store, preferences: preferences)
         return (vm, api, locationProvider, store, preferences)
@@ -325,13 +328,88 @@ final class DashboardViewModelTests: XCTestCase {
 
     // MARK: activities come from the store
 
-    func testPostsTheStoreActivitiesOnFirstLaunch() async {
+    func testPostsTheLiveStoreActivitiesInOrder() async {
         let (vm, api, _, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])))
 
         await vm.loadForecast()
 
         XCTAssertEqual(api.capturedActivities?.map(\.id), ["cycling", "fishing-lite"],
-                       "first launch POSTs the seeded Templates — identical to the #5a dashboard")
+                       "live activities POST in store order (= card order)")
+    }
+
+    // MARK: dormancy — spec 14 §1: window == nil never reaches any request
+
+    func testDormantActivityIsExcludedFromThePostBody() async {
+        let (vm, api, _, store, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])), seeds: [])
+        store.add(AuthoredActivity(id: "live", label: "Padel", iconSymbol: "questionmark.circle",
+                                   templateOrigin: nil,
+                                   displayMetrics: ["temp"],
+                                   thresholds: ["temp": Threshold(min: 15, max: 35, required: true)],
+                                   window: WindowSpec(startHour: 6, endHour: 10)))
+        store.add(AuthoredActivity(id: "dormant", label: "Stargazing", iconSymbol: "moon.stars.fill",
+                                   templateOrigin: nil,
+                                   displayMetrics: ["cloudCover"],
+                                   thresholds: ["cloudCover": Threshold(max: 20, required: true)],
+                                   window: nil))
+
+        await vm.loadForecast()
+
+        XCTAssertEqual(api.capturedActivities?.map(\.id), ["live"],
+                       "a dormant Activity is stored and visible but can never rate — it must not reach the server window-less")
+    }
+
+    func testAllDormantStoreMakesNoRequestAtAll() async {
+        let dormantSeeds = SeedTemplates.firstLaunchSeeds.map { seed -> AuthoredActivity in
+            var copy = seed
+            copy.window = nil
+            return copy
+        }
+        let (vm, api, _, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])),
+                                        seeds: dormantSeeds)
+
+        await vm.loadForecast()
+
+        XCTAssertEqual(api.fetchCount, 0, "an all-dormant dashboard makes no network call (spec 14 §1)")
+        XCTAssertNil(vm.forecast)
+        XCTAssertNil(vm.errorMessage)
+        XCTAssertFalse(vm.isLoading, "'Checking conditions…' appears only once ≥1 Activity is live")
+        XCTAssertTrue(vm.hasActivities, "dormant activities still exist — this is NOT the empty state")
+        XCTAssertFalse(vm.hasLiveActivities)
+    }
+
+    func testFirstLaunchSeedsAreDormantAndMakeNoRequest() async {
+        // The product's real first launch (spec 14 §6): seeds land dormant;
+        // nothing POSTs until the first range is confirmed.
+        let (vm, api, _, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])),
+                                        seeds: SeedTemplates.firstLaunchSeeds)
+
+        await vm.loadForecast()
+
+        XCTAssertEqual(api.fetchCount, 0)
+        XCTAssertTrue(vm.hasActivities)
+        XCTAssertFalse(vm.hasLiveActivities)
+    }
+
+    func testConfirmingARangeOnADormantActivityTriggersTheFirstPost() async {
+        let dormantSeeds = SeedTemplates.firstLaunchSeeds.map { seed -> AuthoredActivity in
+            var copy = seed
+            copy.window = nil
+            return copy
+        }
+        let (vm, api, _, store, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])),
+                                            seeds: dormantSeeds)
+        await vm.loadForecast()
+        XCTAssertEqual(api.fetchCount, 0)
+
+        let refetch = expectation(description: "leaving dormancy triggers the first rating request")
+        api.onFetch = { refetch.fulfill() }
+        var confirmed = store.activities[0]
+        confirmed.window = WindowSpec(startHour: 6, endHour: 10)
+        store.update(confirmed)
+
+        await fulfillment(of: [refetch], timeout: 2)
+        XCTAssertEqual(api.capturedActivities?.map(\.id), [confirmed.id],
+                       "only the now-live Activity POSTs; its dormant sibling stays excluded")
     }
 
     func testProjectsAuthoredWindowIntoTheRequest() async throws {
@@ -363,13 +441,20 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertFalse(vm.hasActivities)
     }
 
-    func testHasActivitiesReflectsStore() {
-        let (vm, _, _, store, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])))
+    func testDeletingAllLiveActivitiesBringsBackTheDormantShowcaseAndStopsPosting() async {
+        // Spec 14 §6 ruling: delete-all re-seeds the showcase dormant — the
+        // dashboard keeps a next action, but nothing rates or POSTs.
+        let (vm, api, _, store, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])))
 
         XCTAssertTrue(vm.hasActivities)
         store.delete(id: "cycling")
         store.delete(id: "fishing-lite")
-        XCTAssertFalse(vm.hasActivities)
+
+        XCTAssertTrue(vm.hasActivities, "the re-seeded showcase is NOT the empty state")
+        XCTAssertFalse(vm.hasLiveActivities, "re-seeded cards are dormant")
+
+        await vm.loadForecast()
+        XCTAssertEqual(api.fetchCount, 0, "an all-dormant dashboard makes no network call")
     }
 
     // MARK: store mutations trigger a refetch
@@ -381,11 +466,13 @@ final class DashboardViewModelTests: XCTestCase {
 
         let refetch = expectation(description: "store mutation triggers a refetch")
         api.onFetch = { refetch.fulfill() }
+        // A LIVE (windowed) addition — a dormant one also refetches but is
+        // excluded from the body (pinned by the dormancy tests above).
         store.add(AuthoredActivity(id: "p1", label: "Padel", iconSymbol: "questionmark.circle",
                                    templateOrigin: nil,
                                    displayMetrics: ["temp"],
                                    thresholds: [:],
-                                   window: nil))
+                                   window: WindowSpec(startHour: 16, endHour: 19)))
 
         await fulfillment(of: [refetch], timeout: 2)
         XCTAssertEqual(api.capturedActivities?.map(\.id), ["cycling", "fishing-lite", "p1"])

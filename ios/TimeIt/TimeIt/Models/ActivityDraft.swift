@@ -23,8 +23,10 @@ struct ActivityDraft: Equatable {
         metrics = activity.displayMetrics
         thresholds = activity.thresholds.mapValues(ThresholdDraft.init(from:))
         windowEnabled = activity.window != nil
-        startHour = activity.window?.startHour ?? 18
-        endHour = activity.window?.endHour ?? 22
+        // Spec 14 §6 from-scratch prefill: 6–10am (the design's "Morning
+        // Ride" example) — a starting value, confirmed only by saving.
+        startHour = activity.window?.startHour ?? 6
+        endHour = activity.window?.endHour ?? 10
     }
 
     // MARK: metric selection (structural subset invariant — a threshold can
