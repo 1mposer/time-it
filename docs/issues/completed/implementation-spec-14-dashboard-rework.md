@@ -1,5 +1,9 @@
 # Implementation spec — Issue #14: Dashboard rework — range-first showcase
 
+> ✅ **CONCLUDED 2026-08-13 — historical record; the minimal cut is fully built + audited.**
+> Logic layer commits `90bee7c` → `313ba38` (dormancy + POST exclusion, `HourQuality` mirror + fixture invariant, gradient stops, phrase reduction, prefills + template-prefill recovery, dismissals + delete-all re-seed) — final audit green: **191 unit + 19 UI tests, 0 failures**. Figma catch-up frames built + audited on both Screens pages ([FIGMA.md §7](../../design/FIGMA.md)).
+> **Still open, tracked elsewhere:** the ADR-0008 approval gate → §2/§5/§7 rendering + the push client's opt-in UI ([ROADMAP items 5–7](../ROADMAP.md)); the I3 provisional phrase strings await owner review (Figma card sheet `92:9`); the I2 header data source belongs to the rendering wave ([SPEC_14_FEASIBILITY](../../audit/AI_audit/SPEC_14_FEASIBILITY.md)).
+
 **Date:** 2026-08-09 (grill session, owner + agent — all decisions below are owner-confirmed)
 **Status:** locked spec, unbuilt. **In SHIP scope as the *minimal cut* (gate decision 2026-08-10):**
 §4 (±1h flexibility) and the full-wizard reading of §6 (screens 2–5 of the **5-screen wizard**) are **DEFERRED** to the post-ship design
