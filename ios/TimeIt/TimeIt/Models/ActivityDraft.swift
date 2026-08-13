@@ -23,10 +23,13 @@ struct ActivityDraft: Equatable {
         metrics = activity.displayMetrics
         thresholds = activity.thresholds.mapValues(ThresholdDraft.init(from:))
         windowEnabled = activity.window != nil
-        // Spec 14 §6 from-scratch prefill: 6–10am (the design's "Morning
-        // Ride" example) — a starting value, confirmed only by saving.
-        startHour = activity.window?.startHour ?? 6
-        endHour = activity.window?.endHour ?? 10
+        // Spec 14 §6 prefill: a live activity drafts at its own range; a
+        // dormant one at its template's owner-picked range (from-scratch
+        // 6–10am when no template matches) — a starting value, confirmed
+        // only by saving.
+        let prefill = activity.window ?? SeedTemplates.prefill(for: activity)
+        startHour = prefill.startHour
+        endHour = prefill.endHour
     }
 
     // MARK: metric selection (structural subset invariant — a threshold can

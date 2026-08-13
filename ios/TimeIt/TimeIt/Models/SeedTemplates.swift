@@ -97,4 +97,16 @@ enum SeedTemplates {
         copy.window = nil
         return copy
     }
+
+    /// The Range the editor preloads for a window-less activity (spec 14 §6):
+    /// the owner-picked template range when the activity descends from the
+    /// catalog — a showcase seed keeps the template's id, an add-from-template
+    /// copy records it in `templateOrigin` — else the from-scratch 6–10am.
+    /// Recovers the prefill a dormant seed stripped (`dormant(_:)` above);
+    /// without this lookup stargazing would draft diurnal.
+    static func prefill(for activity: AuthoredActivity) -> WindowSpec {
+        let templateId = activity.templateOrigin ?? activity.id
+        return all.first { $0.id == templateId }?.window
+            ?? WindowSpec(startHour: 6, endHour: 10)
+    }
 }

@@ -166,6 +166,32 @@ final class ActivityValidationTests: XCTestCase {
         XCTAssertFalse(draft.windowEnabled, "a blank draft is dormant until the range is confirmed")
     }
 
+    func testDormantShowcaseSeedDraftsAtItsTemplatePrefillRange() {
+        // Spec 14 §6 + GLOSSARY ("opens the existing editor with the Range
+        // prefill loaded"): a dormant showcase card drafts at its TEMPLATE's
+        // owner-picked range, not the from-scratch 6–10am — which is wrong for
+        // three of four templates and would even flip stargazing diurnal.
+        for (seed, template) in zip(SeedTemplates.firstLaunchSeeds, SeedTemplates.all) {
+            let draft = ActivityDraft(from: seed)
+            XCTAssertEqual(draft.startHour, template.window?.startHour,
+                           "\(seed.id) must prefill its template's startHour")
+            XCTAssertEqual(draft.endHour, template.window?.endHour,
+                           "\(seed.id) must prefill its template's endHour")
+            XCTAssertFalse(draft.windowEnabled,
+                           "the prefill is a starting value — the card stays dormant until the user saves")
+        }
+    }
+
+    func testDormantTemplateCopyDraftsAtItsOriginsPrefillRange() {
+        // An add-from-template copy carries a fresh UUID but records its
+        // origin — if it is dormant, the origin's prefill still applies.
+        var copy = SeedTemplates.stargazing.copyFromTemplate()
+        copy.window = nil
+        let draft = ActivityDraft(from: copy)
+        XCTAssertEqual(draft.startHour, 22)
+        XCTAssertEqual(draft.endHour, 4)
+    }
+
     func testWindowWithEqualHoursIsInvalid() {
         var activity = makeValid()
         activity.window = WindowSpec(startHour: 8, endHour: 8)

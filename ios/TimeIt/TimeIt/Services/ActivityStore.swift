@@ -1,9 +1,10 @@
 import Foundation
 
 /// The single source of truth for the user's authored Activity list (#5b §3).
-/// Ordered (store order = request order = card order), seeded with the two
-/// #5a Templates on first launch, persisted to UserDefaults on every mutation.
-/// Local persistence only — cloud sync is a future issue (scoping #3).
+/// Ordered (store order = request order = card order), seeded with the full
+/// four-template catalog landing DORMANT on first launch (spec 14 §6),
+/// persisted to UserDefaults on every mutation. Local persistence only —
+/// cloud sync is a future issue (scoping #3).
 @MainActor
 final class ActivityStore: ObservableObject {
     static let shared = ActivityStore()
@@ -70,9 +71,14 @@ final class ActivityStore: ObservableObject {
 
     /// Spec 14 §6: "✕ not for me" on a showcase card — records the dismissal
     /// (so it survives every future re-seed) BEFORE deleting, so dismissing
-    /// the last card re-seeds without it.
+    /// the last card re-seeds without it. The ledger write is guarded to seed
+    /// ids: a non-template id (a mis-wired ✕ on a live Activity) still
+    /// deletes, but must not pollute the dismissal ledger — a recorded
+    /// dismissal for it would never filter any re-seed.
     func dismissTemplate(id: String) {
-        preferences.dismissedTemplateIds.insert(id)
+        if seeds.contains(where: { $0.id == id }) {
+            preferences.dismissedTemplateIds.insert(id)
+        }
         delete(id: id)
     }
 

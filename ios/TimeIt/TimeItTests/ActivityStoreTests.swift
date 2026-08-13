@@ -149,6 +149,21 @@ final class ActivityStoreTests: XCTestCase {
                       "a relaunch must not re-seed — a persisted empty list is a user choice, not a first launch")
     }
 
+    func testDismissingANonTemplateIdDeletesButRecordsNoDismissal() {
+        // dismissTemplate is a showcase-card concept: recording an arbitrary
+        // id (e.g. a live user Activity, via a future mis-wired ✕) would
+        // pollute the dismissal ledger without ever filtering a re-seed.
+        let store = makeStore()
+        store.add(makeActivity(id: "padel-1", label: "Padel"))
+
+        store.dismissTemplate(id: "padel-1")
+
+        XCTAssertFalse(store.activities.contains { $0.id == "padel-1" },
+                       "the row is still deleted — only the ledger write is guarded")
+        XCTAssertFalse(preferences.dismissedTemplateIds.contains("padel-1"),
+                       "a non-template id must never enter the dismissal ledger")
+    }
+
     func testDeleteOnATrueEmptyStoreDoesNotReseed() {
         let store = makeStore()
         store.dismissTemplate(id: "cycling")
