@@ -1,11 +1,11 @@
 # Implementation spec — Issue #14: Dashboard rework — range-first showcase
 
-> ✅ **CONCLUDED 2026-08-13 — historical record; the minimal cut is fully built + audited.**
-> Logic layer commits `90bee7c` → `313ba38` (dormancy + POST exclusion, `HourQuality` mirror + fixture invariant, gradient stops, phrase reduction, prefills + template-prefill recovery, dismissals + delete-all re-seed) — final audit green: **191 unit + 19 UI tests, 0 failures**. Figma catch-up frames built + audited on both Screens pages ([FIGMA.md §7](../../design/FIGMA.md)).
-> **Still open, tracked elsewhere:** the ADR-0008 approval gate → §2/§5/§7 rendering + the push client's opt-in UI ([ROADMAP items 5–7](../ROADMAP.md)); the I3 provisional phrase strings await owner review (Figma card sheet `92:9`); the I2 header data source belongs to the rendering wave ([SPEC_14_FEASIBILITY](../../audit/AI_audit/SPEC_14_FEASIBILITY.md)).
+> 🔨 **LIVE WORK ORDER (status 2026-08-14): the rendering layer — §2 card · §5 phrases toggle · §7 detail page.**
+> The non-visual layer is **built + audited** — logic commits `90bee7c` → `313ba38` (dormancy + POST exclusion, `HourQuality` mirror + fixture invariant, gradient stops, phrase reduction, prefills + template-prefill recovery, dismissals + delete-all re-seed), 191 unit + 19 UI tests green. The Figma frames are built, audited, and **owner-approved 2026-08-14** ([FIGMA.md §7](../../design/FIGMA.md)) — the [ADR-0008](../../adr/0008-figma-first-ui-gate.md) gate is open; build the rendering against those frames.
+> **Rendering notes:** the frames' slice geometry is static/representative (recorded Figma compromise) — code computes real positions from `TierGradient`; the I2 all-dormant header state must be proposed + flagged ([SPEC_14_FEASIBILITY](../../audit/AI_audit/SPEC_14_FEASIBILITY.md)); the I3 provisional phrase strings await owner review (Figma card sheet `92:9`). This spec moves to `completed/` in the commit that merges the rendering ([ROADMAP](../ROADMAP.md) rules).
 
 **Date:** 2026-08-09 (grill session, owner + agent — all decisions below are owner-confirmed)
-**Status:** locked spec, unbuilt. **In SHIP scope as the *minimal cut* (gate decision 2026-08-10):**
+**Status:** locked spec — build state lives in the banner above. **In SHIP scope as the *minimal cut* (gate decision 2026-08-10):**
 §4 (±1h flexibility) and the full-wizard reading of §6 (screens 2–5 of the **5-screen wizard**) are **DEFERRED** to the post-ship design
 wave — §6's prefills land via the existing `AddActivityView` → `ActivityEditorView` flow (prefill
 loaded, confirmation = saving); **§9 amended 2026-08-11 ([ADR-0008](../../adr/0008-figma-first-ui-gate.md)):
