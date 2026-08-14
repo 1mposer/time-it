@@ -4,7 +4,7 @@
 
 **File:** "Main - Time it" · **fileKey:** `t3ZRvcYPnSRPKElSLAFqmG`
 
-**History:** design system v1 (foundations, component sheets, Light/Dark screen galleries incl. all 9 wizard frames) built 2026-07-18; #5c location frames built 2026-07-30, approved and shipped 2026-08-01; spec 14 catch-up frames built 2026-08-13, approval pending (§7); the "mess around" page is the owner's brainstorm scratchpad.
+**History:** design system v1 (foundations, component sheets, Light/Dark screen galleries incl. all 9 wizard frames) built 2026-07-18; #5c location frames built 2026-07-30, approved and shipped 2026-08-01; spec 14 catch-up frames built 2026-08-13, **owner-approved 2026-08-14** (§7); the "mess around" page is the owner's brainstorm scratchpad.
 
 ---
 
@@ -71,7 +71,7 @@ Four pinned idioms — **empty/error state**, **grouped list**, **sheet**, **car
 - Load the `figma-use` skill before any `use_figma` call; ≤10 ops per call; return node IDs.
 - The as-built page (`74:4`) and `Theme colors` stay untouched (frozen reference, §3).
 
-## 7. Spec 14 catch-up pass — frames built 2026-08-13, awaiting owner approval
+## 7. Spec 14 catch-up pass — frames built 2026-08-13, owner-approved 2026-08-14
 
 The pass ran 2026-08-13 (agent), mirrored on Light `92:17` + Dark `92:18`. Delivered: **card** — rating word dropped, flat highlight → per-hour **gradient slice** (stops bound to `rating/*` incl. the new `rating/bad`), best-stretch sublabel ("Today · 7–10am"), `Rating=None` repurposed as the **all-red day** (solid red slice, plain day name, visible "Nothing in your range" phrase, neutral chips), hidden-by-default Phrase slot on every variant, the I3 **provisional phrase strings** review block on the Activity Card sheet (`92:9`); **detail** — the §7 skeleton (window header + Edit range / setup-once thresholds / 7 aligned range-zoomed day rows / axis once / Today expanded with hourly chips); **Settings** — NOTIFICATIONS row + DASHBOARD "Show phrases" row (both off) + the phrases-locked state frame (Differentiate Without Color); **new frames** — Dashboard Empty—True ("Add activities +" CTA) and Dashboard Push Callout (push-client spec §1). Frame/node ids: §2. *(The ±1h flex toggle stays deferred with spec 14's cut — the Range step is untouched.)* Dormant cards, wizard structure, prefills: already designed — unchanged.
 
@@ -79,4 +79,4 @@ The pass ran 2026-08-13 (agent), mirrored on Light `92:17` + Dark `92:18`. Deliv
 
 **Audit fixes (2026-08-13, second pass):** the card set's Day sublabel turned out to be a *single shared text property* (`Day#103:4`) across all three variants — any per-variant default edit silently overwrote the other two, which is how the best-stretch default leaked onto the red-day variant; `Rating=None`'s Day now rides its own **`Day (red)` property** defaulting to plain "Today", while `Day` keeps "Today · 7–10am" for Perfect/Good (instances keep overriding either normally). The nocturnal detail's five varied bars were re-based from the cloned 4-hour stop layout to the true **6-hour TierGradient layout** (hour midpoints at n/12, pinned edges), so every bar now agrees with its time label and the 10pm/1am/4am axis; the hidden leftover time labels inside the red rows (diurnal Tomorrow + nocturnal Friday, both pages) were deleted.
 
-**The ADR-0008 gate is still closed:** rendering (and the push client's opt-in UI) lands only after the **owner approves** these frames ([ADR-0008](../adr/0008-figma-first-ui-gate.md)); status: [ROADMAP item 5](../issues/ROADMAP.md).
+**The ADR-0008 gate is open for this pass:** the owner approved these frames **2026-08-14** — spec 14 rendering and the push client's opt-in UI may now be mirrored to code against them ([ADR-0008](../adr/0008-figma-first-ui-gate.md) stays the standing rule for *future* frames); status: [ROADMAP items 5–7](../issues/ROADMAP.md).

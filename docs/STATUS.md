@@ -1,6 +1,6 @@
 # STATUS — now / next / blocked
 
-> **Last updated: 2026-08-13** — spec 14 minimal cut concluded (logic + frames built, final-audited); frame approval pending. Events of record: [ROADMAP](issues/ROADMAP.md). This file is deliberately one screen: a snapshot only.
+> **Last updated: 2026-08-14** — frames owner-approved; the ADR-0008 gate is open — spec 14 rendering is the next build. Events of record: [ROADMAP](issues/ROADMAP.md). This file is deliberately one screen: a snapshot only.
 
 **Read order:** [`CLAUDE.md`](../CLAUDE.md) → [`CONTEXT.md`](CONTEXT.md) → this file → [ROADMAP](issues/ROADMAP.md).
 
@@ -25,9 +25,9 @@ Completed specs (in [`issues/completed/`](issues/completed/)) are historical rec
 
 ## 2. Now / next / blocked
 
-- **NOW:** spec 14 minimal cut — **concluded 2026-08-13** (logic layer + audit follow-ups built, Figma frames built + audited; [ROADMAP](issues/ROADMAP.md) item 6 has the inventory; spec archived to [completed/](issues/completed/implementation-spec-14-dashboard-rework.md)) — the frames are **awaiting owner approval**.
-- **NEXT (ship order — ROADMAP has the full table):** owner ops (bundle-ID rename to `com.timeit.app.dev`) + frame approval → spec 14 rendering → iOS push opt-in client → live acceptance → **TestFlight**.
-- **BLOCKED:** spec 14 rendering + the push client's opt-in UI wait on the frame **approval** ([ADR-0008](adr/0008-figma-first-ui-gate.md)) — until then the all-dormant dashboard (incl. any dev install, whose seeded activities are now dormant) renders no cards by design, not by regression (feasibility I2); live acceptance additionally needs the push client; TestFlight waits on the owner-ops items ([ROADMAP](issues/ROADMAP.md) items 4 + 9).
+- **NOW:** spec 14 **rendering wave** — unblocked 2026-08-14 (owner approved the frames; [ADR-0008](adr/0008-figma-first-ui-gate.md) gate open). Mirrors the approved Figma frames to SwiftUI over the already-built logic layer ([ROADMAP](issues/ROADMAP.md) item 6; concluded spec: [completed/](issues/completed/implementation-spec-14-dashboard-rework.md)). Not yet started — needs a work order in `issues/current/`.
+- **NEXT (ship order — ROADMAP has the full table):** owner ops (bundle-ID rename to `com.timeit.app.dev`) → iOS push opt-in client → live acceptance → **TestFlight**.
+- **BLOCKED:** live acceptance needs the push client (item 7); TestFlight waits on the owner-ops items ([ROADMAP](issues/ROADMAP.md) items 4 + 9). Until the rendering wave lands, the all-dormant dashboard (incl. any dev install, whose seeded activities are now dormant) renders no cards by design, not by regression (feasibility I2).
 
 ## 3. Standing flags (not blockers)
 
