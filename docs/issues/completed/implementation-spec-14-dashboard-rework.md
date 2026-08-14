@@ -1,8 +1,7 @@
 # Implementation spec — Issue #14: Dashboard rework — range-first showcase
 
-> 🔨 **LIVE WORK ORDER (status 2026-08-14): the rendering layer — §2 card · §5 phrases toggle · §7 detail page.**
-> The non-visual layer is **built + audited** — logic commits `90bee7c` → `313ba38` (dormancy + POST exclusion, `HourQuality` mirror + fixture invariant, gradient stops, phrase reduction, prefills + template-prefill recovery, dismissals + delete-all re-seed), 191 unit + 19 UI tests green. The Figma frames are built, audited, and **owner-approved 2026-08-14** ([FIGMA.md §7](../../design/FIGMA.md)) — the [ADR-0008](../../adr/0008-figma-first-ui-gate.md) gate is open; build the rendering against those frames.
-> **Rendering notes:** the frames' slice geometry is static/representative (recorded Figma compromise) — code computes real positions from `TierGradient`; the I2 all-dormant header state must be proposed + flagged ([SPEC_14_FEASIBILITY](../../audit/AI_audit/SPEC_14_FEASIBILITY.md)); the I3 provisional phrase strings await owner review (Figma card sheet `92:9`). This spec moves to `completed/` in the commit that merges the rendering ([ROADMAP](../ROADMAP.md) rules).
+> ✅ **BUILT — historical record; do not build from this.** Logic layer merged 2026-08-12/13 (commits `90bee7c` → `313ba38`, audited); the rendering layer (§2 card · §5 phrases toggle · §7 detail page, plus the §1 editor retrofit — window toggle deleted) mirrored from the owner-approved frames (2026-08-14, [FIGMA.md §7](../../design/FIGMA.md)) and merged 2026-08-14 — this move to `completed/` rides that commit. As-built truth: the iOS views (`ios/TimeIt/TimeIt/Views/`); per-item status: [ROADMAP item 6](../ROADMAP.md).
+> **Open owner reviews (flagged, not decided):** **I2** — the all-dormant header hides its weather rows (implementation proposal; the approved Empty—Showcase frame statically shows values the code cannot fetch without violating §1's no-network-call rule) · **I3** — the provisional phrase strings (`TrajectoryPhrase.swift`, identical to the Figma card-sheet `92:9` review block). §4 ±1h flex and the 5-screen wizard stay **DEFERRED** ([ROADMAP §Deferred](../ROADMAP.md)).
 
 **Date:** 2026-08-09 (grill session, owner + agent — all decisions below are owner-confirmed)
 **Status:** locked spec — build state lives in the banner above. **In SHIP scope as the *minimal cut* (gate decision 2026-08-10):**
@@ -230,19 +229,20 @@ projections, tests) is not gated.
 
 ## Acceptance criteria
 
-1. No Activity can be created or edited into existence without confirming a range; dormant
+- [x] 1. No Activity can be created or edited into existence without confirming a range; dormant
    Activities render the "Set your range →" card and never appear in any request body.
-2. Every live card shows the day-axis bar with a truthful per-hour gradient slice, no
+- [x] 2. Every live card shows the day-axis bar with a truthful per-hour gradient slice, no
    rating word (default), and the "Today/Tonight · <time>" sublabel matching push copy.
-3. An all-bad day is a solid red slice — visibly bad, never absent.
-4. A flexible Activity demonstrably sends the widened window, and a diurnal range touching
-   0/23 clamps without flipping nocturnal.
-5. The detail page is: range once, setup once, aligned range-zoomed week, hourly numbers
+- [x] 3. An all-bad day is a solid red slice — visibly bad, never absent.
+- [ ] 4. A flexible Activity demonstrably sends the widened window, and a diurnal range touching
+   0/23 clamps without flipping nocturnal. *(Not built — §4 ±1h flexibility is DEFERRED by the
+   2026-08-10 minimal cut; this criterion defers with it.)*
+- [x] 5. The detail page is: range once, setup once, aligned range-zoomed week, hourly numbers
    only behind a tap.
-6. The phrases toggle works, and phrases force on under Differentiate Without Color.
-7. Nocturnal Activities pass every one of the above with zero special-case code beyond the
+- [x] 6. The phrases toggle works, and phrases force on under Differentiate Without Color.
+- [x] 7. Nocturnal Activities pass every one of the above with zero special-case code beyond the
    existing night-stitch conventions.
-8. Server, wire contract, and push backends: zero diffs.
+- [x] 8. Server, wire contract, and push backends: zero diffs.
 
 ## Related artifacts
 

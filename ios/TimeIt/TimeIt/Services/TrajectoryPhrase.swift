@@ -37,4 +37,14 @@ enum TrajectoryPhrase {
     static func phrasesEnabled(preference: Bool, differentiateWithoutColor: Bool) -> Bool {
         preference || differentiateWithoutColor
     }
+
+    /// The card's phrase slot. An UNRATED day (server `rating: null` — the
+    /// all-red state) always reads "Nothing in your range" (§2; the approved
+    /// Loaded frame shows it with phrases off, and the server's day rating is
+    /// truth over the mirror's tiers). A rated day's trajectory phrase is
+    /// gated by the §5 toggle; nil hides the slot.
+    static func cardPhrase(dayRated: Bool, tiers: [HourTier], phrasesEnabled: Bool) -> String? {
+        guard dayRated else { return "Nothing in your range" }
+        return phrasesEnabled ? phrase(for: tiers) : nil
+    }
 }

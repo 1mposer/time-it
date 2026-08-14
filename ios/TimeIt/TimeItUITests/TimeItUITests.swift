@@ -13,6 +13,8 @@ import XCTest
 /// - `UITEST_SEED_LIVE`: pre-persists the two templates as LIVE (ranges
 ///   confirmed). Spec 14 §1 made the real first launch dormant — no request,
 ///   no rated cards — so every card/flow test scaffolds on this instead.
+/// - `UITEST_SEED_NOCTURNAL`: pre-persists stargazing LIVE (wrapped 10pm–4am
+///   range) — the §8 nocturnal parity path (6 night buckets, "Tonight" copy).
 /// - `UITEST_LOCATION`: the mock location provider returns a fixed fix (#5c —
 ///   without it the provider never resolves and the app shows the no-location
 ///   empty state, since the Dubai fallback is deleted).
@@ -83,17 +85,27 @@ final class TimeItUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts["PRO"].exists, "no PRO badge anywhere")
     }
 
-    func testCardShowsDayLabelTimelineAndChips() {
+    func testCardShowsSublabelTimelineChipsAndNoRatingWord() {
         let app = launchApp()
 
         XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5))
-        // Mock: Cycling is windowed today; Fishing Lite's only window is
-        // tomorrow, which the card must NOT roll forward to (ADR-0004
-        // amendment 2026-07-20) — it renders the none-state instead.
+        // Mock: Cycling is Perfect today across its 6–10am range — the spec 14
+        // §2 sublabel carries the best stretch in the push-copy dialect.
+        XCTAssertTrue(app.staticTexts["Today · 6–10am"].exists)
+        // Fishing Lite has nothing today (all-red range): plain "Today", the
+        // always-visible all-bad phrase — and its tomorrow window must NOT
+        // roll forward onto the card (ADR-0004 amendment 2026-07-20).
         XCTAssertTrue(app.staticTexts["Today"].exists)
-        XCTAssertTrue(app.staticTexts["No window today"].exists)
+        XCTAssertTrue(app.staticTexts["Nothing in your range"].exists)
         XCTAssertFalse(app.staticTexts["Tomorrow"].exists,
                        "the dashboard never shows a later day — the week lives in the detail")
+        // The user's range as a chip, and no rating word anywhere (decision C
+        // — color carries quality; words are opt-in via §5).
+        let rangeChip = app.staticTexts["rangeChip.cycling"]
+        XCTAssertTrue(rangeChip.exists)
+        XCTAssertEqual(rangeChip.label, "Range 6 – 10am")
+        XCTAssertFalse(app.staticTexts["Perfect"].exists)
+        XCTAssertFalse(app.staticTexts["Good"].exists)
         XCTAssertTrue(app.otherElements["timeline.cycling"].exists)
         XCTAssertTrue(app.staticTexts["chip.cycling.temp"].exists, "at least one metric chip on the card")
     }
@@ -127,20 +139,79 @@ final class TimeItUITests: XCTestCase {
         XCTAssertTrue(app.buttons["settingsGear"].waitForExistence(timeout: 5))
     }
 
-    // MARK: first launch is dormant (spec 14 §1/§6)
+    // MARK: first launch is dormant — the showcase (spec 14 §1/§6)
 
-    func testFirstLaunchIsDormantWithNoRatedCards() {
-        // The REAL first launch (no UITEST_SEED_LIVE): seeds land dormant, no
-        // request is made, no rated cards render. The showcase-card rendering
-        // of this state lands with the Figma catch-up pass (ADR-0008); until
-        // then this pins the logic-layer truth only.
+    func testFirstLaunchShowsTheDormantShowcase() {
+        // The REAL first launch (no UITEST_SEED_LIVE): the full four-template
+        // catalog renders as "Set your range →" showcase cards (Figma
+        // Empty—Showcase 111:32), no request is made, no rated cards.
         let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_LOCATION"])
 
         XCTAssertTrue(app.staticTexts["headerTime"].waitForExistence(timeout: 5), "the header still renders")
+        XCTAssertTrue(app.otherElements["showcase.cycling"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.otherElements["showcase.stargazing"].exists, "all four templates show (owner ruling 2026-08-13)")
+        XCTAssertTrue(app.buttons["showcase.setRange.cycling"].exists, "the Range door is the CTA")
         XCTAssertEqual(cardCount(in: app), 0, "dormant activities never rate — no cards without a confirmed range")
-        XCTAssertFalse(app.staticTexts["emptyStateMessage"].exists,
+        XCTAssertFalse(app.staticTexts["trueEmptyMessage"].exists,
                        "dormant is NOT the no-activities empty state — the store is seeded")
         XCTAssertFalse(app.staticTexts["Weather Unavailable"].exists, "and it is not an error — no request was made")
+        // I2 (all-dormant header state, PROPOSED — owner review pending): no
+        // fetch happened, so the weather rows hide rather than dangle "—".
+        XCTAssertFalse(app.staticTexts["headerTemp"].exists,
+                       "no fabricated or placeholder weather while nothing is live")
+    }
+
+    func testShowcaseSetYourRangeConfirmsThePrefillAndRatesTheCard() {
+        // §1: the Range step (the editor, until the wizard lands) is the only
+        // door out of dormancy — confirming the prefilled range triggers the
+        // first POST and the rated card replaces the showcase card.
+        let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_LOCATION"])
+
+        let cta = app.buttons["showcase.setRange.cycling"]
+        XCTAssertTrue(cta.waitForExistence(timeout: 5))
+        cta.tap()
+
+        let save = app.buttons["editor.save"]
+        XCTAssertTrue(save.waitForExistence(timeout: 5), "the editor opens with the template prefill loaded")
+        XCTAssertTrue(save.isEnabled, "a template prefill is valid as-is — saving is the confirmation")
+        save.tap()
+
+        XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5),
+                      "the first confirmed range makes the first request and rates the card")
+        XCTAssertTrue(app.otherElements["showcase.fishing-lite"].exists,
+                      "the other templates stay dormant showcase cards — visible, never POSTed")
+    }
+
+    func testDismissingAShowcaseCardRemovesIt() {
+        let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_LOCATION"])
+
+        let dismiss = app.buttons["showcase.dismiss.cycling"]
+        XCTAssertTrue(dismiss.waitForExistence(timeout: 5))
+        dismiss.tap()
+
+        XCTAssertTrue(app.otherElements["showcase.cycling"].waitForNonExistence(timeout: 5))
+        XCTAssertTrue(app.otherElements["showcase.fishing-lite"].exists, "only the dismissed template goes")
+        XCTAssertEqual(cardCount(in: app), 0)
+    }
+
+    func testDismissingEveryTemplateShowsTheTrueEmptyAddCTA() {
+        // §6 standing invariant: the dashboard always offers a next action.
+        // With every template dismissed the showcase cannot re-seed — the
+        // true-empty state's Add CTA is the way forward (Figma 266:1651).
+        let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_LOCATION"])
+
+        for id in ["cycling", "fishing-lite", "running", "stargazing"] {
+            let dismiss = app.buttons["showcase.dismiss.\(id)"]
+            XCTAssertTrue(dismiss.waitForExistence(timeout: 5), "showcase card \(id) offers its ✕")
+            dismiss.tap()
+        }
+
+        XCTAssertTrue(app.staticTexts["No activities"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["trueEmptyMessage"].exists)
+        let add = app.buttons["addActivitiesButton"]
+        XCTAssertTrue(add.exists, "the Add CTA is the standing next action — never a dead end")
+        add.tap()
+        XCTAssertTrue(app.buttons["addFromScratch"].waitForExistence(timeout: 5), "the CTA opens the Add flow")
     }
 
     // MARK: error state (#5a)
@@ -220,19 +291,17 @@ final class TimeItUITests: XCTestCase {
         minField.typeText("15")
         XCTAssertTrue(save.isEnabled, "one bound satisfies the numeric threshold rule")
 
-        // Spec 14: saving without a range lands DORMANT (stored, never rated,
-        // no card). Confirm the prefilled 6–10am range so the card renders.
-        // The identifier sits on the whole Toggle row — tapping its center
-        // hits the label, not the switch — so tap the nested switch control.
-        let windowToggle = app.switches["editor.windowToggle"]
-        scrollTo(windowToggle, in: app)
-        let control = windowToggle.switches.firstMatch
-        (control.exists ? control : windowToggle).tap()
-        XCTAssertEqual(windowToggle.value as? String, "1", "the range toggle must be ON before saving")
+        // Spec 14 §1: the "Only at certain hours" toggle is DELETED — the
+        // Range section always shows its pickers (prefilled 6–10am from
+        // scratch) and saving confirms the range. No whole-day path exists.
+        XCTAssertFalse(app.switches["editor.windowToggle"].exists,
+                       "the window toggle is gone — ranges are mandatory")
+        scrollTo(app.buttons["editor.startHour"], in: app)
+        XCTAssertTrue(app.buttons["editor.startHour"].exists, "the Range pickers are always present")
 
         save.tap()
         XCTAssertTrue(app.staticTexts["Padel"].waitForExistence(timeout: 5),
-                      "the scratch-built card renders once its range is confirmed")
+                      "the scratch-built card renders with its confirmed range")
     }
 
     // MARK: edit + delete via the card gear (#5b)
@@ -279,13 +348,14 @@ final class TimeItUITests: XCTestCase {
         app.buttons["editor.confirmDelete"].firstMatch.tap()
 
         // Spec 14 §6 ruling: deleting the last Activity re-seeds the showcase
-        // DORMANT — no rated cards, no request, and NOT the no-activities
-        // empty state (the store is not empty). The showcase-card rendering of
-        // this state lands with the Figma catch-up pass (ADR-0008).
+        // DORMANT — the four "Set your range →" cards render (no rated cards,
+        // no request), NOT the no-activities empty state.
         XCTAssertTrue(app.buttons["card.fishing-lite"].waitForNonExistence(timeout: 5),
                       "no rated cards — the re-seeded showcase is dormant")
+        XCTAssertTrue(app.otherElements["showcase.cycling"].waitForExistence(timeout: 5),
+                      "the non-dismissed templates come back as showcase cards")
         XCTAssertEqual(cardCount(in: app), 0)
-        XCTAssertFalse(app.staticTexts["emptyStateMessage"].exists,
+        XCTAssertFalse(app.staticTexts["trueEmptyMessage"].exists,
                        "the re-seeded showcase is not the empty state — deleting everything is not a dead end")
     }
 
@@ -351,9 +421,11 @@ final class TimeItUITests: XCTestCase {
     // MARK: no-location onboarding (#5c)
 
     func testNoLocationShowsSkeletonsAndCTAsWithNoWeather() {
-        // No UITEST_LOCATION: the provider never resolves — fresh install with
-        // nothing in the chain.
-        let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET"])
+        // No UITEST_LOCATION: the provider never resolves — nothing in the
+        // chain. Seeded LIVE because spec 14 made the all-dormant showcase the
+        // first-launch screen: no-location surfaces once a confirmed range
+        // makes a fetch worth attempting (feasibility I2 note).
+        let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_SEED_LIVE"])
 
         XCTAssertTrue(app.buttons["enableLocationButton"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["placeLocationButton"].exists)
@@ -365,12 +437,13 @@ final class TimeItUITests: XCTestCase {
                        "the header's weather rows are gone entirely — not just showing placeholders")
     }
 
-    func testFreshInstallWithLocationDeniedShowsTheSameEmptyState() {
-        // Acceptance §3.1 verbatim: "Fresh install, location denied". The
-        // provider reports .denied with no fix — the CTA would deep-link to
-        // system Settings (not provable hermetically), but the honest empty
-        // state must render identically.
-        let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_LOCATION_DENIED"])
+    func testLiveActivitiesWithLocationDeniedShowTheSameEmptyState() {
+        // The #5c acceptance path re-based on spec 14: a TRUE fresh install
+        // now shows the dormant showcase (location not yet needed), so the
+        // denied case is pinned with live activities. The provider reports
+        // .denied with no fix — the CTA would deep-link to system Settings
+        // (not provable hermetically), but the honest empty state must render.
+        let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_SEED_LIVE", "UITEST_LOCATION_DENIED"])
 
         XCTAssertTrue(app.buttons["enableLocationButton"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["placeLocationButton"].exists)
@@ -390,6 +463,92 @@ final class TimeItUITests: XCTestCase {
         XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5),
                       "picking a city rates immediately — the home-change sink refetches")
         XCTAssertTrue(app.staticTexts["DUBAI MARINA"].exists, "the picked city names the header")
+    }
+
+    // MARK: phrases toggle (spec 14 §5)
+
+    func testPhrasesToggleDefaultOffAndShowsPhraseWhenEnabled() {
+        let app = launchApp()
+
+        XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts["Perfect throughout"].exists,
+                       "default OFF — a rated card shows no words (§2); color carries quality")
+
+        app.buttons["settingsGear"].tap()
+        let toggle = app.switches["settings.showPhrases"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 5), "the DASHBOARD row exists")
+        XCTAssertEqual(toggle.value as? String, "0", "the phrases row defaults off")
+        // The identifier sits on the whole Toggle row — tap the nested switch.
+        let control = toggle.switches.firstMatch
+        (control.exists ? control : toggle).tap()
+        XCTAssertEqual(toggle.value as? String, "1")
+        app.buttons["Done"].tap()
+
+        // Cycling's 6–10am range is all-green in the mock → (green, green)
+        // with no interior escape reduces to "Perfect throughout".
+        XCTAssertTrue(app.staticTexts["Perfect throughout"].waitForExistence(timeout: 5),
+                      "with the toggle on, the card shows its trajectory phrase")
+    }
+
+    // MARK: detail page (spec 14 §7)
+
+    func testDetailShowsRangeOnceSetupOnceAlignedWeekAndTapToExpand() {
+        let app = launchApp()
+
+        let card = app.buttons["card.cycling"]
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        card.tap()
+        XCTAssertTrue(app.navigationBars["Cycling"].waitForExistence(timeout: 5))
+
+        // §7.1 — the Range stated once, with its edit door.
+        XCTAssertTrue(app.staticTexts["Your window: 6 – 10am daily"].exists)
+        XCTAssertTrue(app.buttons["detail.editRange"].exists)
+        // §7.2 — the setup stated once (never repeated per hour).
+        XCTAssertTrue(app.staticTexts["Temp 15 – 32°C required · Wind ≤ 25 km/h optional · Rain ≤ 0.2 mm required · UV ≤ 8 optional"].exists)
+        XCTAssertTrue(app.buttons["detail.editMetrics"].exists)
+        // §7.3 — 7 aligned day rows (diurnal), best-stretch time on rated days.
+        XCTAssertTrue(app.staticTexts["Today"].exists)
+        XCTAssertTrue(app.staticTexts["6–10am"].exists, "Today's best stretch")
+
+        // §7.4 — hourly numbers only behind a tap, collapsed by default
+        // (expanded while Today is still on screen, before scrolling).
+        XCTAssertFalse(app.otherElements["detail.hours.0"].exists, "collapsed by default")
+        app.buttons["detail.day.0"].tap()
+        XCTAssertTrue(app.otherElements["detail.hours.0"].waitForExistence(timeout: 5),
+                      "the tapped day reveals its range hours")
+
+        // §7.3 — the week runs to Thursday (7 rows) and shares the
+        // range-zoomed axis once under the stack. Rows beyond the first are
+        // read via their VoiceOver labels (XCUI flattens button inner texts).
+        let dayRows = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'detail.day.'"))
+        XCTAssertEqual(dayRows.count, 7, "7 aligned day rows for a diurnal activity")
+        XCTAssertTrue(app.buttons["detail.day.6"].label.hasPrefix("Thursday"),
+                      "the week runs Today through Thursday")
+        XCTAssertTrue(app.staticTexts["8am"].exists, "the shared range axis midpoint")
+    }
+
+    func testNocturnalDetailShowsSixNightRowsAndNightlyHeader() {
+        // §8 nocturnal parity: same skeleton, night-phrased — 6 night buckets
+        // (per-activity days.length), evening-keyed rows, range-zoomed
+        // 10pm/1am/4am axis (Figma 275:1535).
+        let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_SEED_NOCTURNAL", "UITEST_LOCATION"])
+
+        let card = app.buttons["card.stargazing"]
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Tonight · 10pm–2am"].exists, "the nocturnal sublabel says Tonight")
+        card.tap()
+        XCTAssertTrue(app.navigationBars["Stargazing"].waitForExistence(timeout: 5))
+
+        XCTAssertTrue(app.staticTexts["Your window: 10pm – 4am nightly"].exists)
+        // Day rows read via their VoiceOver labels — XCUI flattens a SwiftUI
+        // button's inner texts, so the label (day name + rating + times, the
+        // §2 spoken-summary dialect) is the deterministic surface.
+        let dayRows = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'detail.day.'"))
+        XCTAssertEqual(dayRows.count, 6, "a nocturnal activity has 6 night buckets, never an assumed 7")
+        XCTAssertTrue(app.buttons["detail.day.0"].label.hasPrefix("Tonight"),
+                      "night rows are evening-keyed — bucket 0 is Tonight")
+        XCTAssertTrue(app.buttons["detail.day.1"].label.hasPrefix("Tomorrow night"))
+        XCTAssertTrue(app.staticTexts["1am"].exists, "the range-zoomed axis midpoint crosses midnight")
     }
 
     func testCachedLastResolvedFeedsARelaunchWithNothingElse() {

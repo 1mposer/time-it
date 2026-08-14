@@ -1,11 +1,14 @@
 import SwiftUI
 
 /// Settings sheet (grill Q9: ship only live controls). Home location (#5b §5,
-/// upgraded to the #5c as-you-type city picker) + About + a location note —
-/// no subscription/Pro row (deferred §8), no notifications (#6c), no account
-/// (cut, ADR-0001).
+/// upgraded to the #5c as-you-type city picker) + the spec 14 §5 dashboard
+/// phrases toggle + About + a location note — no subscription/Pro row
+/// (deferred §8), no account (cut, ADR-0001). The NOTIFICATIONS row on the
+/// approved Settings frame ships with the push opt-in client (ROADMAP item 7),
+/// not this wave.
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
     @ObservedObject private var preferences: PreferencesStore
     private let geocoder: GeocodingProviding?
 
@@ -21,6 +24,7 @@ struct SettingsView: View {
         NavigationStack {
             List {
                 homeLocationSection
+                dashboardSection
                 Section("About") {
                     HStack {
                         Text("Version")
@@ -51,6 +55,38 @@ struct SettingsView: View {
             }
             .sheet(isPresented: $showCityPicker) {
                 CityPickerView(preferences: preferences, geocoder: geocoder)
+            }
+        }
+    }
+
+    // MARK: dashboard — the spec 14 §5 phrases toggle
+
+    /// Default OFF: the card carries quality in color alone. When the
+    /// system's Differentiate Without Color is on, phrases force-enable and
+    /// the row reads on + locked (§5 accessibility force — color is never
+    /// the only carrier).
+    private var dashboardSection: some View {
+        Section {
+            Toggle(isOn: differentiateWithoutColor ? .constant(true) : $preferences.showPhrases) {
+                HStack(spacing: 6) {
+                    Text("Show phrases")
+                    if differentiateWithoutColor {
+                        Image(systemName: "lock.fill")
+                            .font(.system(size: 13))
+                            .foregroundStyle(.secondary)
+                            .accessibilityLabel("Locked on")
+                    }
+                }
+            }
+            .disabled(differentiateWithoutColor)
+            .accessibilityIdentifier("settings.showPhrases")
+        } header: {
+            Text("Dashboard")
+        } footer: {
+            if differentiateWithoutColor {
+                Text("On — required while Differentiate Without Color is active.")
+            } else {
+                Text("Adds a one-line summary under each card — \u{201C}Good, turning perfect.\u{201D} Turns on automatically when Differentiate Without Color is enabled.")
             }
         }
     }

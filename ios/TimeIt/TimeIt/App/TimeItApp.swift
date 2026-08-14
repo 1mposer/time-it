@@ -23,6 +23,12 @@ struct TimeItApp: App {
            let data = try? JSONEncoder().encode([SeedTemplates.cycling, SeedTemplates.fishingLite]) {
             UserDefaults.standard.set(data, forKey: ActivityStore.storageKey)
         }
+        // The nocturnal acceptance path (§8 parity): stargazing LIVE with its
+        // wrapped 10pm–4am range — 6 night buckets, "Tonight" copy.
+        if ProcessInfo.processInfo.arguments.contains("UITEST_SEED_NOCTURNAL"),
+           let data = try? JSONEncoder().encode([SeedTemplates.stargazing]) {
+            UserDefaults.standard.set(data, forKey: ActivityStore.storageKey)
+        }
         #endif
     }
 

@@ -163,7 +163,17 @@ final class ActivityValidationTests: XCTestCase {
         let draft = ActivityDraft(from: .blank())
         XCTAssertEqual(draft.startHour, 6)
         XCTAssertEqual(draft.endHour, 10)
-        XCTAssertFalse(draft.windowEnabled, "a blank draft is dormant until the range is confirmed")
+    }
+
+    func testDraftAlwaysBuildsARangedActivity() {
+        // Spec 14 §1: whole-day activities no longer exist and the editor's
+        // window toggle is deleted — a saved draft ALWAYS carries its range
+        // (the editor is the door out of dormancy; a prefill is confirmed by
+        // saving, and the store's copy stays dormant until then).
+        let built = ActivityDraft(from: SeedTemplates.firstLaunchSeeds[0])
+            .result(against: StaticMetricCatalog()).activity
+        XCTAssertEqual(built?.window, WindowSpec(startHour: 6, endHour: 10),
+                       "saving confirms the prefilled range — never a window-less body")
     }
 
     func testDormantShowcaseSeedDraftsAtItsTemplatePrefillRange() {
@@ -177,8 +187,6 @@ final class ActivityValidationTests: XCTestCase {
                            "\(seed.id) must prefill its template's startHour")
             XCTAssertEqual(draft.endHour, template.window?.endHour,
                            "\(seed.id) must prefill its template's endHour")
-            XCTAssertFalse(draft.windowEnabled,
-                           "the prefill is a starting value — the card stays dormant until the user saves")
         }
     }
 

@@ -48,7 +48,7 @@ struct ActivityEditorView: View {
             if !selectedThresholdables.isEmpty {
                 thresholdsSection
             }
-            windowSection
+            rangeSection
             issuesSection(buildResult.issues)
             if !isNew, onDelete != nil {
                 deleteSection
@@ -206,38 +206,35 @@ struct ActivityEditorView: View {
                            set: { draft.thresholds[key]?.required = $0 }))
     }
 
-    // MARK: time window
+    // MARK: range (spec 14 §1 — mandatory; the "Only at certain hours"
+    // toggle is deleted, so every save confirms a range and ends dormancy)
 
-    private var windowSection: some View {
+    private var rangeSection: some View {
         Section {
-            Toggle("Only at certain hours", isOn: $draft.windowEnabled)
-                .accessibilityIdentifier("editor.windowToggle")
-            if draft.windowEnabled {
-                Picker("From", selection: $draft.startHour) {
-                    ForEach(0..<24, id: \.self) { hour in
-                        Text(Self.hourText(hour)).tag(hour)
-                    }
+            Picker("From", selection: $draft.startHour) {
+                ForEach(0..<24, id: \.self) { hour in
+                    Text(Self.hourText(hour)).tag(hour)
                 }
-                .accessibilityIdentifier("editor.startHour")
-                Picker("Until", selection: $draft.endHour) {
-                    ForEach(0..<24, id: \.self) { hour in
-                        Text(Self.hourText(hour)).tag(hour)
-                    }
-                }
-                .accessibilityIdentifier("editor.endHour")
-                windowHint
             }
+            .accessibilityIdentifier("editor.startHour")
+            Picker("Until", selection: $draft.endHour) {
+                ForEach(0..<24, id: \.self) { hour in
+                    Text(Self.hourText(hour)).tag(hour)
+                }
+            }
+            .accessibilityIdentifier("editor.endHour")
+            windowHint
         } header: {
-            Text("Time window")
+            Text("Range")
         } footer: {
-            Text("Hours are in the forecast location's local time. End before start wraps midnight — the activity is rated per night.")
+            Text("The hours Time It watches for you, in the forecast location's local time. End before start wraps midnight — the activity is rated per night.")
         }
     }
 
     @ViewBuilder
     private var windowHint: some View {
         if draft.startHour == draft.endHour {
-            Text("Start and end can't match — turn the window off for whole-day")
+            Text("Start and end can't match")
                 .font(.system(size: 13))
                 .foregroundStyle(.red)
         } else if draft.startHour > draft.endHour {
@@ -285,13 +282,8 @@ struct ActivityEditorView: View {
         }
     }
 
-    /// "12am", "1am" … "11pm" — matches the timeline axis label style.
+    /// "12am", "1am" … "11pm" — the shared clock dialect (RangeText).
     static func hourText(_ hour: Int) -> String {
-        switch hour {
-        case 0: return "12am"
-        case 1...11: return "\(hour)am"
-        case 12: return "12pm"
-        default: return "\(hour - 12)pm"
-        }
+        RangeText.hourText(hour)
     }
 }

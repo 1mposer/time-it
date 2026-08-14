@@ -6,10 +6,15 @@ import UIKit
 /// #5b: cards are the user's authored list (ActivityStore); a ghost add-card
 /// opens the add flow; each card's gear opens the editor. #5c: with no
 /// resolvable location, grayed skeleton cards + the two location CTAs — never
-/// fabricated weather.
+/// fabricated weather. Spec 14: dormant Activities render as showcase cards
+/// (an all-dormant dashboard makes no network call — the first-launch state);
+/// an all-dismissed empty store renders the true-empty Add CTA. The dashboard
+/// always offers a next action — never a dead end (§6).
 struct DashboardView: View {
     @StateObject private var viewModel: DashboardViewModel
     @ObservedObject private var store: ActivityStore
+    @ObservedObject private var preferences: PreferencesStore
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
     @State private var showSettings = false
     @State private var showAdd = false
     @State private var showCityPicker = false
@@ -21,14 +26,23 @@ struct DashboardView: View {
         // Always the view model's store — mutations must hit the same list the
         // POST body is built from (two separately-defaulted stores diverge).
         _store = ObservedObject(wrappedValue: viewModel.store)
+        // Same rule for preferences: the phrases toggle must re-render the
+        // SAME store the Settings sheet writes to.
+        _preferences = ObservedObject(wrappedValue: viewModel.preferences)
     }
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
+                // I2 (all-dormant header state) — PROPOSED, FLAGGED FOR OWNER
+                // REVIEW: with nothing live there is no fetch (spec 14 §1), so
+                // the weather rows HIDE (like the no-location state) instead of
+                // dangling "—" placeholders that imply data is coming. The
+                // approved Empty—Showcase frame shows values here — a static-
+                // frame compromise code can't honor without a network call.
                 HeaderView(locationName: viewModel.activeLocationName,
                            currentHour: viewModel.forecast?.hours.first,
-                           showsWeather: !viewModel.hasNoLocation) { showSettings = true }
+                           showsWeather: !viewModel.hasNoLocation && viewModel.hasLiveActivities) { showSettings = true }
                 Theme.divider
                     .frame(height: 0.5)
                 content
@@ -61,7 +75,13 @@ struct DashboardView: View {
     @ViewBuilder
     private var content: some View {
         if !viewModel.hasActivities {
-            emptyState
+            trueEmptyState
+        } else if !viewModel.hasLiveActivities {
+            // All-dormant (first launch, or delete-all re-seed): the showcase.
+            // No network call was made, so this outranks every fetch-driven
+            // state — including no-location, which becomes relevant only once
+            // a confirmed range makes a fetch worth attempting.
+            showcaseList
         } else if viewModel.hasNoLocation {
             noLocationState
         } else if viewModel.isLoading {
@@ -77,27 +97,69 @@ struct DashboardView: View {
         }
     }
 
-    /// No activities → no POST (ADR-0005 requires a non-empty activities[]);
-    /// the add-card stays as the way back in.
-    private var emptyState: some View {
+    /// Spec 14 §6 true-empty state (Figma 266:1651): every template dismissed
+    /// AND the last Activity deleted — the store is genuinely empty, so the
+    /// showcase cannot re-seed. The Add CTA is the standing next action.
+    private var trueEmptyState: some View {
         ScrollView {
-            VStack(spacing: 12) {
+            VStack(spacing: 0) {
                 Image(systemName: "plus.circle")
                     .font(.system(size: 40))
                     .foregroundStyle(Theme.secondaryText)
-                    .padding(.top, 48)
-                Text("No activities yet")
+                    .padding(.top, 96)
+                Text("No activities")
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(Theme.primaryText)
-                Text("Add an activity to get started")
+                    .padding(.top, 16)
+                Text("You've dismissed every starter template. Add your own and Time It will rate the week ahead.")
                     .font(.system(size: 14))
                     .foregroundStyle(Theme.secondaryText)
-                    .accessibilityIdentifier("emptyStateMessage")
-                addCard
-                    .padding(.top, 12)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 280)
+                    .padding(.top, 6)
+                    .accessibilityIdentifier("trueEmptyMessage")
+                Button {
+                    showAdd = true
+                } label: {
+                    Text("Add activities +")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 9)
+                        .background(Capsule().fill(Theme.accentInteractive))
+                        .frame(minHeight: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 12)
+                .accessibilityIdentifier("addActivitiesButton")
             }
             .padding(14)
+            .frame(maxWidth: .infinity)
         }
+    }
+
+    /// The all-dormant showcase (Figma Empty—Showcase 111:32): every stored
+    /// Activity as a "Set your range →" card, ghost add-card after.
+    private var showcaseList: some View {
+        ScrollView {
+            LazyVStack(spacing: 10) {
+                ForEach(store.activities) { authored in
+                    showcaseCard(for: authored)
+                }
+                addCard
+                Spacer()
+                    .frame(height: 12)
+            }
+            .padding(.top, 14)
+            .padding(.horizontal, 14)
+        }
+    }
+
+    private func showcaseCard(for authored: AuthoredActivity) -> some View {
+        ShowcaseCardView(activity: authored,
+                         onSetRange: { editing = authored },
+                         onDismiss: { store.dismissTemplate(id: authored.id) })
     }
 
     /// #5c no-location empty state: grayed skeleton cards (unrendered data —
@@ -256,22 +318,29 @@ struct DashboardView: View {
         }
     }
 
+    /// The card list iterates the STORE (spec 14 §1: dormant Activities are
+    /// stored and visible), in store order = request order: a live Activity
+    /// renders its rated card from the echoed response entry; a dormant one
+    /// renders its showcase card inline.
     private func cardList(_ forecast: ForecastResponse) -> some View {
         ScrollView {
             LazyVStack(spacing: 10) {
-                // One card per returned activity, in request order (= store order).
-                ForEach(forecast.activities) { activity in
-                    ZStack(alignment: .topTrailing) {
-                        NavigationLink {
-                            ActivityDetailView(activity: activity,
-                                               viewModel: viewModel,
-                                               isNocturnal: viewModel.isNocturnal(activityId: activity.activityId))
-                        } label: {
-                            card(for: activity, in: forecast)
+                ForEach(store.activities) { authored in
+                    if authored.isDormant {
+                        showcaseCard(for: authored)
+                    } else if let activity = viewModel.rating(forActivityId: authored.id) {
+                        ZStack(alignment: .topTrailing) {
+                            NavigationLink {
+                                ActivityDetailView(activity: activity,
+                                                   viewModel: viewModel,
+                                                   isNocturnal: viewModel.isNocturnal(activityId: activity.activityId))
+                            } label: {
+                                card(for: activity, authored: authored, in: forecast)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier("card.\(activity.activityId)")
+                            gearButton(for: activity)
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityIdentifier("card.\(activity.activityId)")
-                        gearButton(for: activity)
                     }
                 }
                 addCard
@@ -301,8 +370,9 @@ struct DashboardView: View {
         .padding(.trailing, 8)
     }
 
-    /// The ghost add-card (design-decisions §Interactions), after the card
-    /// list. At the soft cap it flips to a friendly limit message (§8).
+    /// The ghost add-card (Figma 104:270): dashed separator border, blue
+    /// invitation, after the card list. At the soft cap it dims to secondary
+    /// with a friendly limit message (§8).
     private var addCard: some View {
         Button {
             showAdd = true
@@ -311,16 +381,16 @@ struct DashboardView: View {
                 Image(systemName: "plus.circle")
                     .font(.system(size: 16))
                 Text(store.isAtCap ? "Activity limit reached (\(ActivityStore.softCap))" : "Add Activity")
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.system(size: 14, weight: .medium))
                     .tracking(-0.1)
             }
-            .foregroundStyle(Theme.secondaryText)
+            .foregroundStyle(store.isAtCap ? Theme.secondaryText : Theme.accentInteractive)
             .frame(maxWidth: .infinity)
             .frame(height: 64)
             .background(
                 RoundedRectangle(cornerRadius: 16)
-                    .strokeBorder(Theme.secondaryText.opacity(0.4),
-                                  style: StrokeStyle(lineWidth: 1, dash: [6, 4]))
+                    .strokeBorder(Theme.divider,
+                                  style: StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
             )
             .contentShape(RoundedRectangle(cornerRadius: 16))
         }
@@ -329,16 +399,25 @@ struct DashboardView: View {
         .accessibilityIdentifier("addActivityCard")
     }
 
-    private func card(for activity: ActivityRating, in forecast: ForecastResponse) -> ActivityCardView {
+    private func card(for activity: ActivityRating, authored: AuthoredActivity, in forecast: ForecastResponse) -> ActivityCardView {
         let day = viewModel.cardDay(for: activity)
+        let tiers = viewModel.rangeTiers(for: authored, dayIndex: 0)
         return ActivityCardView(
             activity: activity,
             day: day,
             windowStartHour: day.flatMap { viewModel.windowStartHour(for: $0) },
             deriver: viewModel.timeDeriver,
             hoursCount: forecast.hours.count,
-            iconSymbol: viewModel.iconSymbol(forActivityId: activity.activityId),
-            isNocturnal: viewModel.isNocturnal(activityId: activity.activityId)
+            iconSymbol: authored.iconSymbol,
+            isNocturnal: authored.isNocturnal,
+            rangeChipLabel: authored.window.map(RangeText.chipLabel),
+            sliceRange: viewModel.rangeHourIndices(for: authored, dayIndex: 0),
+            tiers: tiers,
+            phrase: TrajectoryPhrase.cardPhrase(
+                dayRated: day != nil,
+                tiers: tiers,
+                phrasesEnabled: TrajectoryPhrase.phrasesEnabled(preference: preferences.showPhrases,
+                                                                differentiateWithoutColor: differentiateWithoutColor))
         )
     }
 }

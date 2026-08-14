@@ -18,11 +18,22 @@ enum Theme {
     static let cardBackground = Color.white
     static let primaryText = Color(hex: 0x1c1c1e)
     static let secondaryText = Color(hex: 0x8e8e93)
-    static let accentOrange = Color(hex: 0xff9500)   // Good window highlight
-    static let perfectGreen = Color(hex: 0x34c759)   // Perfect window highlight
+    static let accentOrange = Color(hex: 0xff9500)   // Semantic rating/good
+    static let perfectGreen = Color(hex: 0x34c759)   // Semantic rating/perfect
+    static let badRed = Color(hex: 0xff3b30)         // Semantic rating/bad — gradient red; gray track = no data only
     static let timelineTrack = Color(hex: 0xf2f2f7)
     static let accentInteractive = Color(hex: 0x007aff) // Semantic accent/interactive
     static let divider = Color(hex: 0x3c3c43, opacity: 0.18)
+
+    /// The HourTier → rating color binding for the spec 14 gradient slice
+    /// (Semantic rating/perfect · rating/good · rating/bad).
+    static func tierColor(_ tier: HourTier) -> Color {
+        switch tier {
+        case .green: return perfectGreen
+        case .orange: return accentOrange
+        case .red: return badRed
+        }
+    }
 
     /// Ocean blue header gradient, #1253a4 → #3ec6e8 at ~160°.
     static let headerGradient = LinearGradient(

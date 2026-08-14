@@ -330,6 +330,69 @@ final class DashboardViewModel: ObservableObject {
         activity.days.first.flatMap { $0.rating != nil ? $0 : nil }
     }
 
+    /// The current response's rating for an authored id — lets a pushed
+    /// detail view stay live across an edit-triggered refetch instead of
+    /// showing the rating captured at push time.
+    func rating(forActivityId activityId: String) -> ActivityRating? {
+        forecast?.activities.first { $0.activityId == activityId }
+    }
+
+    // MARK: Range hours — the client twin of the server's window filter (spec 14 §2/§7)
+
+    /// The global hours[] indices the Activity's Range covers within a day
+    /// bucket. Diurnal: the bucket's calendar day filtered to
+    /// `localHour ∈ [startHour, endHour)`. Nocturnal (wrapped): the
+    /// night-stitch selection — evening `dayIndex` hours ≥ startHour plus the
+    /// NEXT day's hours < endHour (the morning tail belongs to its evening,
+    /// ADR-0004 amendment). Nil for a dormant Activity, with no forecast, or
+    /// when no in-range hour exists (range fully past on a partial day 0, or
+    /// beyond the horizon) — the slice paints nothing rather than fabricate.
+    func rangeHourIndices(for authored: AuthoredActivity, dayIndex: Int) -> Range<Int>? {
+        guard let window = authored.window,
+              let deriver = timeDeriver,
+              let hourCount = forecast?.hours.count, hourCount > 0 else {
+            return nil
+        }
+        var lower: Int?
+        var upper: Int?
+        for index in 0..<hourCount {
+            let day = deriver.dayOrdinal(at: index)
+            if day > dayIndex + 1 { break }
+            let hour = deriver.localHour(at: index)
+            let inRange: Bool
+            if window.isWrapped {
+                inRange = (day == dayIndex && hour >= window.startHour)
+                    || (day == dayIndex + 1 && hour < window.endHour)
+            } else {
+                inRange = day == dayIndex && hour >= window.startHour && hour < window.endHour
+            }
+            if inRange {
+                if lower == nil { lower = index }
+                upper = index + 1
+            }
+        }
+        guard let lower, let upper else { return nil }
+        return lower..<upper
+    }
+
+    /// The forecast hours the Range covers in a day bucket — the detail's
+    /// expanded per-hour rows (§7.4: range hours only). Empty when none exist.
+    func rangeHours(for authored: AuthoredActivity, dayIndex: Int) -> [HourlyWeather] {
+        guard let range = rangeHourIndices(for: authored, dayIndex: dayIndex),
+              let hours = forecast?.hours else {
+            return []
+        }
+        return Array(hours[range])
+    }
+
+    /// Per-hour quality tiers over the Range hours (the `HourQuality` mirror,
+    /// §3) — feeds the card slice's gradient stops and the detail's week
+    /// bars. Empty when no in-range hour exists.
+    func rangeTiers(for authored: AuthoredActivity, dayIndex: Int) -> [HourTier] {
+        rangeHours(for: authored, dayIndex: dayIndex)
+            .map { HourQuality.tier(for: $0, thresholds: authored.thresholds) }
+    }
+
     /// The hour at the day's window start — chips read their values here.
     /// `startIndex` is a global index into hours[]; no per-day offset math.
     func windowStartHour(for day: Day) -> HourlyWeather? {

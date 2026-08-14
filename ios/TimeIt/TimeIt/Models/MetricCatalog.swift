@@ -32,6 +32,10 @@ struct MetricDescriptor: Identifiable, Equatable {
     /// Reserved for tier gating — all false today (Pro deferred, #5b §8).
     let pro: Bool
     let range: MetricRange?
+    /// Compact name for dense surfaces (the detail's setup summary — "Temp",
+    /// "Wind"); nil falls back to `displayName`. Defaulted so existing
+    /// memberwise call sites (incl. test fakes) stay valid.
+    var shortName: String? = nil
 
     var id: String { key }
     var isThresholdable: Bool { kind != .displayOnly }
@@ -63,6 +67,13 @@ extension MetricCatalogProviding {
     func iconSymbol(for key: String) -> String {
         descriptor(for: key)?.iconSymbol ?? "questionmark.circle"
     }
+
+    /// Compact name for a wire key (setup summary); falls back to the display
+    /// name, then the key — same drift rule as `displayName(for:)`.
+    func shortName(for key: String) -> String {
+        guard let descriptor = descriptor(for: key) else { return key }
+        return descriptor.shortName ?? descriptor.displayName
+    }
 }
 
 /// Static client-side catalog of the LIVE metrics.
@@ -82,30 +93,30 @@ struct StaticMetricCatalog: MetricCatalogProviding {
     private static let all: [MetricDescriptor] = [
         MetricDescriptor(key: "temp", displayName: "Temperature", unit: "°C",
                          iconSymbol: "thermometer.medium", kind: .numeric, pro: false,
-                         range: MetricRange(min: -10, max: 50, step: 1)),
+                         range: MetricRange(min: -10, max: 50, step: 1), shortName: "Temp"),
         MetricDescriptor(key: "humidity", displayName: "Humidity", unit: "%",
                          iconSymbol: "humidity.fill", kind: .numeric, pro: false,
                          range: MetricRange(min: 0, max: 100, step: 5)),
         MetricDescriptor(key: "windSpeed", displayName: "Wind Speed", unit: "km/h",
                          iconSymbol: "wind", kind: .numeric, pro: false,
-                         range: MetricRange(min: 0, max: 80, step: 1)),
+                         range: MetricRange(min: 0, max: 80, step: 1), shortName: "Wind"),
         MetricDescriptor(key: "rainFall", displayName: "Rainfall", unit: "mm",
                          iconSymbol: "cloud.rain.fill", kind: .numeric, pro: false,
-                         range: MetricRange(min: 0, max: 20, step: 0.5)),
+                         range: MetricRange(min: 0, max: 20, step: 0.5), shortName: "Rain"),
         MetricDescriptor(key: "cloudCover", displayName: "Cloud Cover", unit: "%",
                          iconSymbol: "cloud.fill", kind: .numeric, pro: false,
-                         range: MetricRange(min: 0, max: 100, step: 5)),
+                         range: MetricRange(min: 0, max: 100, step: 5), shortName: "Cloud"),
         MetricDescriptor(key: "visibility", displayName: "Visibility", unit: "km",
                          iconSymbol: "eye.fill", kind: .numeric, pro: false,
                          range: MetricRange(min: 0, max: 20, step: 1)),
         MetricDescriptor(key: "uV", displayName: "UV Index", unit: "",
                          iconSymbol: "sun.max.fill", kind: .numeric, pro: false,
-                         range: MetricRange(min: 0, max: 12, step: 1)),
+                         range: MetricRange(min: 0, max: 12, step: 1), shortName: "UV"),
         MetricDescriptor(key: "moon", displayName: "Moon Phase", unit: "",
                          iconSymbol: "moon.stars.fill", kind: .displayOnly, pro: false,
-                         range: nil),
+                         range: nil, shortName: "Moon"),
         MetricDescriptor(key: "dustAlert", displayName: "Dust Alert", unit: "",
                          iconSymbol: "sun.dust.fill", kind: .flag, pro: false,
-                         range: nil),
+                         range: nil, shortName: "Dust"),
     ]
 }

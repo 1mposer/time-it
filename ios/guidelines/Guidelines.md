@@ -58,9 +58,10 @@ Behavioral rules kept here:
 
 - Icon: SF Symbol, explicit per activity — `AuthoredActivity.iconSymbol` through the single `ActivityIconView` seam
 - Gear icon opens the authoring editor (#5b)
-- Timeline: the day's **real hour span**, positioned from the **global** `startIndex`/`endIndex` rendered in the response `timezone` — the sketch's 6am–12am axis is illustrative, never hardcode it. Green fill = Perfect, orange fill = Good, no fill = No Window *(shipped v1 — spec 14 §2 replaces the flat fill with the gradient slice; sweep this bullet in that build commit)*
-- The card summarises **day 0 only** ("Today" / "Tonight" for nocturnal); a null day 0 renders the none-state copy ("No window today"/"No window tonight") and never rolls forward (ADR-0004 amendment 2026-07-20). Read each activity's own `days.length`; never assume 7
-- Chips: `displayMetrics` first 3, values from best-window start hour; nullable metrics (`windSpeed`/`rainFall`/`cloudCover`) render `—`
+- Timeline: the day's **real hour span** as the axis (the sketch's 6am–12am is illustrative, never hardcode it), with the user's **Range** painted as a per-hour **gradient slice** (spec 14 §2, shipped 2026-08-14): one `TierGradient` stop per hour from the `HourQuality` mirror — green = Perfect, orange = Good, red = Bad. **No rating word on the card** (decision C — VoiceOver keeps the full spoken summary). A `rating: null` day 0 paints the slice **solid red** ("Nothing in your range"); the gray track alone means **no data** only. The title row carries the Range chip ("6 – 10am")
+- The card summarises **day 0 only** with the best-stretch sublabel ("Today · 6–8pm" / "Tonight · 10pm–2am" — the push-copy dialect); a null day 0 is the plain day name, and it never rolls forward (ADR-0004 amendment 2026-07-20). Read each activity's own `days.length`; never assume 7. A **dormant** Activity renders the showcase card ("Set your range →" / ✕ dismiss) instead
+- Chips: `displayMetrics` first 3, values from best-window start hour (neutral catalog names on a red day); nullable metrics (`windSpeed`/`rainFall`/`cloudCover`) render `—`
+- The optional phrase row (§5) sits between the axis and the chips — visible when Settings → Show phrases is on or Differentiate Without Color forces it; the red day's "Nothing in your range" shows unconditionally
 
 ### Header
 
@@ -73,14 +74,14 @@ Behavioral rules kept here:
 └─────────────────────────────────────────┘
 ```
 
-Header weather values (temp, wind, humidity) are the forecast location's **current-hour** values from `hours[0]` (`HeaderView(currentHour:)`, wired 2026-07-12); they fall back to `—` while loading, on error, or when the provider omitted a metric.
+Header weather values (temp, wind, humidity) are the forecast location's **current-hour** values from `hours[0]` (`HeaderView(currentHour:)`, wired 2026-07-12); they fall back to `—` while loading, on error, or when the provider omitted a metric. In the **no-location** and **all-dormant** states the weather rows hide entirely — no fabricated conditions and no dangling placeholders when no fetch will happen (the all-dormant case is the spec 14 I2 proposal, pending owner review).
 
 ---
 
 ## Interaction rules
 
 - App opens directly to the dashboard — no launch gate, no accounts (ADR-0001), no bottom bar (grill Q8).
-- Tapping a card body pushes the 7-day detail; header gear → Settings sheet; card gear → editor sheet; ghost add-card → activity creation.
+- Tapping a card body pushes the detail (range once · setup once · range-zoomed week); header gear → Settings sheet; card gear → editor sheet; ghost add-card → activity creation; showcase "Set your range →" → editor with the prefill loaded; detail day row → expands its range hours (one day at a time, collapsed by default).
 - All interactive elements have a minimum 44×44pt touch target.
 - Cards use `.plain` button style — no system highlight ring on tap.
 

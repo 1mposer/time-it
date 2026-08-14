@@ -11,7 +11,6 @@ struct ActivityDraft: Equatable {
     /// Ordered selection — becomes displayMetrics in selection order.
     var metrics: [String]
     var thresholds: [String: ThresholdDraft]
-    var windowEnabled: Bool
     var startHour: Int
     var endHour: Int
 
@@ -22,7 +21,6 @@ struct ActivityDraft: Equatable {
         iconSymbol = activity.iconSymbol
         metrics = activity.displayMetrics
         thresholds = activity.thresholds.mapValues(ThresholdDraft.init(from:))
-        windowEnabled = activity.window != nil
         // Spec 14 §6 prefill: a live activity drafts at its own range; a
         // dormant one at its template's owner-picked range (from-scratch
         // 6–10am when no template matches) — a starting value, confirmed
@@ -72,13 +70,17 @@ struct ActivityDraft: Equatable {
             parsed[key] = Threshold(min: min, max: max, required: draft.required)
         }
 
+        // Spec 14 §1: whole-day activities no longer exist — a saved draft
+        // ALWAYS carries its range ("Only at certain hours" toggle deleted).
+        // Dormancy lives only in the store, for activities never yet saved
+        // through here; this build is the confirmation that ends it.
         let activity = AuthoredActivity(id: id,
                                         label: label.trimmingCharacters(in: .whitespacesAndNewlines),
                                         iconSymbol: iconSymbol,
                                         templateOrigin: templateOrigin,
                                         displayMetrics: metrics,
                                         thresholds: parsed,
-                                        window: windowEnabled ? WindowSpec(startHour: startHour, endHour: endHour) : nil)
+                                        window: WindowSpec(startHour: startHour, endHour: endHour))
         issues += activity.validationIssues(against: catalog)
         return (issues.isEmpty ? activity : nil, issues)
     }

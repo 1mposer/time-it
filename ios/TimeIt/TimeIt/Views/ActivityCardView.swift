@@ -1,11 +1,15 @@
 import SwiftUI
 
-/// Dashboard card: summarises DAY 0 (today/tonight) for one activity —
-/// icon + label, day name, timeline bar, first-3 metric chips.
+/// Dashboard card (spec 14 §2): summarises DAY 0 (today/tonight) for one
+/// LIVE activity — icon + label + range chip, "Today · 6–8pm" sublabel, the
+/// day-axis bar with the Range's per-hour gradient slice, an optional phrase,
+/// first-3 metric chips. No rating word (owner decision C) — color carries
+/// quality; VoiceOver keeps the full spoken summary regardless.
 struct ActivityCardView: View {
     let activity: ActivityRating
-    /// Day 0 from `DashboardViewModel.cardDay(for:)`; nil means today has no
-    /// window (ADR-0004 amendment 2026-07-20 — no roll-forward to later days).
+    /// Day 0 from `DashboardViewModel.cardDay(for:)`; nil means today's Range
+    /// has no qualifying window — the ALL-RED state (§2), never a roll-forward
+    /// to later days (ADR-0004 amendment 2026-07-20).
     let day: Day?
     let windowStartHour: HourlyWeather?
     let deriver: TimeDeriver?
@@ -13,18 +17,44 @@ struct ActivityCardView: View {
     /// Explicit icon from the authored Activity (#5b §2); nil falls back to
     /// the legacy id heuristic below.
     var iconSymbol: String?
-    /// Wrapped-window activity → night-phrased day labels (ADR-0004 amendment).
+    /// Wrapped-window activity → night-phrased labels (ADR-0004 amendment).
     var isNocturnal: Bool = false
+    /// The authored Range as chip copy ("6 – 10am"); nil hides the chip.
+    var rangeChipLabel: String?
+    /// Global hours[] indices the Range covers today (tonight) — where the
+    /// slice paints. Nil/empty paints nothing: the gray track is reserved
+    /// for NO DATA only (§2) — when in-range hours exist, they are painted.
+    var sliceRange: Range<Int>?
+    /// Per-hour tiers over `sliceRange` (the HourQuality mirror, §3).
+    var tiers: [HourTier] = []
+    /// The phrase slot under the axis (§5); nil hides it. The all-red day's
+    /// "Nothing in your range" arrives here unconditionally
+    /// (`TrajectoryPhrase.cardPhrase`).
+    var phrase: String?
     /// Metric names and chip icons resolve through the catalog seam (#5b §4).
     var catalog: MetricCatalogProviding = StaticMetricCatalog()
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
             topRow
-            TimelineBarView(day: day, deriver: deriver, hoursCount: hoursCount, activityId: activity.activityId)
+            Text(sublabel)
+                .font(.system(size: 12))
+                .foregroundStyle(Theme.secondaryText)
+            TimelineBarView(day: day,
+                            deriver: deriver,
+                            hoursCount: hoursCount,
+                            activityId: activity.activityId,
+                            sliceRange: sliceRange,
+                            tiers: tiers)
+            if let phrase {
+                Text(phrase)
+                    .font(.system(size: 12))
+                    .foregroundStyle(Theme.secondaryText)
+                    .accessibilityIdentifier("phrase.\(activity.activityId)")
+            }
             chipRow
         }
-        .padding(EdgeInsets(top: 14, leading: 16, bottom: 12, trailing: 16))
+        .padding(EdgeInsets(top: 12, leading: 14, bottom: 12, trailing: 14))
         .background(Theme.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.08), radius: 3, x: 0, y: 1)
@@ -35,18 +65,23 @@ struct ActivityCardView: View {
     }
 
     private var topRow: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
+        HStack(alignment: .center, spacing: 8) {
             ActivityIconView(identifier: iconSymbol ?? Self.iconName(for: activity), size: 18)
                 .foregroundStyle(Theme.primaryText.opacity(0.75))
                 .accessibilityHidden(true) // decorative — the label text follows
-            VStack(alignment: .leading, spacing: 2) {
-                Text(activity.label)
-                    .font(.system(size: 15, weight: .medium))
-                    .tracking(-0.1)
-                    .foregroundStyle(Theme.primaryText)
-                Text(dayLabel)
-                    .font(.system(size: 12))
+            Text(activity.label)
+                .font(.system(size: 15, weight: .medium))
+                .tracking(-0.1)
+                .foregroundStyle(Theme.primaryText)
+            if let rangeChipLabel {
+                Text(rangeChipLabel)
+                    .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(Theme.secondaryText)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 2)
+                    .background(Theme.timelineTrack, in: Capsule())
+                    .accessibilityLabel("Range \(rangeChipLabel)")
+                    .accessibilityIdentifier("rangeChip.\(activity.activityId)")
             }
             Spacer()
             // The card gear is overlaid by DashboardView (it must sit above the
@@ -55,12 +90,15 @@ struct ActivityCardView: View {
         .padding(.trailing, 28) // clears the overlaid gear
     }
 
-    /// The card shows day 0 only; a windowless today reads as the none-state
-    /// ("No window today"/"No window tonight" — nocturnal phrasing per the
-    /// night-stitch dayIndex convention). Labels derive in the response zone.
-    private var dayLabel: String {
-        guard let day else { return isNocturnal ? "No window tonight" : "No window today" }
-        return deriver?.dayName(forDayIndex: day.dayIndex, nocturnal: isNocturnal) ?? "Day \(day.dayIndex)"
+    /// "Today · 6–8pm" / "Tonight · 10pm–2am" — the push-copy dialect (§2), so
+    /// a tapped push lands on its own receipt. A red day is the plain day name
+    /// (no stretch exists; the solid red slice carries the verdict).
+    private var sublabel: String {
+        guard let deriver else { return isNocturnal ? "Tonight" : "Today" }
+        return deriver.sublabel(forDayIndex: 0,
+                                startIndex: day?.startIndex,
+                                endIndex: day?.endIndex,
+                                nocturnal: isNocturnal)
     }
 
     private var chipRow: some View {
@@ -157,32 +195,46 @@ enum MetricTier: Equatable {
     }
 }
 
-/// The card's 22pt timeline bar. The highlight is positioned from the day's
-/// GLOBAL startIndex/duration against the day's REAL hour span in the response
-/// timezone — never a hardcoded 6am–midnight axis (a window can fall at any hour).
+/// The card's 22pt timeline bar: the DAY axis (the day's real hour span in
+/// the response timezone — never a hardcoded 6am–midnight), with the Range
+/// painted as a truthful per-hour gradient slice (spec 14 §2). Flat-color
+/// fill is gone; a `rating: null` day paints SOLID RED across the range —
+/// bad weather is painted, never absent. The gray track alone means no data.
 struct TimelineBarView: View {
     let day: Day?
     let deriver: TimeDeriver?
     let hoursCount: Int
     let activityId: String
+    /// Global hours[] indices the Range covers in the shown day bucket.
+    var sliceRange: Range<Int>?
+    /// Per-hour tiers over `sliceRange` — one gradient stop per hour
+    /// (`TierGradient`, midpoint stops, pinned edges).
+    var tiers: [HourTier] = []
 
-    /// The axis span: the shown day's real hours (day 0's span when no window
-    /// exists anywhere, so the empty track still reads as "today"), widened to
-    /// cover the day's window. A nocturnal (night-stitched) window crosses
-    /// past the calendar day's end — its dayIndex is the evening's — so
-    /// without the widening the highlight would draw off the track (or,
-    /// for a morning-tail window, entirely outside it).
+    /// The axis span: the shown day's real hours (day 0's span when nothing
+    /// is windowed, so the empty track still reads as "today"), widened to
+    /// cover the day's window AND the range slice. A nocturnal (night-
+    /// stitched) range crosses past the calendar day's end — its dayIndex is
+    /// the evening's — so without the widening the slice would draw off the
+    /// track (or, for a morning-tail window, entirely outside it).
     private var axisRange: Range<Int>? {
-        guard let base = deriver?.hourRange(forDayIndex: day?.dayIndex ?? 0, hourCount: hoursCount) else {
+        guard var span = deriver?.hourRange(forDayIndex: day?.dayIndex ?? 0, hourCount: hoursCount) else {
             return nil
         }
-        guard let day, day.hasWindow,
-              let startIndex = day.startIndex, let endIndex = day.endIndex else {
-            return base
+        if let day, day.hasWindow,
+           let startIndex = day.startIndex, let endIndex = day.endIndex {
+            span = widen(span, toInclude: startIndex..<endIndex)
         }
-        let lower = Swift.min(base.lowerBound, Swift.max(startIndex, 0))
-        let upper = Swift.max(base.upperBound, Swift.min(endIndex, hoursCount))
-        return lower < upper ? lower..<upper : base
+        if let sliceRange, !sliceRange.isEmpty {
+            span = widen(span, toInclude: sliceRange)
+        }
+        return span
+    }
+
+    private func widen(_ span: Range<Int>, toInclude other: Range<Int>) -> Range<Int> {
+        let lower = Swift.min(span.lowerBound, Swift.max(other.lowerBound, 0))
+        let upper = Swift.max(span.upperBound, Swift.min(other.upperBound, hoursCount))
+        return lower < upper ? lower..<upper : span
     }
 
     var body: some View {
@@ -191,14 +243,13 @@ struct TimelineBarView: View {
                 ZStack(alignment: .leading) {
                     RoundedRectangle(cornerRadius: 6)
                         .fill(Theme.timelineTrack)
-                    if let day, day.hasWindow,
-                       let range = axisRange, !range.isEmpty,
-                       let startIndex = day.startIndex, let duration = day.duration {
+                    if let slice = sliceRange, !slice.isEmpty,
+                       let range = axisRange, !range.isEmpty {
                         let unit = geo.size.width / CGFloat(range.count)
-                        RoundedRectangle(cornerRadius: 5)
-                            .fill(fillColor(for: day.rating).opacity(0.85))
-                            .frame(width: max(unit * CGFloat(duration), 4))
-                            .offset(x: unit * CGFloat(startIndex - range.lowerBound))
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(sliceStyle)
+                            .frame(width: max(unit * CGFloat(slice.count), 4))
+                            .offset(x: unit * CGFloat(slice.lowerBound - range.lowerBound))
                     }
                 }
             }
@@ -208,6 +259,20 @@ struct TimelineBarView: View {
         .accessibilityElement(children: .ignore)
         .accessibilityIdentifier("timeline.\(activityId)")
         .accessibilityLabel(accessibilitySummary)
+    }
+
+    /// The slice fill. Server truth outranks the mirror (§3): a `rating: null`
+    /// day is solid red regardless of the tiers; a rated day blends one stop
+    /// per hour (`TierGradient` midpoint placement — an all-green range comes
+    /// out solid green with no special case).
+    private var sliceStyle: AnyShapeStyle {
+        guard day?.rating != nil, !tiers.isEmpty else {
+            return AnyShapeStyle(Theme.badRed)
+        }
+        let stops = TierGradient.stops(for: tiers).map { stop in
+            Gradient.Stop(color: Theme.tierColor(stop.tier), location: stop.location)
+        }
+        return AnyShapeStyle(LinearGradient(stops: stops, startPoint: .leading, endPoint: .trailing))
     }
 
     @ViewBuilder
@@ -229,14 +294,12 @@ struct TimelineBarView: View {
         }
     }
 
-    private func fillColor(for rating: String?) -> Color {
-        rating == "perfect" ? Theme.perfectGreen : Theme.accentOrange
-    }
-
+    /// VoiceOver keeps the full summary — rating word + times — regardless of
+    /// the visual no-rating-word rule (§2, the C decision is visual only).
     private var accessibilitySummary: String {
         guard let day, day.hasWindow, let deriver,
               let startIndex = day.startIndex, let endIndex = day.endIndex else {
-            return "No window"
+            return "No qualifying window"
         }
         return "\(day.ratingDisplay) window, \(deriver.hourLabel(at: startIndex)) to \(deriver.hourLabel(at: endIndex))"
     }

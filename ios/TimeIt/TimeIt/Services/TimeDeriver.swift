@@ -44,6 +44,13 @@ struct TimeDeriver {
         hourFormatter.string(from: date(at: index)).lowercased()
     }
 
+    /// The 0–23 clock hour of `hours[index]` in the location zone — the client
+    /// twin of the server's internal `localHour` tag (stripped from the wire).
+    /// Drives the Range filter for the card slice and the detail's range hours.
+    func localHour(at index: Int) -> Int {
+        calendar.component(.hour, from: date(at: index))
+    }
+
     /// Which local calendar day (0 = the day containing hours[0]) an index falls on.
     func dayOrdinal(at index: Int) -> Int {
         calendar.dateComponents([.day],

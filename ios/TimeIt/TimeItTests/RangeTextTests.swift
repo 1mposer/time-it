@@ -1,0 +1,63 @@
+import XCTest
+@testable import TimeIt
+
+/// Spec 14 rendering copy derived from the authored Range (pure hour ints —
+/// no timezone math): the card's range chip ("6 – 10am"), the detail header
+/// ("Your window: 10pm – 4am nightly"), and the detail week's range-zoomed
+/// axis (start / midpoint / end). Formats mirror the approved frames
+/// (Dashboard Loaded 111:2, Activity Detail 111:62 / nocturnal 275:1535).
+final class RangeTextTests: XCTestCase {
+
+    // MARK: hourText (moved from ActivityEditorView — one clock dialect)
+
+    func testHourTextMatchesTheAxisLabelStyle() {
+        XCTAssertEqual(RangeText.hourText(0), "12am")
+        XCTAssertEqual(RangeText.hourText(6), "6am")
+        XCTAssertEqual(RangeText.hourText(12), "12pm")
+        XCTAssertEqual(RangeText.hourText(15), "3pm")
+        XCTAssertEqual(RangeText.hourText(23), "11pm")
+    }
+
+    // MARK: range chip — "6 – 10am" (same-meridiem collapse, spaced dash)
+
+    func testChipLabelCollapsesSameMeridiem() {
+        XCTAssertEqual(RangeText.chipLabel(WindowSpec(startHour: 6, endHour: 10)), "6 – 10am")
+        XCTAssertEqual(RangeText.chipLabel(WindowSpec(startHour: 15, endHour: 19)), "3 – 7pm")
+    }
+
+    func testChipLabelKeepsBothSuffixesAcrossMeridiem() {
+        XCTAssertEqual(RangeText.chipLabel(WindowSpec(startHour: 22, endHour: 4)), "10pm – 4am")
+        XCTAssertEqual(RangeText.chipLabel(WindowSpec(startHour: 8, endHour: 12)), "8am – 12pm")
+    }
+
+    // MARK: detail window header — range stated once (§7.1)
+
+    func testHeaderLabelSaysDailyForDiurnal() {
+        XCTAssertEqual(RangeText.headerLabel(WindowSpec(startHour: 6, endHour: 10)),
+                       "Your window: 6 – 10am daily")
+    }
+
+    func testHeaderLabelSaysNightlyForNocturnal() {
+        XCTAssertEqual(RangeText.headerLabel(WindowSpec(startHour: 22, endHour: 4)),
+                       "Your window: 10pm – 4am nightly")
+    }
+
+    // MARK: range-zoomed axis — start / midpoint / end, once under the stack (§7.3)
+
+    func testAxisLabelsForDiurnalRange() {
+        XCTAssertEqual(RangeText.axisLabels(WindowSpec(startHour: 6, endHour: 10)),
+                       ["6am", "8am", "10am"])
+    }
+
+    func testAxisLabelsForNocturnalRangeCrossMidnight() {
+        // The approved nocturnal detail frame's axis: 10pm / 1am / 4am.
+        XCTAssertEqual(RangeText.axisLabels(WindowSpec(startHour: 22, endHour: 4)),
+                       ["10pm", "1am", "4am"])
+    }
+
+    func testAxisMidpointFloorsOnOddDurations() {
+        // 6–9am is 3 hours; the midpoint hour floors to 7am (whole-hour Ranges).
+        XCTAssertEqual(RangeText.axisLabels(WindowSpec(startHour: 6, endHour: 9)),
+                       ["6am", "7am", "9am"])
+    }
+}

@@ -16,20 +16,20 @@ A curated, pre-filled Activity starting point (Cycling, Fishing Lite, Running, S
 **Seed / first-launch seeds** *(shipped — spec 14 semantics since 2026-08-12; four-card ruling 2026-08-13)*
 All four Templates (Cycling, Fishing Lite, Running, Stargazing — the full catalog, per the Figma Empty — Showcase frame) auto-inserted on first launch (`SeedTemplates.firstLaunchSeeds`). They land **dormant** (`window == nil`, the template's Range prefill stripped) and belong on the **showcase**; nothing rates or POSTs until a range is confirmed. The store is never empty on first launch. (The old #5b behavior — active whole-day seeds — is gone: whole-day Activities no longer exist.)
 
-**Showcase card** *(ship scope — dormancy model shipped 2026-08-12; rendering gated on the Figma catch-up pass, ADR-0008)*
+**Showcase card** *(shipped — dormancy model 2026-08-12, rendering 2026-08-14: `ShowcaseCardView`)*
 The dashboard rendering of a **dormant** Activity — a seeded template card showing "Set your range →" instead of weather. It **is** a stored Activity (spec 14 §1: `window == nil` — stored, visible, never evaluated): it lives in the store but is excluded from every request body and device snapshot until its range is confirmed. *(Ruled 2026-08-12 — supersedes this file's earlier not-an-Activity overlay model.)*
 
-**Showcase card button** *(ship scope — unbuilt)*
-The "Set your range →" call-to-action on a showcase card — the only door out of dormancy. Minimal cut: opens the existing editor with the Range prefill loaded (spec 14 header). Full scope *(deferred)*: jumps straight into the wizard's Range screen (the shortest path: 3 screens).
+**Showcase card button** *(shipped 2026-08-14 — minimal cut)*
+The "Set your range →" call-to-action on a showcase card — the only door out of dormancy. Minimal cut (shipped): opens the existing editor with the Range prefill loaded (spec 14 header); saving is the confirmation. Full scope *(deferred)*: jumps straight into the wizard's Range screen (the shortest path: 3 screens).
 
-**Dismissed template** *(ship scope — store/preference logic shipped 2026-08-12 (`dismissTemplate`, re-seed filter); the "✕ not for me" UI is rendering-gated)*
+**Dismissed template** *(shipped — store/preference logic 2026-08-12 (`dismissTemplate`, re-seed filter); the "✕" UI 2026-08-14)*
 A showcase card the user hid with "✕ not for me" — its dormant Activity is removed and the dismissal is remembered in preferences so it stays gone. Deleting the **last** Activity re-seeds the **non-dismissed** showcase cards; dismissals survive the re-seed, and if every template is dismissed the dashboard shows the **true-empty state** — an "Add activities +" CTA into the Add flow — instead *(rulings 2026-08-12, recorded in spec 14 §6)*.
 
 **Ghost add-card** *(shipped)*
 The "+" card at the end of the dashboard that opens the Add flow.
 
-**Live card / Activity card** *(shipped)*
-The dashboard card of a live authored Activity: rating dot, range chip, metric chips. What a showcase card becomes once its range is confirmed.
+**Live card / Activity card** *(shipped — spec 14 anatomy since 2026-08-14)*
+The dashboard card of a live authored Activity: range chip, "Today · 6–8pm" best-stretch sublabel, the per-hour gradient slice on the day axis (no rating word — color carries quality; the §5 phrase is opt-in), metric chips. What a showcase card becomes once its range is confirmed.
 
 ---
 
