@@ -4,6 +4,8 @@ import SwiftUI
 @main
 struct TimeItApp: App {
 
+    @UIApplicationDelegateAdaptor(PushAppDelegate.self) private var appDelegate
+
     init() {
         #if DEBUG
         // UI tests start from the first-launch seed state: wipe persisted
@@ -14,6 +16,11 @@ struct TimeItApp: App {
             UserDefaults.standard.removeObject(forKey: PreferencesStore.lastResolvedLocationKey)
             UserDefaults.standard.removeObject(forKey: PreferencesStore.dismissedTemplatesKey)
             UserDefaults.standard.removeObject(forKey: PreferencesStore.showPhrasesKey)
+            UserDefaults.standard.removeObject(forKey: PreferencesStore.pushCalloutDismissedKey)
+            UserDefaults.standard.removeObject(forKey: DeviceRegistration.enabledKey)
+            UserDefaults.standard.removeObject(forKey: DeviceRegistration.lastSentTokenKey)
+            UserDefaults.standard.removeObject(forKey: DeviceRegistration.lastUpsertAtKey)
+            UserDefaults.standard.removeObject(forKey: DeviceRegistration.pendingDeleteKey)
         }
         // Spec 14 §1 made the REAL first launch dormant (no request, no rated
         // cards), so card/flow tests pre-persist a LIVE store instead: the two
@@ -34,7 +41,8 @@ struct TimeItApp: App {
 
     var body: some Scene {
         WindowGroup {
-            DashboardView(viewModel: Self.makeViewModel())
+            DashboardView(viewModel: Self.makeViewModel(),
+                          registration: Self.makeRegistration())
         }
     }
 
@@ -49,6 +57,25 @@ struct TimeItApp: App {
         }
         #endif
         return DashboardViewModel()
+    }
+
+    /// Mock runs get a fully-seamed registration (no real Keychain, APNs, or
+    /// network) so the opt-in flow is deterministic; production uses .shared —
+    /// the same instance the AppDelegate feeds tokens into.
+    @MainActor
+    private static func makeRegistration() -> DeviceRegistration {
+        #if DEBUG
+        if ProcessInfo.processInfo.isUITestMockRun {
+            return DeviceRegistration(
+                api: UITestDevicesAPI(),
+                keychain: UITestKeychain(),
+                locationProvider: uiTestLocationProvider(),
+                authorizer: UITestPushAuthorizer(
+                    grants: !ProcessInfo.processInfo.arguments.contains("UITEST_PUSH_DENY")),
+                registerForRemoteNotifications: {})
+        }
+        #endif
+        return DeviceRegistration.shared
     }
 
     #if DEBUG

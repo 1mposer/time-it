@@ -24,6 +24,7 @@ final class PreferencesStore: ObservableObject {
     static let lastResolvedLocationKey = "lastResolvedLocation"
     static let dismissedTemplatesKey = "dismissedTemplates"
     static let showPhrasesKey = "showPhrases"
+    static let pushCalloutDismissedKey = "pushCalloutDismissed"
 
     /// nil = follow the device location (#5c: then the last-resolved cache).
     @Published var homeLocation: SavedLocation? {
@@ -51,6 +52,12 @@ final class PreferencesStore: ObservableObject {
         didSet { defaults.set(showPhrases, forKey: Self.showPhrasesKey) }
     }
 
+    /// Push-client spec §1: the dashboard callout is one-time — ✕ hides it
+    /// for good (enabling notifications hides it without setting this).
+    @Published var pushCalloutDismissed: Bool {
+        didSet { defaults.set(pushCalloutDismissed, forKey: Self.pushCalloutDismissedKey) }
+    }
+
     private let defaults: UserDefaults
 
     init(defaults: UserDefaults = .standard) {
@@ -59,6 +66,7 @@ final class PreferencesStore: ObservableObject {
         lastResolvedLocation = Self.load(Self.lastResolvedLocationKey, from: defaults)
         dismissedTemplateIds = Self.load(Self.dismissedTemplatesKey, from: defaults) ?? []
         showPhrases = defaults.bool(forKey: Self.showPhrasesKey)
+        pushCalloutDismissed = defaults.bool(forKey: Self.pushCalloutDismissedKey)
     }
 
     private static func load<Value: Decodable>(_ key: String, from defaults: UserDefaults) -> Value? {

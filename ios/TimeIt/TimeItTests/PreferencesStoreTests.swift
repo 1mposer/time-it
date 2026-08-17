@@ -83,6 +83,17 @@ final class PreferencesStoreTests: XCTestCase {
                        "a dismissal must survive relaunch — it is what keeps a dismissed showcase card gone (spec 14 §6)")
     }
 
+    func testPushCalloutDismissedDefaultsFalseAndPersists() {
+        XCTAssertFalse(PreferencesStore(defaults: defaults).pushCalloutDismissed,
+                       "the callout shows until the user dismisses it (push-client spec §1)")
+
+        let store = PreferencesStore(defaults: defaults)
+        store.pushCalloutDismissed = true
+
+        XCTAssertTrue(PreferencesStore(defaults: defaults).pushCalloutDismissed,
+                      "one-time: a dismissal survives relaunch")
+    }
+
     func testShowPhrasesDefaultsOffAndPersists() {
         XCTAssertFalse(PreferencesStore(defaults: defaults).showPhrases,
                        "spec 14 §5: phrases default OFF — the card shows no words")

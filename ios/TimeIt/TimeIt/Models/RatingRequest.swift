@@ -11,8 +11,9 @@ struct RatingRequest: Encodable {
 
 /// One caller-authored activity (the engine holds no list — ADR-0002).
 /// `window` is optional: synthesized encoding omits the key entirely when nil
-/// (whole-day), rather than sending null.
-struct ActivityInput: Encodable {
+/// (whole-day), rather than sending null. Equatable so snapshot bodies
+/// (DeviceSnapshotBody) compare whole in tests.
+struct ActivityInput: Encodable, Equatable {
     /// Client-stable, unique within the request; echoed back as `activityId`.
     let id: String
     let label: String

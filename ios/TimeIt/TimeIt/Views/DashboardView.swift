@@ -14,14 +14,25 @@ struct DashboardView: View {
     @StateObject private var viewModel: DashboardViewModel
     @ObservedObject private var store: ActivityStore
     @ObservedObject private var preferences: PreferencesStore
+    /// The push opt-in service — drives the callout's visibility and is
+    /// handed to the Settings sheet (one instance app-wide, like the store).
+    @StateObject private var registration: DeviceRegistration
+    @ObservedObject private var router: PushRouter
     @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
     @State private var showSettings = false
     @State private var showAdd = false
     @State private var showCityPicker = false
     @State private var editing: AuthoredActivity?
+    /// Value-based so a push tap can pop to the dashboard (spec §3).
+    @State private var navigationPath: [String] = []
+    /// The card a tapped Perfect-window alert should bring into view —
+    /// consumed by the card list's ScrollViewReader once it renders.
+    @State private var pendingFocusId: String?
 
     @MainActor
-    init(viewModel: DashboardViewModel) {
+    init(viewModel: DashboardViewModel,
+         registration: DeviceRegistration? = nil,
+         router: PushRouter? = nil) {
         _viewModel = StateObject(wrappedValue: viewModel)
         // Always the view model's store — mutations must hit the same list the
         // POST body is built from (two separately-defaulted stores diverge).
@@ -29,10 +40,12 @@ struct DashboardView: View {
         // Same rule for preferences: the phrases toggle must re-render the
         // SAME store the Settings sheet writes to.
         _preferences = ObservedObject(wrappedValue: viewModel.preferences)
+        _registration = StateObject(wrappedValue: registration ?? DeviceRegistration.shared)
+        _router = ObservedObject(wrappedValue: router ?? PushRouter.shared)
     }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $navigationPath) {
             VStack(spacing: 0) {
                 // I2 (all-dormant header state) — PROPOSED, FLAGGED FOR OWNER
                 // REVIEW: with nothing live there is no fetch (spec 14 §1), so
@@ -49,8 +62,11 @@ struct DashboardView: View {
             }
             .background(Theme.appBackground)
             .toolbar(.hidden, for: .navigationBar)
+            .navigationDestination(for: String.self) { activityId in
+                detailDestination(for: activityId)
+            }
             .sheet(isPresented: $showSettings) {
-                SettingsView()
+                SettingsView(registration: registration)
             }
             .sheet(isPresented: $showAdd) {
                 AddActivityView(store: store)
@@ -70,6 +86,34 @@ struct DashboardView: View {
             }
         }
         .task { await viewModel.loadForecast() }
+        // Spec §3: a Perfect-window alert tap lands on the dashboard with the
+        // named card visible — dismiss whatever covers it, pop the stack,
+        // and queue the scroll for when the card list is on screen.
+        .onReceive(router.$focusActivityId.compactMap { $0 }) { activityId in
+            showSettings = false
+            showAdd = false
+            showCityPicker = false
+            editing = nil
+            navigationPath = []
+            pendingFocusId = activityId
+            router.focusActivityId = nil
+        }
+    }
+
+    /// Value-based detail destination — re-resolves from the live forecast,
+    /// same as the detail view itself does across refetches. If the rating
+    /// vanished under us (activity deleted, forecast dropped), pop home
+    /// rather than strand the user on a blank screen.
+    @ViewBuilder
+    private func detailDestination(for activityId: String) -> some View {
+        if let activity = viewModel.rating(forActivityId: activityId) {
+            ActivityDetailView(activity: activity,
+                               viewModel: viewModel,
+                               isNocturnal: viewModel.isNocturnal(activityId: activityId))
+        } else {
+            Color.clear
+                .onAppear { navigationPath = [] }
+        }
     }
 
     @ViewBuilder
@@ -321,35 +365,100 @@ struct DashboardView: View {
     /// The card list iterates the STORE (spec 14 §1: dormant Activities are
     /// stored and visible), in store order = request order: a live Activity
     /// renders its rated card from the echoed response entry; a dormant one
-    /// renders its showcase card inline.
+    /// renders its showcase card inline. The one-time push callout (spec §1,
+    /// Figma 266:5) tops the list until dismissed or notifications are on.
     private func cardList(_ forecast: ForecastResponse) -> some View {
-        ScrollView {
-            LazyVStack(spacing: 10) {
-                ForEach(store.activities) { authored in
-                    if authored.isDormant {
-                        showcaseCard(for: authored)
-                    } else if let activity = viewModel.rating(forActivityId: authored.id) {
-                        ZStack(alignment: .topTrailing) {
-                            NavigationLink {
-                                ActivityDetailView(activity: activity,
-                                                   viewModel: viewModel,
-                                                   isNocturnal: viewModel.isNocturnal(activityId: activity.activityId))
-                            } label: {
-                                card(for: activity, authored: authored, in: forecast)
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityIdentifier("card.\(activity.activityId)")
-                            gearButton(for: activity)
-                        }
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(spacing: 10) {
+                    if !preferences.pushCalloutDismissed && !registration.isEnabled {
+                        pushCallout
                     }
+                    ForEach(store.activities) { authored in
+                        Group {
+                            if authored.isDormant {
+                                showcaseCard(for: authored)
+                            } else if let activity = viewModel.rating(forActivityId: authored.id) {
+                                ZStack(alignment: .topTrailing) {
+                                    NavigationLink(value: activity.activityId) {
+                                        card(for: activity, authored: authored, in: forecast)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .accessibilityIdentifier("card.\(activity.activityId)")
+                                    gearButton(for: activity)
+                                }
+                            }
+                        }
+                        .id(authored.id)
+                    }
+                    addCard
+                    Spacer()
+                        .frame(height: 12)
                 }
-                addCard
-                Spacer()
-                    .frame(height: 12)
+                .padding(.top, 14)
+                .padding(.horizontal, 14)
             }
-            .padding(.top, 14)
-            .padding(.horizontal, 14)
+            .onChange(of: pendingFocusId) { _, activityId in
+                scrollToPendingFocus(activityId, proxy: proxy)
+            }
+            .onAppear {
+                // Cold launch from a push: the focus landed before the list
+                // existed — consume it now.
+                scrollToPendingFocus(pendingFocusId, proxy: proxy)
+            }
         }
+    }
+
+    private func scrollToPendingFocus(_ activityId: String?, proxy: ScrollViewProxy) {
+        guard let activityId else { return }
+        withAnimation {
+            proxy.scrollTo(activityId, anchor: .top)
+        }
+        pendingFocusId = nil
+    }
+
+    /// The push opt-in callout (Figma 266:125): bell + two-line invitation
+    /// deep-linking to Settings' Notifications row, ✕ dismissing for good.
+    private var pushCallout: some View {
+        HStack(spacing: 0) {
+            Button {
+                showSettings = true
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "bell.fill")
+                        .font(.system(size: 17))
+                        .foregroundStyle(Theme.accentInteractive)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Get a morning digest + Perfect-window alerts")
+                            .font(.system(size: 14))
+                            .foregroundStyle(Theme.primaryText)
+                        Text("Turn on notifications")
+                            .font(.system(size: 13))
+                            .foregroundStyle(Theme.accentInteractive)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("pushCallout")
+            Button {
+                preferences.pushCalloutDismissed = true
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Theme.secondaryText)
+                    .frame(width: 34, height: 34)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.borderless)
+            .accessibilityLabel("Dismiss")
+            .accessibilityIdentifier("pushCallout.dismiss")
+        }
+        .padding(.leading, 14)
+        .padding(.trailing, 4)
+        .padding(.vertical, 10)
+        .background(RoundedRectangle(cornerRadius: 16).fill(Theme.cardBackground))
     }
 
     /// The card gear — opens the editor for this Activity (#5b §1).

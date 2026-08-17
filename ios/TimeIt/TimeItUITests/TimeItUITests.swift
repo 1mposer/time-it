@@ -20,6 +20,8 @@ import XCTest
 ///   empty state, since the Dubai fallback is deleted).
 /// - `UITEST_LOCATION_DENIED`: no fix and a `.denied` status — acceptance
 ///   §3.1's "fresh install, location denied" path.
+/// - `UITEST_PUSH_DENY`: the mock notification authorizer denies instead of
+///   granting — the push opt-in toggle must revert (item 7).
 final class TimeItUITests: XCTestCase {
 
     override func setUpWithError() throws {
@@ -576,5 +578,101 @@ final class TimeItUITests: XCTestCase {
                       "a previously successful location renders real data on a bare relaunch")
         XCTAssertTrue(app.staticTexts["DUBAI MARINA"].exists, "the cached name labels the header")
         XCTAssertFalse(app.buttons["enableLocationButton"].exists, "not the empty state")
+    }
+
+    // MARK: push opt-in client (item 7)
+
+    /// Polls an XCUI switch for a target value — the enable flow completes
+    /// asynchronously (permission → registration), so a plain read races it.
+    private func waitForSwitchValue(_ element: XCUIElement, _ value: String,
+                                    timeout: TimeInterval = 5) -> Bool {
+        let predicate = NSPredicate(format: "value == %@", value)
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
+        return XCTWaiter().wait(for: [expectation], timeout: timeout) == .completed
+    }
+
+    private func tapToggle(_ toggle: XCUIElement) {
+        // The identifier sits on the whole Toggle row — tap the nested switch.
+        let control = toggle.switches.firstMatch
+        (control.exists ? control : toggle).tap()
+    }
+
+    func testNotificationsToggleEnablesWhenPromptGranted() {
+        let app = launchApp()
+
+        XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5))
+        app.buttons["settingsGear"].tap()
+        let toggle = app.switches["settings.notifications"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 5), "the NOTIFICATIONS row exists")
+        XCTAssertEqual(toggle.value as? String, "0", "off until the user opts in — no inert switches")
+
+        tapToggle(toggle)
+
+        // The mock authorizer grants — the toggle lands ON only when the
+        // permission flow actually completes.
+        XCTAssertTrue(waitForSwitchValue(toggle, "1"), "granted prompt → enabled")
+    }
+
+    func testNotificationsToggleStaysOffWhenPromptDenied() {
+        let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_SEED_LIVE",
+                                        "UITEST_LOCATION", "UITEST_PUSH_DENY"])
+
+        XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5))
+        app.buttons["settingsGear"].tap()
+        let toggle = app.switches["settings.notifications"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 5))
+
+        tapToggle(toggle)
+
+        XCTAssertFalse(waitForSwitchValue(toggle, "1", timeout: 2),
+                       "denied prompt → the switch reverts; it never lies ON")
+    }
+
+    func testNotificationsToggleRoutesThroughCityPickerWithoutALocation() {
+        // GPS denied, no home: spec §1 routes the opt-in through the #5c
+        // onboarding — here the city-picker door. Cancelling abandons it.
+        let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_SEED_LIVE",
+                                        "UITEST_LOCATION_DENIED"])
+
+        XCTAssertTrue(app.buttons["settingsGear"].waitForExistence(timeout: 5))
+        app.buttons["settingsGear"].tap()
+        let toggle = app.switches["settings.notifications"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 5))
+
+        tapToggle(toggle)
+
+        XCTAssertTrue(app.textFields["cityPicker.search"].waitForExistence(timeout: 5),
+                      "no real location → the city picker opens before any permission prompt")
+        app.buttons["cityPicker.cancel"].tap()
+        XCTAssertFalse(waitForSwitchValue(toggle, "1", timeout: 2),
+                       "dismissing the picker without a home abandons the opt-in")
+    }
+
+    func testPushCalloutDeepLinksToSettingsNotifications() {
+        let app = launchApp()
+
+        let callout = app.buttons["pushCallout"]
+        XCTAssertTrue(callout.waitForExistence(timeout: 5),
+                      "the one-time callout sits above the card list")
+        XCTAssertTrue(app.staticTexts["Get a morning digest + Perfect-window alerts"].exists)
+
+        callout.tap()
+
+        XCTAssertTrue(app.switches["settings.notifications"].waitForExistence(timeout: 5),
+                      "the callout deep-links to the Settings Notifications row")
+    }
+
+    func testPushCalloutDismissIsRememberedAcrossRelaunch() {
+        var app = launchApp()
+
+        let dismiss = app.buttons["pushCallout.dismiss"]
+        XCTAssertTrue(dismiss.waitForExistence(timeout: 5))
+        dismiss.tap()
+        XCTAssertFalse(app.buttons["pushCallout"].exists, "dismissed on the spot")
+
+        // Relaunch WITHOUT UITEST_RESET — one-time means gone for good.
+        app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_SEED_LIVE", "UITEST_LOCATION"])
+        XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["pushCallout"].exists, "the dismissal persists")
     }
 }

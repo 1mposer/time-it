@@ -1,22 +1,26 @@
 import SwiftUI
 
 /// Settings sheet (grill Q9: ship only live controls). Home location (#5b §5,
-/// upgraded to the #5c as-you-type city picker) + the spec 14 §5 dashboard
-/// phrases toggle + About + a location note — no subscription/Pro row
-/// (deferred §8), no account (cut, ADR-0001). The NOTIFICATIONS row on the
-/// approved Settings frame ships with the push opt-in client (ROADMAP item 7),
-/// not this wave.
+/// upgraded to the #5c as-you-type city picker) + the push opt-in
+/// Notifications toggle (item 7, frame section order: HOME LOCATION →
+/// NOTIFICATIONS → DASHBOARD) + the spec 14 §5 dashboard phrases toggle +
+/// About + a location note — no subscription/Pro row (deferred §8), no
+/// account (cut, ADR-0001).
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
     @ObservedObject private var preferences: PreferencesStore
+    @ObservedObject private var registration: DeviceRegistration
     private let geocoder: GeocodingProviding?
 
     @State private var showCityPicker = false
 
     @MainActor
-    init(preferences: PreferencesStore? = nil, geocoder: GeocodingProviding? = nil) {
+    init(preferences: PreferencesStore? = nil,
+         geocoder: GeocodingProviding? = nil,
+         registration: DeviceRegistration? = nil) {
         _preferences = ObservedObject(wrappedValue: preferences ?? PreferencesStore.shared)
+        _registration = ObservedObject(wrappedValue: registration ?? DeviceRegistration.shared)
         self.geocoder = geocoder
     }
 
@@ -24,6 +28,7 @@ struct SettingsView: View {
         NavigationStack {
             List {
                 homeLocationSection
+                notificationsSection
                 dashboardSection
                 Section("About") {
                     HStack {
@@ -53,8 +58,71 @@ struct SettingsView: View {
                     Button("Done") { dismiss() }
                 }
             }
-            .sheet(isPresented: $showCityPicker) {
+            .sheet(isPresented: $showCityPicker, onDismiss: {
+                // Backing out of the picker without a home abandons a
+                // location-pending opt-in — the toggle must not lie ON later.
+                if preferences.homeLocation == nil {
+                    registration.cancelPendingEnable()
+                }
+            }) {
                 CityPickerView(preferences: preferences, geocoder: geocoder)
+            }
+            .onDisappear {
+                // Leaving Settings mid-detour (prompt ignored, no home yet)
+                // drops the pending opt-in; the user re-flips to retry.
+                registration.cancelPendingEnable()
+            }
+        }
+    }
+
+    // MARK: notifications — the push opt-in toggle (spec §1)
+
+    /// The real switch (grill Q9: no inert controls — this row shipped only
+    /// with the push client). ON runs location-first (#5c onboarding doors),
+    /// then the permission prompt, then APNs registration; the switch lands
+    /// ON only when that flow completes. OFF deletes the device row.
+    private var notificationsSection: some View {
+        Section {
+            Toggle(isOn: notificationsBinding) {
+                Text("Notifications")
+            }
+            .accessibilityIdentifier("settings.notifications")
+        } header: {
+            Text("Notifications")
+        } footer: {
+            Text("A morning digest plus Perfect-window alerts for your activities.")
+        }
+    }
+
+    private var notificationsBinding: Binding<Bool> {
+        Binding(
+            get: { registration.isEnabled },
+            set: { wantsOn in
+                if wantsOn {
+                    Task { await enableNotifications() }
+                } else {
+                    Task { await registration.disable() }
+                }
+            }
+        )
+    }
+
+    @MainActor
+    private func enableNotifications() async {
+        switch await registration.requestEnable() {
+        case .enabled, .authorizationDenied:
+            // Denied: the switch simply stays off — same convention as iOS
+            // Settings; re-flipping re-prompts (or no-ops once determined).
+            break
+        case .needsLocation:
+            if registration.canPromptForLocationAccess {
+                // Grant → fix → the pending opt-in auto-continues.
+                registration.promptForLocationAccess()
+            } else {
+                // Authorized-but-fixless also warms a fix (the #5c doors) —
+                // whichever resolves first, GPS or a picked city, continues.
+                registration.warmLocationFixIfAuthorized()
+                showCityPicker = true
             }
         }
     }

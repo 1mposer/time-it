@@ -49,6 +49,34 @@ final class StaticLocationProvider: LocationProviding {
     func requestAuthorization() {}
 }
 
+/// In-memory Keychain stand-in — UI-test opt-ins never touch the real one.
+final class UITestKeychain: KeychainStoring {
+    private var storage: [String: String] = [:]
+
+    func read(key: String) -> String? {
+        storage[key]
+    }
+
+    func write(key: String, value: String) {
+        storage[key] = value
+    }
+}
+
+/// Always-succeeding devices route — the XCUI opt-in flow needs no server.
+struct UITestDevicesAPI: DeviceSnapshotSending {
+    func putSnapshot(deviceId: String, body: DeviceSnapshotBody) async throws {}
+    func deleteDevice(deviceId: String) async throws {}
+}
+
+/// Deterministic permission prompt: grants unless UITEST_PUSH_DENY.
+struct UITestPushAuthorizer: NotificationAuthorizing {
+    let grants: Bool
+
+    func requestAuthorization() async -> Bool {
+        grants
+    }
+}
+
 extension ForecastResponse {
     /// forecastStart 2026-06-19T00:00:00Z in Asia/Dubai = 4am local, so local
     /// day 0 spans indices 0..<20 (4am → midnight), day 1 spans 20..<44 and
