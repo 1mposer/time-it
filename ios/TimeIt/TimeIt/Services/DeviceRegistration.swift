@@ -301,6 +301,10 @@ final class DeviceRegistration: ObservableObject {
         }
         isEnabled = true
         defaults.set(true, forKey: Self.enabledKey)
+        // A successful re-enable cancels a pending opt-out DELETE — retrying
+        // it at next launch would destroy the row this flow recreates (and
+        // the fresh-token dedupe would hide the outage for ~24h).
+        defaults.set(false, forKey: Self.pendingDeleteKey)
         // Force the next token receipt to upsert — a re-enable must recreate
         // the deleted row even when the token is unchanged and fresh.
         defaults.removeObject(forKey: Self.lastSentTokenKey)
@@ -348,7 +352,9 @@ final class DeviceRegistration: ObservableObject {
     /// enabled re-register so a rotated APNs token re-upserts (the receipt
     /// dedupes an unchanged fresh one; staleness forces a daily refresh).
     func appDidLaunch() {
-        if defaults.bool(forKey: Self.pendingDeleteKey) {
+        // The retry belongs to an opted-OUT install only — while enabled, a
+        // (stale) pending flag must never outrank the live registration.
+        if !isEnabled, defaults.bool(forKey: Self.pendingDeleteKey) {
             track {
                 do {
                     try await self.api.deleteDevice(deviceId: self.installId)

@@ -27,7 +27,19 @@ struct KeychainStore: KeychainStoring {
         SecItemDelete(base as CFDictionary)
         var add = base
         add[kSecValueData as String] = data
-        SecItemAdd(add as CFDictionary, nil)
+        // Readable after the first unlock (add-time only — an accessibility
+        // attribute in the copy-matching query would mismatch existing
+        // items): a protection-class miss at a locked-state launch re-mints
+        // the UUID, and a duplicate device row means duplicate pushes.
+        add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
+        let status = SecItemAdd(add as CFDictionary, nil)
+        if status != errSecSuccess || read(key: key) != value {
+            // One retry covers a transient duplicate-item race; beyond that
+            // the failure is accepted residual risk — this session keeps its
+            // minted id and the next launch re-mints.
+            SecItemDelete(base as CFDictionary)
+            SecItemAdd(add as CFDictionary, nil)
+        }
     }
 
     private static func baseQuery(for key: String) -> [String: Any] {

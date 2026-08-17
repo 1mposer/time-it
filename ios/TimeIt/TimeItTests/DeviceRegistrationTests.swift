@@ -509,6 +509,39 @@ final class DeviceRegistrationTests: XCTestCase {
         XCTAssertEqual(api.puts.last?.body.activities.map(\.id), ["cycling", "stargazing", "padel"])
     }
 
+    func testReEnableCancelsAPendingOptOutDelete() async {
+        preferences.homeLocation = SavedLocation(name: "Home", lat: 25, lon: 55)
+        let registration = makeRegistration(enabled: true)
+        api.deleteError = APIError.providerUnavailable
+        await registration.disable()
+        api.deleteError = nil
+
+        _ = await registration.requestEnable()
+        XCTAssertFalse(defaults.bool(forKey: DeviceRegistration.pendingDeleteKey),
+                       "a successful re-enable cancels the pending opt-out")
+
+        // Relaunch of the (persisted-enabled) install: the stale DELETE must
+        // not fire and destroy the row the re-enable just recreated — the
+        // fresh-token dedupe would then hide the outage for ~24h.
+        let relaunched = makeRegistration(enabled: false)
+        XCTAssertTrue(relaunched.isEnabled, "the re-enable survived the relaunch")
+        relaunched.appDidLaunch()
+        await relaunched.awaitPendingOperations()
+        XCTAssertTrue(api.deletes.isEmpty, "no stale DELETE against a live registration")
+    }
+
+    func testLaunchDeleteRetryNeverFiresWhileEnabled() async {
+        preferences.homeLocation = SavedLocation(name: "Home", lat: 25, lon: 55)
+        defaults.set(true, forKey: DeviceRegistration.pendingDeleteKey)
+        let registration = makeRegistration(enabled: true)
+
+        registration.appDidLaunch()
+        await registration.awaitPendingOperations()
+
+        XCTAssertTrue(api.deletes.isEmpty,
+                      "a pending opt-out never outranks a live registration")
+    }
+
     func testFailedDeleteRetriesOnNextLaunch() async {
         preferences.homeLocation = SavedLocation(name: "Home", lat: 25, lon: 55)
         let registration = makeRegistration(enabled: true)
