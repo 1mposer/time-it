@@ -29,7 +29,7 @@
 | Dark-mode adoption + temp-driven header (Figma foundations §7 leftovers) | post-ship design wave |
 | Air-Quality adapter (`cli-iqair.js` experiment) | a user persona demands it |
 | Marine data (#7 — [GitHub](https://github.com/1mposer/time-it/issues/7); the stale spec was deleted 2026-08-10) | a validated fishing persona exists |
-| Pro/StoreKit + paywall · iCloud sync | post-loop (per #5b spec §8) |
+| Pro/StoreKit + paywall · iCloud sync | post-loop (per #5b spec §8). **Tripwire for the Pro build:** wire the StoreKit entitlement-change handler into `DeviceRegistration`'s re-upsert triggers — the server has no tier check ([ADR-0001](../adr/0001-no-accounts-guest-first.md)/[ADR-0006](../adr/0006-device-keyed-push-evaluation.md)), so a downgraded device's stale Pro snapshot keeps receiving Pro-level pushes until the client re-upserts (flagged 2026-08-17) |
 | Surprise notification (out-of-range Perfect alert — the whole-day-discovery descendant; definition: [`ios/GLOSSARY.md`](../../ios/GLOSSARY.md)) | post-ship, when a validated user asks for out-of-range alerts |
 
 ## Killed (stays killed)
