@@ -119,7 +119,7 @@ A boolean flag indicating an active maritime-authority alert (e.g. gale warning,
 > **Dev:** "The engine returned a Perfect **Window** covering Abdulla's whole 6am–12pm cycling **Range** on Sunday. Does he cycle all six hours?"
 > **Domain expert:** "No — his **Session** is 3 hours. The **Range** is what he asked us to watch; the **Window** is the qualifying stretch inside it; he picks where his **Session** fits. And because it's Perfect and within ~48h, the **Perfect-window alert** pushes him."
 > **Dev:** "What if no hour clears the required **Thresholds**?"
-> **Domain expert:** "Then there's no **Window** for that day. The card reads 'No window today' (a nocturnal Activity: 'No window tonight') — it never rolls forward to a later day; the detail timeline still shows the rest of the week — and no notification is sent."
+> **Domain expert:** "Then there's no **Window** for that day. The card paints the **Range** solid red with the phrase 'Nothing in your range' (spec 14 §2 — bad weather is painted, never absent) — it never rolls forward to a later day; the detail week still shows the rest of the days — and no notification is sent."
 
 ## Tests
 
