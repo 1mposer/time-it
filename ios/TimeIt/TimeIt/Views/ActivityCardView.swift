@@ -263,16 +263,15 @@ struct TimelineBarView: View {
 
     /// The slice fill. Server truth outranks the mirror (§3): a `rating: null`
     /// day is solid red regardless of the tiers; a rated day blends one stop
-    /// per hour (`TierGradient` midpoint placement — an all-green range comes
-    /// out solid green with no special case).
+    /// per hour (`Theme.sliceStops` — `TierGradient` midpoint placement plus
+    /// the yellow G↔O blend waypoints; an all-green range comes out solid
+    /// green with no special case).
     private var sliceStyle: AnyShapeStyle {
         guard day?.rating != nil, !tiers.isEmpty else {
             return AnyShapeStyle(Theme.badRed)
         }
-        let stops = TierGradient.stops(for: tiers).map { stop in
-            Gradient.Stop(color: Theme.tierColor(stop.tier), location: stop.location)
-        }
-        return AnyShapeStyle(LinearGradient(stops: stops, startPoint: .leading, endPoint: .trailing))
+        return AnyShapeStyle(LinearGradient(stops: Theme.sliceStops(for: tiers),
+                                            startPoint: .leading, endPoint: .trailing))
     }
 
     @ViewBuilder

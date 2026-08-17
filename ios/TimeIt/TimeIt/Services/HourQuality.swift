@@ -4,7 +4,7 @@ import Foundation
 /// < green — the same three-way verdict the server's day `rating` collapses
 /// to: green ⇔ "perfect", orange ⇔ "good", red ⇔ Bad (a day of only red
 /// hours is the server's `rating: null`).
-enum HourTier: Int, Comparable {
+enum HourTier: Int, Comparable, CaseIterable {
     case red = 0
     case orange = 1
     case green = 2

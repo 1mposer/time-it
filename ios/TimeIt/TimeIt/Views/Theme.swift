@@ -21,6 +21,7 @@ enum Theme {
     static let accentOrange = Color(hex: 0xff9500)   // Semantic rating/good
     static let perfectGreen = Color(hex: 0x34c759)   // Semantic rating/perfect
     static let badRed = Color(hex: 0xff3b30)         // Semantic rating/bad — gradient red; gray track = no data only
+    static let blendYellow = Color(hex: 0xffbe0a)    // Semantic rating/blend — G↔O waypoint only, never a tier fill (light value; dark wave deferred)
     static let timelineTrack = Color(hex: 0xf2f2f7)
     static let accentInteractive = Color(hex: 0x007aff) // Semantic accent/interactive
     static let divider = Color(hex: 0x3c3c43, opacity: 0.18)
@@ -32,6 +33,22 @@ enum Theme {
         case .green: return perfectGreen
         case .orange: return accentOrange
         case .red: return badRed
+        }
+    }
+
+    /// The ONE home of the stop→color binding for gradient slices — the card
+    /// timeline and the detail week rows both route through here, so the
+    /// yellow-waypoint rule (`TierGradient`) exists in exactly one place.
+    static func sliceStops(for tiers: [HourTier]) -> [Gradient.Stop] {
+        TierGradient.stops(for: tiers).map { stop in
+            Gradient.Stop(color: color(for: stop.color), location: stop.location)
+        }
+    }
+
+    private static func color(for stopColor: SliceStopColor) -> Color {
+        switch stopColor {
+        case .tier(let tier): return tierColor(tier)
+        case .blend: return blendYellow
         }
     }
 

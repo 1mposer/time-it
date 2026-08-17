@@ -129,7 +129,7 @@ struct ActivityDetailView: View {
                                 .foregroundStyle(Theme.secondaryText)
                         }
                     }
-                    dayBar(day)
+                    dayBar(day, rangeHours: rangeHours)
                 }
                 .contentShape(Rectangle())
             }
@@ -146,29 +146,48 @@ struct ActivityDetailView: View {
 
     /// The range-zoomed bar: the axis IS the Range, so every row shares it and
     /// the week compares as one vertical scan. Server truth outranks the
-    /// mirror (§3): a `rating: null` day is solid red; a rated day blends one
-    /// stop per range hour.
+    /// mirror (§3), but red is reserved for BAD-WITH-DATA: a Range the
+    /// forecast doesn't cover paints the plain track, a `rating: null` day
+    /// with covered hours is solid red, and a rated day blends one stop per
+    /// COVERED hour over its true sub-span of the shared axis (`RangeAxis`) —
+    /// never stretched across hours that have no data.
     @ViewBuilder
-    private func dayBar(_ day: Day) -> some View {
+    private func dayBar(_ day: Day, rangeHours: [HourlyWeather]) -> some View {
         let shape = RoundedRectangle(cornerRadius: 4)
+        let tiers = authored.map { viewModel.rangeTiers(for: $0, dayIndex: day.dayIndex) } ?? []
         Group {
-            if day.rating == nil {
+            switch DayBarPaint.decide(rating: day.rating,
+                                      tiers: tiers,
+                                      coverage: coverageSpan(rangeHours: rangeHours)) {
+            case .track:
+                shape.fill(Theme.timelineTrack)
+            case .solidRed:
                 shape.fill(Theme.badRed)
-            } else {
-                let tiers = authored.map { viewModel.rangeTiers(for: $0, dayIndex: day.dayIndex) } ?? []
-                if tiers.isEmpty {
-                    // No authored range hours to mirror (lookup miss) — fall
-                    // back to the server verdict as a flat fill.
-                    shape.fill(day.rating == "perfect" ? Theme.perfectGreen : Theme.accentOrange)
-                } else {
-                    shape.fill(LinearGradient(stops: TierGradient.stops(for: tiers).map {
-                        Gradient.Stop(color: Theme.tierColor($0.tier), location: $0.location)
-                    }, startPoint: .leading, endPoint: .trailing))
+            case .flat:
+                shape.fill(day.rating == "perfect" ? Theme.perfectGreen : Theme.accentOrange)
+            case .slice(let span, let tiers):
+                ZStack(alignment: .leading) {
+                    shape.fill(Theme.timelineTrack)
+                    GeometryReader { geo in
+                        shape
+                            .fill(LinearGradient(stops: Theme.sliceStops(for: tiers),
+                                                 startPoint: .leading, endPoint: .trailing))
+                            .frame(width: max(geo.size.width * (span.upperBound - span.lowerBound), 4))
+                            .offset(x: geo.size.width * span.lowerBound)
+                    }
                 }
             }
         }
         .frame(height: 14)
         .frame(maxWidth: .infinity)
+    }
+
+    /// Where the covered range hours sit on the range-zoomed axis — nil when
+    /// nothing is covered (or the Activity has no window to zoom to).
+    private func coverageSpan(rangeHours: [HourlyWeather]) -> Range<Double>? {
+        guard let window = authored?.window, let deriver else { return nil }
+        return RangeAxis.coverageSpan(window: window,
+                                      localHours: rangeHours.map { deriver.localHour(at: $0.index) })
     }
 
     /// §7.4: the tapped day's hourly chips — range hours only, all
