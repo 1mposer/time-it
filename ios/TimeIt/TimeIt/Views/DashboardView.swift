@@ -19,6 +19,7 @@ struct DashboardView: View {
     @StateObject private var registration: DeviceRegistration
     @ObservedObject private var router: PushRouter
     @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showSettings = false
     @State private var showAdd = false
     @State private var showCityPicker = false
@@ -417,27 +418,38 @@ struct DashboardView: View {
         pendingFocusId = nil
     }
 
-    /// The push opt-in callout (Figma 266:125): bell + two-line invitation
-    /// deep-linking to Settings' Notifications row, ✕ dismissing for good.
+    /// The push opt-in callout (Figma 266:5/266:1562, round-3 owner hand-edit
+    /// 2026-08-18 — FIGMA.md §7): bell + two-line invitation deep-linking to
+    /// Settings' Notifications row; ✕ pinned to the card's top-trailing
+    /// corner (44pt HIG tap target, flush), dismissing for good. The display
+    /// copy drops the hyphen (owner ruling — docs keep "Perfect-window").
     private var pushCallout: some View {
-        HStack(spacing: 0) {
+        ZStack(alignment: .topTrailing) {
             Button {
                 showSettings = true
             } label: {
                 HStack(spacing: 10) {
-                    Image(systemName: "bell.fill")
-                        .font(.system(size: 17))
-                        .foregroundStyle(Theme.accentInteractive)
+                    calloutBell
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Get a morning digest + Perfect-window alerts")
+                        // The frame fixes the headline at 272pt breaking after
+                        // "window" ("alerts" alone on line two); SwiftUI's
+                        // default line-break strategy would push "window" down
+                        // to avoid the orphan, so the break is hard-coded.
+                        // Line one's ink ends well clear of the 44pt ✕ tap
+                        // area on every supported width.
+                        Text("Get a morning digest + Perfect window\nalerts")
                             .font(.system(size: 14))
                             .foregroundStyle(Theme.primaryText)
+                            .frame(width: 272, alignment: .leading)
+                            .accessibilityLabel("Get a morning digest + Perfect window alerts")
                         Text("Turn on notifications")
                             .font(.system(size: 13))
                             .foregroundStyle(Theme.accentInteractive)
                     }
                     Spacer(minLength: 0)
                 }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -448,17 +460,32 @@ struct DashboardView: View {
                 Image(systemName: "xmark")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(Theme.secondaryText)
-                    .frame(width: 34, height: 34)
+                    .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.borderless)
             .accessibilityLabel("Dismiss")
             .accessibilityIdentifier("pushCallout.dismiss")
         }
-        .padding(.leading, 14)
-        .padding(.trailing, 4)
-        .padding(.vertical, 10)
         .background(RoundedRectangle(cornerRadius: 16).fill(Theme.cardBackground))
+    }
+
+    /// Round-3 bell motion: a 2s-periodic wiggle on iOS 18+ (the effect and
+    /// its repeat options are 18-only APIs — deployment target stays 17.0),
+    /// static on iOS 17 and whenever Reduce Motion is on.
+    @ViewBuilder private var calloutBell: some View {
+        let bell = Image(systemName: "bell.fill")
+            .font(.system(size: 17))
+            .foregroundStyle(Theme.accentInteractive)
+        if #available(iOS 18.0, *) {
+            if reduceMotion {
+                bell
+            } else {
+                bell.symbolEffect(.wiggle, options: .repeat(.periodic(delay: 2.0)))
+            }
+        } else {
+            bell
+        }
     }
 
     /// The card gear — opens the editor for this Activity (#5b §1).

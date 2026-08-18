@@ -654,7 +654,9 @@ final class TimeItUITests: XCTestCase {
         let callout = app.buttons["pushCallout"]
         XCTAssertTrue(callout.waitForExistence(timeout: 5),
                       "the one-time callout sits above the card list")
-        XCTAssertTrue(app.staticTexts["Get a morning digest + Perfect-window alerts"].exists)
+        // Round-3 display copy (FIGMA.md §7, owner hand-edit 2026-08-18): the
+        // hyphen is dropped in UI copy only — docs keep "Perfect-window alert".
+        XCTAssertTrue(app.staticTexts["Get a morning digest + Perfect window alerts"].exists)
 
         callout.tap()
 
