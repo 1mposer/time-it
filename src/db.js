@@ -6,13 +6,15 @@
 // the devices router's default DI wiring in tests) never demands a DATABASE_URL
 // or opens a connection; only the first query does.
 //
-// The push path's ONLY state lives here (the /rating path stays stateless):
+// All server-side state lives here (the /rating path stays stateless):
 // `devices` (one row per opted-in install) and `notification_state` (#6d — the
 // detector's one-alert-per-(device, activity, bucket) dedup ledger, cascading
-// away with its device row). `activities` is the validated ADR-0005 snapshot as
-// JSONB; `last_digest_date` is the sent-today marker the digest job compares
-// against device-local today (DATE — the pg driver returns it as a JS Date
-// object; see the type-trap note in src/jobs/dailyDigest.js).
+// away with its device row) for the push path, plus `suggestions` (the beta
+// feedback inbox — read with SQL, no admin UI). `activities` is the validated
+// ADR-0005 snapshot as JSONB; `last_digest_date` is the sent-today marker the
+// digest job compares against device-local today (DATE — the pg driver returns
+// it as a JS Date object; see the type-trap note in src/jobs/dailyDigest.js).
+// `suggestions` has NO FK to devices — feedback must not require push opt-in.
 
 const { Pool } = require('pg');
 
@@ -49,6 +51,21 @@ async function initDb() {
       notified_at TIMESTAMPTZ NOT NULL DEFAULT now(),
       PRIMARY KEY (device_id, activity_id, bucket_date)
     );
+  `);
+  await query(`
+    CREATE TABLE IF NOT EXISTS suggestions (
+      id          BIGSERIAL PRIMARY KEY,
+      device_id   TEXT NOT NULL,
+      message     TEXT NOT NULL,
+      app_version TEXT NOT NULL,
+      build       TEXT NOT NULL,
+      ios_version TEXT NOT NULL,
+      created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+  `);
+  await query(`
+    CREATE INDEX IF NOT EXISTS suggestions_device_created_idx
+      ON suggestions (device_id, created_at);
   `);
 }
 

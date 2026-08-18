@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const createRatingRouter = require('./routes/rating');
 const createDevicesRouter = require('./routes/devices');
+const createFeedbackRouter = require('./routes/feedback');
 const { getCachedWeather } = require('./services/weatherCache');
 
 const app = express();
@@ -34,5 +35,7 @@ app.use('/api/v1', createRatingRouter({ getWeather: getCachedWeather }));
 // Push-path registration (#6c, ADR-0006): the devices router defaults its own
 // getWeather to the same shared cache; db defaults to src/db.js (lazy pool).
 app.use('/api/v1', createDevicesRouter());
+// Beta feedback inbox — db-only, no weather dependency.
+app.use('/api/v1', createFeedbackRouter());
 
 module.exports = app;

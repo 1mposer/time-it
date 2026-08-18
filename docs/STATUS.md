@@ -1,6 +1,6 @@
 # STATUS — now / next / blocked
 
-> **Last updated: 2026-08-17** — the push opt-in client is built (ROADMAP item 7); live acceptance is the next step and waits on the owner-side APNs prerequisites. Events of record: [ROADMAP](issues/ROADMAP.md). This file is deliberately one screen: a snapshot only.
+> **Last updated: 2026-08-18** — the push opt-in client is built (ROADMAP item 7) and the beta-feedback server route is in (item 10); live acceptance is the next step and waits on the owner-side APNs prerequisites. Events of record: [ROADMAP](issues/ROADMAP.md). This file is deliberately one screen: a snapshot only.
 
 **Read order:** [`CLAUDE.md`](../CLAUDE.md) → [`CONTEXT.md`](CONTEXT.md) → this file → [ROADMAP](issues/ROADMAP.md).
 
@@ -26,7 +26,7 @@ Completed specs (in [`issues/completed/`](issues/completed/)) are historical rec
 ## 2. Now / next / blocked
 
 - **NOW:** **#6c/#6d live acceptance** ([checklist: push-client spec §6](issues/current/implement-spec-push-client.md), ROADMAP item 8) — the push opt-in client is ✅ done (built 2026-08-17; [ROADMAP item 7](issues/ROADMAP.md) is the record). **Awaiting owner review (flagged, not decided):** spec 14's I2 (all-dormant header hides its weather rows — proposal) and I3 (provisional phrase strings).
-- **NEXT (ship order — ROADMAP has the full table):** owner ops (bundle-ID rename to `com.timeit.app.dev` + the APNs entitlement) → live acceptance → **TestFlight**.
+- **NEXT (ship order — ROADMAP has the full table):** owner ops (bundle-ID rename to `com.timeit.app.dev` + the APNs entitlement) → live acceptance → **TestFlight** (its first build carries ROADMAP item 10 — beta feedback + test-build disclaimer).
 - **BLOCKED:** live acceptance needs the owner-ops prerequisites (item 4 + the APNs entitlement) and a real device; TestFlight waits on the owner-ops items ([ROADMAP](issues/ROADMAP.md) items 4 + 9).
 
 ## 3. Standing flags (not blockers)

@@ -1,6 +1,6 @@
 // Uniform error envelope (ADR-0005 §6), shared by every router so the shape
-// never forks across routes: EVERY error response — 400 validation, 502
-// provider, 500 unexpected — returns a structured { errors: [{ path?, message }] }
+// never forks across routes: EVERY error response — 400 validation, 429
+// throttle, 502 provider, 500 unexpected — returns a structured { errors: [{ path?, message }] }
 // array the iOS decoder parses as one shape (502/500 are single-element arrays).
 // Extracted from rating.js for Issue #6c; the rating route's wire output is
 // byte-identical to the pre-extraction inline version.

@@ -25,6 +25,7 @@ app.js                          →  entry point. initDb() → app.listen(PORT, 
 src/server.js                   →  Express app (exported, no .listen). CORS, express.json(), health route, mounts routers
 src/routes/rating.js            →  createRatingRouter({ getWeather, evaluateAll })  →  POST /api/v1/rating
 src/routes/devices.js           →  createDevicesRouter({ getWeather, db })  →  PUT/DELETE /api/v1/devices/:deviceId
+src/routes/feedback.js          →  createFeedbackRouter({ db })  →  POST /api/v1/feedback (beta suggestion inbox)
 src/routes/validateRatingRequest.js →  validateRatingRequest(body)  returns structured error[] (ADR-0005 §6)
 src/routes/validateActivities.js    →  validateActivities(activities, pathPrefix)  shared per-activity rules (rating + devices)
 src/routes/errorEnvelope.js         →  errorBody / sendRouteError    shared { errors } envelope + 502/500 mapping
@@ -35,7 +36,7 @@ src/weather/UpstreamError.js →  UpstreamError                     typed provid
 src/decision/index.js        →  evaluateAll(hours, activities)    returns Activity result[] (per-activity days[])
 
 src/services/weatherCache.js →  getCachedWeather(lat, lon)        shared 60-min in-memory cache over getWeather
-src/db.js                    →  query / initDb                    lazy pg pool + idempotent devices/notification_state schema (push path only)
+src/db.js                    →  query / initDb                    lazy pg pool + idempotent devices/notification_state/suggestions schema
 src/notifications/apns.js    →  sendPush / StaleTokenError        APNs seam (apns2 imported nowhere else)
 src/jobs/index.js            →  startJobs()                       in-process node-cron, hourly digest + detector passes (single replica)
 src/jobs/dailyDigest.js      →  createDailyDigestJob({ db, getWeather, evaluateAll, sendPush, now })
@@ -62,7 +63,7 @@ Internally, `getWeather` tags each hour with a `localDay` key (the location's ca
 
 ## API response contract
 
-The HTTP API has four routes: the two below plus the push-path device routes (`PUT`/`DELETE /api/v1/devices/:deviceId` — see [Push path](#push-path--device-registration-daily-digest-perfect-window-detector-issues-6c6d)). Treat the shapes below as the contract — the iOS client (Issue #5a) decodes against them.
+The HTTP API has five routes: the two below, the push-path device routes (`PUT`/`DELETE /api/v1/devices/:deviceId` — see [Push path](#push-path--device-registration-daily-digest-perfect-window-detector-issues-6c6d)), and the beta suggestion inbox (`POST /api/v1/feedback` — see [Beta feedback](#beta-feedback--post-apiv1feedback)). Treat the shapes below as the contract — the iOS client (Issue #5a) decodes against them.
 
 ### `GET /health`
 
@@ -199,7 +200,7 @@ Validation is **atomic** — all failures are collected, so a `400` may list mul
 
 ## Push path — device registration, daily digest, Perfect-window detector (Issues #6c/#6d)
 
-Server-side per-device state exists **only** here ([ADR-0006](docs/adr/0006-device-keyed-push-evaluation.md)) — the `/rating` path stays stateless. Postgres holds one `devices` row per opted-in install (`device_id` = client-minted Keychain UUID, `apns_token`, `home_lat`/`home_lon`, server-resolved IANA `timezone`, `activities` JSONB, `last_digest_date`, `updated_at`) plus the detector's `notification_state` dedup ledger (`(device_id, activity_id, bucket_date)` PK, `ON DELETE CASCADE` with its device row); `initDb()` is an idempotent `CREATE TABLE IF NOT EXISTS` pair (no migration framework). Jobs are in-process `node-cron` on the always-on **single-replica** web service (2+ replicas duplicate pushes).
+Server-side per-device state exists **only** here ([ADR-0006](docs/adr/0006-device-keyed-push-evaluation.md)) — the `/rating` path stays stateless. Postgres holds one `devices` row per opted-in install (`device_id` = client-minted Keychain UUID, `apns_token`, `home_lat`/`home_lon`, server-resolved IANA `timezone`, `activities` JSONB, `last_digest_date`, `updated_at`) plus the detector's `notification_state` dedup ledger (`(device_id, activity_id, bucket_date)` PK, `ON DELETE CASCADE` with its device row); `initDb()` is an idempotent `CREATE TABLE IF NOT EXISTS` set (no migration framework — it also creates the feedback route's `suggestions` table, see [Beta feedback](#beta-feedback--post-apiv1feedback)). Jobs are in-process `node-cron` on the always-on **single-replica** web service (2+ replicas duplicate pushes).
 
 ### `PUT /api/v1/devices/:deviceId`
 
@@ -219,11 +220,34 @@ The event twin of the digest, on the same hourly tick: push the moment a **new P
 
 ---
 
+## Beta feedback — `POST /api/v1/feedback`
+
+The in-app suggestion inbox for test builds: the client POSTs free text plus build metadata and the row lands in the `suggestions` table, read with SQL (Railway data browser / `psql`) — no admin UI. No auth (same accepted-risk posture as the device routes, ADR-0001) and **no FK to `devices`** — feedback must not require push opt-in. `deviceId` is the same client-minted Keychain install UUID the push path uses; `build` is the iOS `CFBundleVersion`, stored so every suggestion reads in the context of the exact build that produced it.
+
+**Request body** (all five fields required, non-empty strings):
+
+```json
+{
+  "deviceId": "9f3a0c1e-…",
+  "message": "Add wind direction to the dashboard cards.",
+  "appVersion": "1.0",
+  "build": "7",
+  "iosVersion": "17.5"
+}
+```
+
+- `message`: max **1000** chars, trimmed before storage (whitespace-only is rejected). The other four fields: max **64** chars each.
+- **Success → `204`** (no body).
+- Errors use the uniform `{ errors }` envelope: `400` validation (atomic + structured, per-field `path`), **`429`** when a device exceeds **20 suggestions per rolling 24h** (the abuse ceiling — single-element array, no `path`), `500` otherwise. There is **no `502`** — the route never touches the weather provider.
+
+---
+
 ## Module internals
 
 ### `src/routes/`
 - `rating.js` — exports `createRatingRouter({ getWeather, evaluateAll })` factory. Mounts `POST /api/v1/rating` on a fresh Express router. **Validates the JSON body via `validateRatingRequest` BEFORE calling `getWeather`** (a malformed request spends no provider call); on any error returns `400` with the structured `{ errors }` array. Otherwise calls injected `getWeather(lat, lon)` and `evaluateAll(hours, activities)`, then shapes the wire JSON: strips the internal `localDay`/`localHour` from each hour, prepends `index`, and assembles `{ forecastStart, timezone, activities, hours }`. Error mapping via the shared `errorEnvelope.js` (all bodies are the uniform `{ errors }` envelope): `400` (validation), `502` (`err instanceof UpstreamError` — provider failure), `500` (any other thrown error). Default dependencies resolve to the real modules — but the **production wiring in `server.js` injects `getCachedWeather`** (the shared 60-min cache) instead of the raw `getWeather`; tests pass fakes via the factory arg.
 - `devices.js` — exports `createDevicesRouter({ getWeather, db })` factory (defaults: the shared weather cache + `src/db.js`). `PUT /api/v1/devices/:deviceId` (full-snapshot upsert, empty-`[]` valid, timezone resolved server-side, `last_digest_date` preserved) and idempotent `DELETE`. See the [Push path](#push-path--device-registration-daily-digest-perfect-window-detector-issues-6c6d) section for the contract.
+- `feedback.js` — exports `createFeedbackRouter({ db })` factory (default: `src/db.js`). `POST /api/v1/feedback` — validates atomically (message ≤1000 chars, trimmed non-empty; `deviceId`/`appVersion`/`build`/`iosVersion` ≤64 chars, all required) **before any db query**, enforces the per-device 20-per-rolling-24h ceiling via a count query (`429`), then inserts into `suggestions` → `204`. db-only — no weather dependency, so no `502` path; errors via the shared `errorEnvelope.js`.
 - `validateRatingRequest.js` — exports `validateRatingRequest(body)` → array of `{ path, message }` (empty = valid). Atomic (collects every failure across the whole body, never first-wins) and structured per [ADR-0005 §6](docs/adr/0005-custom-activity-request-schema.md). Owns the rating-only rules (lat/lon range, **non-empty** activities); the per-activity rules live in the shared `validateActivities.js`. The route maps a non-empty result to a single `400`.
 - `validateActivities.js` — exports `validateActivities(activities, pathPrefix = 'activities')`, the per-activity ADR-0005 rule block shared by the rating and devices routes (extracted for #6c — same messages, same relative paths; the rating route's output is byte-identical to pre-extraction). Owns the per-request duplicate-`id` set and the ~50 abuse ceiling; the non-empty rule stays with each caller (an empty device snapshot is valid, an empty rating request is not). Imports the metric catalog to hard-reject unknown/coming-soon metrics in either `displayMetrics` or `thresholds` (the false-Perfect backstop).
 - `errorEnvelope.js` — exports `errorBody(message, path?)` and `sendRouteError(res, err)` (the shared `UpstreamError → 502` / other → `500` catch mapping) so the `{ errors }` envelope never forks across routers. (The malformed-JSON `400`/`413` middleware in `server.js` is the other shared piece — any mounted router inherits it.)
@@ -246,7 +270,7 @@ The event twin of the digest, on the same hourly tick: push the moment a **new P
 - `weatherCache.js` — the shared in-memory weather cache (#6c spec §6). `createWeatherCache({ getWeather, ttlMs, now })` factory for tests + the production singleton `getCachedWeather`. Key = lat/lon at 2 dp (~1.1 km — nearby devices share entries), **60-min TTL** (owner-confirmed Meteosource upstream cadence — [`docs/API_documentation/meteosource/README.md`](docs/API_documentation/meteosource/README.md)). Caches the **promise** so concurrent callers share one in-flight fetch; a rejected fetch is evicted immediately. One instance for every consumer (`/rating`, device upsert, jobs) — do not build a second cache.
 
 ### `src/db.js`
-- Lazy `pg` pool over `DATABASE_URL` (requiring the module never opens a connection — only the first query does), `query` passthrough, idempotent `initDb()` creating the `devices` and `notification_state` tables (the latter cascades away with its device row). The push path's only state; `/rating` and `GET /health` never touch it.
+- Lazy `pg` pool over `DATABASE_URL` (requiring the module never opens a connection — only the first query does), `query` passthrough, idempotent `initDb()` creating the `devices`, `notification_state` (cascades away with its device row), and `suggestions` (beta feedback inbox — deliberately **no** FK to devices) tables plus the feedback rate-limit index. All server-side state; `/rating` and `GET /health` never touch it.
 
 ### `src/notifications/`
 - `apns.js` — the APNs seam; `apns2` is imported nowhere else (provider-specifics stop at the boundary). `createPushSender({ transport })` for tests + the production `sendPush(apnsToken, { title, body, payload })`; the real transport is built lazily from env on first send (`buildApnsConfig`: `APNS_KEY` = `.p8` PEM **content**, `\n`-escape tolerant; `APNS_KEY_ID`; `APNS_TEAM_ID`; topic from optional `APNS_TOPIC`, defaulting to **`com.timeit.app.dev`** — the topic must equal the installed app's bundle ID, and the un-suffixed `com.timeit.app` belongs to another Apple account (rename status: [ROADMAP](docs/issues/ROADMAP.md) item 4); sandbox host unless `NODE_ENV === 'production'`). APNs `Unregistered`/`BadDeviceToken` → typed `StaleTokenError` so callers delete the device row.
@@ -313,6 +337,7 @@ npm test
 - `tests/weather/metricCatalog.test.js` — pins the live vs coming-soon metric sets, disjointness, and `isKnown`/`isAvailable`.
 - `tests/routes/validateRatingRequest.test.js` — the full ADR-0005 §6 rejection set (lat/lon range, activities array + abuse ceiling, id/label, displayMetrics, subset invariant, unknown/coming-soon metrics in both lists, numeric `min>max`/bound-less, missing `required`, `requireTrue`, window hour bounds + `startHour===endHour`) plus the atomic-collect/structured-shape contract and valid happy cases (wrapped window, flag, show-but-don't-judge). Unchanged by the #6c `validateActivities` extraction — it doubles as the refactor's tripwire.
 - `tests/routes/devices.test.js` — DI-fake tests for the device routes (stateful fake db in the pg row shape): upsert happy path (204, row shape, server-resolved timezone), **empty-`[]` upsert → 204** (dormant snapshot), last-write-wins with `last_digest_date` preserved, validation 400s incl. the shared-rule paths/messages, validation-before-provider, `502` on provider failure, DELETE idempotency.
+- `tests/routes/feedback.test.js` — DI-fake tests for the feedback route (stateful fake db): happy path (204 no body, full row shape, message trimmed), per-field validation 400s incl. length caps with exact-boundary acceptance, whitespace-only message rejection, atomic collection, validation-before-db, the 20-per-rolling-24h ceiling (429 envelope + a real 20-accepted-then-21st-rejected sequence), db failure → 500 envelope.
 - `tests/services/weatherCache.test.js` — TTL expiry with a fake clock, 2-dp key sharing/splitting, concurrent in-flight dedupe, rejected-fetch eviction.
 - `tests/server/ratingCache.test.js` — `/rating` composed with a real cache around a spy provider: two identical POSTs = one provider call, identical bodies; plus a structural pin that `server.js` wires `getCachedWeather` in.
 - `tests/notifications/apns.test.js` — seam contract with a stubbed transport (`Unregistered`/`BadDeviceToken` → `StaleTokenError`, other errors rethrown) and the pure env→config mapping (topic, host by `NODE_ENV`, `\n` normalisation, missing-var throws).
@@ -337,7 +362,8 @@ npm start          # node app.js (production)
 
 `GET /health` — liveness check (used by Railway; deliberately DB-independent).
 `POST /api/v1/rating` — body `{ lat, lon, activities[] }`; returns the 7-day forecast + per-day ratings for the supplied activities.
-`PUT`/`DELETE /api/v1/devices/:deviceId` — push-path snapshot registration/opt-out (see the Push path section). Example:
+`PUT`/`DELETE /api/v1/devices/:deviceId` — push-path snapshot registration/opt-out (see the Push path section).
+`POST /api/v1/feedback` — beta suggestion inbox (see the Beta feedback section). Example:
 
 ```
 curl -X POST localhost:3000/api/v1/rating -H 'Content-Type: application/json' \
