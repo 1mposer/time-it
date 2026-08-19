@@ -11,4 +11,5 @@ enum APIConfig {
 
     static let ratingPath = "/api/v1/rating"
     static let devicesPath = "/api/v1/devices"
+    static let feedbackPath = "/api/v1/feedback"
 }
