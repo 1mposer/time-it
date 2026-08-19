@@ -12,14 +12,27 @@ const { bucketDate } = require('../../src/weather/timeBoundary');
 // ---------------------------------------------------------------------------
 
 function makeJobDb(rows) {
-  const deleted = [];
+  const deactivated = [];
   const markers = [];
   return {
-    deleted,
+    deactivated,
     markers,
     query: async (text, params) => {
-      if (text.startsWith('SELECT')) return { rows };
-      if (text.startsWith('DELETE FROM devices')) { deleted.push(params[0]); return { rows: [] }; }
+      if (text.startsWith('SELECT')) {
+        // Mirror the WHERE clause: only a SELECT that actually filters gets
+        // filtered rows — a job SQL missing the clause would see blank-token
+        // rows and fail the never-selected test.
+        if (text.includes('apns_token IS NOT NULL')) {
+          return { rows: rows.filter((r) => r.apns_token != null) };
+        }
+        return { rows };
+      }
+      if (text.startsWith('UPDATE devices SET apns_token = NULL')) {
+        deactivated.push(params[0]);
+        const row = rows.find((r) => r.device_id === params[0]);
+        if (row) row.apns_token = null; // token blanked, row kept (ADR-0010)
+        return { rows: [] };
+      }
       if (text.startsWith('UPDATE devices SET last_digest_date')) {
         markers.push({ deviceId: params[0], date: params[1] });
         return { rows: [] };
@@ -251,8 +264,8 @@ test('today and week-ahead sections combine into one push, one line each', async
   assert.equal(sent[0].message.body, 'Cycling: Perfect 7–10am\nMon: Perfect for Cycling');
 });
 
-// --- stale token ---
-test('StaleTokenError deletes the device row and does not set the marker', async () => {
+// --- stale token (ADR-0010 never-erase: token blanked, row kept, logged) ---
+test('StaleTokenError blanks the token, KEEPS the row, logs a warning, and does not set the marker', async () => {
   const rows = [
     makeDevice({ device_id: 'stale', apns_token: 'dead' }),
     makeDevice({ device_id: 'alive', apns_token: 'live' }),
@@ -269,8 +282,42 @@ test('StaleTokenError deletes the device row and does not set the marker', async
     },
     now: () => Date.parse('2026-08-01T02:30:00Z'),
   });
-  await job.runDigestPass();
-  assert.deepStrictEqual(db.deleted, ['stale'], 'dead tokens must not accumulate');
-  assert.deepStrictEqual(db.markers.map((m) => m.deviceId), ['alive'], 'no marker for the deleted row');
+  const warnings = [];
+  const originalWarn = console.warn;
+  console.warn = (...args) => warnings.push(args.join(' '));
+  try {
+    await job.runDigestPass();
+  } finally {
+    console.warn = originalWarn;
+  }
+  assert.deepStrictEqual(db.deactivated, ['stale'], 'dead push addresses must not accumulate');
+  const staleRow = rows.find((r) => r.device_id === 'stale');
+  assert.equal(staleRow.apns_token, null, 'only the token is blanked');
+  assert.deepStrictEqual(staleRow.activities, makeDevice().activities, 'authored data survives');
+  assert.ok(
+    warnings.some((w) => w.includes('stale') && w.includes('token blanked, row kept')),
+    'the deactivation is never silent (2026-08-19 debugging-session rule)'
+  );
+  assert.deepStrictEqual(db.markers.map((m) => m.deviceId), ['alive'], 'no marker for the deactivated row');
   assert.equal(sent.length, 1);
+});
+
+test('a deactivated (token-less) row is never selected: no weather call, no push', async () => {
+  let weatherCalls = 0;
+  const db = makeJobDb([
+    makeDevice({ device_id: 'dormant', apns_token: null }),
+    makeDevice({ device_id: 'active', apns_token: 'live' }),
+  ]);
+  const { sent, sendPush } = makeSentLog();
+  const job = createDailyDigestJob({
+    db,
+    getWeather: async () => { weatherCalls++; return { forecastStart: FORECAST_START, timezone: DUBAI, hours: [] }; },
+    evaluateAll: cannedResults(PERFECT_DAY0),
+    sendPush,
+    now: () => Date.parse('2026-08-01T02:30:00Z'),
+  });
+  await job.runDigestPass();
+  assert.equal(weatherCalls, 1, 'the dormant row is filtered in SQL — its weather call is saved too');
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].token, 'live');
 });

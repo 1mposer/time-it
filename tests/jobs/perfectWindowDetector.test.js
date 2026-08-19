@@ -13,12 +13,25 @@ const { StaleTokenError } = require('../../src/notifications/apns');
 
 function makeDetectorDb(rows, seedKeys = []) {
   const state = new Set(seedKeys);
-  const deletedDevices = [];
+  const deactivatedDevices = [];
   return {
     state,
-    deletedDevices,
+    deactivatedDevices,
     query: async (text, params) => {
-      if (text.startsWith('SELECT')) return { rows };
+      if (text.startsWith('SELECT')) {
+        // Mirror the WHERE clause (see the digest fake): only a filtering
+        // SELECT gets filtered rows.
+        if (text.includes('apns_token IS NOT NULL')) {
+          return { rows: rows.filter((r) => r.apns_token != null) };
+        }
+        return { rows };
+      }
+      if (text.startsWith('UPDATE devices SET apns_token = NULL')) {
+        deactivatedDevices.push(params[0]);
+        const row = rows.find((r) => r.device_id === params[0]);
+        if (row) row.apns_token = null; // token blanked, row kept (ADR-0010)
+        return { rows: [] };
+      }
       if (text.startsWith('INSERT INTO notification_state')) {
         const key = params.join('|');
         if (state.has(key)) return { rowCount: 0, rows: [] };
@@ -32,10 +45,6 @@ function makeDetectorDb(rows, seedKeys = []) {
         for (const key of [...state]) {
           if (key.split('|')[2] < cutoff) state.delete(key);
         }
-        return { rows: [] };
-      }
-      if (text.startsWith('DELETE FROM devices')) {
-        deletedDevices.push(params[0]);
         return { rows: [] };
       }
       throw new Error(`fake db: unexpected query: ${text}`);
@@ -282,9 +291,9 @@ test('each pass prunes state rows older than today − 2 days', async () => {
   assert.deepStrictEqual([...db.state], ['device-1|cycling|2026-07-30']);
 });
 
-// --- stale token + isolation ---
+// --- stale token + isolation (ADR-0010 never-erase: deactivate, keep state) ---
 
-test('StaleTokenError deletes the device row and stops its remaining alerts', async () => {
+test('StaleTokenError blanks the token, KEEPS the row and its state rows, logs, and stops its remaining alerts', async () => {
   const rows = [
     makeDevice({ device_id: 'stale', apns_token: 'dead' }),
     makeDevice({ device_id: 'alive', apns_token: 'live' }),
@@ -303,10 +312,47 @@ test('StaleTokenError deletes the device row and stops its remaining alerts', as
     },
     now: () => Date.parse('2026-08-01T02:30:00Z'),
   });
-  await job.runDetectorPass();
-  assert.deepStrictEqual(db.deletedDevices, ['stale'], 'dead tokens must not accumulate');
+  const warnings = [];
+  const originalWarn = console.warn;
+  console.warn = (...args) => warnings.push(args.join(' '));
+  try {
+    await job.runDetectorPass();
+  } finally {
+    console.warn = originalWarn;
+  }
+  assert.deepStrictEqual(db.deactivatedDevices, ['stale'], 'dead push addresses must not accumulate');
+  const staleRow = rows.find((r) => r.device_id === 'stale');
+  assert.equal(staleRow.apns_token, null, 'only the token is blanked');
+  assert.ok(
+    warnings.some((w) => w.includes('stale') && w.includes('token blanked, row kept')),
+    'the deactivation is never silent (2026-08-19 debugging-session rule)'
+  );
+  // Nothing was deleted, so nothing cascades: the bucket-0 key the stale
+  // device consumed before its push failed SURVIVES the deactivation.
+  assert.deepStrictEqual([...db.state].sort(), [
+    'alive|cycling|2026-08-01',
+    'alive|cycling|2026-08-02',
+    'stale|cycling|2026-08-01',
+  ]);
   assert.equal(sent.length, 2, 'the healthy device still gets both bucket alerts');
-  assert.ok(sent.every((s) => s.token === 'live'));
+  assert.ok(sent.every((s) => s.token === 'live'), 'deactivation stops the stale device\'s remaining alerts');
+});
+
+test('a deactivated (token-less) row is never selected: no weather call, no push, no key consumed', async () => {
+  let weatherCalls = 0;
+  const db = makeDetectorDb([makeDevice({ device_id: 'dormant', apns_token: null })]);
+  const { sent, sendPush } = makeSentLog();
+  const job = createPerfectWindowDetectorJob({
+    db,
+    getWeather: async () => { weatherCalls++; return { forecastStart: FORECAST_START, timezone: DUBAI, hours: [] }; },
+    evaluateAll: cannedResults(PERFECT_BUCKET0),
+    sendPush,
+    now: () => Date.parse('2026-08-01T02:30:00Z'),
+  });
+  await job.runDetectorPass();
+  assert.equal(weatherCalls, 0, 'dormant-for-push rows are filtered in SQL — the weather call is saved too');
+  assert.equal(sent.length, 0);
+  assert.equal(db.state.size, 0);
 });
 
 test('one device failing never stops the pass', async () => {

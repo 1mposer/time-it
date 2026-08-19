@@ -1,9 +1,16 @@
-// Device-snapshot registration routes (#6c spec §4, ADR-0006).
+// Device-snapshot registration routes (#6c spec §4, ADR-0006, ADR-0010).
 //
 // PUT /api/v1/devices/:deviceId — full-snapshot upsert: client-authoritative,
 // last-write-wins, no merge. The client re-upserts on ANY change (activity
 // edit, home change, APNs token refresh), so the row is always the whole truth.
-// DELETE — opt-out; idempotent (deleting a missing row is still 204).
+// Home coordinates are rounded to 2 dp (~1.1 km) at write — the client sends
+// full precision, but the stored location must honestly be Coarse (ADR-0010
+// granularity ruling); ratings are unaffected because the shared weather cache
+// already keys at 2 dp.
+// DELETE — opt-out, reinterpreted server-side as DEACTIVATION (ADR-0010
+// never-erase rule): blanks apns_token and keeps the row, so activities/home/
+// history survive for a re-opt-in. Wire contract unchanged — still 204, still
+// idempotent (deactivating a missing row is still 204, and never creates one).
 //
 // No auth: the deviceId is an unguessable client-minted Keychain UUID and the
 // stored data is a weather-preferences snapshot (accepted risk, ADR-0001).
@@ -68,10 +75,16 @@ function createDevicesRouter({ getWeather = getCachedWeather, db = defaultDb } =
     if (errors.length > 0) return res.status(400).json({ errors });
 
     try {
+      // Coarse at write (ADR-0010): validation ran on the raw values; storage
+      // and the timezone lookup both see the SAME 2 dp values, so the row can
+      // never claim a precision its weather lookups didn't use.
+      const homeLat = Math.round(body.home.lat * 100) / 100;
+      const homeLon = Math.round(body.home.lon * 100) / 100;
+
       // Resolve the location's IANA zone through the shared weather cache — one
       // (usually cached) call per upsert, which also proves the location is
       // servable before a row exists for it. Provider failure → 502.
-      const { timezone } = await getWeather(body.home.lat, body.home.lon);
+      const { timezone } = await getWeather(homeLat, homeLon);
 
       // last_digest_date is deliberately NOT touched on conflict: a re-upsert
       // (activity edit, token refresh) must not re-arm today's digest.
@@ -85,7 +98,7 @@ function createDevicesRouter({ getWeather = getCachedWeather, db = defaultDb } =
            timezone   = EXCLUDED.timezone,
            activities = EXCLUDED.activities,
            updated_at = now()`,
-        [deviceId, body.apnsToken, body.home.lat, body.home.lon, timezone, JSON.stringify(body.activities)]
+        [deviceId, body.apnsToken, homeLat, homeLon, timezone, JSON.stringify(body.activities)]
       );
 
       res.status(204).end();
@@ -96,7 +109,13 @@ function createDevicesRouter({ getWeather = getCachedWeather, db = defaultDb } =
 
   router.delete('/devices/:deviceId', async (req, res) => {
     try {
-      await db.query('DELETE FROM devices WHERE device_id = $1', [req.params.deviceId]);
+      // Deactivate, never erase (ADR-0010): only the push address lifecycles.
+      // An UPDATE matches zero rows for an unknown deviceId — idempotent, and
+      // it can never create a row.
+      await db.query(
+        'UPDATE devices SET apns_token = NULL, updated_at = now() WHERE device_id = $1',
+        [req.params.deviceId]
+      );
       res.status(204).end();
     } catch (err) {
       sendRouteError(res, err);

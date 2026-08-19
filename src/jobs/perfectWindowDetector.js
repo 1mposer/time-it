@@ -47,8 +47,10 @@ function composeAlert({ label, nocturnal, dayIndex, day, forecastStart, timezone
 
 function createPerfectWindowDetectorJob({ db, getWeather, evaluateAll, sendPush, now = Date.now }) {
   async function runDetectorPass() {
+    // Token-less rows are deactivated (ADR-0010) — dormant for push, never
+    // evaluated, so their weather call is saved too.
     const { rows } = await db.query(
-      'SELECT device_id, apns_token, home_lat, home_lon, timezone, activities FROM devices'
+      'SELECT device_id, apns_token, home_lat, home_lon, timezone, activities FROM devices WHERE apns_token IS NOT NULL'
     );
 
     for (const device of rows) {
@@ -61,9 +63,9 @@ function createPerfectWindowDetectorJob({ db, getWeather, evaluateAll, sendPush,
         const startMsBase = Date.parse(forecastStart);
         const nowMs = now();
 
-        let deviceDeleted = false;
+        let deviceDeactivated = false;
         for (const result of results) {
-          if (deviceDeleted) break;
+          if (deviceDeactivated) break;
           const window = windowById.get(result.activityId);
           const nocturnal = Boolean(window && window.startHour > window.endHour);
 
@@ -90,10 +92,17 @@ function createPerfectWindowDetectorJob({ db, getWeather, evaluateAll, sendPush,
               });
             } catch (err) {
               if (err instanceof StaleTokenError) {
-                // Dead token: drop the row (its state rows cascade away) and
-                // stop alerting this device.
-                await db.query('DELETE FROM devices WHERE device_id = $1', [device.device_id]);
-                deviceDeleted = true;
+                // Never-erase rule (ADR-0010): blank the dead push address,
+                // keep the row — its notification_state rows survive too
+                // (nothing is deleted, nothing cascades). Loudly — a silent
+                // version of this event cost a live debugging session on
+                // 2026-08-19. Then stop alerting this device this pass.
+                await db.query(
+                  'UPDATE devices SET apns_token = NULL, updated_at = now() WHERE device_id = $1',
+                  [device.device_id]
+                );
+                console.warn(`perfect-window detector: device ${device.device_id} token rejected by APNs (stale) — token blanked, row kept`);
+                deviceDeactivated = true;
                 break;
               }
               throw err;

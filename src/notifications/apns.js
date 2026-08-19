@@ -13,7 +13,8 @@
 // a sender in tests with a fake transport) never demands APNs env vars.
 //
 // On APNs 410 Unregistered (or BadDeviceToken) a typed StaleTokenError is
-// thrown so callers delete the device row — dead tokens must not accumulate.
+// thrown so callers blank the row's token (never-erase rule, ADR-0010) — dead
+// push addresses must not accumulate, but the row itself is kept.
 
 class StaleTokenError extends Error {
   constructor(message) {

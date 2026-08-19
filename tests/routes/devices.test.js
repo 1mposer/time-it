@@ -32,8 +32,14 @@ function makeFakeDb() {
         });
         return { rows: [] };
       }
-      if (text.startsWith('DELETE FROM devices')) {
-        rows.delete(params[0]);
+      if (text.startsWith('UPDATE devices SET apns_token = NULL')) {
+        // Deactivate (ADR-0010): an UPDATE matches zero rows for an unknown
+        // device_id — it must never create one.
+        const row = rows.get(params[0]);
+        if (row) {
+          row.apns_token = null;
+          row.updated_at = new Date();
+        }
         return { rows: [] };
       }
       throw new Error(`fake db: unexpected query: ${text}`);
@@ -73,8 +79,9 @@ test('PUT upserts the snapshot: 204, row shape, server-resolved timezone stored'
   const row = db.rows.get(DEVICE_ID);
   assert.ok(row, 'row exists');
   assert.equal(row.apns_token, 'a1b2c3d4e5f6');
-  assert.equal(row.home_lat, 25.1627);
-  assert.equal(row.home_lon, 55.2077);
+  // Stored at 2 dp, not the request's 25.1627/55.2077 (ADR-0010 Coarse ruling).
+  assert.equal(row.home_lat, 25.16);
+  assert.equal(row.home_lon, 55.21);
   assert.equal(row.timezone, 'Asia/Dubai', 'IANA zone resolved server-side at upsert');
   assert.deepStrictEqual(row.activities, ACTIVITIES);
   assert.equal(row.last_digest_date, null);
@@ -169,14 +176,69 @@ test('UpstreamError resolving the timezone → 502 with the uniform envelope; no
   assert.equal(db.rows.size, 0);
 });
 
-// --- DELETE ---
-test('DELETE removes the row and is idempotent (missing row is still 204)', async () => {
+// --- coordinate rounding at write (ADR-0010 granularity ruling) ---
+test('PUT rounds home coords to 2 dp at write — for storage AND the timezone lookup; marker preserved', async () => {
+  const weatherCalls = [];
+  const spy = async (lat, lon) => { weatherCalls.push({ lat, lon }); return DUBAI_WEATHER; };
+  const { app, db } = makeApp({ getWeather: spy });
+  await put(app, validBody());
+  db.rows.get(DEVICE_ID).last_digest_date = new Date(2026, 7, 1); // driver shape
+
+  const body = validBody();
+  body.home = { lat: 25.16273, lon: 55.20771 }; // full precision, as the client sends
+  const res = await put(app, body);
+  assert.equal(res.status, 204);
+  const row = db.rows.get(DEVICE_ID);
+  assert.equal(row.home_lat, 25.16, 'stored Coarse: 25.16273 → 25.16');
+  assert.equal(row.home_lon, 55.21, 'stored Coarse: 55.20771 → 55.21');
+  assert.deepStrictEqual(weatherCalls.at(-1), { lat: 25.16, lon: 55.21 },
+    'the timezone resolution sees the SAME rounded values the row stores');
+  assert.deepStrictEqual(row.last_digest_date, new Date(2026, 7, 1),
+    'the rounding change does not disturb marker preservation');
+});
+
+// --- DELETE = deactivate (ADR-0010 never-erase rule) ---
+test('DELETE blanks the token and KEEPS the row — activities/home/timezone/marker intact; idempotent', async () => {
   const { app, db } = makeApp();
   await put(app, validBody());
-  assert.equal(db.rows.size, 1);
+  db.rows.get(DEVICE_ID).last_digest_date = new Date(2026, 7, 1);
+
   let res = await supertest(app).delete(`/api/v1/devices/${DEVICE_ID}`);
   assert.equal(res.status, 204);
-  assert.equal(db.rows.size, 0);
+  const row = db.rows.get(DEVICE_ID);
+  assert.ok(row, 'the row is never erased');
+  assert.equal(row.apns_token, null, 'only the push address lifecycles');
+  assert.deepStrictEqual(row.activities, ACTIVITIES, 'authored data survives opt-out');
+  assert.equal(row.home_lat, 25.16);
+  assert.equal(row.home_lon, 55.21);
+  assert.equal(row.timezone, 'Asia/Dubai');
+  assert.deepStrictEqual(row.last_digest_date, new Date(2026, 7, 1));
+
   res = await supertest(app).delete(`/api/v1/devices/${DEVICE_ID}`);
-  assert.equal(res.status, 204, 'deleting a missing row is still 204');
+  assert.equal(res.status, 204, 'deactivating an already-deactivated row is still 204');
+});
+
+test('DELETE for an unknown deviceId is 204 and must NOT create a row', async () => {
+  const { app, db } = makeApp();
+  const res = await supertest(app).delete(`/api/v1/devices/${DEVICE_ID}`);
+  assert.equal(res.status, 204);
+  assert.equal(db.rows.size, 0, 'an UPDATE matching zero rows creates nothing');
+});
+
+test('a re-opt-in PUT after DELETE restores a token into the SAME row', async () => {
+  const { app, db } = makeApp();
+  await put(app, validBody());
+  db.rows.get(DEVICE_ID).last_digest_date = new Date(2026, 7, 1);
+  await supertest(app).delete(`/api/v1/devices/${DEVICE_ID}`);
+  assert.equal(db.rows.get(DEVICE_ID).apns_token, null);
+
+  const body = validBody();
+  body.apnsToken = 'ffff0000';
+  const res = await put(app, body);
+  assert.equal(res.status, 204);
+  assert.equal(db.rows.size, 1, 'same row — no second row on re-opt-in');
+  const row = db.rows.get(DEVICE_ID);
+  assert.equal(row.apns_token, 'ffff0000', 'fresh token lands in the kept row');
+  assert.deepStrictEqual(row.last_digest_date, new Date(2026, 7, 1),
+    'history survives the whole opt-out/re-opt-in round trip');
 });

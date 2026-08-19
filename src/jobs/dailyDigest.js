@@ -97,8 +97,10 @@ function composeDigest(results, snapshotActivities, forecastStart, timezone) {
 
 function createDailyDigestJob({ db, getWeather, evaluateAll, sendPush, now = Date.now }) {
   async function runDigestPass() {
+    // Token-less rows are deactivated (ADR-0010) — dormant for push, never
+    // evaluated, so their weather call is saved too.
     const { rows } = await db.query(
-      'SELECT device_id, apns_token, home_lat, home_lon, timezone, activities, last_digest_date FROM devices'
+      'SELECT device_id, apns_token, home_lat, home_lon, timezone, activities, last_digest_date FROM devices WHERE apns_token IS NOT NULL'
     );
 
     for (const device of rows) {
@@ -123,8 +125,15 @@ function createDailyDigestJob({ db, getWeather, evaluateAll, sendPush, now = Dat
           await sendPush(device.apns_token, message);
         } catch (err) {
           if (err instanceof StaleTokenError) {
-            // Dead tokens must not accumulate (spec §5).
-            await db.query('DELETE FROM devices WHERE device_id = $1', [device.device_id]);
+            // Never-erase rule (ADR-0010): blank the dead push address, keep
+            // the row (activities/home/history survive for a re-opt-in). And
+            // loudly — a silent version of this event cost a live debugging
+            // session on 2026-08-19.
+            await db.query(
+              'UPDATE devices SET apns_token = NULL, updated_at = now() WHERE device_id = $1',
+              [device.device_id]
+            );
+            console.warn(`daily digest: device ${device.device_id} token rejected by APNs (stale) — token blanked, row kept`);
             continue;
           }
           throw err;
