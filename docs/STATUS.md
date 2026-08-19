@@ -27,7 +27,7 @@ Completed specs (in [`issues/completed/`](issues/completed/)) are historical rec
 
 - **NOW:** **#6c/#6d live acceptance** ([checklist: push-client spec §6](issues/current/implement-spec-push-client.md), ROADMAP item 8) — **unblocked 2026-08-19**: item 4 (rename) + the APNs entitlement are done and the release build is on a real device. First box: verify the toggle-on `devices` row lands on Railway. **Awaiting owner review (flagged, not decided):** spec 14's I2 (all-dormant header hides its weather rows — proposal) and I3 (provisional phrase strings).
 - **NEXT (ship order — ROADMAP has the full table):** live acceptance boxes (§6) → **TestFlight** (item 9, owner ops — App Store Connect, archive/upload, `NODE_ENV=production` on Railway); its first build carries ROADMAP item 10 (beta feedback — server route ✅, iOS client next).
-- **BLOCKED:** nothing hard-blocks live acceptance; item 10's iOS client waits on owner approval of the beta-dashboard Figma frames (Figma-first, [ADR-0008](adr/0008-figma-first-ui-gate.md)); TestFlight (item 9) is owner ops after acceptance.
+- **BLOCKED:** nothing hard-blocks live acceptance; the beta frames were owner-approved 2026-08-19 ([FIGMA.md §8](design/FIGMA.md)), so item 10's iOS client is in build; TestFlight (item 9) is owner ops after acceptance.
 
 ## 3. Standing flags (not blockers)
 
