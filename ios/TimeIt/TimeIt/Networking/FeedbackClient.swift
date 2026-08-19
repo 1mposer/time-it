@@ -18,10 +18,26 @@ struct FeedbackBody: Encodable, Equatable {
 actor FeedbackClient: SuggestionSending {
     static let shared = FeedbackClient()
 
-    private let session: URLSession
+    /// Worst-case duration of the sheet's sending state: Cancel and
+    /// interactive dismiss are disabled mid-send, so URLSession.shared's 60s
+    /// default would lock the sheet on a hung connection. A timeout's
+    /// URLError lands in the existing non-204 path — text retained, retry.
+    static let requestTimeout: TimeInterval = 15
 
-    init(session: URLSession = .shared) {
-        self.session = session
+    /// Internal (not private) so the seam tests can pin the configured
+    /// default and that an injected session wins.
+    let session: URLSession
+
+    init(session: URLSession? = nil) {
+        self.session = session ?? Self.makeDefaultSession()
+    }
+
+    /// This client's own configured session — the rating and devices clients
+    /// keep URLSession.shared; the timeout cap is deliberately not global.
+    private static func makeDefaultSession() -> URLSession {
+        let configuration = URLSessionConfiguration.default
+        configuration.timeoutIntervalForRequest = requestTimeout
+        return URLSession(configuration: configuration)
     }
 
     func send(_ body: FeedbackBody) async throws {
