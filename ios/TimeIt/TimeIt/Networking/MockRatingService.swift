@@ -68,6 +68,18 @@ struct UITestDevicesAPI: DeviceSnapshotSending {
     func deleteDevice(deviceId: String) async throws {}
 }
 
+/// Deterministic feedback route for XCUI (item 10): succeeds, or throws a
+/// 500 under UITEST_FEEDBACK_FAIL — the non-204-retains-text path.
+struct UITestFeedbackAPI: SuggestionSending {
+    let fails: Bool
+
+    func send(_ body: FeedbackBody) async throws {
+        if fails {
+            throw APIError.serverError(statusCode: 500)
+        }
+    }
+}
+
 /// Deterministic permission prompt: grants unless UITEST_PUSH_DENY.
 struct UITestPushAuthorizer: NotificationAuthorizing {
     let grants: Bool

@@ -22,6 +22,11 @@ import XCTest
 ///   §3.1's "fresh install, location denied" path.
 /// - `UITEST_PUSH_DENY`: the mock notification authorizer denies instead of
 ///   granting — the push opt-in toggle must revert (item 7).
+/// - `UITEST_BETA`: pins the item-10 beta gate ON (mock runs never read the
+///   simulator's receipt) — the disclaimer banner + suggestion button render.
+///   Omitting it pins the gate OFF: the App Store face of the same archive.
+/// - `UITEST_FEEDBACK_FAIL`: the mock feedback route throws a 500 — the
+///   non-204 path must keep the typed text and offer retry.
 final class TimeItUITests: XCTestCase {
 
     override func setUpWithError() throws {
@@ -662,6 +667,77 @@ final class TimeItUITests: XCTestCase {
 
         XCTAssertTrue(app.switches["settings.notifications"].waitForExistence(timeout: 5),
                       "the callout deep-links to the Settings Notifications row")
+    }
+
+    // MARK: beta feedback — disclaimer banner + suggestion sheet (item 10)
+
+    func testBetaBannerAndSuggestionButtonRenderWhenGateOn() {
+        let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_SEED_LIVE",
+                                        "UITEST_LOCATION", "UITEST_BETA"])
+
+        XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5))
+        let banner = app.otherElements["betaBanner"]
+        XCTAssertTrue(banner.exists, "the disclaimer card renders on a beta (dev/TestFlight) install")
+        XCTAssertTrue(app.staticTexts.matching(
+            NSPredicate(format: "label CONTAINS 'early build for Time it'")).firstMatch.exists,
+                      "the owner's round-2 disclaimer copy")
+        XCTAssertTrue(app.buttons["betaBanner.suggest"].exists, "with its suggestion entry point")
+        // The approved stacking order: the push callout first, banner below.
+        XCTAssertLessThan(app.buttons["pushCallout"].frame.minY, banner.frame.minY)
+    }
+
+    func testBetaBannerAbsentWhenGateOff() {
+        // No UITEST_BETA — the same archive's App Store face.
+        let app = launchApp()
+
+        XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.otherElements["betaBanner"].exists, "App Store installs never see beta surfaces")
+        XCTAssertFalse(app.buttons["betaBanner.suggest"].exists)
+    }
+
+    func testSuggestionSheetHappyPathSendsConfirmsAndDismisses() {
+        let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_SEED_LIVE",
+                                        "UITEST_LOCATION", "UITEST_BETA"])
+
+        let suggest = app.buttons["betaBanner.suggest"]
+        XCTAssertTrue(suggest.waitForExistence(timeout: 5))
+        suggest.tap()
+
+        let editor = app.textViews["feedback.editor"]
+        XCTAssertTrue(editor.waitForExistence(timeout: 5), "the sheet opens on a text editor")
+        let send = app.buttons["feedback.send"]
+        XCTAssertFalse(send.isEnabled, "an empty message cannot send")
+        editor.tap()
+        editor.typeText("Add wind direction to the cards")
+        XCTAssertTrue(send.isEnabled)
+        send.tap()
+
+        XCTAssertTrue(app.staticTexts["feedback.success"].waitForExistence(timeout: 5),
+                      "success shows a brief confirmation")
+        XCTAssertTrue(app.staticTexts["feedback.success"].waitForNonExistence(timeout: 5),
+                      "then the sheet dismisses itself")
+        XCTAssertTrue(suggest.isHittable, "back on the dashboard")
+    }
+
+    func testSuggestionSendFailureKeepsTypedTextAndOffersRetry() {
+        let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_SEED_LIVE",
+                                        "UITEST_LOCATION", "UITEST_BETA", "UITEST_FEEDBACK_FAIL"])
+
+        let suggest = app.buttons["betaBanner.suggest"]
+        XCTAssertTrue(suggest.waitForExistence(timeout: 5))
+        suggest.tap()
+
+        let editor = app.textViews["feedback.editor"]
+        XCTAssertTrue(editor.waitForExistence(timeout: 5))
+        editor.tap()
+        editor.typeText("Keep this text")
+        app.buttons["feedback.send"].tap()
+
+        XCTAssertTrue(app.staticTexts["feedback.error"].waitForExistence(timeout: 5),
+                      "the non-204 surfaces its error")
+        XCTAssertEqual(editor.value as? String, "Keep this text", "a typed suggestion is never discarded")
+        XCTAssertTrue(app.buttons["feedback.send"].isEnabled, "Send stays as the retry")
+        XCTAssertFalse(app.staticTexts["feedback.success"].exists)
     }
 
     func testPushCalloutDismissIsRememberedAcrossRelaunch() {

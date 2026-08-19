@@ -23,7 +23,11 @@ struct DashboardView: View {
     @State private var showSettings = false
     @State private var showAdd = false
     @State private var showCityPicker = false
+    @State private var showFeedback = false
     @State private var editing: AuthoredActivity?
+    /// Item 10: dev/TestFlight installs get the disclaimer banner + suggestion
+    /// entry point on every dashboard state; App Store installs never do.
+    private let isBetaBuild = BetaGate.isActive
     /// Value-based so a push tap can pop to the dashboard (spec §3).
     @State private var navigationPath: [String] = []
     /// The card a tapped Perfect-window alert should bring into view —
@@ -84,6 +88,11 @@ struct DashboardView: View {
                                        onSave: { store.update($0) },
                                        onDelete: { store.delete(id: activity.id) })
                 }
+            }
+            .sheet(isPresented: $showFeedback) {
+                // The registration's installId is the same Keychain UUID the
+                // push path uses (spec §4) — and the seamed one in UI tests.
+                FeedbackView(deviceId: registration.installId)
             }
         }
         .task { await viewModel.loadForecast() }
@@ -148,6 +157,9 @@ struct DashboardView: View {
     private var trueEmptyState: some View {
         ScrollView {
             VStack(spacing: 0) {
+                if isBetaBuild {
+                    betaBanner
+                }
                 Image(systemName: "plus.circle")
                     .font(.system(size: 40))
                     .foregroundStyle(Theme.secondaryText)
@@ -189,6 +201,9 @@ struct DashboardView: View {
     private var showcaseList: some View {
         ScrollView {
             LazyVStack(spacing: 10) {
+                if isBetaBuild {
+                    betaBanner
+                }
                 ForEach(store.activities) { authored in
                     showcaseCard(for: authored)
                 }
@@ -214,6 +229,10 @@ struct DashboardView: View {
     private var noLocationState: some View {
         ScrollView {
             VStack(spacing: 0) {
+                if isBetaBuild {
+                    betaBanner
+                        .padding(.bottom, 10)
+                }
                 skeletonCard(0)
                     .padding(.bottom, 10)
                 skeletonCard(1)
@@ -327,6 +346,9 @@ struct DashboardView: View {
     private func errorView(_ message: String) -> some View {
         ScrollView {
             VStack(spacing: 0) {
+                if isBetaBuild {
+                    betaBanner
+                }
                 Image(systemName: "wifi.exclamationmark")
                     .font(.system(size: 44))
                     .foregroundStyle(Theme.secondaryText)
@@ -375,6 +397,10 @@ struct DashboardView: View {
                     if !preferences.pushCalloutDismissed && !registration.isEnabled {
                         pushCallout
                     }
+                    // Below the callout — the approved frame's stacking order.
+                    if isBetaBuild {
+                        betaBanner
+                    }
                     ForEach(store.activities) { authored in
                         Group {
                             if authored.isDormant {
@@ -416,6 +442,51 @@ struct DashboardView: View {
             proxy.scrollTo(activityId, anchor: .top)
         }
         pendingFocusId = nil
+    }
+
+    /// The beta disclaimer card (item 10, FIGMA.md §8 round-2 owner
+    /// hand-edit): Light-weight disclaimer copy with "Time it" emphasized,
+    /// plus the compact 165×26 suggestion pill. Beta-gated (BetaGate —
+    /// dev/TestFlight installs only) and rendered on every dashboard state's
+    /// scroll stack (owner ruling 2026-08-19: one design surface is enough;
+    /// code shows the banner on all beta dashboard states).
+    private var betaBanner: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            disclaimerText
+                .font(.system(size: 14))
+                .foregroundStyle(Theme.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+            Button {
+                showFeedback = true
+            } label: {
+                Text("Send a suggestion")
+                    .font(.system(size: 15))
+                    .foregroundStyle(.white)
+                    .frame(width: 165, height: 26)
+                    .background(Capsule().fill(Theme.accentInteractive))
+                    // 44pt HIG tap target around the 26pt visual (FIGMA.md §8
+                    // code-sweep note); the negative padding below keeps the
+                    // card's layout at the frame's hugged height.
+                    .padding(.vertical, 9)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .padding(.vertical, -9)
+            .accessibilityIdentifier("betaBanner.suggest")
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 16).fill(Theme.cardBackground))
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("betaBanner")
+    }
+
+    /// Owner copy (round 2): base weight Light, "Time it" in Regular.
+    private var disclaimerText: Text {
+        Text("This is an early build for ").fontWeight(.light)
+            + Text("Time it").fontWeight(.regular)
+            + Text(", full release will be announced. Give me your suggestions").fontWeight(.light)
     }
 
     /// The push opt-in callout (Figma 266:5/266:1562, round-3 owner hand-edit
