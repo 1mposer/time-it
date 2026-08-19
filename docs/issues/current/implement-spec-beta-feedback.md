@@ -21,6 +21,7 @@ A TestFlight tester must be able to send a suggestion **from inside the app** �
   `Bundle.main.appStoreReceiptURL?.lastPathComponent == "sandboxReceipt"` — true on dev + TestFlight installs, false on App Store installs.
 - The gate controls **both** the disclaimer banner and the dashboard suggestion entry point.
 - **App Review caveat (guideline 2.2 — no beta-presenting apps):** review devices can present sandbox receipts, so the App Store **release-candidate** build must flip the gate off in code (removing the disclaimer and relocating the button to Settings). That is an item-9 release-submission step — not before, or TestFlight loses the feature.
+- *Flag (2026-08-19, implementer-reported, audit-confirmed):* `appStoreReceiptURL` is deprecated on current SDKs (StoreKit `AppTransaction` is the successor). Kept — it is the exact check this section locks — but the item-9 RC pass already touches the gate, so migrate the check there.
 
 ## §4 iOS client — TO BUILD (after owner approves the frames)
 
