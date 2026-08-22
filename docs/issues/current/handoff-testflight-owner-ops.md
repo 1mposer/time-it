@@ -1,6 +1,6 @@
 # Handoff — TestFlight distribution walkthrough (ROADMAP item 9, owner-ops guide)
 
-> Created 2026-08-19 (~19:45 Asia/Dubai) by the senior-auditor session. **Fold in by 2026-08-26** — once external testers are live, fold the outcome into [ROADMAP item 9](../ROADMAP.md) and delete this file.
+> Created 2026-08-19 (~19:45 Asia/Dubai) by the senior-auditor session. **⏸ ON HOLD (owner ruling 2026-08-22, grill Q8):** every remaining step below is external-path work, and the external path is **held until onboarding v2 ships** — gate condition and status: [ROADMAP item 9](../ROADMAP.md). Do not walk these steps while the hold stands. Fold-in re-dated: fold the outcome into ROADMAP item 9 and delete this file once external testers are live, after the hold lifts.
 >
 > **Your role:** walk the owner (Yaas) through App Store Connect + TestFlight, screen by screen, until friends can install via a public link. You are a **guide, not an implementer**: no code, no commits, **no `git push` to this repo ever** (every push redeploys the Railway server and can eat an in-process hourly cron tick — live push-acceptance and deploy timing belong to the senior-auditor session). You do not edit ROADMAP/STATUS/FIGMA. Read order first: `CLAUDE.md` → `docs/CONTEXT.md` → `docs/STATUS.md`.
 
