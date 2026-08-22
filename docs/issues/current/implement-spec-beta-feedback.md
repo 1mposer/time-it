@@ -33,9 +33,9 @@ A TestFlight tester must be able to send a suggestion **from inside the app** �
 
 ## §5 Acceptance
 
-- [ ] Route live on Railway (`initDb()` creates `suggestions` on next deploy)
-- [ ] Owner approves the two Figma frames (recorded in FIGMA.md §7)
-- [ ] Banner + button render on dev/TestFlight builds only (gate verified both ways)
-- [ ] A suggestion sent from a real device lands as a row with correct build metadata
-- [ ] Non-204 path keeps the typed text; 429 shows the throttle message
-- [ ] The gate-off/relocate step is carried into item 9's release-submission checklist
+- [x] Route live on Railway (`initDb()` creates `suggestions` on next deploy) *(live since the #6c deploys; proven end-to-end 2026-08-22)*
+- [x] Owner approves the two Figma frames (recorded in FIGMA.md §8, 2026-08-19)
+- [x] Banner + button render on dev/TestFlight builds only *(TestFlight side live-verified 2026-08-22 — banner + pill present on the installed TestFlight build; the App-Store-hidden side is unit-pinned and can only be live-checked at release)*
+- [x] A suggestion sent from a real device lands as a row with correct build metadata *(2026-08-22 — owner-confirmed row in `suggestions`, sent from the TestFlight build)*
+- [ ] Non-204 path keeps the typed text; 429 shows the throttle message *(unit-pinned; live check pending — needs a forced failure)*
+- [x] The gate-off/relocate step is carried into item 9's release-submission checklist *(recorded in [ROADMAP item 9](../ROADMAP.md) + the TestFlight handoff, 2026-08-22)*

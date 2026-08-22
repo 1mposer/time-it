@@ -42,14 +42,16 @@
 
 ## 6. Live acceptance (end-to-end; needs a registered real device)
 
+> Lane note (2026-08-22): acceptance moved to the **production APNs lane** — `NODE_ENV=production` on Railway, owner's device on the TestFlight build. The 2026-08-19 sandbox round surfaced the silent stale-token row-wipe (root-caused; redesigned as [ADR-0010](../../adr/0010-data-retention-privacy-posture.md), deployed 2026-08-22) — earlier sandbox passes were destroyed by it, so boxes below carry production-lane dates.
+
 From #6c §11:
-- [ ] Real device: toggle on → permission prompt → a row appears in `devices` with a server-resolved IANA timezone.
-- [ ] Editing an Activity re-upserts the snapshot (the row's `activities` JSONB changes).
+- [x] Real device: toggle on → permission prompt → a row appears in `devices` with a server-resolved IANA timezone. *(2026-08-19 sandbox; re-verified 2026-08-22 on the TestFlight build — production token, 2 dp home coords confirming the ADR-0010 deploy.)*
+- [x] Editing an Activity re-upserts the snapshot (the row's `activities` JSONB changes). *(2026-08-19 — window edit reflected in the Railway row.)*
 - [ ] Digest: a device whose local hour is in the 6–11 band gets **one** push listing today's windows (+ the week-ahead Perfect line when present); a second pass the same local day sends nothing.
-- [ ] Toggle off deletes the row; a stale-token send deletes the row.
+- [ ] Toggle off **blanks `apns_token` and keeps the row** (activities/home/marker intact); a stale-token send does the same + logs a warning. *(Reworded per ADR-0010 — the original "deletes the row" wording is superseded. Re-verify against the deployed never-erase code.)*
 
 From #6d §4:
-- [ ] Force a Perfect window (loose thresholds) → exactly one push; the next hourly run re-sends nothing.
+- [ ] Force a Perfect window (loose thresholds) → exactly one push; the next hourly run re-sends nothing. *(Push half verified 2026-08-22 — first production-lane Perfect-window push delivered; dedup-silence half pending the next tick.)*
 - [ ] Tighten thresholds so the bucket is Good-only, then loosen → the upgrade push arrives.
 - [ ] A Perfect day 3+ days out never triggers the detector but shows in the next digest's week-ahead line.
 - [ ] `notification_state` stays pruned (no unbounded growth).

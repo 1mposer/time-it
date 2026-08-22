@@ -1,6 +1,6 @@
 # STATUS — now / next / blocked
 
-> **Last updated: 2026-08-19** — the owner-side APNs prerequisites landed (bundle-ID rename + `aps-environment` entitlement, ROADMAP item 4; release build on a real device), unblocking #6c/#6d live acceptance. Events of record: [ROADMAP](issues/ROADMAP.md). This file is deliberately one screen: a snapshot only.
+> **Last updated: 2026-08-22** — production-lane push proven end-to-end (TestFlight build + `NODE_ENV=production` + the [ADR-0010](adr/0010-data-retention-privacy-posture.md) never-erase deploy); internal TestFlight testing live. Events of record: [ROADMAP](issues/ROADMAP.md). This file is deliberately one screen: a snapshot only.
 
 **Read order:** [`CLAUDE.md`](../CLAUDE.md) → [`CONTEXT.md`](CONTEXT.md) → this file → [ROADMAP](issues/ROADMAP.md).
 
@@ -25,9 +25,9 @@ Completed specs (in [`issues/completed/`](issues/completed/)) are historical rec
 
 ## 2. Now / next / blocked
 
-- **NOW:** **#6c/#6d live acceptance** ([checklist: push-client spec §6](issues/current/implement-spec-push-client.md), ROADMAP item 8) — **unblocked 2026-08-19**: item 4 (rename) + the APNs entitlement are done and the release build is on a real device. First box: verify the toggle-on `devices` row lands on Railway. **Awaiting owner review (flagged, not decided):** spec 14's I2 (all-dormant header hides its weather rows — proposal) and I3 (provisional phrase strings).
-- **NEXT (ship order — ROADMAP has the full table):** live acceptance boxes (§6) → **TestFlight** (item 9, owner ops — App Store Connect, archive/upload, `NODE_ENV=production` on Railway); its first build carries ROADMAP item 10 (beta feedback — server route ✅, iOS client ✅ built 2026-08-19).
-- **BLOCKED:** nothing hard-blocks live acceptance; item 10's iOS client is built (2026-08-19 — [ROADMAP item 10](issues/ROADMAP.md), beta frames [FIGMA.md §8](design/FIGMA.md)); TestFlight (item 9) is owner ops after acceptance.
+- **NOW:** **finish the #6c/#6d acceptance boxes** ([checklist: push-client spec §6](issues/current/implement-spec-push-client.md), ROADMAP item 8) — the production lane is proven (first Perfect-window push delivered 2026-08-22); remaining boxes are time-gated: digest 6–11 band, dedup silence, upgrade push, far-day, pruning, toggle-off re-verify under the never-erase code. **Awaiting owner review (flagged, not decided):** spec 14's I2 (all-dormant header hides its weather rows — proposal) and I3 (provisional phrase strings).
+- **NEXT (ship order — ROADMAP has the full table):** **TestFlight external path** (item 9 — internal testing live 2026-08-22; remaining: privacy-policy URL from ADR-0010 → Test Information → external group → Beta App Review → public link; delegated: [handoff](issues/current/handoff-testflight-owner-ops.md)). Item 10's live boxes are ticked except the non-204/429 UX ([spec §5](issues/current/implement-spec-beta-feedback.md)).
+- **BLOCKED:** nothing hard-blocked. The external-beta path waits only on the privacy-policy URL (hosted outside this repo).
 
 ## 3. Standing flags (not blockers)
 
