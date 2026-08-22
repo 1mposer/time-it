@@ -61,7 +61,7 @@ _Avoid_: letting any fallback location reach push registration — a **Device sn
 The anonymous push identity: a client-minted install UUID in the Keychain plus the current APNs token ([ADR-0001](adr/0001-no-accounts-guest-first.md)). Identifies an *install*, never a human — there are no accounts.
 
 **Device snapshot**:
-The device-keyed server-side copy of `{ APNs token, home lat/lon, authored Activities }` a **Device** uploads via full-snapshot upsert (`PUT /api/v1/devices/:deviceId`) when notifications are enabled. Client-authoritative, last-write-wins; re-upserted on any change; deleted on opt-out. Exists **only** for the push path — the `/rating` path stays stateless. See [ADR-0006](adr/0006-device-keyed-push-evaluation.md).
+The device-keyed server-side copy of `{ APNs token, home lat/lon, authored Activities }` a **Device** uploads via full-snapshot upsert (`PUT /api/v1/devices/:deviceId`) when notifications are enabled. Client-authoritative, last-write-wins; re-upserted on any change; opt-out **deactivates** it — the push address is blanked, the row is never erased ([ADR-0010](adr/0010-data-retention-privacy-posture.md)). Exists **only** for the push path — the `/rating` path stays stateless. See [ADR-0006](adr/0006-device-keyed-push-evaluation.md).
 
 **Digest**:
 The daily push summary, sent in the Device's local **6–11am morning band** (delivery mechanics: [`CLAUDE.md`](../CLAUDE.md)): today's/tonight's **Window** per Activity, plus week-ahead **Perfect** highlights (buckets 2 through the end of each Activity's horizon — `days.length` is per-Activity, never a fixed 7). At most one per Device per day; not sent when nothing qualifies. Issue #6c.

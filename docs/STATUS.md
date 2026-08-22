@@ -33,7 +33,7 @@ Completed specs (in [`issues/completed/`](issues/completed/)) are historical rec
 
 - **Known limitations (recorded, accepted):** DST *inside* a time-of-day window is untested (Asia/Dubai has no DST) — do not assert DST-correctness for windows. Half-hour zones (e.g. +05:30) render `ha`-style clock labels :30 off in both the iOS `TimeDeriver` and the server `jobs/labels.js`.
 - **Client mirrors:** the client deliberately re-implements slices of server logic — read [ADR-0007](adr/0007-client-side-mirrors.md) before touching threshold semantics on either side.
-- **UI is Figma-first:** frames precede code — decision of record: [ADR-0008](adr/0008-figma-first-ui-gate.md); frame backlog: [FIGMA.md §7](design/FIGMA.md).
+- **UI is Figma-first:** frames precede code — decision of record: [ADR-0008](adr/0008-figma-first-ui-gate.md); completed frame passes: [FIGMA.md §7–§8](design/FIGMA.md) (a design-phase backlog would open a new section there).
 - **Deferred-with-conditions:** the list + promote conditions live in [ROADMAP §Deferred](issues/ROADMAP.md).
 
 ## 4. Built state
