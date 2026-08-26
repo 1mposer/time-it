@@ -39,15 +39,32 @@ struct MapKitGeocoderService: GeocodingProviding {
             // Marina") honest — locality alone would flatten them to the
             // parent city, as the old CLGeocoder path did.
             let name = placemark.name ?? locality
-            let region = [placemark.administrativeArea, placemark.country]
-                .compactMap { $0 }
-                .joined(separator: ", ")
-            guard seen.insert("\(name)|\(region)").inserted else { return nil }
+            let region = Self.regionLine(name: name,
+                                         locality: locality,
+                                         administrativeArea: placemark.administrativeArea,
+                                         country: placemark.country)
+            guard seen.insert("\(name)|\(region ?? "")").inserted else { return nil }
             return SavedLocation(name: name,
                                  lat: placemark.coordinate.latitude,
                                  lon: placemark.coordinate.longitude,
-                                 region: region.isEmpty ? nil : region)
+                                 region: region)
         }
+    }
+
+    /// The picker row's disambiguation line. A sub-city result carries its
+    /// parent city ("Bang O" → "Bangkok, Thailand") — without it, a
+    /// subdistrict row reads as the city the user searched for (issue #15:
+    /// a Bangkok tester saved the khwaeng "Bang O" believing it was Bangkok).
+    static func regionLine(name: String,
+                           locality: String,
+                           administrativeArea: String?,
+                           country: String?) -> String? {
+        var parts: [String] = []
+        for part in [locality, administrativeArea, country] {
+            guard let part, part != name, !parts.contains(part) else { continue }
+            parts.append(part)
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: ", ")
     }
 }
 
