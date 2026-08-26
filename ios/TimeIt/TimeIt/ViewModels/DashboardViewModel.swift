@@ -13,6 +13,10 @@ final class DashboardViewModel: ObservableObject {
     /// Header label for the active location (city name, "Current location",
     /// or the cached name); nil when none resolved.
     @Published private(set) var activeLocationName: String?
+    /// The one-time "home runs on a different clock" alert body; nil = no
+    /// alert. Set after a successful home-location fetch whose zone's wall
+    /// clock differs from the device's.
+    @Published private(set) var timezoneWarning: String?
 
     /// True when the last failure is retryable (502 / unreachable server)
     /// rather than a server defect (500).
@@ -20,6 +24,9 @@ final class DashboardViewModel: ObservableObject {
 
     private let api: RatingFetching
     private let locationProvider: LocationProviding
+    /// The device's own zone (injected for tests) — the warning and the
+    /// header clock compare against it; CoreLocation is never involved.
+    private let deviceTimeZone: TimeZone
     /// Shared with views so they mutate the same store requests are built from.
     let store: ActivityStore
     /// Shared with the city-picker sheet for the same reason as `store`.
@@ -75,8 +82,10 @@ final class DashboardViewModel: ObservableObject {
     init(api: RatingFetching = APIClient.shared,
          locationProvider: LocationProviding? = nil,
          store: ActivityStore? = nil,
-         preferences: PreferencesStore? = nil) {
+         preferences: PreferencesStore? = nil,
+         deviceTimeZone: TimeZone = .current) {
         self.api = api
+        self.deviceTimeZone = deviceTimeZone
         self.locationProvider = locationProvider ?? LocationManager.shared
         self.store = store ?? ActivityStore.shared
         self.preferences = preferences ?? PreferencesStore.shared
@@ -226,6 +235,7 @@ final class DashboardViewModel: ObservableObject {
                                                     activities: activities)
             guard generation == loadGeneration else { return }
             forecast = result
+            timezoneWarning = timezoneWarningIfNeeded(for: active, forecastTimezone: result.timezone)
             if preferences.lastResolvedLocation != active.savedLocation {
                 preferences.lastResolvedLocation = active.savedLocation
             }
@@ -239,6 +249,27 @@ final class DashboardViewModel: ObservableObject {
             isTransientError = true
         }
         isLoading = false
+    }
+
+    /// OK on the alert — remember the home so it never re-warns for it.
+    func acknowledgeTimezoneWarning() {
+        if let home = preferences.homeLocation {
+            preferences.timezoneWarnedHome = home
+        }
+        timezoneWarning = nil
+    }
+
+    /// Home-only: GPS and cached locations track the user, so their clock is
+    /// (or was) the device's own. An already-acknowledged home stays quiet.
+    private func timezoneWarningIfNeeded(for active: ActiveLocation,
+                                         forecastTimezone: String) -> String? {
+        guard case .home(let home) = active,
+              preferences.timezoneWarnedHome != home,
+              let zone = TimeZone(identifier: forecastTimezone) else { return nil }
+        return TimezoneMismatch.warning(homeName: home.name,
+                                        forecastZone: zone,
+                                        deviceZone: deviceTimeZone,
+                                        at: Date())
     }
 
     /// The location chain: home → live GPS fix → last-resolved cache → nil

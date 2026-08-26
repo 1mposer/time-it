@@ -51,7 +51,8 @@ struct DashboardView: View {
                 // here. PROPOSED divergence, flagged for owner review.
                 HeaderView(locationName: viewModel.activeLocationName,
                            currentHour: viewModel.forecast?.hours.first,
-                           showsWeather: !viewModel.hasNoLocation && viewModel.hasLiveActivities) { showSettings = true }
+                           showsWeather: !viewModel.hasNoLocation && viewModel.hasLiveActivities,
+                           timezoneIdentifier: viewModel.forecast?.timezone) { showSettings = true }
                 Theme.divider
                     .frame(height: 0.5)
                 content
@@ -80,6 +81,17 @@ struct DashboardView: View {
             }
             .sheet(isPresented: $showFeedback) {
                 FeedbackView(deviceId: registration.installId)
+            }
+            // One-time per chosen home (acknowledgement persists) — the
+            // dashboard clock follows the home's zone, so a far-away home is
+            // announced rather than silently re-clocking the header.
+            .alert("Different time zone",
+                   isPresented: Binding(
+                       get: { viewModel.timezoneWarning != nil },
+                       set: { if !$0 { viewModel.acknowledgeTimezoneWarning() } })) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(viewModel.timezoneWarning ?? "")
             }
         }
         .task {

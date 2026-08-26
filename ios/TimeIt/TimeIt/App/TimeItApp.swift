@@ -18,6 +18,7 @@ struct TimeItApp: App {
             UserDefaults.standard.removeObject(forKey: PreferencesStore.dismissedTemplatesKey)
             UserDefaults.standard.removeObject(forKey: PreferencesStore.showPhrasesKey)
             UserDefaults.standard.removeObject(forKey: PreferencesStore.pushCalloutDismissedKey)
+            UserDefaults.standard.removeObject(forKey: PreferencesStore.timezoneWarnedHomeKey)
             UserDefaults.standard.removeObject(forKey: DeviceRegistration.enabledKey)
             UserDefaults.standard.removeObject(forKey: DeviceRegistration.lastSentTokenKey)
             UserDefaults.standard.removeObject(forKey: DeviceRegistration.lastUpsertAtKey)
@@ -47,8 +48,11 @@ struct TimeItApp: App {
         if ProcessInfo.processInfo.isUITestMockRun {
             let mode: MockRatingService.Mode =
                 ProcessInfo.processInfo.arguments.contains("UITEST_MOCK_FAILURE") ? .failure : .success
+            // Device zone pinned to the fixture's zone so mock runs stay
+            // hermetic: no timezone-mismatch alert, sim-zone-independent clock.
             return DashboardViewModel(api: MockRatingService(mode: mode),
-                                      locationProvider: uiTestLocationProvider())
+                                      locationProvider: uiTestLocationProvider(),
+                                      deviceTimeZone: TimeZone(identifier: "Asia/Dubai")!)
         }
         #endif
         return DashboardViewModel()

@@ -24,6 +24,7 @@ final class PreferencesStore: ObservableObject {
     static let dismissedTemplatesKey = "dismissedTemplates"
     static let showPhrasesKey = "showPhrases"
     static let pushCalloutDismissedKey = "pushCalloutDismissed"
+    static let timezoneWarnedHomeKey = "timezoneWarnedHome"
 
     /// nil = follow the device location (then the last-resolved cache).
     @Published var homeLocation: SavedLocation? {
@@ -57,6 +58,12 @@ final class PreferencesStore: ObservableObject {
         didSet { defaults.set(pushCalloutDismissed, forKey: Self.pushCalloutDismissedKey) }
     }
 
+    /// The home whose different-clock alert was acknowledged — warned once
+    /// per chosen home, not per fetch or per launch.
+    @Published var timezoneWarnedHome: SavedLocation? {
+        didSet { persist(timezoneWarnedHome, key: Self.timezoneWarnedHomeKey) }
+    }
+
     private let defaults: UserDefaults
 
     init(defaults: UserDefaults = .standard) {
@@ -66,6 +73,7 @@ final class PreferencesStore: ObservableObject {
         dismissedTemplateIds = Self.load(Self.dismissedTemplatesKey, from: defaults) ?? []
         showPhrases = defaults.bool(forKey: Self.showPhrasesKey)
         pushCalloutDismissed = defaults.bool(forKey: Self.pushCalloutDismissedKey)
+        timezoneWarnedHome = Self.load(Self.timezoneWarnedHomeKey, from: defaults)
     }
 
     private static func load<Value: Decodable>(_ key: String, from defaults: UserDefaults) -> Value? {

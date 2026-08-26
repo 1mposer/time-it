@@ -16,7 +16,21 @@ struct HeaderView: View {
     /// False in the no-location state — hides temp/conditions rather than
     /// show placeholders for a nonexistent location.
     var showsWeather = true
+    /// The forecast location's IANA zone — the clock ticks in it, so a
+    /// Bangkok home shows Bangkok time from anywhere. nil (no forecast yet)
+    /// falls back to the device clock.
+    var timezoneIdentifier: String? = nil
     let onGearTap: () -> Void
+
+    /// The clock text at `date` in the given zone (device zone when nil or
+    /// unresolvable) — pinned by HeaderClockTests.
+    static func clockText(for date: Date, timezoneIdentifier: String?) -> String {
+        var style = Date.FormatStyle(date: .omitted, time: .shortened)
+        if let timezoneIdentifier, let zone = TimeZone(identifier: timezoneIdentifier) {
+            style.timeZone = zone
+        }
+        return date.formatted(style)
+    }
 
     private var tempText: String {
         guard let t = currentHour?.temp else { return "—°C" }
@@ -43,7 +57,7 @@ struct HeaderView: View {
                     .accessibilityIdentifier("headerLocation")
 
                 TimelineView(.everyMinute) { context in
-                    Text(context.date.formatted(date: .omitted, time: .shortened))
+                    Text(Self.clockText(for: context.date, timezoneIdentifier: timezoneIdentifier))
                         .font(.system(size: 60, weight: .bold, design: .default))
                         .tracking(-2.5)
                         .foregroundStyle(.white)

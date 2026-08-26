@@ -95,14 +95,16 @@ final class DashboardViewModelTests: XCTestCase {
     private func makeVM(result: Result<ForecastResponse, Error>,
                         location: CLLocation? = CLLocation(latitude: 25.2048, longitude: 55.2708),
                         authorization: CLAuthorizationStatus = .notDetermined,
-                        seeds: [AuthoredActivity] = Fixtures.liveSeeds)
+                        seeds: [AuthoredActivity] = Fixtures.liveSeeds,
+                        deviceTimeZone: TimeZone = TimeZone(identifier: "Asia/Dubai")!)
         -> (DashboardViewModel, FakeRatingService, FakeLocationProvider, ActivityStore, PreferencesStore) {
         let api = FakeRatingService(result: result)
         let locationProvider = FakeLocationProvider(location: location, authorization: authorization)
         let preferences = PreferencesStore(defaults: defaults)
         let store = ActivityStore(defaults: defaults, seeds: seeds, preferences: preferences)
         let vm = DashboardViewModel(api: api, locationProvider: locationProvider,
-                                    store: store, preferences: preferences)
+                                    store: store, preferences: preferences,
+                                    deviceTimeZone: deviceTimeZone)
         return (vm, api, locationProvider, store, preferences)
     }
 
@@ -274,6 +276,62 @@ final class DashboardViewModelTests: XCTestCase {
 
         XCTAssertFalse(locationProvider.requestAuthorizationCalled,
                        "already granted → nothing to ask; loads warm the fix themselves")
+    }
+
+    // MARK: timezone-mismatch warning — home on a different wall clock
+
+    func testHomeInDifferentZonePublishesTimezoneWarning() async {
+        let (vm, _, _, _, preferences) = makeVM(result: .success(Fixtures.makeForecast(activities: [])),
+                                                deviceTimeZone: TimeZone(identifier: "Asia/Bangkok")!)
+        preferences.homeLocation = SavedLocation(name: "Dubai", lat: 25.2048, lon: 55.2708)
+
+        await vm.loadForecast()
+
+        XCTAssertEqual(vm.timezoneWarning,
+                       "Dubai is 3 hours behind your device. Dashboard times, including the clock, follow Dubai time.")
+    }
+
+    func testGPSLocationNeverWarnsAboutTimezone() async {
+        let (vm, _, _, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])),
+                                      deviceTimeZone: TimeZone(identifier: "Asia/Bangkok")!)
+
+        await vm.loadForecast()
+
+        XCTAssertNil(vm.timezoneWarning,
+                     "only a chosen home warns — the GPS path follows the device itself")
+    }
+
+    func testAcknowledgedWarningStaysQuietAcrossRelaunch() async {
+        let bangkokDevice = TimeZone(identifier: "Asia/Bangkok")!
+        let (vm, _, _, _, preferences) = makeVM(result: .success(Fixtures.makeForecast(activities: [])),
+                                                deviceTimeZone: bangkokDevice)
+        preferences.homeLocation = SavedLocation(name: "Dubai", lat: 25.2048, lon: 55.2708)
+        await vm.loadForecast()
+        XCTAssertNotNil(vm.timezoneWarning)
+
+        vm.acknowledgeTimezoneWarning()
+        XCTAssertNil(vm.timezoneWarning, "OK dismisses the alert")
+
+        let (relaunchedVM, _, _, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])),
+                                                deviceTimeZone: bangkokDevice)
+        await relaunchedVM.loadForecast()
+        XCTAssertNil(relaunchedVM.timezoneWarning,
+                     "the acknowledgement persists — warned once per chosen home, not per fetch")
+    }
+
+    func testDifferentHomeWarnsAgainAfterAcknowledgement() async {
+        let (vm, _, _, _, preferences) = makeVM(result: .success(Fixtures.makeForecast(activities: [])),
+                                                deviceTimeZone: TimeZone(identifier: "Asia/Bangkok")!)
+        preferences.homeLocation = SavedLocation(name: "Dubai", lat: 25.2048, lon: 55.2708)
+        await vm.loadForecast()
+        vm.acknowledgeTimezoneWarning()
+
+        preferences.homeLocation = SavedLocation(name: "Abu Dhabi", lat: 24.4539, lon: 54.3773)
+        await vm.loadForecast()
+
+        XCTAssertEqual(vm.timezoneWarning,
+                       "Abu Dhabi is 3 hours behind your device. Dashboard times, including the clock, follow Abu Dhabi time.",
+                       "the acknowledgement is per home — a newly chosen city warns afresh")
     }
 
     func testUsesDeviceLocationWhenAvailable() async {
