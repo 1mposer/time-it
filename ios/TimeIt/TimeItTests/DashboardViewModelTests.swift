@@ -96,11 +96,16 @@ final class DashboardViewModelTests: XCTestCase {
                         location: CLLocation? = CLLocation(latitude: 25.2048, longitude: 55.2708),
                         authorization: CLAuthorizationStatus = .notDetermined,
                         seeds: [AuthoredActivity] = Fixtures.liveSeeds,
+                        home: SavedLocation? = nil,
                         deviceTimeZone: TimeZone = TimeZone(identifier: "Asia/Dubai")!)
         -> (DashboardViewModel, FakeRatingService, FakeLocationProvider, ActivityStore, PreferencesStore) {
         let api = FakeRatingService(result: result)
         let locationProvider = FakeLocationProvider(location: location, authorization: authorization)
         let preferences = PreferencesStore(defaults: defaults)
+        // Applied BEFORE the VM exists: set afterwards, the homeLocation sink
+        // spawns a background reload whose generation bump cancels the test's
+        // own awaited load — the assertion then reads stale state.
+        if let home { preferences.homeLocation = home }
         let store = ActivityStore(defaults: defaults, seeds: seeds, preferences: preferences)
         let vm = DashboardViewModel(api: api, locationProvider: locationProvider,
                                     store: store, preferences: preferences,
@@ -248,9 +253,9 @@ final class DashboardViewModelTests: XCTestCase {
     }
 
     func testInitialPromptSkippedWhenHomeIsSet() {
-        let (vm, _, locationProvider, _, preferences) = makeVM(result: .success(Fixtures.makeForecast(activities: [])),
-                                                               location: nil)
-        preferences.homeLocation = SavedLocation(name: "Bangkok", lat: 13.7563, lon: 100.5018)
+        let (vm, _, locationProvider, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])),
+                                                     location: nil,
+                                                     home: SavedLocation(name: "Bangkok", lat: 13.7563, lon: 100.5018))
 
         vm.requestInitialLocationPermissionIfNeeded()
 
@@ -281,9 +286,9 @@ final class DashboardViewModelTests: XCTestCase {
     // MARK: timezone-mismatch warning — home on a different wall clock
 
     func testHomeInDifferentZonePublishesTimezoneWarning() async {
-        let (vm, _, _, _, preferences) = makeVM(result: .success(Fixtures.makeForecast(activities: [])),
-                                                deviceTimeZone: TimeZone(identifier: "Asia/Bangkok")!)
-        preferences.homeLocation = SavedLocation(name: "Dubai", lat: 25.2048, lon: 55.2708)
+        let (vm, _, _, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])),
+                                      home: SavedLocation(name: "Dubai", lat: 25.2048, lon: 55.2708),
+                                      deviceTimeZone: TimeZone(identifier: "Asia/Bangkok")!)
 
         await vm.loadForecast()
 
@@ -303,9 +308,9 @@ final class DashboardViewModelTests: XCTestCase {
 
     func testAcknowledgedWarningStaysQuietAcrossRelaunch() async {
         let bangkokDevice = TimeZone(identifier: "Asia/Bangkok")!
-        let (vm, _, _, _, preferences) = makeVM(result: .success(Fixtures.makeForecast(activities: [])),
-                                                deviceTimeZone: bangkokDevice)
-        preferences.homeLocation = SavedLocation(name: "Dubai", lat: 25.2048, lon: 55.2708)
+        let (vm, _, _, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])),
+                                      home: SavedLocation(name: "Dubai", lat: 25.2048, lon: 55.2708),
+                                      deviceTimeZone: bangkokDevice)
         await vm.loadForecast()
         XCTAssertNotNil(vm.timezoneWarning)
 
@@ -320,16 +325,19 @@ final class DashboardViewModelTests: XCTestCase {
     }
 
     func testDifferentHomeWarnsAgainAfterAcknowledgement() async {
-        let (vm, _, _, _, preferences) = makeVM(result: .success(Fixtures.makeForecast(activities: [])),
-                                                deviceTimeZone: TimeZone(identifier: "Asia/Bangkok")!)
-        preferences.homeLocation = SavedLocation(name: "Dubai", lat: 25.2048, lon: 55.2708)
+        let bangkokDevice = TimeZone(identifier: "Asia/Bangkok")!
+        let (vm, _, _, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])),
+                                      home: SavedLocation(name: "Dubai", lat: 25.2048, lon: 55.2708),
+                                      deviceTimeZone: bangkokDevice)
         await vm.loadForecast()
         vm.acknowledgeTimezoneWarning()
 
-        preferences.homeLocation = SavedLocation(name: "Abu Dhabi", lat: 24.4539, lon: 54.3773)
-        await vm.loadForecast()
+        let (movedVM, _, _, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])),
+                                           home: SavedLocation(name: "Abu Dhabi", lat: 24.4539, lon: 54.3773),
+                                           deviceTimeZone: bangkokDevice)
+        await movedVM.loadForecast()
 
-        XCTAssertEqual(vm.timezoneWarning,
+        XCTAssertEqual(movedVM.timezoneWarning,
                        "Abu Dhabi is 3 hours behind your device. Dashboard times, including the clock, follow Abu Dhabi time.",
                        "the acknowledgement is per home — a newly chosen city warns afresh")
     }
