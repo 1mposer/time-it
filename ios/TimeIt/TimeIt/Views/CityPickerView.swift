@@ -67,7 +67,7 @@ struct CityPickerView: View {
                         .accessibilityIdentifier("cityPicker.result.\(index)")
                     }
                 } footer: {
-                    Text("Results update as you type. Choosing a city saves it as your home location.")
+                    Text("Choosing a city saves it as your home location.")
                 }
             }
             .navigationTitle("Set Location")
