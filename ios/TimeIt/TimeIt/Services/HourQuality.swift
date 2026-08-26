@@ -1,9 +1,9 @@
 import Foundation
 
-/// Per-hour quality tier for the spec 14 gradient card. Ordered red < orange
-/// < green — the same three-way verdict the server's day `rating` collapses
-/// to: green ⇔ "perfect", orange ⇔ "good", red ⇔ Bad (a day of only red
-/// hours is the server's `rating: null`).
+/// Per-hour quality tier for the gradient card. Ordered red < orange < green
+/// — the same three-way verdict the server's day `rating` collapses to:
+/// green ⇔ "perfect", orange ⇔ "good", red ⇔ Bad (a day of only red hours
+/// is the server's `rating: null`).
 enum HourTier: Int, Comparable, CaseIterable {
     case red = 0
     case orange = 1
@@ -12,11 +12,11 @@ enum HourTier: Int, Comparable, CaseIterable {
     static func < (lhs: HourTier, rhs: HourTier) -> Bool { lhs.rawValue < rhs.rawValue }
 }
 
-/// The on-device per-hour evaluator (spec 14 §3) — the client-side mirror of
-/// the server's `evaluateHour`/`checkThreshold` (`src/decision/decision_engine.js`),
-/// recorded as mirror #3 in ADR-0007. Any threshold-semantics change lands in
-/// BOTH engines in the same wave; the pinning test is the §3 invariant against
-/// `RealBackendResponse` (greenest run must coincide with the server window).
+/// The on-device per-hour evaluator — the client-side mirror of the server's
+/// `evaluateHour`/`checkThreshold` (`src/decision/decision_engine.js`),
+/// recorded in ADR-0007. Any threshold-semantics change lands in BOTH engines
+/// in the same wave; the pinning test checks this against `RealBackendResponse`
+/// (greenest run must coincide with the server window).
 enum HourQuality {
 
     /// Any required threshold fails → .red; only optional thresholds fail →

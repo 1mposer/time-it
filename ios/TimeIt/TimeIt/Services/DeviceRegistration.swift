@@ -32,8 +32,8 @@ struct SystemNotificationAuthorizer: NotificationAuthorizing {
     }
 }
 
-/// Body of the full-snapshot upsert (#6c) — client-authoritative,
-/// last-write-wins; re-sent whole on any change.
+/// Body of the full-snapshot upsert — client-authoritative, last-write-wins;
+/// re-sent whole on any change.
 struct DeviceSnapshotBody: Encodable, Equatable {
     struct Home: Encodable, Equatable {
         let lat: Double
@@ -47,11 +47,11 @@ struct DeviceSnapshotBody: Encodable, Equatable {
 
 // MARK: - Service
 
-/// The push-client registration service (push-client spec §2): mints/reads
-/// the Keychain install UUID, projects the persisted ActivityStore to the
-/// device snapshot (dormant excluded, exactly as from the rating POST), and
-/// keeps the server copy fresh via the spec's re-upsert triggers — all gated
-/// on the Settings toggle. Failures retry on the next trigger; no queue.
+/// The push-client registration service: mints/reads the Keychain install
+/// UUID, projects the persisted ActivityStore to the device snapshot (dormant
+/// excluded, exactly as from the rating POST), and keeps the server copy
+/// fresh via re-upsert triggers — all gated on the Settings toggle. Failures
+/// retry on the next trigger; no queue.
 @MainActor
 final class DeviceRegistration: ObservableObject {
 
@@ -63,8 +63,8 @@ final class DeviceRegistration: ObservableObject {
     static let lastSentTokenKey = "pushLastSentToken"
     static let lastUpsertAtKey = "pushLastUpsertAt"
     static let pendingDeleteKey = "pushPendingDelete"
-    /// App-launch-if-stale threshold (spec §2): an unchanged token re-upserts
-    /// only when the last successful upsert is older than this.
+    /// App-launch-if-stale threshold: an unchanged token re-upserts only
+    /// when the last successful upsert is older than this.
     static let staleInterval: TimeInterval = 24 * 60 * 60
 
     /// The Settings toggle's truth: the user's opt-in, persisted. Flips on
@@ -104,8 +104,8 @@ final class DeviceRegistration: ObservableObject {
          defaults: UserDefaults = .standard,
          now: @escaping () -> Date = Date.init) {
         // Resolved here, not as default arguments — the shared singletons are
-        // main-actor-isolated and default arguments evaluate in the caller's
-        // context (same rule as DashboardViewModel's dependencies).
+        // main-actor-isolated and defaults evaluate in the caller's context
+        // (same rule as DashboardViewModel's dependencies).
         self.api = api ?? DevicesClient.shared
         self.keychain = keychain ?? KeychainStore()
         self.store = store ?? ActivityStore.shared
@@ -126,10 +126,10 @@ final class DeviceRegistration: ObservableObject {
             installId = minted
         }
 
-        // The re-upsert triggers (spec §2), gated on the toggle inside
-        // snapshotDidChange: any ActivityStore mutation, a home change.
-        // dropFirst skips the seed/initial publish. A home pick while an
-        // opt-in is pending on location completes that opt-in instead.
+        // The re-upsert triggers, gated on the toggle inside snapshotDidChange:
+        // any ActivityStore mutation, a home change. dropFirst skips the seed/
+        // initial publish. A home pick while an opt-in is pending on location
+        // completes that opt-in instead.
         self.store.$activities
             .dropFirst()
             .removeDuplicates()
@@ -148,7 +148,7 @@ final class DeviceRegistration: ObservableObject {
             }
             .store(in: &cancellables)
         // GPS serves ONLY the pending opt-in — a moving fix is deliberately
-        // not a re-upsert trigger (spec §2 names four; drift isn't one).
+        // not a re-upsert trigger.
         self.locationProvider.locationPublisher
             .dropFirst()
             .compactMap { $0 }
@@ -216,9 +216,9 @@ final class DeviceRegistration: ObservableObject {
     }
 
     /// The full-snapshot PUT — body computed at send time (last-write-wins).
-    /// Location: home, else the live GPS fix — NEVER the last-resolved cache
-    /// and never a fallback constant (ADR-0006: no fallback-location push);
-    /// with neither, skip — the next trigger retries.
+    /// Location: home, else the live GPS fix — NEVER the last-resolved cache,
+    /// never a fallback constant (ADR-0006: no fallback-location push); with
+    /// neither, skip and let the next trigger retry.
     private func upsert() async {
         guard isEnabled, let token = apnsToken, let home = snapshotHome() else { return }
         let body = DeviceSnapshotBody(apnsToken: token,
@@ -230,7 +230,7 @@ final class DeviceRegistration: ObservableObject {
             defaults.set(token, forKey: Self.lastSentTokenKey)
             defaults.set(now(), forKey: Self.lastUpsertAtKey)
         } catch {
-            // Failures retry on the next trigger (spec §2) — no bespoke queue.
+            // Failures retry on the next trigger — no bespoke queue.
         }
     }
 
@@ -245,14 +245,14 @@ final class DeviceRegistration: ObservableObject {
         return nil
     }
 
-    /// Spec 14 §1: a dormant Activity is excluded from the snapshot exactly
-    /// as it is excluded from the rating POST. Deleting the last live one
-    /// legitimately sends [] — a valid dormant registration.
+    /// A dormant Activity is excluded from the snapshot exactly as it is
+    /// excluded from the rating POST. Deleting the last live one legitimately
+    /// sends [] — a valid dormant registration.
     private func liveActivityInputs() -> [ActivityInput] {
         store.activities.filter { !$0.isDormant }.map(\.activityInput)
     }
 
-    // MARK: opt-out (spec §1)
+    // MARK: opt-out
 
     /// Toggle OFF: delete the device row, keep the Keychain ID (re-enabling
     /// reuses the same row). A failed DELETE is remembered and retried at
@@ -275,7 +275,7 @@ final class DeviceRegistration: ObservableObject {
         }
     }
 
-    // MARK: opt-in flow (spec §1 — toggle ON)
+    // MARK: opt-in flow (toggle ON)
 
     enum EnableOutcome {
         case enabled
@@ -287,9 +287,9 @@ final class DeviceRegistration: ObservableObject {
     /// real location (picked home or GPS fix) auto-continues the opt-in.
     private(set) var isEnablePending = false
 
-    /// Toggle ON. Ordering is the spec's: real location FIRST (the #5c
-    /// onboarding routes here — no permission prompt without somewhere to
-    /// rate), then the notification permission, then APNs registration.
+    /// Toggle ON. Ordering: real location FIRST (onboarding routes here — no
+    /// permission prompt without somewhere to rate), then the notification
+    /// permission, then APNs registration.
     func requestEnable() async -> EnableOutcome {
         guard snapshotHome() != nil else {
             isEnablePending = true
@@ -321,9 +321,9 @@ final class DeviceRegistration: ObservableObject {
         isEnablePending = false
     }
 
-    /// The `.needsLocation` doors, mirrored from the #5c empty state: a
-    /// not-yet-asked GPS gets the system prompt (the toggle is the CTA —
-    /// prompts stay CTA-gated); anything else routes to the city picker.
+    /// The `.needsLocation` doors: a not-yet-asked GPS gets the system prompt
+    /// (the toggle is the CTA — prompts stay CTA-gated); anything else routes
+    /// to the city picker.
     var canPromptForLocationAccess: Bool {
         locationProvider.authorizationStatus == .notDetermined
     }
@@ -332,9 +332,9 @@ final class DeviceRegistration: ObservableObject {
         locationProvider.requestAuthorization()
     }
 
-    /// Authorized but fixless (the third #5c door): warm a fix — when it
-    /// lands, the pending opt-in auto-continues. Mirrors the dashboard CTA's
-    /// requestLocationAccess; never prompts.
+    /// Authorized but fixless: warm a fix — when it lands, the pending opt-in
+    /// auto-continues. Mirrors the dashboard CTA's requestLocationAccess;
+    /// never prompts.
     func warmLocationFixIfAuthorized() {
         let status = locationProvider.authorizationStatus
         guard status == .authorizedWhenInUse || status == .authorizedAlways else { return }

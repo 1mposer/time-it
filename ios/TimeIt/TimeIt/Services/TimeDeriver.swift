@@ -1,9 +1,8 @@
 import Foundation
 
-/// The single place that turns `forecastStart` + `timezone` + an hours[] index
-/// into wall-clock labels and local-day buckets — always in the FORECAST
-/// LOCATION's zone, never the device zone (ADR-0004). Feeds the timeline axis,
-/// the detail hour rows, and the card's day label.
+/// Turns `forecastStart` + `timezone` + an hours[] index into wall-clock
+/// labels and local-day buckets — always the FORECAST LOCATION's zone, never
+/// the device's (ADR-0004). Feeds the timeline axis, hour rows, and day label.
 struct TimeDeriver {
     private let start: Date
     private let calendar: Calendar
@@ -22,7 +21,7 @@ struct TimeDeriver {
         calendar = cal
 
         // en_US_POSIX pins the output shape ("4pm", "Sunday") independent of
-        // the device locale, matching the guidelines' axis labels.
+        // the device locale.
         hourFormatter = DateFormatter()
         hourFormatter.locale = Locale(identifier: "en_US_POSIX")
         hourFormatter.timeZone = zone
@@ -44,8 +43,8 @@ struct TimeDeriver {
         hourFormatter.string(from: date(at: index)).lowercased()
     }
 
-    /// The 0–23 clock hour of `hours[index]` in the location zone — the client
-    /// twin of the server's internal `localHour` tag (stripped from the wire).
+    /// The 0–23 clock hour of `hours[index]` in the location zone — client
+    /// twin of the server's internal `localHour` (stripped from the wire).
     /// Drives the Range filter for the card slice and the detail's range hours.
     func localHour(at index: Int) -> Int {
         calendar.component(.hour, from: date(at: index))
@@ -58,13 +57,11 @@ struct TimeDeriver {
                                 to: calendar.startOfDay(for: date(at: index))).day ?? 0
     }
 
-    /// "Today" / "Tomorrow" / weekday name, relative to the forecast's day 0
-    /// in the location zone (dayIndex 0 is by definition "Today" there).
+    /// "Today" / "Tomorrow" / weekday name, relative to the forecast's day 0.
     ///
-    /// For a nocturnal activity (wrapped window), `dayIndex` is the EVENING's
-    /// ordinal (ADR-0004 amendment), so labels are night-phrased: "Tonight",
-    /// "Tomorrow night", "<Weekday> night". The early-morning tail belongs to
-    /// its evening, never the next day.
+    /// Nocturnal (wrapped window) activities key `dayIndex` to the EVENING
+    /// (ADR-0004 amendment): "Tonight", "Tomorrow night", "<Weekday> night" —
+    /// the early-morning tail belongs to its evening, never the next day.
     func dayName(forDayIndex dayIndex: Int, nocturnal: Bool = false) -> String {
         switch dayIndex {
         case 0: return nocturnal ? "Tonight" : "Today"
@@ -78,13 +75,12 @@ struct TimeDeriver {
         }
     }
 
-    /// "4–7pm" / "10pm–2am" — the best-stretch range label (spec 14 §2), the
-    /// word-for-word twin of the server push copy's `rangeLabel`
-    /// (`src/jobs/labels.js`): same meridiem → suffix once; crossing → both.
-    /// `endIndex` is exclusive, so its label is the stretch's end boundary.
-    /// Indices are not bounds-checked against the horizon — an out-of-range
-    /// index extrapolates to its (still correct) clock time rather than trap.
-    /// Shares the known half-hour-zone limitation with `hourLabel`.
+    /// "4–7pm" / "10pm–2am" — the word-for-word twin of the server push
+    /// copy's `rangeLabel` (`src/jobs/labels.js`): same meridiem → suffix
+    /// once; crossing → both. `endIndex` is exclusive, so its label is the
+    /// end boundary. Indices aren't bounds-checked — out-of-range extrapolates
+    /// to a still-correct clock time rather than trapping. Shares the
+    /// half-hour-zone limitation with `hourLabel`.
     func rangeLabel(startIndex: Int, endIndex: Int) -> String {
         let start = hourLabel(at: startIndex)
         let end = hourLabel(at: endIndex)
@@ -92,10 +88,10 @@ struct TimeDeriver {
         return "\(start.dropLast(2))–\(end)"
     }
 
-    /// The card sublabel (spec 14 §2): "Today · 6–8pm" / "Tonight · 10pm–2am",
-    /// matching push copy so a tapped push lands on its own receipt. With no
-    /// stretch (a red day — server rating null) it is the plain day name:
-    /// there is no window, the solid red slice carries the verdict.
+    /// The card sublabel: "Today · 6–8pm" / "Tonight · 10pm–2am", matching
+    /// push copy so a tapped push lands on its own receipt. With no stretch
+    /// (a red day — server rating null) it's the plain day name: no window,
+    /// so the solid red slice carries the verdict.
     func sublabel(forDayIndex dayIndex: Int, startIndex: Int?, endIndex: Int?, nocturnal: Bool) -> String {
         let day = dayName(forDayIndex: dayIndex, nocturnal: nocturnal)
         guard let startIndex, let endIndex else { return day }
