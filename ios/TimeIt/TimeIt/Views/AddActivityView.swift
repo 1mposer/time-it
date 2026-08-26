@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Presented from the ghost add-card (#5b §5). Two paths into the editor:
-/// a Template copy (pre-filled, fresh id, origin recorded) or from scratch.
+/// Presented from the add card. Two paths into the editor: a Template copy
+/// (pre-filled, fresh id) or from scratch.
 struct AddActivityView: View {
     @ObservedObject private var store: ActivityStore
     @State private var editorSeed: AuthoredActivity?
@@ -49,12 +49,8 @@ struct AddActivityView: View {
                                    isNew: true,
                                    catalog: catalog,
                                    onSave: { activity in
-                                       // add() can refuse: the cap may have been
-                                       // reached since this sheet opened (another
-                                       // scene sharing the store). Dismissing on a
-                                       // refused add would fake a successful save.
                                        if store.add(activity) {
-                                           dismiss() // closes the whole Add sheet
+                                           dismiss()
                                        } else {
                                            showingCapAlert = true
                                        }

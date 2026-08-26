@@ -1,9 +1,8 @@
 import Foundation
 
-/// The client-side authored Activity (#5b §2) — the editable superset of the
-/// wire shape. Carries UI metadata (icon, template origin) plus the wire
-/// fields; projects to `ActivityInput` at POST time. Codable so the list
-/// persists locally (ActivityStore).
+/// The client-side authored Activity — the editable superset of the wire
+/// shape. Carries UI metadata plus the wire fields; projects to
+/// `ActivityInput` at POST time. Codable so the list persists locally.
 struct AuthoredActivity: Codable, Identifiable, Hashable {
     /// Client-authored, stable for the life of the Activity, unique within the
     /// POST body; echoed back as `activityId`. Never mutated on edit.
@@ -18,18 +17,15 @@ struct AuthoredActivity: Codable, Identifiable, Hashable {
     /// The evaluated subset — `thresholds.keys ⊆ displayMetrics`. May be empty
     /// (show-but-don't-judge is legal).
     var thresholds: [String: Threshold]
-    /// nil = DORMANT (spec 14 §1) — stored and visible, but excluded from
-    /// every request body and device snapshot, never evaluated. Whole-day
-    /// activities no longer exist; the Range step is the only door out of
-    /// dormancy. Wrap (startHour > endHour) = nocturnal night-stitch.
+    /// nil = DORMANT — stored and visible, but excluded from every request
+    /// and device snapshot. Wrap (startHour > endHour) = nocturnal.
     var window: WindowSpec?
 
-    /// A wrapped window is the only nocturnal signal (ADR-0005 §5) — it drives
-    /// the "Tonight"/"… night" day labels.
+    /// A wrapped window is the only nocturnal signal (ADR-0005 §5) — it
+    /// drives the "Tonight"/"… night" day labels.
     var isNocturnal: Bool { window?.isWrapped == true }
 
-    /// Spec 14 §1: an Activity without a confirmed Range never rates, never
-    /// pushes, never reaches the server window-less.
+    /// An Activity without a confirmed Range never rates and never pushes.
     var isDormant: Bool { window == nil }
 
     /// Projection to the wire: drops UI-only fields; includes `window` only
@@ -66,7 +62,7 @@ struct AuthoredActivity: Codable, Identifiable, Hashable {
     }
 }
 
-// MARK: - Client-side ADR-0005 validation (the atomic-400 guard, #5b §7)
+// MARK: - Client-side validation (mirrors the server's ADR-0005 rules)
 
 extension AuthoredActivity {
 
@@ -74,9 +70,10 @@ extension AuthoredActivity {
 
     var validationIssues: [String] { validationIssues(against: StaticMetricCatalog()) }
 
-    /// Mirrors the server's validateRatingRequest for a single Activity. One
-    /// invalid Activity 400s the WHOLE request (validation is atomic), so
-    /// nothing failing these checks may ever be saved, let alone POSTed.
+    /// Mirrors the server's per-activity validation — one invalid Activity
+    /// 400s the WHOLE request, so nothing failing these checks may be saved.
+    /// The threshold-shape checks (flag vs numeric kind) exist ONLY here;
+    /// the server does not catch that class yet (gap recorded for Issue #8).
     func validationIssues(against catalog: MetricCatalogProviding) -> [String] {
         var issues: [String] = []
         let liveKeys = catalog.liveKeys
@@ -104,19 +101,11 @@ extension AuthoredActivity {
                 issues.append("\(metric) has a threshold but is not shown")
                 continue
             }
-            // liveKeys ⊆ catalog keys, so the descriptor always exists here.
             guard let descriptor = catalog.descriptor(for: metric) else { continue }
             if !descriptor.isThresholdable {
-                // Applies to flag-shaped thresholds too: the backend would
-                // accept e.g. a flag on `moon` and it would trivially never
-                // fail — the silent false-Perfect this mirror exists to block.
                 issues.append("\(metric) can be shown but not thresholded")
                 continue
             }
-            // The threshold's SHAPE must also match the metric's kind: a flag
-            // threshold on a numeric metric never fails server-side (same
-            // false-Perfect class). The server does not catch this yet — gap
-            // recorded for Issue #8 — so the mirror is the only guard.
             if threshold.isFlag {
                 if descriptor.kind != .flag {
                     issues.append("\(metric) takes min/max bounds, not an alert flag")
@@ -150,8 +139,6 @@ extension AuthoredActivity {
             if !hours.contains(window.startHour) || !hours.contains(window.endHour) {
                 issues.append("Window hours must be between 0 and 23")
             } else if window.startHour == window.endHour {
-                // Spec 14 §1: whole-day is no longer offered as the fix —
-                // a range-less Activity is dormant, not whole-day.
                 issues.append("Window start and end can't match")
             }
         }

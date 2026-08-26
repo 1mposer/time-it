@@ -1,7 +1,6 @@
-// Clock-label copy shared by the push jobs (#6c digest, #6d detector) — the
-// server-side twin of the iOS TimeDeriver. Known shared limitation (STATUS §5):
-// half-hour zones (e.g. Asia/Kolkata +05:30) render these ha-style labels :30
-// off — cosmetic, tracked.
+// Clock-label copy shared by both push jobs — the server-side twin of the iOS
+// TimeDeriver (a copy change here needs one there too). Known limitation:
+// half-hour zones (e.g. +05:30) render these labels :30 off.
 
 function hourLabel(h) {
   if (h === 0) return '12am';
@@ -9,10 +8,10 @@ function hourLabel(h) {
   return h < 12 ? `${h}am` : `${h - 12}pm`;
 }
 
+// "7–10am" when both ends share a meridiem, "10pm–2am" when crossing.
 function rangeLabel(startH, endH) {
   const start = hourLabel(startH);
   const end = hourLabel(endH);
-  // Same meridiem → suffix once ("7–10am"); crossing → both ("10pm–2am").
   return start.slice(-2) === end.slice(-2) ? `${start.slice(0, -2)}–${end}` : `${start}–${end}`;
 }
 

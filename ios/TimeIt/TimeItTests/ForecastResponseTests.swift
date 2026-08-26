@@ -31,7 +31,6 @@ final class ForecastResponseTests: XCTestCase {
 
     func testHoursHaveNoHourFieldAndIndexIsPosition() throws {
         let forecast = try Fixtures.decodeForecast()
-        // The wire shape has no `hour` key (dropped per ADR-0004); position comes from `index`.
         for (i, hour) in forecast.hours.enumerated() {
             XCTAssertEqual(hour.index, i)
             XCTAssertEqual(hour.id, i)
@@ -44,21 +43,18 @@ final class ForecastResponseTests: XCTestCase {
         XCTAssertNil(hour.windSpeed)
         XCTAssertNil(hour.rainFall)
         XCTAssertNil(hour.cloudCover)
-        // and non-null hours decode values
         XCTAssertEqual(forecast.hours[0].windSpeed, 10)
         XCTAssertEqual(forecast.hours[0].rainFall, 0)
         XCTAssertEqual(forecast.hours[0].cloudCover, 15)
     }
 
-    // Regression (live-verify 2026-07-12): Meteosource returns uv_index: null at
-    // night. uV was typed non-nullable, so a single null uV threw and blanked the
-    // WHOLE dashboard. The decoder is now null-tolerant on every metric.
+    // Guards the 2026-07-12 live decode bug: Meteosource's uv_index: null at
+    // night threw on the non-nullable uV and blanked the WHOLE dashboard.
     func testNullUVDecodesToNilWithoutFailingTheWholeResponse() throws {
         let forecast = try Fixtures.decodeForecast() // hour 2 has uV: null
         XCTAssertEqual(forecast.hours.count, 60, "a null uV must not abort the decode")
         XCTAssertNil(forecast.hours[2].uV)
         XCTAssertEqual(forecast.hours[2].formatted(for: "uV"), "—")
-        // a present uV still decodes
         XCTAssertEqual(forecast.hours[0].uV, 3)
     }
 }

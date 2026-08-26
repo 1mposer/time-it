@@ -1,42 +1,26 @@
-// Perfect-window detector (#6d spec, ADR-0006). Hourly pass beside the digest:
-// push the moment a NEW Perfect window appears in a device's near-term forecast.
-//
-// Dedup is bucket-keyed (device_id, activity_id, bucket_date) — NEVER index-
-// keyed: global indices re-base against every fresh forecastStart, so the
-// pre-rebuild startIndex dedup re-alerted the same window hourly. bucket_date
-// comes from timeBoundary.bucketDate (date-of-day-0 + dayIndex) and NOT from
-// hours[startIndex].localDay (audit 2026-07-16): a nocturnal bucket spans
-// midnight, so a morning-tail window's startIndex hour carries the MORNING's
-// date — jitter across midnight would re-alert the same night AND the misfiled
-// key would suppress the real next-night alert. dayIndex is the evening's
-// ordinal by construction, so the dayIndex derivation is correct for diurnal
-// and nocturnal alike.
-//
-// Insert-first, push-second: a crash between the two makes a missed alert,
-// never a duplicate (spam is the worse failure). Perfect-only — Good belongs
-// to the digest; a good→perfect upgrade alerts inherently as that bucket's
-// first Perfect. Horizon: buckets 0–1 (~48h) — far-out days are volatile and
-// there is no retraction push; they surface via the digest's week-ahead line.
+// Hourly push job (ADR-0006): alerts once when a new Perfect window appears in
+// a device's next ~48h. Dedup: one alert per (device, activity, bucket date) —
+// keyed on the bucket's calendar date via timeBoundary.bucketDate, never on
+// window indices (they re-base with every fresh forecastStart) and never on
+// hours[startIndex].localDay (a nocturnal morning-tail carries the MORNING's
+// date). The dedup row is inserted before the push so a crash misses an
+// alert, never duplicates one.
 
 const { localHour, bucketDate } = require('../weather/timeBoundary');
 const { StaleTokenError } = require('../notifications/apns');
 const { hourLabel, rangeLabel } = require('./labels');
 
 const MS_PER_HOUR = 3600 * 1000;
-const HORIZON_BUCKETS = 2; // buckets 0–1 only (decision 2026-07-16)
-const RETENTION_DAYS = 2; // prune keys older than today − 2 (table stays O(devices × activities × 2))
+const HORIZON_BUCKETS = 2; // alert on buckets 0–1 only
+const RETENTION_DAYS = 2; // prune dedup rows older than today − 2
 
-// endIndex is EXCLUSIVE ([startIndex, endIndex), duration = end − start) — the
-// engine contract pinned by decision_engine.js and its tests. The end clock
-// label therefore reads the boundary hour directly (a 7→10 window is "7–10am"),
-// and "ended" means the END instant has passed (≤ now). An off-by-one here goes
-// straight into push copy — treat as contract, not detail.
+// Builds the push title/body. endIndex is exclusive — the end label reads the
+// boundary hour, and a window has "ended" once that instant passes.
 function composeAlert({ label, nocturnal, dayIndex, day, forecastStart, timezone, nowMs }) {
   const startMs = Date.parse(forecastStart) + day.startIndex * MS_PER_HOUR;
   const endMs = Date.parse(forecastStart) + day.endIndex * MS_PER_HOUR;
   let body;
   if (nowMs >= startMs) {
-    // Ongoing: the start instant has passed but the end instant hasn't.
     body = `Now until ${hourLabel(localHour(endMs, timezone))}`;
   } else {
     const dayLabel = dayIndex === 0 ? (nocturnal ? 'Tonight' : 'Today') : (nocturnal ? 'Tomorrow night' : 'Tomorrow');
@@ -47,8 +31,6 @@ function composeAlert({ label, nocturnal, dayIndex, day, forecastStart, timezone
 
 function createPerfectWindowDetectorJob({ db, getWeather, evaluateAll, sendPush, now = Date.now }) {
   async function runDetectorPass() {
-    // Token-less rows are deactivated (ADR-0010) — dormant for push, never
-    // evaluated, so their weather call is saved too.
     const { rows } = await db.query(
       'SELECT device_id, apns_token, home_lat, home_lon, timezone, activities FROM devices WHERE apns_token IS NOT NULL'
     );
@@ -57,8 +39,6 @@ function createPerfectWindowDetectorJob({ db, getWeather, evaluateAll, sendPush,
       try {
         const { forecastStart, timezone, hours } = await getWeather(device.home_lat, device.home_lon);
         const results = evaluateAll(hours, device.activities);
-        // `window` is input-only (never echoed in results) — nocturnal
-        // detection reads the snapshot, same as the digest's "tonight" line.
         const windowById = new Map(device.activities.map((a) => [a.id, a.window]));
         const startMsBase = Date.parse(forecastStart);
         const nowMs = now();
@@ -71,7 +51,6 @@ function createPerfectWindowDetectorJob({ db, getWeather, evaluateAll, sendPush,
 
           for (const day of result.days.slice(0, HORIZON_BUCKETS)) {
             if (day.rating !== 'perfect') continue;
-            // Already ended → skip BEFORE the insert (no key consumed).
             if (startMsBase + day.endIndex * MS_PER_HOUR <= nowMs) continue;
 
             const bucket = bucketDate(forecastStart, timezone, day.dayIndex);
@@ -79,7 +58,7 @@ function createPerfectWindowDetectorJob({ db, getWeather, evaluateAll, sendPush,
               'INSERT INTO notification_state (device_id, activity_id, bucket_date) VALUES ($1, $2, $3::date) ON CONFLICT DO NOTHING',
               [device.device_id, result.activityId, bucket]
             );
-            if (inserted.rowCount !== 1) continue; // already alerted (or a concurrent pass won the race)
+            if (inserted.rowCount !== 1) continue;
 
             const { title, body } = composeAlert({
               label: result.label, nocturnal, dayIndex: day.dayIndex, day, forecastStart, timezone, nowMs,
@@ -92,11 +71,8 @@ function createPerfectWindowDetectorJob({ db, getWeather, evaluateAll, sendPush,
               });
             } catch (err) {
               if (err instanceof StaleTokenError) {
-                // Never-erase rule (ADR-0010): blank the dead push address,
-                // keep the row — its notification_state rows survive too
-                // (nothing is deleted, nothing cascades). Loudly — a silent
-                // version of this event cost a live debugging session on
-                // 2026-08-19. Then stop alerting this device this pass.
+                // Never-erase (ADR-0010): blank the dead push address, keep the
+                // row — its notification_state rows survive too.
                 await db.query(
                   'UPDATE devices SET apns_token = NULL, updated_at = now() WHERE device_id = $1',
                   [device.device_id]
@@ -110,13 +86,10 @@ function createPerfectWindowDetectorJob({ db, getWeather, evaluateAll, sendPush,
           }
         }
       } catch (err) {
-        // Per-device isolation: one failure never stops the pass.
         console.error(`perfect-window detector: device ${device.device_id} failed`, err);
       }
     }
 
-    // Prune spent keys so the table stays bounded. UTC "today" is fine here:
-    // the 2-day slack dwarfs any zone offset, and no live key is ever < today − 2.
     const todayUtc = new Date(now()).toISOString().slice(0, 10);
     await db.query(
       `DELETE FROM notification_state WHERE bucket_date < $1::date - ${RETENTION_DAYS}`,

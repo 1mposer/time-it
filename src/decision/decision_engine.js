@@ -1,5 +1,9 @@
+// Core Window logic: rate each hour against thresholds, find the longest
+// qualifying window.
+
+// Absent (null/undefined) data fails the threshold rather than silently
+// passing via NaN coercion.
 function checkThreshold(value, config) {
-  // Absent data fails the threshold rather than silently passing via NaN/0 coercion.
   if (value === null || value === undefined) return false;
   if (config.type === "flag" && config.forbidTrue && value === true) return false;
   if (config.min !== undefined && value < config.min) return false;
@@ -24,6 +28,8 @@ function evaluateHour(hourData, thresholds) {
   return "bad";
 }
 
+// Longest run of targetRating as { startIndex, endIndex, duration } (endIndex
+// exclusive), or null. Strict `>` — on a tie the earlier window wins.
 function findLongestWindow(ratings, targetRating) {
   let best = null;
   let current = null;
@@ -36,7 +42,6 @@ function findLongestWindow(ratings, targetRating) {
         current.duration++;
       }
     } else {
-      // Strict `>` — on a tie, the earlier window wins (iOS shows the earlier block).
       if (current && (!best || current.duration > best.duration)) best = current;
       current = null;
     }
@@ -46,6 +51,8 @@ function findLongestWindow(ratings, targetRating) {
   return best;
 }
 
+// Rates a slice of hours: the longest Perfect window, else the longest Good,
+// else { rating: null }.
 function evaluate(hours, userPrefs) {
   const ratings = hours.map((h) => evaluateHour(h, userPrefs.thresholds));
 

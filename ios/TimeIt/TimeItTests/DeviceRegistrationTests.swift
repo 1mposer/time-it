@@ -56,10 +56,8 @@ final class FakePushAuthorizer: NotificationAuthorizing {
 
 // MARK: - Tests
 
-/// The push-client spec §2 service: Keychain install UUID, full-snapshot
-/// upsert (dormant exclusion, nocturnal passthrough, home-else-GPS — never
-/// the last-resolved cache), re-upsert triggers gated on the toggle, DELETE
-/// on opt-out with the Keychain ID retained.
+/// DeviceRegistration: Keychain install UUID, full-snapshot upsert (dormant
+/// exclusion, home-else-GPS), toggle-gated re-upserts, DELETE on opt-out.
 @MainActor
 final class DeviceRegistrationTests: XCTestCase {
 
@@ -91,7 +89,7 @@ final class DeviceRegistrationTests: XCTestCase {
         super.tearDown()
     }
 
-    // MARK: fixtures — one live, one dormant, one nocturnal (spec 14 §1)
+    // MARK: fixtures — one live, one dormant, one nocturnal
 
     private func liveCycling() -> AuthoredActivity {
         AuthoredActivity(id: "cycling", label: "Cycling", iconSymbol: "bicycle",
@@ -154,7 +152,7 @@ final class DeviceRegistrationTests: XCTestCase {
         XCTAssertEqual(keychain.writeCount, 1, "the id is minted exactly once")
     }
 
-    // MARK: snapshot body (spec §2)
+    // MARK: snapshot body
 
     func testTokenReceiptUpsertsFullSnapshotExcludingDormantWithNocturnalPassthrough() async {
         preferences.homeLocation = SavedLocation(name: "Dubai Marina", lat: 25.08, lon: 55.14)
@@ -206,7 +204,7 @@ final class DeviceRegistrationTests: XCTestCase {
         XCTAssertTrue(api.puts.isEmpty)
     }
 
-    // MARK: re-upsert triggers (spec §2 — only while the toggle is on)
+    // MARK: re-upsert triggers — only while the toggle is on
 
     func testStoreMutationReUpsertsTheSnapshot() async {
         preferences.homeLocation = SavedLocation(name: "Home", lat: 25, lon: 55)
@@ -268,7 +266,6 @@ final class DeviceRegistrationTests: XCTestCase {
         preferences.homeLocation = SavedLocation(name: "Home", lat: 25, lon: 55)
         let registration = makeRegistration(enabled: false)
 
-        // A token in hand must not change the answer — the toggle alone gates.
         registration.updateAPNsToken("aabbcc00")
         store.add(AuthoredActivity(id: "padel", label: "Padel", iconSymbol: "tennis.racket",
                                    templateOrigin: nil, displayMetrics: ["temp"],
@@ -284,8 +281,6 @@ final class DeviceRegistrationTests: XCTestCase {
         api.putDelayNanoseconds = 100_000_000
 
         registration.updateAPNsToken("aabbcc00")
-        // Let the scheduled upsert pass its guard and reach the (slow) PUT —
-        // the race is a request already in flight when the toggle flips off.
         await Task.yield()
         await registration.disable()
 
@@ -341,7 +336,7 @@ final class DeviceRegistrationTests: XCTestCase {
         XCTAssertEqual(api.puts.count, 1, "no bespoke queue — the next trigger is the retry")
     }
 
-    // MARK: opt-out (spec §1)
+    // MARK: opt-out
 
     func testDisableDeletesTheDeviceRowAndKeepsTheKeychainId() async {
         preferences.homeLocation = SavedLocation(name: "Home", lat: 25, lon: 55)
@@ -363,7 +358,7 @@ final class DeviceRegistrationTests: XCTestCase {
         XCTAssertEqual(api.puts.count, 1, "no re-upserts after opt-out")
     }
 
-    // MARK: opt-in flow (spec §1 — toggle ON)
+    // MARK: opt-in flow
 
     func testRequestEnableWithRealLocationAndGrantRegistersAndEnables() async {
         preferences.homeLocation = SavedLocation(name: "Home", lat: 25, lon: 55)
@@ -450,8 +445,6 @@ final class DeviceRegistrationTests: XCTestCase {
         await registration.disable()
 
         _ = await registration.requestEnable()
-        // The token is already in hand, so re-enable upserts immediately —
-        // recreating the row must not wait on APNs re-delivering the token.
         await registration.awaitPendingOperations()
         XCTAssertEqual(api.puts.count, 2,
                        "re-enabling must recreate the deleted row even when nothing else changed")
@@ -462,7 +455,7 @@ final class DeviceRegistrationTests: XCTestCase {
                        "the later unchanged-token receipt dedupes against the re-enable upsert")
     }
 
-    // MARK: app launch (spec §2 — token refresh + launch-if-stale)
+    // MARK: app launch — token refresh + launch-if-stale
 
     func testAppDidLaunchWhileEnabledReRegistersForRemoteNotifications() {
         let registration = makeRegistration(enabled: true)
@@ -520,9 +513,6 @@ final class DeviceRegistrationTests: XCTestCase {
         XCTAssertFalse(defaults.bool(forKey: DeviceRegistration.pendingDeleteKey),
                        "a successful re-enable cancels the pending opt-out")
 
-        // Relaunch of the (persisted-enabled) install: the stale DELETE must
-        // not fire and destroy the row the re-enable just recreated — the
-        // fresh-token dedupe would then hide the outage for ~24h.
         let relaunched = makeRegistration(enabled: false)
         XCTAssertTrue(relaunched.isEnabled, "the re-enable survived the relaunch")
         relaunched.appDidLaunch()

@@ -1,8 +1,7 @@
 import XCTest
 @testable import TimeIt
 
-/// ActivityStore is the single source of truth for the user's authored Activity
-/// list (#5b §3): seeded on first launch, persisted to UserDefaults on every
+/// ActivityStore: seeded on first launch, persisted to UserDefaults on every
 /// mutation, corrupt data falls back to the seeds rather than crashing.
 @MainActor
 final class ActivityStoreTests: XCTestCase {
@@ -23,15 +22,13 @@ final class ActivityStoreTests: XCTestCase {
         super.tearDown()
     }
 
-    /// Always injects this suite's PreferencesStore — the store reads
-    /// dismissed template ids at delete time (spec 14 §6 re-seed), and the
-    /// shared singleton would leak state across tests.
+    /// Injects this suite's PreferencesStore — the shared singleton would
+    /// leak state across tests.
     private func makeStore(seeds: [AuthoredActivity] = SeedTemplates.firstLaunchSeeds) -> ActivityStore {
         ActivityStore(defaults: defaults, seeds: seeds, preferences: preferences)
     }
 
-    /// The showcase is the FULL template catalog — four cards, per the Figma
-    /// Empty — Showcase frame (owner ruling 2026-08-13; Figma is authoritative).
+    /// The showcase is the full four-card template catalog.
     private let seedIds = ["cycling", "fishing-lite", "running", "stargazing"]
 
     private func makeActivity(id: String = UUID().uuidString, label: String = "Padel") -> AuthoredActivity {
@@ -89,14 +86,14 @@ final class ActivityStoreTests: XCTestCase {
         XCTAssertEqual(makeStore().activities.map(\.id), ["fishing-lite", "running", "stargazing"])
     }
 
-    // MARK: spec 14 §6 — delete-all re-seeds the showcase; dismissals survive
+    // MARK: delete-all re-seeds the showcase; dismissals survive
 
     func testDeletingTheLastActivityReseedsTheShowcaseDormant() {
         let store = makeStore()
         store.delete(id: "cycling")
         store.delete(id: "fishing-lite")
         store.delete(id: "running")
-        store.delete(id: "stargazing") // empties the list → re-seed
+        store.delete(id: "stargazing")
 
         XCTAssertEqual(store.activities.map(\.id), seedIds,
                        "delete-all re-seeds the showcase — the dashboard always offers a next action, never a dead end")
@@ -106,9 +103,7 @@ final class ActivityStoreTests: XCTestCase {
     }
 
     func testReseedForcesDormancyEvenFromLiveSeeds() {
-        // The ruling says re-seeded cards are showcase (dormant) cards — the
-        // store enforces it structurally rather than trusting the seed data.
-        let liveSeed = makeActivity(id: "padel", label: "Padel") // windowed
+        let liveSeed = makeActivity(id: "padel", label: "Padel")
         let store = makeStore(seeds: [liveSeed])
 
         store.delete(id: "padel")
@@ -129,7 +124,7 @@ final class ActivityStoreTests: XCTestCase {
 
         store.delete(id: "fishing-lite")
         store.delete(id: "running")
-        store.delete(id: "stargazing") // delete-all → re-seed
+        store.delete(id: "stargazing")
 
         XCTAssertEqual(store.activities.map(\.id), ["fishing-lite", "running", "stargazing"],
                        "a dismissed template stays gone; a merely-deleted one returns (deletion ≠ dismissal)")
@@ -141,7 +136,7 @@ final class ActivityStoreTests: XCTestCase {
         store.dismissTemplate(id: "cycling")
         store.dismissTemplate(id: "fishing-lite")
         store.dismissTemplate(id: "running")
-        store.dismissTemplate(id: "stargazing") // last card → re-seed set is empty
+        store.dismissTemplate(id: "stargazing")
 
         XCTAssertTrue(store.activities.isEmpty,
                       "every template dismissed → the true-empty Add-CTA state, not a resurrected showcase")
@@ -150,9 +145,6 @@ final class ActivityStoreTests: XCTestCase {
     }
 
     func testDismissingANonTemplateIdDeletesButRecordsNoDismissal() {
-        // dismissTemplate is a showcase-card concept: recording an arbitrary
-        // id (e.g. a live user Activity, via a future mis-wired ✕) would
-        // pollute the dismissal ledger without ever filtering a re-seed.
         let store = makeStore()
         store.add(makeActivity(id: "padel-1", label: "Padel"))
 
@@ -186,11 +178,10 @@ final class ActivityStoreTests: XCTestCase {
 
         XCTAssertEqual(store.activities.map(\.id), seedIds,
                        "corrupt data must fall back to the seed set, not crash")
-        // And it re-persists a decodable shape.
         XCTAssertEqual(makeStore().activities.map(\.id), seedIds)
     }
 
-    // MARK: soft quantity cap (§8 — no StoreKit, plain constant)
+    // MARK: soft quantity cap
 
     func testAddIsRefusedAtTheSoftCap() {
         let store = makeStore()

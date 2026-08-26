@@ -6,10 +6,11 @@ struct TimeItApp: App {
 
     @UIApplicationDelegateAdaptor(PushAppDelegate.self) private var appDelegate
 
+    /// UI-test launch arguments are honoured here, BEFORE any store singleton
+    /// loads persisted state: UITEST_RESET wipes it, the SEED arguments
+    /// pre-persist a live store (the harness's shortcut past onboarding).
     init() {
         #if DEBUG
-        // UI tests start from the first-launch seed state: wipe persisted
-        // authoring + preferences BEFORE any store singleton loads them.
         if ProcessInfo.processInfo.arguments.contains("UITEST_RESET") {
             UserDefaults.standard.removeObject(forKey: ActivityStore.storageKey)
             UserDefaults.standard.removeObject(forKey: PreferencesStore.homeLocationKey)
@@ -22,16 +23,10 @@ struct TimeItApp: App {
             UserDefaults.standard.removeObject(forKey: DeviceRegistration.lastUpsertAtKey)
             UserDefaults.standard.removeObject(forKey: DeviceRegistration.pendingDeleteKey)
         }
-        // Spec 14 §1 made the REAL first launch dormant (no request, no rated
-        // cards), so card/flow tests pre-persist a LIVE store instead: the two
-        // templates with their prefill ranges confirmed. Harness-only — the
-        // product never seeds live.
         if ProcessInfo.processInfo.arguments.contains("UITEST_SEED_LIVE"),
            let data = try? JSONEncoder().encode([SeedTemplates.cycling, SeedTemplates.fishingLite]) {
             UserDefaults.standard.set(data, forKey: ActivityStore.storageKey)
         }
-        // The nocturnal acceptance path (§8 parity): stargazing LIVE with its
-        // wrapped 10pm–4am range — 6 night buckets, "Tonight" copy.
         if ProcessInfo.processInfo.arguments.contains("UITEST_SEED_NOCTURNAL"),
            let data = try? JSONEncoder().encode([SeedTemplates.stargazing]) {
             UserDefaults.standard.set(data, forKey: ActivityStore.storageKey)
@@ -59,8 +54,7 @@ struct TimeItApp: App {
         return DashboardViewModel()
     }
 
-    /// Mock runs get a fully-seamed registration (no real Keychain, APNs, or
-    /// network) so the opt-in flow is deterministic; production uses .shared —
+    /// Mock runs get a fully-seamed registration; production uses .shared —
     /// the same instance the AppDelegate feeds tokens into.
     @MainActor
     private static func makeRegistration() -> DeviceRegistration {
@@ -79,10 +73,8 @@ struct TimeItApp: App {
     }
 
     #if DEBUG
-    /// UITEST_LOCATION feeds the mock provider a fixed fix so the card/header
-    /// tests stay fed; UITEST_LOCATION_DENIED forces the denied status
-    /// (acceptance §3.1's "fresh install, location denied"); with neither the
-    /// provider never resolves — the not-yet-asked no-location path (#5c).
+    /// UITEST_LOCATION = a fixed fix; UITEST_LOCATION_DENIED = denied status;
+    /// neither = the provider never resolves (the no-location path).
     @MainActor
     private static func uiTestLocationProvider() -> StaticLocationProvider {
         let arguments = ProcessInfo.processInfo.arguments

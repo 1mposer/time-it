@@ -90,10 +90,8 @@ final class DashboardViewModelTests: XCTestCase {
         super.tearDown()
     }
 
-    /// The default location is a real fix and the default seeds are LIVE
-    /// (windowed) — most tests just need a POST to happen (#5c deleted the
-    /// Dubai fallback; spec 14 §1 made dormant activities non-POSTing). Chain
-    /// tests pass `location: nil`, dormancy tests pass their own seeds.
+    /// Default: a real fix + live seeds, so most tests just need a POST to
+    /// happen. Chain tests pass `location: nil`; dormancy tests pass seeds.
     private func makeVM(result: Result<ForecastResponse, Error>,
                         location: CLLocation? = CLLocation(latitude: 25.2048, longitude: 55.2708),
                         authorization: CLAuthorizationStatus = .notDetermined,
@@ -102,8 +100,6 @@ final class DashboardViewModelTests: XCTestCase {
         let api = FakeRatingService(result: result)
         let locationProvider = FakeLocationProvider(location: location, authorization: authorization)
         let preferences = PreferencesStore(defaults: defaults)
-        // The store gets THIS suite's preferences — its delete-time re-seed
-        // reads dismissed template ids, and .shared would leak across tests.
         let store = ActivityStore(defaults: defaults, seeds: seeds, preferences: preferences)
         let vm = DashboardViewModel(api: api, locationProvider: locationProvider,
                                     store: store, preferences: preferences)
@@ -171,7 +167,7 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertFalse(vm.isLoading)
     }
 
-    // MARK: location resolution — home → GPS → lastResolved → none (#5c)
+    // MARK: location resolution — home → GPS → lastResolved → none
 
     func testNoLocationAnywhereSkipsPostAndRaisesSignal() async {
         let forecast = Fixtures.makeForecast(activities: [])
@@ -190,7 +186,7 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertFalse(vm.isLoading)
     }
 
-    // MARK: "Enable location" CTA routing (#5c audit F1/F5/F6)
+    // MARK: "Enable location" CTA routing
 
     func testLoadWarmsAFixOnlyWhenAuthorized() async {
         let forecast = Fixtures.makeForecast(activities: [])
@@ -249,8 +245,6 @@ final class DashboardViewModelTests: XCTestCase {
     }
 
     func testHomeLocationWinsOverGPS() async {
-        // Seeded before the VM exists so the home-change sink can't spawn an
-        // orphan load that outlives the test (see the persistence test below).
         PreferencesStore(defaults: defaults).homeLocation = SavedLocation(name: "Ras Al Khaimah", lat: 25.8007, lon: 55.9762)
         let forecast = Fixtures.makeForecast(activities: [])
         let (vm, api, _, _, _) = makeVM(result: .success(forecast),
@@ -288,12 +282,9 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertEqual(vm.activeLocationName, "Toronto", "the cached name labels the header")
     }
 
-    // MARK: lastResolved persistence — write on success only (#5c)
+    // MARK: lastResolved persistence — write on success only
 
     func testSuccessfulFetchPersistsTheResolvedLocation() async {
-        // Persist the home BEFORE the VM exists — mutating it afterwards would
-        // fire the home-change refetch sink, whose unawaited load supersedes
-        // this one (generation guard) and races the assertions.
         PreferencesStore(defaults: defaults).homeLocation = SavedLocation(name: "Ras Al Khaimah", lat: 25.8007, lon: 55.9762)
         let forecast = Fixtures.makeForecast(activities: [])
         let (vm, _, _, _, preferences) = makeVM(result: .success(forecast))
@@ -337,7 +328,7 @@ final class DashboardViewModelTests: XCTestCase {
                        "live activities POST in store order (= card order)")
     }
 
-    // MARK: dormancy — spec 14 §1: window == nil never reaches any request
+    // MARK: dormancy — window == nil never reaches any request
 
     func testDormantActivityIsExcludedFromThePostBody() async {
         let (vm, api, _, store, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])), seeds: [])
@@ -378,8 +369,6 @@ final class DashboardViewModelTests: XCTestCase {
     }
 
     func testFirstLaunchSeedsAreDormantAndMakeNoRequest() async {
-        // The product's real first launch (spec 14 §6): seeds land dormant;
-        // nothing POSTs until the first range is confirmed.
         let (vm, api, _, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])),
                                         seeds: SeedTemplates.firstLaunchSeeds)
 
@@ -442,8 +431,6 @@ final class DashboardViewModelTests: XCTestCase {
     }
 
     func testDeletingAllLiveActivitiesBringsBackTheDormantShowcaseAndStopsPosting() async {
-        // Spec 14 §6 ruling: delete-all re-seeds the showcase dormant — the
-        // dashboard keeps a next action, but nothing rates or POSTs.
         let (vm, api, _, store, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])))
 
         XCTAssertTrue(vm.hasActivities)
@@ -466,8 +453,6 @@ final class DashboardViewModelTests: XCTestCase {
 
         let refetch = expectation(description: "store mutation triggers a refetch")
         api.onFetch = { refetch.fulfill() }
-        // A LIVE (windowed) addition — a dormant one also refetches but is
-        // excluded from the body (pinned by the dormancy tests above).
         store.add(AuthoredActivity(id: "p1", label: "Padel", iconSymbol: "questionmark.circle",
                                    templateOrigin: nil,
                                    displayMetrics: ["temp"],
@@ -493,9 +478,6 @@ final class DashboardViewModelTests: XCTestCase {
     // MARK: late GPS fix — re-rate once when it moves the forecast
 
     func testFirstFixAfterNoLocationLoadTriggersTheFirstFetch() async {
-        // #5c: the no-location empty state never POSTed, so lastFetchedCoordinate
-        // is nil — the first granted fix must count as a meaningful move, not be
-        // silently discarded (acceptance §3.3).
         let (vm, api, locationProvider, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])),
                                                        location: nil)
         await vm.loadForecast()
@@ -515,8 +497,6 @@ final class DashboardViewModelTests: XCTestCase {
         await vm.loadForecast()
         XCTAssertEqual(api.fetchCount, 1, "the first load rates the seeded fix")
 
-        // Every load calls requestLocation(), so a same-place fix arrives after
-        // every fetch — refetching on it would loop request→fix→request forever.
         locationProvider.location = CLLocation(latitude: 25.2048, longitude: 55.2708)
         await Task.yield()
 
@@ -535,8 +515,6 @@ final class DashboardViewModelTests: XCTestCase {
     }
 
     func testGpsFixWhileHomeLocationSetDoesNotRefetch() async {
-        // Persist the home BEFORE the VM exists — mutating it afterwards would
-        // trigger the home-change refetch sink and race this test.
         PreferencesStore(defaults: defaults).homeLocation = SavedLocation(name: "Fujairah", lat: 25.1288, lon: 56.3265)
         let (vm, api, locationProvider, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])))
         await vm.loadForecast()
@@ -566,7 +544,7 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertNil(vm.iconSymbol(forActivityId: "unknown"))
     }
 
-    // MARK: cardDay — day 0 only, no roll-forward (ADR-0004 amendment 2026-07-20)
+    // MARK: cardDay — day 0 only, no roll-forward (ADR-0004 amendment)
 
     func testCardDayReturnsDayZeroWhenTodayWindowed() {
         let days = [
@@ -581,10 +559,9 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertEqual(day?.rating, "good", "day 0 renders as-is — a later Perfect is irrelevant to the card")
     }
 
+    // Guards the cancelled roll-forward (ADR-0004 amendment): the old rule
+    // returned dayIndex 2 ("soonest actionable") here.
     func testCardDayReturnsNilWhenTodayNilEvenWithLaterWindows() {
-        // The cancellation's regression test: under the old rule this returned
-        // dayIndex 2 (the "soonest-actionable" roll-forward). The card must now
-        // ignore later days entirely — the week lives in the detail timeline.
         let days = [
             Fixtures.makeDay(dayIndex: 0),
             Fixtures.makeDay(dayIndex: 1),

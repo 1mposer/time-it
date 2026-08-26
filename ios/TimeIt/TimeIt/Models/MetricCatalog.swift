@@ -6,7 +6,7 @@ enum MetricKind: Equatable {
     case numeric
     /// Boolean — thresholded as `{ type: "flag", forbidTrue: true }`.
     case flag
-    /// Selectable for display but not thresholdable (e.g. `moon` in #5b).
+    /// Selectable for display but not thresholdable (e.g. `moon`).
     case displayOnly
 }
 
@@ -26,24 +26,23 @@ struct MetricDescriptor: Identifiable, Equatable {
     let displayName: String
     /// Unit label for the threshold editor ("°C", "km/h", "%", "mm"; empty when unitless).
     let unit: String
-    /// Chip icon from the SF Symbols manifest (design-decisions §B).
+    /// Chip icon from the SF Symbols manifest.
     let iconSymbol: String
     let kind: MetricKind
-    /// Reserved for tier gating — all false today (Pro deferred, #5b §8).
+    /// Reserved for tier gating — all false today.
     let pro: Bool
     let range: MetricRange?
-    /// Compact name for dense surfaces (the detail's setup summary — "Temp",
-    /// "Wind"); nil falls back to `displayName`. Defaulted so existing
-    /// memberwise call sites (incl. test fakes) stay valid.
+    /// Compact name for dense surfaces ("Temp", "Wind"); nil falls back to
+    /// `displayName`. Defaulted so existing memberwise call sites stay valid.
     var shortName: String? = nil
 
     var id: String { key }
     var isThresholdable: Bool { kind != .displayOnly }
 }
 
-/// The swap seam (#5b §4, hard requirement): views and validation depend on
-/// this protocol, never on a global constant, so the static catalog can be
-/// replaced by a network-backed conformer with zero call-site changes.
+/// The swap seam: views and validation depend on this protocol, never on a
+/// global constant, so a network-backed catalog can replace the static one
+/// with zero call-site changes.
 protocol MetricCatalogProviding {
     var metrics: [MetricDescriptor] { get }
 }
@@ -68,28 +67,23 @@ extension MetricCatalogProviding {
         descriptor(for: key)?.iconSymbol ?? "questionmark.circle"
     }
 
-    /// Compact name for a wire key (setup summary); falls back to the display
-    /// name, then the key — same drift rule as `displayName(for:)`.
+    /// Compact name for a wire key; falls back to the display name, then the key.
     func shortName(for key: String) -> String {
         guard let descriptor = descriptor(for: key) else { return key }
         return descriptor.shortName ?? descriptor.displayName
     }
 }
 
-/// Static client-side catalog of the LIVE metrics.
-///
-/// Hand-maintained mirror of `LIVE_METRICS` in `src/weather/metricCatalog.js` —
-/// it must stay in sync until the server route lands (MetricCatalogTests pins
-/// the set). Never add a coming-soon metric (`darkness`, `douglasScale`,
-/// `swellHeight`, `swellLength`, `tide`, `seaWarning`): the backend hard-400s
-/// it, and validation is atomic, so one bad metric blanks the whole dashboard.
-///
-/// TODO: RemoteMetricCatalog via GET /api/v1/metrics (pending its ADR, unwritten/unnumbered — ADR-0006 is the push ADR).
+/// Static client-side catalog of the LIVE metrics — a hand-maintained mirror
+/// of `LIVE_METRICS` in `src/weather/metricCatalog.js`; the two must stay in
+/// sync. Never add a coming-soon metric: the backend hard-400s it, and one
+/// bad metric blanks the whole dashboard.
+/// TODO: replace with a RemoteMetricCatalog via GET /api/v1/metrics.
 struct StaticMetricCatalog: MetricCatalogProviding {
     var metrics: [MetricDescriptor] { Self.all }
 
-    // Built once — the struct is instantiated freely (default args, per-chip
-    // lookups), so the descriptor list must not be rebuilt per instance.
+    // Built once — the struct is instantiated freely, so the descriptor list
+    // must not be rebuilt per instance.
     private static let all: [MetricDescriptor] = [
         MetricDescriptor(key: "temp", displayName: "Temperature", unit: "°C",
                          iconSymbol: "thermometer.medium", kind: .numeric, pro: false,

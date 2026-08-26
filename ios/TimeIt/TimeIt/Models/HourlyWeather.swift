@@ -1,18 +1,12 @@
 import Foundation
 
 /// One hourly forecast entry. There is no `hour` field (dropped, ADR-0004) —
-/// clock times derive from `forecastStart` + `timezone` + `index`.
-///
-/// Decoding is deliberately null-tolerant (see the custom `init(from:)` below):
-/// every metric is optional and every non-structural field has a safe default,
-/// so a single unexpected `null` from the upstream provider (e.g. Meteosource
-/// returns `uv_index: null` at night) renders as "—" for that one value rather
-/// than throwing and blanking the entire dashboard. Only `index` (the array
-/// position) is required.
+/// clock times derive from `forecastStart` + `timezone` + `index`. Decoding is deliberately
+/// null-tolerant: every metric is optional and defaults safely, so one
+/// unexpected provider `null` renders "—" instead of blanking the dashboard.
 struct HourlyWeather: Decodable, Identifiable {
     let index: Int
-    /// Metrics are all optional: the backend sends JSON `null` (or omits the key)
-    /// whenever the upstream provider had no value. A nil renders "—", never a 0.
+    /// nil = the provider had no value; renders "—", never a 0.
     let temp: Double?
     let humidity: Double?
     let visibility: Double?
@@ -64,9 +58,8 @@ struct HourlyWeather: Decodable, Identifiable {
         }
     }
 
-    // NOTE: there is deliberately no metric-name table here — human names come
-    // from the metric catalog (`MetricCatalogProviding.displayName(for:)`), the
-    // single source of truth; a second table here drifted once already.
+    // Deliberately no metric-name table here — human names come from the
+    // metric catalog only; a second table here drifted once already.
 
     private static func millimetres(_ value: Double) -> String {
         if value == value.rounded() {
@@ -84,12 +77,11 @@ extension HourlyWeather {
         case moon, dustAlert, seaWarning, darkness, douglasScale, swellHeight, swellLength, tide
     }
 
+    /// Tolerant decode: a missing key or JSON null becomes nil (or a safe
+    /// default); only `index` is required.
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        // `index` is structural (the position in hours[]) — required.
         index = try c.decode(Int.self, forKey: .index)
-        // Every metric is decoded tolerantly: a missing key OR an explicit JSON
-        // null becomes nil (→ "—"), never a decode failure that blanks the app.
         temp = try c.decodeIfPresent(Double.self, forKey: .temp)
         humidity = try c.decodeIfPresent(Double.self, forKey: .humidity)
         visibility = try c.decodeIfPresent(Double.self, forKey: .visibility)
@@ -97,7 +89,6 @@ extension HourlyWeather {
         windSpeed = try c.decodeIfPresent(Double.self, forKey: .windSpeed)
         rainFall = try c.decodeIfPresent(Double.self, forKey: .rainFall)
         cloudCover = try c.decodeIfPresent(Double.self, forKey: .cloudCover)
-        // Non-metric fields default rather than fail, for the same reason.
         moon = try c.decodeIfPresent([String].self, forKey: .moon) ?? []
         dustAlert = try c.decodeIfPresent(Bool.self, forKey: .dustAlert) ?? false
         seaWarning = try c.decodeIfPresent(Bool.self, forKey: .seaWarning) ?? false

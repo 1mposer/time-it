@@ -7,43 +7,31 @@ final class DashboardViewModel: ObservableObject {
     @Published private(set) var forecast: ForecastResponse?
     @Published private(set) var isLoading = false
     @Published private(set) var errorMessage: String?
-    /// #5c: true when the Active-location chain resolved to nothing — the
-    /// dashboard shows the no-location empty state (grayed cards + the two
-    /// location CTAs). Distinct from `!hasActivities`, which is a different
-    /// screen.
+    /// True when no location could be resolved — the dashboard shows the
+    /// no-location empty state.
     @Published private(set) var hasNoLocation = false
-    /// #5c: what the header's location line shows for the Active location —
-    /// the picked city name, "Current location", or the cached name. nil when
-    /// the chain resolved to nothing.
+    /// Header label for the active location (city name, "Current location",
+    /// or the cached name); nil when none resolved.
     @Published private(set) var activeLocationName: String?
 
-    /// True when the last failure is worth retrying (502 / unreachable server),
-    /// as opposed to a server defect (500). Drives the error view's framing.
+    /// True when the last failure is retryable (502 / unreachable server)
+    /// rather than a server defect (500).
     private(set) var isTransientError = false
 
     private let api: RatingFetching
     private let locationProvider: LocationProviding
-    /// Exposed so views mutate and observe the SAME store the requests are
-    /// built from — a separately-injected copy would silently diverge.
+    /// Shared with views so they mutate the same store requests are built from.
     let store: ActivityStore
-    /// Exposed for the same reason as `store`: the city-picker sheet must
-    /// write to the SAME preferences the requests resolve from.
+    /// Shared with the city-picker sheet for the same reason as `store`.
     let preferences: PreferencesStore
     private var cancellables: Set<AnyCancellable> = []
-    /// Monotonic guard: only the newest in-flight load may publish its result,
-    /// so a slow pre-mutation response can't overwrite a newer one.
+    /// Monotonic guard — only the newest in-flight load may publish its result.
     private var loadGeneration = 0
-    /// The coordinate the most recent POST actually used. Lets a late GPS fix
-    /// trigger a reload only when it would move the forecast location — the
-    /// distance gate is what prevents a request→fix→request loop, since every
-    /// load calls requestLocation() and every fix lands back in the sink below.
-    /// nil = no POST has happened yet, so any first fix is a meaningful move
-    /// (#5c: the no-location empty state must react to the first grant).
+    /// Coordinate of the last POST; a new GPS fix reloads only when it moves
+    /// meaningfully. nil = no POST yet, so any first fix triggers a load.
     private var lastFetchedCoordinate: CLLocationCoordinate2D?
 
-    /// Where the Active-location chain resolved (#5c): home → GPS →
-    /// last-resolved cache. Drives the POST coordinate, the header label, and
-    /// what gets persisted back to the cache on success.
+    /// Where the location chain resolved: home → GPS → last-resolved cache.
     private enum ActiveLocation {
         case home(SavedLocation)
         case gps(CLLocationCoordinate2D)
@@ -69,8 +57,8 @@ final class DashboardViewModel: ObservableObject {
             }
         }
 
-        /// What a successful fetch writes to `lastResolvedLocation`. A GPS fix
-        /// has no known place name — persist empty rather than fabricate one.
+        /// What a successful fetch persists; a GPS fix has no place name, so
+        /// it saves an empty one.
         var savedLocation: SavedLocation {
             switch self {
             case .home(let saved), .cached(let saved):
@@ -81,20 +69,18 @@ final class DashboardViewModel: ObservableObject {
         }
     }
 
+    /// Wires the reactive reloads (store/home changes, meaningful GPS moves,
+    /// permission grants). Shared singletons are resolved inside the body —
+    /// default arguments would evaluate in the caller's context.
     init(api: RatingFetching = APIClient.shared,
          locationProvider: LocationProviding? = nil,
          store: ActivityStore? = nil,
          preferences: PreferencesStore? = nil) {
         self.api = api
-        // Resolved here, not as default arguments — the shared singletons are
-        // main-actor-isolated and default arguments evaluate in the caller's context.
         self.locationProvider = locationProvider ?? LocationManager.shared
         self.store = store ?? ActivityStore.shared
         self.preferences = preferences ?? PreferencesStore.shared
 
-        // Any store mutation (add/edit/delete) or home-location change
-        // re-rates the dashboard (#5b §6). dropFirst skips the seed/initial
-        // publish — the view's initial .task drives the first load.
         self.store.$activities
             .dropFirst()
             .removeDuplicates()
@@ -109,14 +95,6 @@ final class DashboardViewModel: ObservableObject {
                 self?.scheduleReload()
             }
             .store(in: &cancellables)
-        // requestLocation() resolves AFTER the load that called it, so the
-        // first fix usually arrives once a forecast (or the no-location empty
-        // state) is already on screen. Re-rate exactly then — but only while
-        // no home location overrides GPS, and only when the fix actually moves
-        // the forecast somewhere new. A fix with no prior POST is always a
-        // meaningful move (#5c) — that's how granting access revives the
-        // empty state. dropFirst skips the subscription replay so a seeded
-        // provider doesn't race the view's initial load.
         self.locationProvider.locationPublisher
             .dropFirst()
             .compactMap { $0 }
@@ -127,12 +105,6 @@ final class DashboardViewModel: ObservableObject {
                 self.scheduleReload()
             }
             .store(in: &cancellables)
-        // #5c: a grant (from the prompt, or from system Settings after a
-        // denial) warms a fresh fix; the fix then lands in the sink above.
-        // removeDuplicates BEFORE dropFirst: CLLocationManager always fires
-        // one no-change callback shortly after creation — deduping it against
-        // the replayed seed (then dropping the seed) keeps this sink to
-        // genuine status changes instead of a spurious GPS spin-up per launch.
         self.locationProvider.authorizationPublisher
             .removeDuplicates()
             .dropFirst()
@@ -142,23 +114,17 @@ final class DashboardViewModel: ObservableObject {
             }
             .store(in: &cancellables)
 
-        // Seed the header label synchronously — the first load runs from the
-        // view's .task, one frame later, and a user with a resolvable
-        // location must not see a "NO LOCATION" flash on launch.
         activeLocationName = resolveActiveLocation()?.displayName
     }
 
-    /// Reload off a state change. Bumps the generation BEFORE scheduling —
-    /// the scheduled load's own increment happens only when the task runs, a
-    /// window in which an in-flight load's response could still publish (and
-    /// write a stale location into the cache).
+    /// Bumps the generation before scheduling so an in-flight load can't
+    /// publish stale state in the gap.
     private func scheduleReload() {
         loadGeneration += 1
         Task { await loadForecast() }
     }
 
-    /// ~1 km at UAE latitudes — below this a fresh fix wouldn't change the
-    /// hourly forecast, so refetching would only burn provider quota.
+    /// ~1 km — below this a fresh fix wouldn't change the hourly forecast.
     private static func isMeaningfulMove(from a: CLLocationCoordinate2D,
                                          to b: CLLocationCoordinate2D) -> Bool {
         abs(a.latitude - b.latitude) > 0.01 || abs(a.longitude - b.longitude) > 0.01
@@ -168,28 +134,25 @@ final class DashboardViewModel: ObservableObject {
         forecast.flatMap { TimeDeriver(forecastStart: $0.forecastStart, timezone: $0.timezone) }
     }
 
-    /// False once the user deletes their last Activity — the dashboard shows
-    /// the empty state instead of POSTing an empty activities[] (ADR-0005
+    /// False once the last Activity is deleted — the dashboard shows the
+    /// empty state instead of POSTing an empty activities[] (ADR-0005
     /// requires non-empty).
     var hasActivities: Bool { !store.activities.isEmpty }
 
-    /// Spec 14 §1: only LIVE activities (confirmed Range) are ever sent — a
-    /// dormant Activity is stored and visible but excluded from every request.
+    /// Only live (non-dormant) Activities are ever sent in a request.
     var liveActivities: [AuthoredActivity] { store.activities.filter { !$0.isDormant } }
 
-    /// False when nothing is live (store empty OR all-dormant): no request is
-    /// made and "Checking conditions…" never shows (spec 14 §1).
+    /// False when nothing is live — no request is made.
     var hasLiveActivities: Bool { !liveActivities.isEmpty }
 
-    /// #5c: true when "Enable location" should deep-link to system Settings
-    /// instead of firing the (now impossible) permission prompt.
+    /// True when "Enable location" should deep-link to system Settings
+    /// instead of firing the permission prompt.
     var locationPermissionDenied: Bool {
         locationProvider.authorizationStatus == .denied
     }
 
-    /// #5c audit F5: restricted (parental controls / MDM) users CANNOT toggle
-    /// the switch — deep-linking them to Settings is a dead end, so the view
-    /// shows honest copy instead of the CTA.
+    /// Restricted users can't toggle the permission, so the view shows honest
+    /// copy instead of a dead-end CTA.
     var locationPermissionRestricted: Bool {
         locationProvider.authorizationStatus == .restricted
     }
@@ -199,10 +162,8 @@ final class DashboardViewModel: ObservableObject {
             || locationProvider.authorizationStatus == .authorizedAlways
     }
 
-    /// #5c: the "Enable location" CTA. Not-yet-asked → fire the system prompt
-    /// (audit F1: the prompt belongs HERE, never to a load); already
-    /// authorized but fixless → just warm a fix. The denied case never
-    /// reaches this — the view deep-links to system Settings instead.
+    /// The "Enable location" CTA: fires the system prompt when not yet asked;
+    /// warms a fresh fix when already authorized.
     func requestLocationAccess() {
         if isAuthorized {
             locationProvider.requestLocation()
@@ -211,15 +172,13 @@ final class DashboardViewModel: ObservableObject {
         }
     }
 
+    /// Resolves the active location and fetches ratings for the live
+    /// Activities; publishes forecast/error/empty-state accordingly.
     func loadForecast() async {
         loadGeneration += 1
         let generation = loadGeneration
 
         guard hasLiveActivities else {
-            // Never POST an empty activities[] (ADR-0005), and an all-dormant
-            // dashboard makes no network call (spec 14 §1). Still resolve the
-            // chain so the header label and the no-location flag stay
-            // truthful (different screens, but one shared header).
             forecast = nil
             errorMessage = nil
             isTransientError = false
@@ -234,21 +193,11 @@ final class DashboardViewModel: ObservableObject {
         errorMessage = nil
         isTransientError = false
 
-        // Warm the GPS fix on every load (even while a home location covers
-        // this fetch) — but ONLY when already authorized. Requesting without
-        // authorization used to fire the permission prompt at launch, before
-        // the empty state's CTA ever rendered (audit F1); now the CTA owns
-        // the prompt and this is a pure fix refresh. The request resolves
-        // asynchronously — this load proceeds with whatever the chain
-        // resolves now; the locationPublisher sink re-rates once a fresh fix
-        // lands somewhere new.
         if isAuthorized {
             locationProvider.requestLocation()
         }
 
         guard let active = resolveActiveLocation() else {
-            // #5c: the chain resolved to nothing — no POST, no fabricated
-            // coordinates. The empty state's CTAs are the way forward.
             forecast = nil
             hasNoLocation = true
             activeLocationName = nil
@@ -260,7 +209,6 @@ final class DashboardViewModel: ObservableObject {
 
         let coordinate = active.coordinate
         lastFetchedCoordinate = coordinate
-        // Spec 14 §1: dormant activities never reach the wire.
         let activities = liveActivities.map(\.activityInput)
         do {
             let result = try await api.fetchRatings(lat: coordinate.latitude,
@@ -268,9 +216,6 @@ final class DashboardViewModel: ObservableObject {
                                                     activities: activities)
             guard generation == loadGeneration else { return }
             forecast = result
-            // #5c: remember what actually worked — the launch-with-nothing
-            // case rates against this instead of going empty. Skip when
-            // unchanged: the write churns defaults + every store observer.
             if preferences.lastResolvedLocation != active.savedLocation {
                 preferences.lastResolvedLocation = active.savedLocation
             }
@@ -286,9 +231,8 @@ final class DashboardViewModel: ObservableObject {
         isLoading = false
     }
 
-    /// The Active-location chain (#5c): home → live GPS fix → last-resolved
-    /// cache → nil. The Dubai fallback is deleted — nil means "show the
-    /// no-location empty state", never a substitute coordinate.
+    /// The location chain: home → live GPS fix → last-resolved cache → nil
+    /// (nil = show the no-location empty state, never a fallback coordinate).
     private func resolveActiveLocation() -> ActiveLocation? {
         if let home = preferences.homeLocation {
             return .home(home)
@@ -310,43 +254,37 @@ final class DashboardViewModel: ObservableObject {
     }
 
     /// Explicit icon from the authored model; nil lets the view fall back to
-    /// the legacy label heuristic (#5b §2).
+    /// the label heuristic.
     func iconSymbol(forActivityId activityId: String) -> String? {
         authoredActivity(forActivityId: activityId)?.iconSymbol
     }
 
-    /// Nocturnality comes from the authored wrapped window — the client knows
-    /// it authored the window it sent (ADR-0004 amendment); it drives the
-    /// "Tonight"/"… night" day labels.
+    /// True when the authored window wraps midnight — the wire never echoes
+    /// `window` (ADR-0004 amendment), so nocturnality reads the authored
+    /// model; drives the "Tonight"/"… night" day labels.
     func isNocturnal(activityId: String) -> Bool {
         authoredActivity(forActivityId: activityId)?.isNocturnal ?? false
     }
 
-    /// The card's day: day 0 (today/tonight) ONLY — the card answers "is my
-    /// range good today?". Nil when today has no window; the card renders its
-    /// none-state and the week stays in the detail timeline. The roll-forward
-    /// to a later day was cancelled (ADR-0004 amendment 2026-07-20).
+    /// The card's day: day 0 (today/tonight) only — the roll-forward to a
+    /// later day was cancelled (ADR-0004 amendment). Nil when today has no
+    /// window — the card renders its none-state; the week lives in the detail.
     func cardDay(for activity: ActivityRating) -> Day? {
         activity.days.first.flatMap { $0.rating != nil ? $0 : nil }
     }
 
-    /// The current response's rating for an authored id — lets a pushed
-    /// detail view stay live across an edit-triggered refetch instead of
-    /// showing the rating captured at push time.
+    /// The current response's rating for an authored id — keeps a pushed
+    /// detail view live across a refetch.
     func rating(forActivityId activityId: String) -> ActivityRating? {
         forecast?.activities.first { $0.activityId == activityId }
     }
 
-    // MARK: Range hours — the client twin of the server's window filter (spec 14 §2/§7)
+    // MARK: Range hours — the client twin of the server's window filter
 
     /// The global hours[] indices the Activity's Range covers within a day
-    /// bucket. Diurnal: the bucket's calendar day filtered to
-    /// `localHour ∈ [startHour, endHour)`. Nocturnal (wrapped): the
-    /// night-stitch selection — evening `dayIndex` hours ≥ startHour plus the
-    /// NEXT day's hours < endHour (the morning tail belongs to its evening,
-    /// ADR-0004 amendment). Nil for a dormant Activity, with no forecast, or
-    /// when no in-range hour exists (range fully past on a partial day 0, or
-    /// beyond the horizon) — the slice paints nothing rather than fabricate.
+    /// bucket (a wrapped Range stitches the evening with the next morning —
+    /// the morning tail belongs to its evening, ADR-0004 amendment).
+    /// Nil when dormant, without a forecast, or when no in-range hour exists.
     func rangeHourIndices(for authored: AuthoredActivity, dayIndex: Int) -> Range<Int>? {
         guard let window = authored.window,
               let deriver = timeDeriver,
@@ -375,8 +313,7 @@ final class DashboardViewModel: ObservableObject {
         return lower..<upper
     }
 
-    /// The forecast hours the Range covers in a day bucket — the detail's
-    /// expanded per-hour rows (§7.4: range hours only). Empty when none exist.
+    /// The forecast hours the Range covers in a day bucket; empty when none.
     func rangeHours(for authored: AuthoredActivity, dayIndex: Int) -> [HourlyWeather] {
         guard let range = rangeHourIndices(for: authored, dayIndex: dayIndex),
               let hours = forecast?.hours else {
@@ -385,16 +322,15 @@ final class DashboardViewModel: ObservableObject {
         return Array(hours[range])
     }
 
-    /// Per-hour quality tiers over the Range hours (the `HourQuality` mirror,
-    /// §3) — feeds the card slice's gradient stops and the detail's week
-    /// bars. Empty when no in-range hour exists.
+    /// Per-hour quality tiers over the Range hours — feeds the card slice's
+    /// gradient and the detail's week bars. Empty when none.
     func rangeTiers(for authored: AuthoredActivity, dayIndex: Int) -> [HourTier] {
         rangeHours(for: authored, dayIndex: dayIndex)
             .map { HourQuality.tier(for: $0, thresholds: authored.thresholds) }
     }
 
     /// The hour at the day's window start — chips read their values here.
-    /// `startIndex` is a global index into hours[]; no per-day offset math.
+    /// startIndex is a global index into hours[].
     func windowStartHour(for day: Day) -> HourlyWeather? {
         guard let startIndex = day.startIndex,
               let hours = forecast?.hours,
@@ -404,7 +340,7 @@ final class DashboardViewModel: ObservableObject {
         return hours[startIndex]
     }
 
-    /// The half-open slice `hours[startIndex..<endIndex]` for a day's Window;
+    /// The half-open hours[startIndex..<endIndex] slice for a day's Window;
     /// empty when indices are absent or out of range.
     func windowHours(for day: Day) -> [HourlyWeather] {
         guard let startIndex = day.startIndex,

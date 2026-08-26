@@ -1,26 +1,12 @@
-// Shared per-activity validation (ADR-0005 rules), extracted from
-// validateRatingRequest.js for Issue #6c so the device-snapshot upsert
-// (src/routes/devices.js) validates activities with EXACTLY the same rules as
-// the rating body — same messages, same relative paths. This is a refactor, not
-// a fork: the rating route's errors are byte-identical to the pre-extraction
-// output, and tests/routes/validateRatingRequest.test.js is the tripwire.
-//
-// Ownership split (audited 2026-07-16):
-// - This module owns the per-REQUEST concerns that must not be lost in
-//   extraction: the duplicate-`id` set and the ~50 abuse ceiling.
-// - The NON-EMPTY rule stays with each caller: rating rejects an empty
-//   activities[] (rating nothing is meaningless), while the device upsert
-//   accepts it as a valid dormant snapshot (deleting the last Activity
-//   re-upserts `[]`; evaluateAll(hours, []) === [] so the jobs send nothing).
-//
-// The load-bearing rule is the coming-soon / unknown metric reject: a threshold
-// on a metric whose data is not live would pass trivially against the
-// placeholder — a silent false Perfect — so any unknown or coming-soon metric
-// key, in EITHER displayMetrics or thresholds, is a hard 400.
+// Per-activity validation rules (ADR-0005) shared by the rating and devices
+// routes. Owns the duplicate-id check and the activities ceiling; the
+// non-empty rule stays with each caller. Any unknown or coming-soon metric —
+// in either displayMetrics or thresholds — is a hard reject: a threshold on
+// placeholder data would pass trivially (a silent false Perfect).
 
 const { isKnown, isAvailable } = require('../weather/metricCatalog');
 
-const MAX_ACTIVITIES = 50; // abuse ceiling (DoS guard, NOT a tier gate — ADR-0005)
+const MAX_ACTIVITIES = 50; // abuse ceiling, not a tier gate (ADR-0005)
 
 const isFiniteNumber = (v) => typeof v === 'number' && Number.isFinite(v);
 const isNonEmptyString = (v) => typeof v === 'string' && v.length > 0;
@@ -34,17 +20,18 @@ function validateMetricKey(metric, path, errors) {
   }
 }
 
+// Thresholded metrics must be a subset of displayMetrics; a numeric threshold
+// needs at least one bound (min <= max); a flag needs forbidTrue: true;
+// required is mandatory on every threshold.
 function validateThreshold(metric, config, displaySet, path, errors) {
   if (config === null || typeof config !== 'object') {
     errors.push({ path, message: 'threshold must be an object' });
     return;
   }
 
-  // Subset invariant: you cannot evaluate a metric you do not display.
   if (!displaySet.has(metric)) {
     errors.push({ path, message: `thresholded metric "${metric}" is not in displayMetrics` });
   }
-  // Availability (caught here too in case the metric was only ever in thresholds).
   validateMetricKey(metric, path, errors);
 
   if ('requireTrue' in config) {
@@ -61,7 +48,6 @@ function validateThreshold(metric, config, displaySet, path, errors) {
     return;
   }
 
-  // Numeric: at least one bound, and min <= max when both present.
   const hasMin = 'min' in config;
   const hasMax = 'max' in config;
   if (!hasMin && !hasMax) {
@@ -90,7 +76,6 @@ function validateWindow(window, path, errors) {
     return;
   }
   if (startHour === endHour) {
-    // Empty set under half-open semantics; whole-day is expressed by omitting window.
     errors.push({ path, message: 'startHour equals endHour (empty window; omit window for whole-day)' });
   }
 }
@@ -137,9 +122,8 @@ function validateActivity(activity, path, seenIds, errors) {
   }
 }
 
-// Validate an already-an-array activities list. Callers own the is-it-an-array
-// (and, for rating, non-empty) check; error paths compose from pathPrefix so the
-// same function serves `activities` in any request body.
+// Validates an already-an-array activities list; error paths compose from
+// pathPrefix. Returns { path, message } errors; empty array = valid.
 function validateActivities(activities, pathPrefix = 'activities') {
   const errors = [];
   if (activities.length > MAX_ACTIVITIES) {

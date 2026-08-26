@@ -1,21 +1,17 @@
 import SwiftUI
 import UIKit
 
-/// Root surface: gradient header → 0.5pt divider → scrollable card list.
-/// Single NavigationStack, no tab bar, no sign-in gate (ADR-0001, grill Q8).
-/// #5b: cards are the user's authored list (ActivityStore); a ghost add-card
-/// opens the add flow; each card's gear opens the editor. #5c: with no
-/// resolvable location, grayed skeleton cards + the two location CTAs — never
-/// fabricated weather. Spec 14: dormant Activities render as showcase cards
-/// (an all-dormant dashboard makes no network call — the first-launch state);
-/// an all-dismissed empty store renders the true-empty Add CTA. The dashboard
-/// always offers a next action — never a dead end (§6).
+/// Root surface: gradient header → divider → scrollable card list. One
+/// NavigationStack, no tab bar, no sign-in gate (ADR-0001). Cards come from
+/// the user's authored store;
+/// every dashboard state (showcase, no-location, error, empty) always offers
+/// a next action — never a dead end.
 struct DashboardView: View {
     @StateObject private var viewModel: DashboardViewModel
     @ObservedObject private var store: ActivityStore
     @ObservedObject private var preferences: PreferencesStore
     /// The push opt-in service — drives the callout's visibility and is
-    /// handed to the Settings sheet (one instance app-wide, like the store).
+    /// handed to the Settings sheet (one instance app-wide).
     @StateObject private var registration: DeviceRegistration
     @ObservedObject private var router: PushRouter
     @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
@@ -25,25 +21,23 @@ struct DashboardView: View {
     @State private var showCityPicker = false
     @State private var showFeedback = false
     @State private var editing: AuthoredActivity?
-    /// Item 10: dev/TestFlight installs get the disclaimer banner + suggestion
-    /// entry point on every dashboard state; App Store installs never do.
+    /// Dev/TestFlight installs get the disclaimer banner + suggestion entry
+    /// point on every dashboard state; App Store installs never do.
     private let isBetaBuild = BetaGate.isActive
-    /// Value-based so a push tap can pop to the dashboard (spec §3).
+    /// Value-based so a push tap can pop to the dashboard.
     @State private var navigationPath: [String] = []
     /// The card a tapped Perfect-window alert should bring into view —
     /// consumed by the card list's ScrollViewReader once it renders.
     @State private var pendingFocusId: String?
 
+    /// Observes the view model's own store/preferences — separately-defaulted
+    /// copies would silently diverge from the ones requests are built from.
     @MainActor
     init(viewModel: DashboardViewModel,
          registration: DeviceRegistration? = nil,
          router: PushRouter? = nil) {
         _viewModel = StateObject(wrappedValue: viewModel)
-        // Always the view model's store — mutations must hit the same list the
-        // POST body is built from (two separately-defaulted stores diverge).
         _store = ObservedObject(wrappedValue: viewModel.store)
-        // Same rule for preferences: the phrases toggle must re-render the
-        // SAME store the Settings sheet writes to.
         _preferences = ObservedObject(wrappedValue: viewModel.preferences)
         _registration = StateObject(wrappedValue: registration ?? DeviceRegistration.shared)
         _router = ObservedObject(wrappedValue: router ?? PushRouter.shared)
@@ -52,12 +46,9 @@ struct DashboardView: View {
     var body: some View {
         NavigationStack(path: $navigationPath) {
             VStack(spacing: 0) {
-                // I2 (all-dormant header state) — PROPOSED, FLAGGED FOR OWNER
-                // REVIEW: with nothing live there is no fetch (spec 14 §1), so
-                // the weather rows HIDE (like the no-location state) instead of
-                // dangling "—" placeholders that imply data is coming. The
-                // approved Empty—Showcase frame shows values here — a static-
-                // frame compromise code can't honor without a network call.
+                // All-dormant: the weather rows HIDE (no fetch, nothing real
+                // to show) — the approved Empty—Showcase frame shows values
+                // here. PROPOSED divergence, flagged for owner review.
                 HeaderView(locationName: viewModel.activeLocationName,
                            currentHour: viewModel.forecast?.hours.first,
                            showsWeather: !viewModel.hasNoLocation && viewModel.hasLiveActivities) { showSettings = true }
@@ -77,8 +68,6 @@ struct DashboardView: View {
                 AddActivityView(store: store)
             }
             .sheet(isPresented: $showCityPicker) {
-                // The VM's preferences, not .shared — the picker must write to
-                // the same store the requests resolve from.
                 CityPickerView(preferences: viewModel.preferences)
             }
             .sheet(item: $editing) { activity in
@@ -90,15 +79,10 @@ struct DashboardView: View {
                 }
             }
             .sheet(isPresented: $showFeedback) {
-                // The registration's installId is the same Keychain UUID the
-                // push path uses (spec §4) — and the seamed one in UI tests.
                 FeedbackView(deviceId: registration.installId)
             }
         }
         .task { await viewModel.loadForecast() }
-        // Spec §3: a Perfect-window alert tap lands on the dashboard with the
-        // named card visible — dismiss whatever covers it, pop the stack,
-        // and queue the scroll for when the card list is on screen.
         .onReceive(router.$focusActivityId.compactMap { $0 }) { activityId in
             showSettings = false
             showAdd = false
@@ -110,9 +94,8 @@ struct DashboardView: View {
         }
     }
 
-    /// Value-based detail destination — re-resolves from the live forecast,
-    /// same as the detail view itself does across refetches. If the rating
-    /// vanished under us (activity deleted, forecast dropped), pop home
+    /// Value-based detail destination — re-resolves from the live forecast.
+    /// If the rating vanished (activity deleted, forecast dropped), pop home
     /// rather than strand the user on a blank screen.
     @ViewBuilder
     private func detailDestination(for activityId: String) -> some View {
@@ -126,15 +109,13 @@ struct DashboardView: View {
         }
     }
 
+    /// State ladder — the all-dormant showcase outranks every fetch-driven
+    /// state (no fetch was made), including no-location.
     @ViewBuilder
     private var content: some View {
         if !viewModel.hasActivities {
             trueEmptyState
         } else if !viewModel.hasLiveActivities {
-            // All-dormant (first launch, or delete-all re-seed): the showcase.
-            // No network call was made, so this outranks every fetch-driven
-            // state — including no-location, which becomes relevant only once
-            // a confirmed range makes a fetch worth attempting.
             showcaseList
         } else if viewModel.hasNoLocation {
             noLocationState
@@ -151,9 +132,8 @@ struct DashboardView: View {
         }
     }
 
-    /// Spec 14 §6 true-empty state (Figma 266:1651): every template dismissed
-    /// AND the last Activity deleted — the store is genuinely empty, so the
-    /// showcase cannot re-seed. The Add CTA is the standing next action.
+    /// True-empty state: every template dismissed and the last Activity
+    /// deleted. The Add CTA is the standing next action.
     private var trueEmptyState: some View {
         ScrollView {
             VStack(spacing: 0) {
@@ -196,8 +176,8 @@ struct DashboardView: View {
         }
     }
 
-    /// The all-dormant showcase (Figma Empty—Showcase 111:32): every stored
-    /// Activity as a "Set your range →" card, ghost add-card after.
+    /// The all-dormant showcase: every stored Activity as a "Set your range →"
+    /// card, ghost add-card after.
     private var showcaseList: some View {
         ScrollView {
             LazyVStack(spacing: 10) {
@@ -222,10 +202,9 @@ struct DashboardView: View {
                          onDismiss: { store.dismissTemplate(id: authored.id) })
     }
 
-    /// #5c no-location empty state: grayed skeleton cards (unrendered data —
-    /// deliberately text-free so they can't be mistaken for weather) above the
-    /// two CTAs. "Enable Location" prompts (or deep-links to system Settings
-    /// after a denial); "Place your own location" opens the city picker.
+    /// No-location empty state: grayed skeleton cards above the two CTAs —
+    /// "Enable Location" prompts (or deep-links to system Settings after a
+    /// denial); "Place your own location" opens the city picker.
     private var noLocationState: some View {
         ScrollView {
             VStack(spacing: 0) {
@@ -252,9 +231,6 @@ struct DashboardView: View {
                     .padding(.top, 6)
                     .accessibilityIdentifier("noLocationMessage")
                 if viewModel.locationPermissionRestricted {
-                    // Parental controls / MDM: the user cannot flip the
-                    // switch, so a prompt or a Settings deep-link is a dead
-                    // end (audit F5) — say so instead of pretending.
                     Text("Location access is restricted on this device.")
                         .font(.system(size: 13))
                         .foregroundStyle(Theme.secondaryText)
@@ -268,8 +244,6 @@ struct DashboardView: View {
                             .padding(.horizontal, 20)
                             .padding(.vertical, 9)
                             .background(Capsule().fill(Theme.accentInteractive))
-                            // 44pt touch target (Guidelines.md) without
-                            // growing the 33pt visual capsule.
                             .frame(minHeight: 44)
                             .contentShape(Rectangle())
                     }
@@ -294,8 +268,9 @@ struct DashboardView: View {
         }
     }
 
-    /// One grayed skeleton card: the real card's anatomy (title, day, track,
-    /// chips) as flat shapes — no values, no false Perfect.
+    /// One grayed skeleton card: the real card's anatomy as flat shapes — no
+    /// values. Collapsed to one accessibility element so its identifier is
+    /// reachable in UI tests.
     private func skeletonCard(_ index: Int) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             RoundedRectangle(cornerRadius: 999)
@@ -321,16 +296,14 @@ struct DashboardView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 16).fill(Theme.cardBackground))
         .opacity(0.55)
-        // Bare shapes aren't accessibility elements — collapse to one so the
-        // identifier reaches the XCUI hierarchy.
         .accessibilityElement(children: .ignore)
         .accessibilityIdentifier("skeletonCard.\(index)")
     }
 
+    /// After a denial the system prompt can't be shown again — deep-link to
+    /// the app's page in system Settings instead.
     private func enableLocation() {
         if viewModel.locationPermissionDenied {
-            // The prompt can only be shown once — after a denial the only
-            // path is the app's page in system Settings.
             if let url = URL(string: UIApplication.openSettingsURLString) {
                 UIApplication.shared.open(url)
             }
@@ -341,8 +314,6 @@ struct DashboardView: View {
 
     /// Explicit Theme colors, not ContentUnavailableView — the system
     /// component rendered near-white text on the light background on device.
-    /// Mirrors the Figma Error frame's empty-state idiom (same anatomy as
-    /// noLocationState).
     private func errorView(_ message: String) -> some View {
         ScrollView {
             VStack(spacing: 0) {
@@ -363,8 +334,6 @@ struct DashboardView: View {
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: 280)
                     .padding(.top, 6)
-                // Retrying is the primary recovery for a transient 502 /
-                // unreachable server; it stays available for a 500 too.
                 Button {
                     Task { await viewModel.loadForecast() }
                 } label: {
@@ -385,11 +354,9 @@ struct DashboardView: View {
         }
     }
 
-    /// The card list iterates the STORE (spec 14 §1: dormant Activities are
-    /// stored and visible), in store order = request order: a live Activity
-    /// renders its rated card from the echoed response entry; a dormant one
-    /// renders its showcase card inline. The one-time push callout (spec §1,
-    /// Figma 266:5) tops the list until dismissed or notifications are on.
+    /// Iterates the store in store order (= request order): a live Activity
+    /// renders its rated card from the echoed response; a dormant one renders
+    /// its showcase card inline. The one-time push callout tops the list.
     private func cardList(_ forecast: ForecastResponse) -> some View {
         ScrollViewReader { proxy in
             ScrollView {
@@ -397,7 +364,6 @@ struct DashboardView: View {
                     if !preferences.pushCalloutDismissed && !registration.isEnabled {
                         pushCallout
                     }
-                    // Below the callout — the approved frame's stacking order.
                     if isBetaBuild {
                         betaBanner
                     }
@@ -429,13 +395,13 @@ struct DashboardView: View {
                 scrollToPendingFocus(activityId, proxy: proxy)
             }
             .onAppear {
-                // Cold launch from a push: the focus landed before the list
-                // existed — consume it now.
                 scrollToPendingFocus(pendingFocusId, proxy: proxy)
             }
         }
     }
 
+    /// Scrolls the focused card into view; also runs onAppear for a cold
+    /// launch where the push focus landed before the list existed.
     private func scrollToPendingFocus(_ activityId: String?, proxy: ScrollViewProxy) {
         guard let activityId else { return }
         withAnimation {
@@ -444,12 +410,9 @@ struct DashboardView: View {
         pendingFocusId = nil
     }
 
-    /// The beta disclaimer card (item 10, FIGMA.md §8 round-2 owner
-    /// hand-edit): Light-weight disclaimer copy with "Time it" emphasized,
-    /// plus the compact 165×26 suggestion pill. Beta-gated (BetaGate —
-    /// dev/TestFlight installs only) and rendered on every dashboard state's
-    /// scroll stack (owner ruling 2026-08-19: one design surface is enough;
-    /// code shows the banner on all beta dashboard states).
+    /// The beta disclaimer card: disclaimer copy plus the suggestion pill.
+    /// (The ±9pt vertical padding pair on the pill keeps a 44pt tap target
+    /// without growing the card.)
     private var betaBanner: some View {
         VStack(alignment: .leading, spacing: 8) {
             disclaimerText
@@ -464,9 +427,6 @@ struct DashboardView: View {
                     .foregroundStyle(.white)
                     .frame(width: 165, height: 26)
                     .background(Capsule().fill(Theme.accentInteractive))
-                    // 44pt HIG tap target around the 26pt visual (FIGMA.md §8
-                    // code-sweep note); the negative padding below keeps the
-                    // card's layout at the frame's hugged height.
                     .padding(.vertical, 9)
                     .contentShape(Rectangle())
             }
@@ -482,18 +442,16 @@ struct DashboardView: View {
         .accessibilityIdentifier("betaBanner")
     }
 
-    /// Owner copy (round 2): base weight Light, "Time it" in Regular.
+    /// Base weight Light, "Time it" in Regular.
     private var disclaimerText: Text {
         Text("This is an early build for ").fontWeight(.light)
             + Text("Time it").fontWeight(.regular)
             + Text(", full release will be announced. Give me your suggestions").fontWeight(.light)
     }
 
-    /// The push opt-in callout (Figma 266:5/266:1562, round-3 owner hand-edit
-    /// 2026-08-18 — FIGMA.md §7): bell + two-line invitation deep-linking to
-    /// Settings' Notifications row; ✕ pinned to the card's top-trailing
-    /// corner (44pt HIG tap target, flush), dismissing for good. The display
-    /// copy drops the hyphen (owner ruling — docs keep "Perfect-window").
+    /// The push opt-in callout: bell + two-line invitation opening Settings;
+    /// ✕ dismisses it for good. The headline's line break is hard-coded so
+    /// "window" doesn't orphan onto the second line.
     private var pushCallout: some View {
         ZStack(alignment: .topTrailing) {
             Button {
@@ -502,12 +460,6 @@ struct DashboardView: View {
                 HStack(spacing: 10) {
                     calloutBell
                     VStack(alignment: .leading, spacing: 2) {
-                        // The frame fixes the headline at 272pt breaking after
-                        // "window" ("alerts" alone on line two); SwiftUI's
-                        // default line-break strategy would push "window" down
-                        // to avoid the orphan, so the break is hard-coded.
-                        // Line one's ink ends well clear of the 44pt ✕ tap
-                        // area on every supported width.
                         Text("Get a morning digest + Perfect window\nalerts")
                             .font(.system(size: 14))
                             .foregroundStyle(Theme.primaryText)
@@ -541,9 +493,8 @@ struct DashboardView: View {
         .background(RoundedRectangle(cornerRadius: 16).fill(Theme.cardBackground))
     }
 
-    /// Round-3 bell motion: a 2s-periodic wiggle on iOS 18+ (the effect and
-    /// its repeat options are 18-only APIs — deployment target stays 17.0),
-    /// static on iOS 17 and whenever Reduce Motion is on.
+    /// A periodic wiggle on iOS 18+ (18-only API); static on iOS 17 and
+    /// whenever Reduce Motion is on.
     @ViewBuilder private var calloutBell: some View {
         let bell = Image(systemName: "bell.fill")
             .font(.system(size: 17))
@@ -559,7 +510,7 @@ struct DashboardView: View {
         }
     }
 
-    /// The card gear — opens the editor for this Activity (#5b §1).
+    /// The card gear — opens the editor for this Activity.
     private func gearButton(for activity: ActivityRating) -> some View {
         Button {
             editing = viewModel.authoredActivity(forActivityId: activity.activityId)
@@ -577,9 +528,8 @@ struct DashboardView: View {
         .padding(.trailing, 8)
     }
 
-    /// The ghost add-card (Figma 104:270): dashed separator border, blue
-    /// invitation, after the card list. At the soft cap it dims to secondary
-    /// with a friendly limit message (§8).
+    /// The ghost add-card: dashed border, after the card list. At the soft
+    /// cap it dims with a limit message.
     private var addCard: some View {
         Button {
             showAdd = true

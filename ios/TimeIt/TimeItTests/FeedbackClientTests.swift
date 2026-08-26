@@ -2,9 +2,7 @@ import XCTest
 @testable import TimeIt
 
 /// The feedback client's session seam: the default session caps the request
-/// timeout (the sheet disables Cancel mid-send, so URLSession.shared's 60s
-/// default is the wrong worst case — a timeout URLError lands in the
-/// existing non-204 retry path), and an injected session still wins.
+/// timeout, and an injected session still wins.
 final class FeedbackClientTests: XCTestCase {
 
     func testDefaultSessionCapsTheRequestTimeout() async {

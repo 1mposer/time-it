@@ -10,8 +10,6 @@ final class HourlyWeatherFormattedTests: XCTestCase {
         XCTAssertEqual(hour.formatted(for: "cloudCover"), "—")
     }
 
-    // Every metric is now null-tolerant, not just the wind/rain/cloud trio — a
-    // null temp/humidity/visibility/uV renders "—" instead of blanking the app.
     func testCoreMetricsFormatAsEmDashWhenNil() {
         let hour = Fixtures.makeHour(index: 0, temp: nil, humidity: nil, visibility: nil, uV: nil)
         XCTAssertEqual(hour.formatted(for: "temp"), "—")
@@ -41,9 +39,6 @@ final class HourlyWeatherFormattedTests: XCTestCase {
     }
 
     func testHumanLabelsComeFromTheCatalog() {
-        // The catalog is the ONLY metric name table (HourlyWeather's own copy
-        // drifted from it and was removed) — chips and the editor now show
-        // the same name for the same metric.
         let catalog = StaticMetricCatalog()
         XCTAssertEqual(catalog.displayName(for: "temp"), "Temperature")
         XCTAssertEqual(catalog.displayName(for: "windSpeed"), "Wind Speed")

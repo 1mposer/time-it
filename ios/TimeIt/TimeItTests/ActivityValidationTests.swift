@@ -1,9 +1,8 @@
 import XCTest
 @testable import TimeIt
 
-/// The atomic-400 guard (#5b §7): one invalid Activity 400s the WHOLE request,
-/// so the editor must make an ADR-0005-invalid Activity impossible to save.
-/// These tests pin the client-side mirror of the server's validateRatingRequest.
+/// Pins the client-side mirror of the server's ADR-0005 validation — one bad
+/// Activity 400s the whole request, so the editor must block invalid saves.
 final class ActivityValidationTests: XCTestCase {
 
     private func makeValid() -> AuthoredActivity {
@@ -41,7 +40,7 @@ final class ActivityValidationTests: XCTestCase {
 
     func testComingSoonOrUnknownMetricIsInvalid() {
         var activity = makeValid()
-        activity.displayMetrics = ["temp", "darkness"] // coming-soon → server hard-400
+        activity.displayMetrics = ["temp", "darkness"]
         XCTAssertFalse(activity.isValid)
 
         var unknown = makeValid()
@@ -76,8 +75,6 @@ final class ActivityValidationTests: XCTestCase {
     }
 
     func testNonFiniteBoundsAreInvalid() {
-        // JSONEncoder throws on non-finite doubles — saving one would silently
-        // kill persistence AND make every POST fail with a misleading error.
         var activity = makeValid()
         activity.thresholds["temp"] = Threshold(max: .infinity, required: true)
         XCTAssertFalse(activity.isValid)
@@ -87,7 +84,6 @@ final class ActivityValidationTests: XCTestCase {
     }
 
     func testDraftRejectsNonFiniteTextAndSurvivesHugeBounds() {
-        // "inf"/"nan" parse via Double(_:) — the draft must reject them.
         var draft = ActivityDraft(from: makeValid())
         draft.thresholds["temp"] = {
             var t = ThresholdDraft()
@@ -96,8 +92,6 @@ final class ActivityValidationTests: XCTestCase {
         }()
         XCTAssertNil(draft.result(against: StaticMetricCatalog()).activity)
 
-        // A huge-but-finite saved bound must not trap Int(Double) when the
-        // editor reopens the activity (gear tap → ActivityDraft(from:)).
         var activity = makeValid()
         activity.thresholds["temp"] = Threshold(max: 1e30, required: true)
         let reopened = ActivityDraft(from: activity)
@@ -106,8 +100,6 @@ final class ActivityValidationTests: XCTestCase {
     }
 
     func testThresholdOnDisplayOnlyMetricIsInvalidEvenAsFlag() {
-        // The backend accepts a flag on `moon` (it's LIVE) but it can never
-        // fail — the silent false-Perfect the client mirror must block.
         var activity = makeValid()
         activity.displayMetrics = ["temp", "windSpeed", "moon"]
         activity.thresholds["moon"] = Threshold(required: true, type: "flag", forbidTrue: true)
@@ -117,9 +109,6 @@ final class ActivityValidationTests: XCTestCase {
     // MARK: threshold shape must match the metric's kind (false-Perfect guard)
 
     func testFlagThresholdOnNumericMetricIsInvalid() {
-        // Server-side, a flag threshold on `temp` NEVER fails an hour — the
-        // silent false-Perfect class. The server doesn't catch this shape
-        // mismatch yet (gap recorded for Issue #8); the mirror must.
         var activity = makeValid()
         activity.thresholds["temp"] = Threshold(required: true, type: "flag", forbidTrue: true)
         XCTAssertFalse(activity.isValid)
@@ -158,18 +147,12 @@ final class ActivityValidationTests: XCTestCase {
     // MARK: window
 
     func testBlankDraftDefaultsToTheFromScratchPrefillRange() {
-        // Spec 14 §6: from scratch prefills 6–10am (the design's "Morning
-        // Ride" example) — loaded into the pickers, confirmed only by saving.
         let draft = ActivityDraft(from: .blank())
         XCTAssertEqual(draft.startHour, 6)
         XCTAssertEqual(draft.endHour, 10)
     }
 
     func testDraftAlwaysBuildsARangedActivity() {
-        // Spec 14 §1: whole-day activities no longer exist and the editor's
-        // window toggle is deleted — a saved draft ALWAYS carries its range
-        // (the editor is the door out of dormancy; a prefill is confirmed by
-        // saving, and the store's copy stays dormant until then).
         let built = ActivityDraft(from: SeedTemplates.firstLaunchSeeds[0])
             .result(against: StaticMetricCatalog()).activity
         XCTAssertEqual(built?.window, WindowSpec(startHour: 6, endHour: 10),
@@ -177,10 +160,6 @@ final class ActivityValidationTests: XCTestCase {
     }
 
     func testDormantShowcaseSeedDraftsAtItsTemplatePrefillRange() {
-        // Spec 14 §6 + GLOSSARY ("opens the existing editor with the Range
-        // prefill loaded"): a dormant showcase card drafts at its TEMPLATE's
-        // owner-picked range, not the from-scratch 6–10am — which is wrong for
-        // three of four templates and would even flip stargazing diurnal.
         for (seed, template) in zip(SeedTemplates.firstLaunchSeeds, SeedTemplates.all) {
             let draft = ActivityDraft(from: seed)
             XCTAssertEqual(draft.startHour, template.window?.startHour,
@@ -191,8 +170,6 @@ final class ActivityValidationTests: XCTestCase {
     }
 
     func testDormantTemplateCopyDraftsAtItsOriginsPrefillRange() {
-        // An add-from-template copy carries a fresh UUID but records its
-        // origin — if it is dormant, the origin's prefill still applies.
         var copy = SeedTemplates.stargazing.copyFromTemplate()
         copy.window = nil
         let draft = ActivityDraft(from: copy)

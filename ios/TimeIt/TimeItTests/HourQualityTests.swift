@@ -1,11 +1,9 @@
 import XCTest
 @testable import TimeIt
 
-/// Spec 14 §3: the on-device per-hour evaluator — the client-side mirror of the
-/// server's `evaluateHour`/`checkThreshold` (`src/decision/decision_engine.js`),
-/// ADR-0007 mirror #3. Required fail → red, optional-only fail → orange, all
-/// pass → green; absent data FAILS its threshold (the B2 rule); flags fail on
-/// `true`.
+/// The on-device per-hour evaluator (client mirror of the server's
+/// `src/decision/decision_engine.js` — ADR-0007): required fail → red,
+/// optional-only → orange, else green; absent data fails its threshold.
 final class HourQualityTests: XCTestCase {
 
     private func tier(_ hour: HourlyWeather, _ thresholds: [String: Threshold]) -> HourTier {
@@ -42,7 +40,6 @@ final class HourQualityTests: XCTestCase {
     }
 
     func testEmptyThresholdsIsGreen() {
-        // Show-but-don't-judge: nothing to fail = perfect, per the server.
         XCTAssertEqual(tier(Fixtures.makeHour(index: 0), [:]), .green)
     }
 
@@ -61,8 +58,6 @@ final class HourQualityTests: XCTestCase {
     }
 
     func testUnknownMetricKeyFailsItsThreshold() {
-        // Server: hourData[metric] is undefined → checkThreshold fails. The
-        // mirror must not treat an unmapped key as a pass.
         let thresholds = ["sharknado": Threshold(max: 1, required: true)]
         XCTAssertEqual(tier(Fixtures.makeHour(index: 0), thresholds), .red)
     }
@@ -104,7 +99,7 @@ final class HourQualityTests: XCTestCase {
         XCTAssertEqual(tier(aboveMax, thresholds), .red)
     }
 
-    // MARK: tier ordering (red < orange < green — spec 14 vocabulary)
+    // MARK: tier ordering (red < orange < green)
 
     func testTierOrderingMatchesSpecVocabulary() {
         XCTAssertLessThan(HourTier.red, .orange)
@@ -112,18 +107,13 @@ final class HourQualityTests: XCTestCase {
     }
 }
 
-/// Spec 14 §3 pinned invariant: **the server's day rating is truth** — the
-/// greenest run of the client tiers must coincide with the server's returned
-/// window for that day; any disagreement is a client bug. Tie-tolerant
-/// (feasibility I6): on equal-length runs the server returns the earliest, so
-/// the client asserts the server window is exactly its tier throughout and
-/// that NO LONGER run exists — not that it is the unique maximal run.
+/// The server's day rating is truth: the greenest client-tier run must
+/// coincide with the server window — tie-tolerant, so it asserts the window
+/// is its tier throughout and no longer run exists.
 final class HourQualityInvariantTests: XCTestCase {
 
-    /// The threshold profiles the fixture was captured with (2026-07-12 — the
-    /// two #5a seed Templates, verified unchanged in git between #5a and the
-    /// capture). Frozen WITH the fixture: re-tuning today's templates must not
-    /// silently rewrite this invariant.
+    /// The threshold profiles the fixture was captured with — frozen with it:
+    /// re-tuning today's templates must not silently rewrite this invariant.
     private let capturedThresholds: [String: [String: Threshold]] = [
         "cycling": [
             "temp": Threshold(min: 15, max: 32, required: true),

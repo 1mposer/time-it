@@ -1,16 +1,8 @@
-// Beta feedback route: POST /api/v1/feedback.
-//
-// The lowest-friction suggestion box for test builds: the app POSTs free text
-// plus build metadata, the row lands in Postgres, the owner reads it with SQL —
-// no mail client, no TestFlight detour. `build` (CFBundleVersion) is stored
-// alongside the app/iOS versions so every suggestion reads in the context of
-// the exact build that produced it.
-//
-// No auth (same accepted-risk posture as the device routes, ADR-0001). The
-// abuse surface is bounded by the message length cap, the express.json() body
-// limit, and a per-device daily ceiling keyed on the same Keychain install
-// UUID the push path uses. No FK to devices — feedback must not require push
-// opt-in.
+// Beta feedback route: POST /api/v1/feedback — free text plus build metadata
+// into the suggestions table, read with SQL. No auth (accepted risk,
+// ADR-0001); abuse is bounded by the length caps and a per-device rolling-24h
+// ceiling. No FK to devices — feedback must not require push opt-in. 204 on
+// success.
 
 const express = require('express');
 const defaultDb = require('../db');
@@ -23,6 +15,7 @@ const MAX_PER_DEVICE_PER_DAY = 20;
 
 const META_FIELDS = ['deviceId', 'appVersion', 'build', 'iosVersion'];
 
+// Returns { path, message } errors; empty array = valid.
 function validateFeedback(body) {
   if (body === null || typeof body !== 'object') {
     return [{ path: '', message: 'request body must be a JSON object' }];
@@ -58,8 +51,6 @@ function createFeedbackRouter({ db = defaultDb } = {}) {
     if (errors.length > 0) return res.status(400).json({ errors });
 
     try {
-      // Per-device rolling-24h ceiling — the only throttle an unauthenticated
-      // endpoint needs at beta scale.
       const { rows } = await db.query(
         `SELECT count(*)::int AS count FROM suggestions
          WHERE device_id = $1 AND created_at > now() - interval '24 hours'`,

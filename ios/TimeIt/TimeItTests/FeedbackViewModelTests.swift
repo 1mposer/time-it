@@ -15,10 +15,8 @@ final class FakeSuggestionAPI: SuggestionSending {
 
 // MARK: - Tests
 
-/// The suggestion sheet's state machine (beta-feedback spec §4): the exact
-/// five-field body on the wire, the never-discard-typed-text rule on any
-/// non-204 (Send stays as the retry), the 429 throttle copy, and the client
-/// mirror of the route's message rules (trimmed non-empty, 1000-char cap).
+/// The suggestion sheet's state machine: the five-field wire body, typed text
+/// never discarded on failure, the 429 throttle copy, the message-rule mirror.
 @MainActor
 final class FeedbackViewModelTests: XCTestCase {
 

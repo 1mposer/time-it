@@ -1,8 +1,8 @@
 import Foundation
 
-/// The editor's working copy of one Activity (#5b §5): raw text fields and
-/// toggles that build into an `AuthoredActivity` only when every ADR-0005 rule
-/// passes — Save stays disabled otherwise (the atomic-400 guard, §7).
+/// The editor's working copy of one Activity: raw text fields and toggles
+/// that build into an `AuthoredActivity` only when every validation rule
+/// passes — Save stays disabled otherwise.
 struct ActivityDraft: Equatable {
     let id: String
     let templateOrigin: String?
@@ -14,6 +14,8 @@ struct ActivityDraft: Equatable {
     var startHour: Int
     var endHour: Int
 
+    /// A live activity drafts at its own range; a dormant one at its
+    /// template's prefill — a starting value, confirmed only by saving.
     init(from activity: AuthoredActivity) {
         id = activity.id
         templateOrigin = activity.templateOrigin
@@ -21,17 +23,12 @@ struct ActivityDraft: Equatable {
         iconSymbol = activity.iconSymbol
         metrics = activity.displayMetrics
         thresholds = activity.thresholds.mapValues(ThresholdDraft.init(from:))
-        // Spec 14 §6 prefill: a live activity drafts at its own range; a
-        // dormant one at its template's owner-picked range (from-scratch
-        // 6–10am when no template matches) — a starting value, confirmed
-        // only by saving.
         let prefill = activity.window ?? SeedTemplates.prefill(for: activity)
         startHour = prefill.startHour
         endHour = prefill.endHour
     }
 
-    // MARK: metric selection (structural subset invariant — a threshold can
-    // only exist for a selected metric)
+    // MARK: metric selection — a threshold can only exist for a selected metric
 
     func isSelected(_ key: String) -> Bool { metrics.contains(key) }
 
@@ -55,7 +52,8 @@ struct ActivityDraft: Equatable {
     // MARK: build
 
     /// Builds the Activity, or explains why it can't be saved yet. `activity`
-    /// is non-nil exactly when `issues` is empty.
+    /// is non-nil exactly when `issues` is empty. A saved draft always
+    /// carries its range — saving is what ends dormancy.
     func result(against catalog: MetricCatalogProviding) -> (activity: AuthoredActivity?, issues: [String]) {
         var issues: [String] = []
         var parsed: [String: Threshold] = [:]
@@ -70,10 +68,6 @@ struct ActivityDraft: Equatable {
             parsed[key] = Threshold(min: min, max: max, required: draft.required)
         }
 
-        // Spec 14 §1: whole-day activities no longer exist — a saved draft
-        // ALWAYS carries its range ("Only at certain hours" toggle deleted).
-        // Dormancy lives only in the store, for activities never yet saved
-        // through here; this build is the confirmation that ends it.
         let activity = AuthoredActivity(id: id,
                                         label: label.trimmingCharacters(in: .whitespacesAndNewlines),
                                         iconSymbol: iconSymbol,
@@ -85,10 +79,8 @@ struct ActivityDraft: Equatable {
         return (issues.isEmpty ? activity : nil, issues)
     }
 
-    /// Empty text = no bound; non-numeric text is an issue, not a silent nil
-    /// (a silently dropped bound could save a bound-less threshold → 400).
-    /// Non-finite input ("inf"/"nan") parses via Double(_:) but would make
-    /// JSONEncoder throw on both persist and POST — reject it here.
+    /// Empty text = no bound; non-numeric text is an issue, not a silent nil.
+    /// Non-finite input ("inf"/"nan") is rejected — JSONEncoder would throw.
     private static func parseBound(_ text: String, metric: String, bound: String, issues: inout [String]) -> Double? {
         let trimmed = text.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return nil }
@@ -102,8 +94,7 @@ struct ActivityDraft: Equatable {
 }
 
 /// One threshold's editable state. Numeric bounds stay as text so partial
-/// input never crashes; flags carry only the required toggle (forbidTrue is
-/// implied — `requireTrue` is never offered, Issue #8).
+/// input never crashes; flags carry only the required toggle.
 struct ThresholdDraft: Equatable {
     var minText: String = ""
     var maxText: String = ""
@@ -121,9 +112,9 @@ struct ThresholdDraft: Equatable {
         isFlag = threshold.isFlag
     }
 
+    /// Int(Double) traps outside Int64's range, so only whole numbers safely
+    /// inside it take the integer form.
     private static func format(_ value: Double) -> String {
-        // Int(Double) traps outside Int64's range (and on non-finite values),
-        // so only whole numbers safely inside it take the integer form.
         if value.isFinite, value == value.rounded(), abs(value) < 1e15 {
             return String(Int(value))
         }

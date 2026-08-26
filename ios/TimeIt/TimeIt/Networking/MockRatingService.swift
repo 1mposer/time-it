@@ -3,9 +3,8 @@ import Combine
 import CoreLocation
 import Foundation
 
-/// Hermetic backend stand-in for UI tests (launch arguments UITEST_MOCK_SUCCESS /
-/// UITEST_MOCK_FAILURE) — keeps the acceptance suite deterministic with no
-/// Node server or Meteosource key. DEBUG-only; never ships.
+/// Hermetic backend stand-in for UI tests — deterministic, no Node server or
+/// API key needed. DEBUG-only; never ships.
 struct MockRatingService: RatingFetching {
     enum Mode {
         case success
@@ -24,9 +23,8 @@ struct MockRatingService: RatingFetching {
     }
 }
 
-/// Fixed-fix location stand-in for UI tests: seeded with a coordinate via
-/// UITEST_LOCATION, left nil to exercise the #5c no-location path, or forced
-/// to .denied via UITEST_LOCATION_DENIED for the fresh-install-denied case.
+/// Fixed-fix location stand-in for UI tests: seeded with a coordinate, left
+/// nil (the no-location path), or forced to .denied.
 @MainActor
 final class StaticLocationProvider: LocationProviding {
     let location: CLLocation?
@@ -68,8 +66,8 @@ struct UITestDevicesAPI: DeviceSnapshotSending {
     func deleteDevice(deviceId: String) async throws {}
 }
 
-/// Deterministic feedback route for XCUI (item 10): succeeds, or throws a
-/// 500 under UITEST_FEEDBACK_FAIL — the non-204-retains-text path.
+/// Deterministic feedback route for XCUI: succeeds, or throws a 500 under
+/// UITEST_FEEDBACK_FAIL.
 struct UITestFeedbackAPI: SuggestionSending {
     let fails: Bool
 
@@ -90,20 +88,12 @@ struct UITestPushAuthorizer: NotificationAuthorizing {
 }
 
 extension ForecastResponse {
-    /// forecastStart 2026-06-19T00:00:00Z in Asia/Dubai = 4am local, so local
-    /// day 0 spans indices 0..<20 (4am → midnight), day 1 spans 20..<44 and
-    /// day 2 the partial 44..<56. Range-CONSISTENT with the seeded templates
-    /// (spec 14 — the card slice paints the authored Range):
-    /// - activity 0 (cycling, 6–10am): Perfect today across exactly its range
-    ///   (indices 2..<6 → "Today · 6–10am").
-    /// - activity 1 (fishing-lite, 3–7pm): NOTHING today (the all-red card)
-    ///   and a Good window tomorrow (indices 35..<39), which the card must
-    ///   NOT roll forward to (ADR-0004 amendment 2026-07-20) — the detail
-    ///   still shows it.
-    /// - a WRAPPED-window activity (stargazing, 10pm–4am) gets 6 NIGHT
-    ///   buckets, Perfect tonight 10pm–2am (indices 18..<22 → "Tonight ·
-    ///   10pm–2am") — the per-activity days.length contract at the wire.
-    /// - anything else: all-null days.
+    /// Fixture starting 2026-06-19T00:00:00Z (= 4am in Asia/Dubai; day 0 =
+    /// indices 0..<20). Consistent with the seeded templates: activity 0 is
+    /// Perfect today across its range, activity 1 has nothing today and a
+    /// Good window tomorrow, a wrapped-window activity gets 6 night buckets
+    /// with Perfect tonight; anything else all-null days. UI tests assert
+    /// these exact indices.
     static func uiTestFixture(for activities: [ActivityInput]) -> ForecastResponse {
         let hours = (0..<56).map { index in
             HourlyWeather(index: index,

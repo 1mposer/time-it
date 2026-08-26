@@ -1,17 +1,9 @@
-// Shared in-memory weather cache (#6c spec §6, ADR-0006).
-//
-// One cache for EVERY weather consumer — the push jobs, the device upsert's
-// timezone resolution, and /rating (amended 2026-07-20: live dashboard traffic,
-// not the hourly crons, is the largest source of duplicate provider calls).
-// Do not build a second cache implementation for any of them.
-//
-// - TTL 60 min: owner-confirmed Meteosource refreshes upstream somewhere
-//   between every 10 min and every 1 hour; policy is to cache at the hourly end
-//   of that range (docs/API_documentation/meteosource/README.md).
-// - Key = lat/lon rounded to 2 dp (~1.1 km) so nearby devices share entries.
-// - The PROMISE is cached, not the value: concurrent requests for the same key
-//   share one in-flight provider call. A rejected fetch is evicted immediately —
-//   failures must not be served for the rest of the TTL.
+// Shared in-memory weather cache — the one instance every weather consumer
+// uses (/rating, device upsert, push jobs); do not build a second one.
+// Key = lat/lon at 2 dp, TTL 60 min (the Meteosource upstream refresh cadence
+// — docs/API_documentation/meteosource/README.md). The promise is cached, so
+// concurrent callers share one in-flight fetch; a rejected fetch is evicted
+// immediately.
 
 const { getWeather: defaultGetWeather } = require('../weather');
 
@@ -28,15 +20,13 @@ function createWeatherCache({ getWeather = defaultGetWeather, ttlMs = TTL_MS, no
     const promise = getWeather(lat, lon);
     cache.set(key, { fetchedAt: now(), promise });
     promise.catch(() => {
-      // Evict only if this exact promise is still the cached one (a newer
-      // fetch may already have replaced it).
       if (cache.get(key)?.promise === promise) cache.delete(key);
     });
     return promise;
   };
 }
 
-// The production singleton — the one instance every caller shares.
+// Production singleton.
 const getCachedWeather = createWeatherCache();
 
 module.exports = { createWeatherCache, getCachedWeather, TTL_MS };

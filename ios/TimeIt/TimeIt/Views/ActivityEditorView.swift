@@ -1,9 +1,9 @@
 import SwiftUI
 
-/// The authoring surface (#5b §5): one Form used for both create (from the
-/// add flow) and edit (from the card gear). Save stays disabled until the
-/// draft is a valid ADR-0005 body — one invalid Activity would 400 the whole
-/// dashboard (atomic validation), so an invalid one can never be saved.
+/// The authoring Form, used for both create and edit. Save stays disabled
+/// until the draft builds a valid Activity — one invalid Activity would 400
+/// the whole dashboard request (ADR-0005 atomic validation), so an invalid
+/// one can never be saved.
 struct ActivityEditorView: View {
     private let isNew: Bool
     private let catalog: MetricCatalogProviding
@@ -14,9 +14,7 @@ struct ActivityEditorView: View {
     @State private var confirmingDelete = false
     @Environment(\.dismiss) private var dismiss
 
-    /// Manifest activity icons (design-decisions §A) — read from the manifest
-    /// list on the icon seam, NOT from the Template catalog: an icon is
-    /// pickable even when no Template uses it. The draft's own icon is always
+    /// Pickable icons from the manifest; the draft's own icon is always
     /// included so editing an activity with an unlisted icon can't lose it.
     private var iconChoices: [String] {
         var choices = ActivityIconView.activityIconManifest
@@ -38,9 +36,9 @@ struct ActivityEditorView: View {
         _draft = State(initialValue: ActivityDraft(from: existing))
     }
 
+    /// One parse+validate pass per render — the Form re-renders on every
+    /// keystroke, so computing the result per consumer would triple the work.
     var body: some View {
-        // One parse+validate pass per render — the Form re-renders on every
-        // keystroke, so computing this per consumer would triple the work.
         let buildResult = draft.result(against: catalog)
         Form {
             nameAndIconSection
@@ -101,7 +99,7 @@ struct ActivityEditorView: View {
         }
     }
 
-    // MARK: metric picker (LIVE only — the catalog offers nothing else)
+    // MARK: metric picker (live metrics only)
 
     private var metricsSection: some View {
         Section {
@@ -206,8 +204,7 @@ struct ActivityEditorView: View {
                            set: { draft.thresholds[key]?.required = $0 }))
     }
 
-    // MARK: range (spec 14 §1 — mandatory; the "Only at certain hours"
-    // toggle is deleted, so every save confirms a range and ends dormancy)
+    // MARK: range (mandatory — every save confirms a range and ends dormancy)
 
     private var rangeSection: some View {
         Section {

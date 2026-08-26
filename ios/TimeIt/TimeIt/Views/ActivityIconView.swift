@@ -1,12 +1,9 @@
 import SwiftUI
 import UIKit
 
-/// The single icon-rendering seam (#5b §2): every activity and metric glyph
-/// draws through here, so a future icon redesign (custom asset-catalog art, or
-/// animated icons once the no-package rule is deliberately relaxed) is a
-/// one-file change. SF Symbols only for now — identifiers come from the
-/// manifest (design-decisions §A/§B); an unknown name falls back to the
-/// questionmark.circle guardrail instead of a blank glyph.
+/// The single icon-rendering seam: every activity and metric glyph draws
+/// through here, so an icon redesign is a one-file change. SF Symbols only;
+/// an unknown name falls back to questionmark.circle instead of a blank glyph.
 struct ActivityIconView: View {
     let identifier: String
     var size: CGFloat = 18
@@ -22,13 +19,12 @@ struct ActivityIconView: View {
         UIImage(systemName: identifier) != nil ? identifier : "questionmark.circle"
     }
 
-    /// The activity-icon manifest (design-decisions §A Table A + the guardrail)
-    /// — the editor's icon picker reads THIS list, not whatever the current
-    /// Templates happen to use. Add to the manifest table first, then here.
+    /// The activity-icon manifest — the editor's icon picker reads this list,
+    /// not whatever the current Templates happen to use.
     static let activityIconManifest: [String] = [
         "figure.outdoor.cycle",
         "figure.fishing",
-        "figure.run", // TODO: verify SF Symbol (⚠︎ in the manifest)
+        "figure.run", // TODO: verify this SF Symbol exists
         "moon.stars.fill",
         "questionmark.circle",
     ]

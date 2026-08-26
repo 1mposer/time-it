@@ -1,8 +1,8 @@
 import XCTest
 @testable import TimeIt
 
-/// The 400 backstop (#5b §7): a structured { errors: [{ path, message }] } body
-/// must surface a non-crashing message that names the offending Activity.
+/// A structured { errors: [{ path, message }] } 400 body must surface a
+/// non-crashing message that names the offending Activity.
 final class APIErrorTests: XCTestCase {
 
     private let labels = ["Cycling", "Stargazing"]

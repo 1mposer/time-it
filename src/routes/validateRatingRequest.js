@@ -1,17 +1,8 @@
-// Request-body validation for POST /api/v1/rating (ADR-0005 §6).
-//
-// Validation is ATOMIC and STRUCTURED: every failure across the whole body is
-// collected (never first-wins) and returned as an array of { path, message }, so
-// an atomic-rejected client can fix everything and resubmit once. An empty array
-// means the body is valid. The route maps a non-empty result to a single 400 —
-// one invalid activity rejects the WHOLE request (no partial evaluation), so the
-// success shape never carries error state.
-//
-// The per-activity rules (including the load-bearing coming-soon/unknown metric
-// reject) live in the shared validateActivities.js — the device-snapshot upsert
-// (#6c) validates with the same rules. The NON-EMPTY activities rule is this
-// route's own: rating an empty list is meaningless, while an empty device
-// snapshot is a valid dormant registration.
+// Body validation for POST /api/v1/rating (ADR-0005 §6). Atomic and
+// structured: every failure across the whole body is collected as
+// { path, message } entries — an empty array means valid. Per-activity rules
+// live in the shared validateActivities.js; the non-empty activities rule is
+// this route's own.
 
 const { validateActivities, isFiniteNumber, MAX_ACTIVITIES } = require('./validateActivities');
 

@@ -1,9 +1,8 @@
 import XCTest
 @testable import TimeIt
 
-/// The beta-feedback spec §3 gate rule, pinned both ways: a sandbox receipt
-/// (dev + TestFlight install) opens the gate; an App Store receipt — or no
-/// receipt at all — keeps it shut.
+/// A sandbox receipt (dev + TestFlight) opens the beta gate; an App Store
+/// receipt — or no receipt at all — keeps it shut.
 final class BetaGateTests: XCTestCase {
 
     func testSandboxReceiptMarksABetaInstall() {

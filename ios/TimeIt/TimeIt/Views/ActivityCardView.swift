@@ -1,37 +1,32 @@
 import SwiftUI
 
-/// Dashboard card (spec 14 §2): summarises DAY 0 (today/tonight) for one
-/// LIVE activity — icon + label + range chip, "Today · 6–8pm" sublabel, the
-/// day-axis bar with the Range's per-hour gradient slice, an optional phrase,
-/// first-3 metric chips. No rating word (owner decision C) — color carries
-/// quality; VoiceOver keeps the full spoken summary regardless.
+/// Dashboard card: summarises day 0 (today/tonight) for one live activity —
+/// icon, label, range chip, sublabel, the day-axis bar with the Range's
+/// gradient slice, an optional phrase, and the first three metric chips.
+/// No rating word — color carries quality; VoiceOver speaks the full summary.
 struct ActivityCardView: View {
     let activity: ActivityRating
     /// Day 0 from `DashboardViewModel.cardDay(for:)`; nil means today's Range
-    /// has no qualifying window — the ALL-RED state (§2), never a roll-forward
-    /// to later days (ADR-0004 amendment 2026-07-20).
+    /// has no qualifying window (the all-red state).
     let day: Day?
     let windowStartHour: HourlyWeather?
     let deriver: TimeDeriver?
     let hoursCount: Int
-    /// Explicit icon from the authored Activity (#5b §2); nil falls back to
-    /// the legacy id heuristic below.
+    /// Explicit icon from the authored Activity; nil falls back to the legacy
+    /// id heuristic below.
     var iconSymbol: String?
-    /// Wrapped-window activity → night-phrased labels (ADR-0004 amendment).
+    /// Wrapped-window activity → night-phrased labels.
     var isNocturnal: Bool = false
     /// The authored Range as chip copy ("6 – 10am"); nil hides the chip.
     var rangeChipLabel: String?
-    /// Global hours[] indices the Range covers today (tonight) — where the
-    /// slice paints. Nil/empty paints nothing: the gray track is reserved
-    /// for NO DATA only (§2) — when in-range hours exist, they are painted.
+    /// Global hours[] indices the Range covers today — where the slice
+    /// paints. Nil/empty paints nothing; the gray track alone means no data.
     var sliceRange: Range<Int>?
-    /// Per-hour tiers over `sliceRange` (the HourQuality mirror, §3).
+    /// Per-hour tiers over `sliceRange`.
     var tiers: [HourTier] = []
-    /// The phrase slot under the axis (§5); nil hides it. The all-red day's
-    /// "Nothing in your range" arrives here unconditionally
-    /// (`TrajectoryPhrase.cardPhrase`).
+    /// The phrase slot under the axis; nil hides it.
     var phrase: String?
-    /// Metric names and chip icons resolve through the catalog seam (#5b §4).
+    /// Metric names and chip icons resolve through the catalog seam.
     var catalog: MetricCatalogProviding = StaticMetricCatalog()
 
     var body: some View {
@@ -64,11 +59,13 @@ struct ActivityCardView: View {
         )
     }
 
+    /// The gear is overlaid by DashboardView (above the NavigationLink) so it
+    /// stays independently tappable — the trailing padding clears it.
     private var topRow: some View {
         HStack(alignment: .center, spacing: 8) {
             ActivityIconView(identifier: iconSymbol ?? Self.iconName(for: activity), size: 18)
                 .foregroundStyle(Theme.primaryText.opacity(0.75))
-                .accessibilityHidden(true) // decorative — the label text follows
+                .accessibilityHidden(true)
             Text(activity.label)
                 .font(.system(size: 15, weight: .medium))
                 .tracking(-0.1)
@@ -84,15 +81,12 @@ struct ActivityCardView: View {
                     .accessibilityIdentifier("rangeChip.\(activity.activityId)")
             }
             Spacer()
-            // The card gear is overlaid by DashboardView (it must sit above the
-            // NavigationLink to stay independently tappable).
         }
-        .padding(.trailing, 28) // clears the overlaid gear
+        .padding(.trailing, 28)
     }
 
-    /// "Today · 6–8pm" / "Tonight · 10pm–2am" — the push-copy dialect (§2), so
-    /// a tapped push lands on its own receipt. A red day is the plain day name
-    /// (no stretch exists; the solid red slice carries the verdict).
+    /// "Today · 6–8pm" / "Tonight · 10pm–2am" — same dialect as the push
+    /// copy. A red day is the plain day name.
     private var sublabel: String {
         guard let deriver else { return isNocturnal ? "Tonight" : "Today" }
         return deriver.sublabel(forDayIndex: 0,
@@ -128,9 +122,8 @@ struct ActivityCardView: View {
         .background(tier.backgroundColor, in: Capsule())
     }
 
-    /// Activity icon. Names come from the SF Symbols manifest in
-    /// design-decisions-issue-5.md — never invent or substitute a name;
-    /// unlisted glyphs fall back to the questionmark.circle guardrail.
+    /// Legacy icon fallback by activity id; unlisted glyphs get the
+    /// questionmark.circle guardrail.
     static func iconName(for activity: ActivityRating) -> String {
         let key = activity.activityId.lowercased()
         if key.contains("cycling") { return "figure.outdoor.cycle" }
@@ -139,13 +132,12 @@ struct ActivityCardView: View {
     }
 }
 
-/// Chip colour tiers (Guidelines.md "Metric chip colour tiers"). Lives with the
-/// card view — this is presentation logic, not a shared model.
+/// Chip colour tiers — presentation logic, so it lives with the card view.
 enum MetricTier: Equatable {
     case green
     case orange
     case red
-    /// No data (nil value) or a metric with no tier table (e.g. rainFall, moon).
+    /// No data (nil value) or a metric with no tier table.
     case neutral
 
     static func tier(for metric: String, value: Double?) -> MetricTier {
@@ -195,11 +187,9 @@ enum MetricTier: Equatable {
     }
 }
 
-/// The card's 22pt timeline bar: the DAY axis (the day's real hour span in
-/// the response timezone — never a hardcoded 6am–midnight), with the Range
-/// painted as a truthful per-hour gradient slice (spec 14 §2). Flat-color
-/// fill is gone; a `rating: null` day paints SOLID RED across the range —
-/// bad weather is painted, never absent. The gray track alone means no data.
+/// The card's timeline bar: the day's real hour span as the axis, with the
+/// Range painted as a per-hour gradient slice. A rating-null day paints
+/// solid red; the gray track alone means no data.
 struct TimelineBarView: View {
     let day: Day?
     let deriver: TimeDeriver?
@@ -207,16 +197,12 @@ struct TimelineBarView: View {
     let activityId: String
     /// Global hours[] indices the Range covers in the shown day bucket.
     var sliceRange: Range<Int>?
-    /// Per-hour tiers over `sliceRange` — one gradient stop per hour
-    /// (`TierGradient`, midpoint stops, pinned edges).
+    /// Per-hour tiers over `sliceRange` — one gradient stop per hour.
     var tiers: [HourTier] = []
 
-    /// The axis span: the shown day's real hours (day 0's span when nothing
-    /// is windowed, so the empty track still reads as "today"), widened to
-    /// cover the day's window AND the range slice. A nocturnal (night-
-    /// stitched) range crosses past the calendar day's end — its dayIndex is
-    /// the evening's — so without the widening the slice would draw off the
-    /// track (or, for a morning-tail window, entirely outside it).
+    /// The shown day's real hour span, widened to cover the day's window and
+    /// the range slice — a night-stitched range crosses the calendar day's
+    /// end, so without the widening the slice would draw off the track.
     private var axisRange: Range<Int>? {
         guard var span = deriver?.hourRange(forDayIndex: day?.dayIndex ?? 0, hourCount: hoursCount) else {
             return nil
@@ -261,11 +247,8 @@ struct TimelineBarView: View {
         .accessibilityLabel(accessibilitySummary)
     }
 
-    /// The slice fill. Server truth outranks the mirror (§3): a `rating: null`
-    /// day is solid red regardless of the tiers; a rated day blends one stop
-    /// per hour (`Theme.sliceStops` — `TierGradient` midpoint placement plus
-    /// the yellow G↔O blend waypoints; an all-green range comes out solid
-    /// green with no special case).
+    /// A rating-null day is solid red regardless of the tiers; a rated day
+    /// blends one gradient stop per hour.
     private var sliceStyle: AnyShapeStyle {
         guard day?.rating != nil, !tiers.isEmpty else {
             return AnyShapeStyle(Theme.badRed)
@@ -293,8 +276,8 @@ struct TimelineBarView: View {
         }
     }
 
-    /// VoiceOver keeps the full summary — rating word + times — regardless of
-    /// the visual no-rating-word rule (§2, the C decision is visual only).
+    /// VoiceOver keeps the full summary — rating word + times — even though
+    /// the visual carries no rating word.
     private var accessibilitySummary: String {
         guard let day, day.hasWindow, let deriver,
               let startIndex = day.startIndex, let endIndex = day.endIndex else {

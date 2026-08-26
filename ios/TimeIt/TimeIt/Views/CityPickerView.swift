@@ -1,9 +1,7 @@
 import SwiftUI
 
-/// #5c city-picker sheet: worldwide as-you-type search over the
-/// GeocodingProviding seam (MKLocalSearch-backed in production, mock in UI
-/// tests). Picking a result saves it as the home location — the same store
-/// #5b built and #6c later reads for push registration. Reachable from the
+/// City-picker sheet: worldwide as-you-type search over the geocoding seam.
+/// Picking a result saves it as the home location. Reachable from the
 /// dashboard's no-location CTA and from Settings.
 struct CityPickerView: View {
     @Environment(\.dismiss) private var dismiss
@@ -11,9 +9,7 @@ struct CityPickerView: View {
     private let geocoder: GeocodingProviding
 
     /// The last completed search's outcome — `empty` (genuinely no results)
-    /// and `errored` (geocoder threw: connectivity, throttling) get different
-    /// messages, since "no places found" would send an offline user retyping
-    /// in vain.
+    /// and `errored` (geocoder threw) get different messages.
     private enum SearchOutcome {
         case idle, found, empty, errored
     }

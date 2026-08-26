@@ -2,8 +2,7 @@ import XCTest
 @testable import TimeIt
 
 /// AuthoredActivity is the client-side editable superset; it projects to the
-/// wire `ActivityInput` by dropping UI-only fields and including `window`
-/// only when present (#5b §2).
+/// wire ActivityInput by dropping UI-only fields.
 final class AuthoredActivityProjectionTests: XCTestCase {
 
     private func encodeInput(_ activity: AuthoredActivity) throws -> [String: Any] {
@@ -69,8 +68,6 @@ final class AuthoredActivityProjectionTests: XCTestCase {
     }
 
     func testWindowlessActivityIsDormant() {
-        // Spec 14 §1: nil no longer means "whole day" — it means dormant
-        // (stored, visible, never evaluated). Whole-day activities no longer exist.
         XCTAssertTrue(makeAuthored(window: nil).isDormant)
         XCTAssertFalse(makeAuthored(window: WindowSpec(startHour: 6, endHour: 10)).isDormant)
         XCTAssertFalse(makeAuthored(window: WindowSpec(startHour: 22, endHour: 4)).isDormant)

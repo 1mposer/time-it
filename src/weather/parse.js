@@ -1,10 +1,10 @@
 const { UpstreamError } = require('./UpstreamError');
 
-// 7-day rolling horizon ceiling (ADR-0003). 168 = 7 x 24 is a CEILING, not a
-// fixed count: the provider serves however many clean hourly entries it returns
-// (Meteosource standard ~161-168), capped here. We never fabricate hours to a target.
-const FORECAST_HOURS = 168;
+const FORECAST_HOURS = 168; // ceiling, not a fixed count — fewer passes through
 
+// Normalises the raw provider response to { forecastStart, timezone, hours }.
+// Hours are never fabricated. darkness/douglasScale/swellHeight/swellLength/
+// tide/seaWarning are hardcoded placeholders pending real data sources.
 function parseWeather(rawResponse, adapter) {
   const allHours = adapter.extractHours(rawResponse);
   if (!allHours || allHours.length === 0) {
@@ -26,15 +26,12 @@ function parseWeather(rawResponse, adapter) {
     moon:         [...moon],
     uV:           adapter.uV(row),
     dustAlert:    adapter.dustAlert(row),
-    // PENDING Issue #7 — wire real marine data from Meteosource adapter
-    // douglasScale, swellHeight, swellLength, seaWarning are placeholder values.
-    // Fishing activity ratings will trivially pass these thresholds until real data is integrated.
-    darkness:     0,       // PENDING: astronomy data source (not Meteosource)
-    douglasScale: 0,       // PENDING Issue #7: Meteosource marine data
-    swellHeight:  0,       // PENDING Issue #7: Meteosource marine data
-    swellLength:  0,       // PENDING Issue #7: Meteosource marine data
-    tide:         0,       // DEFERRED: requires separate tidal API — no data source identified
-    seaWarning:   false,   // PENDING: UAE maritime authority API — not Meteosource
+    darkness:     0,
+    douglasScale: 0,
+    swellHeight:  0,
+    swellLength:  0,
+    tide:         0,
+    seaWarning:   false,
   }));
 
   return { forecastStart, timezone, hours };

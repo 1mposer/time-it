@@ -1,8 +1,7 @@
 import Foundation
 
-/// Body of the beta suggestion POST — all five fields required by the route
-/// (beta-feedback spec §2); `build` is `CFBundleVersion`, so every stored
-/// suggestion reads in the context of the exact build that produced it.
+/// Body of the beta suggestion POST — all five fields required by the route;
+/// `build` is `CFBundleVersion`.
 struct FeedbackBody: Encodable, Equatable {
     let deviceId: String
     let message: String
@@ -11,29 +10,25 @@ struct FeedbackBody: Encodable, Equatable {
     let iosVersion: String
 }
 
-/// The feedback-route client (`POST /api/v1/feedback`). Success is `204`
-/// (no body) — nothing to decode. The route never touches the weather
-/// provider, so there is no 502 mapping here: a 429 is the per-device
-/// throttle (20 per rolling 24h) and any other non-2xx is a server error.
+/// The feedback-route client (`POST /api/v1/feedback`). Success is `204` —
+/// nothing to decode; a 429 is the per-device throttle, any other non-2xx a
+/// server error. No 502 mapping — the route never touches the provider.
 actor FeedbackClient: SuggestionSending {
     static let shared = FeedbackClient()
 
-    /// Worst-case duration of the sheet's sending state: Cancel and
-    /// interactive dismiss are disabled mid-send, so URLSession.shared's 60s
-    /// default would lock the sheet on a hung connection. A timeout's
-    /// URLError lands in the existing non-204 path — text retained, retry.
+    /// Worst-case duration of the sheet's sending state — dismiss is disabled
+    /// mid-send, so the 60s URLSession default would lock the sheet.
     static let requestTimeout: TimeInterval = 15
 
-    /// Internal (not private) so the seam tests can pin the configured
-    /// default and that an injected session wins.
+    /// Internal (not private) so the seam tests can pin the configuration.
     let session: URLSession
 
     init(session: URLSession? = nil) {
         self.session = session ?? Self.makeDefaultSession()
     }
 
-    /// This client's own configured session — the rating and devices clients
-    /// keep URLSession.shared; the timeout cap is deliberately not global.
+    /// This client's own configured session — the timeout cap is deliberately
+    /// not global to the other clients.
     private static func makeDefaultSession() -> URLSession {
         let configuration = URLSessionConfiguration.default
         configuration.timeoutIntervalForRequest = requestTimeout

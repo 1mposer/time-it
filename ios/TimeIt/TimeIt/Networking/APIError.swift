@@ -1,10 +1,9 @@
 import Foundation
 
-/// Maps the backend's status codes (CLAUDE.md error table) to client errors.
-/// 502 is transient (upstream weather provider) — retry framing; 500 is a
-/// server defect and must surface differently; 400 is a validation rejection
-/// (should be unreachable — the editor mirrors ADR-0005 — but surfaced
-/// non-crashingly as the #5b §7 backstop).
+/// Maps the backend's status codes to client errors. 502 is transient
+/// (retry framing); 500 is a server defect and surfaces differently; 400 is
+/// a validation rejection — should be unreachable since the editor mirrors
+/// the server's rules, but surfaced non-crashingly as a backstop.
 enum APIError: Error, Equatable {
     /// 502 — upstream weather provider failed. Transient.
     case providerUnavailable
@@ -34,7 +33,7 @@ enum APIError: Error, Equatable {
     }
 }
 
-// MARK: - The 400 backstop (#5b §7)
+// MARK: - The 400 backstop
 
 extension APIError {
 
@@ -47,9 +46,8 @@ extension APIError {
     }
 
     /// Parses the uniform `{ errors: [{ path?, message }] }` envelope
-    /// (ADR-0005 §6) and names the offending Activity by mapping the `path`'s
-    /// `activities[i]` index to its label. Returns nil when the body doesn't
-    /// match the envelope (caller falls back to the generic mapping).
+    /// (ADR-0005 §6) and names the offending Activity via the path's index.
+    /// Returns nil when the body doesn't match the envelope.
     static func validationRejection(body: Data, activityLabels: [String]) -> APIError? {
         guard let parsed = try? JSONDecoder().decode(BackendErrorBody.self, from: body),
               let first = parsed.errors.first else {

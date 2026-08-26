@@ -64,9 +64,7 @@ enum Fixtures {
 
     static func forecastResponseJSON(hourCount: Int = 60) -> String {
         let hours = (0..<hourCount).map { i in
-            // hour 1 exercises the nullable trio (provider omitted the fields → JSON null);
-            // hour 2 exercises a null uV (Meteosource returns uv_index: null at night) —
-            // the live regression: it must decode to nil, not fail the whole response.
+            // Hour 1: the nullable trio as JSON null; hour 2: null uV — both must decode to nil.
             hourJSON(index: i,
                      windSpeed: i == 1 ? "null" : "10",
                      rainFall: i == 1 ? "null" : "0",
@@ -92,9 +90,8 @@ enum Fixtures {
 
     // MARK: - In-memory model builders (for ViewModel tests)
 
-    /// Two LIVE (windowed) authored activities in the ids most VM tests key
-    /// on. A test scaffold, NOT the product's first-launch state — spec 14 §1:
-    /// real first-launch seeds land dormant and never POST.
+    /// Two live (windowed) authored activities most VM tests key on — a test
+    /// scaffold, not the product's first-launch state.
     static let liveSeeds: [AuthoredActivity] = [
         AuthoredActivity(id: "cycling",
                          label: "Cycling",

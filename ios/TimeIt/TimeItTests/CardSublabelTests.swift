@@ -1,15 +1,11 @@
 import XCTest
 @testable import TimeIt
 
-/// Spec 14 §2: the card sublabel gains the best-stretch time — "Today · 6–8pm"
-/// — matching the push copy word-for-word (server `src/jobs/labels.js`
-/// rangeLabel: same meridiem → suffix once, "7–10am"; crossing → both,
-/// "10pm–2am") so a tapped push lands on its own receipt. A red day (no
-/// stretch) is the plain day name.
+/// The card sublabel's best-stretch time ("Today · 6–8pm") must match the
+/// server's push copy word-for-word; a red day is the plain day name.
 final class CardSublabelTests: XCTestCase {
 
-    // forecastStart 2026-06-19T12:00:00Z in Asia/Dubai (+04) → hours[0] is
-    // 4pm local; index 8 is midnight, index 20 is noon the next day.
+    // Fixture: 2026-06-19T12:00:00Z in Asia/Dubai (+04) → hours[0] = 4pm local, index 8 = midnight, index 20 = next-day noon.
     private var deriver: TimeDeriver!
 
     override func setUpWithError() throws {
@@ -24,19 +20,16 @@ final class CardSublabelTests: XCTestCase {
     }
 
     func testCrossingMeridiemKeepsBothSuffixes() {
-        // 10pm → 2am, the spec's own nocturnal example.
         XCTAssertEqual(deriver.rangeLabel(startIndex: 6, endIndex: 10), "10pm–2am")
     }
 
     func testNoonRendersAs12pm() {
-        // 8am–12pm: "12pm" is pm, so the meridiems differ and both render.
         XCTAssertEqual(deriver.rangeLabel(startIndex: 16, endIndex: 20), "8am–12pm")
     }
 
     func testMidnightRendersAs12am() {
         XCTAssertEqual(deriver.rangeLabel(startIndex: 6, endIndex: 8), "10pm–12am")
-        // Same-meridiem collapse strips the suffix from the start label even
-        // when it is "12am" — matching the server's slice(0, -2) exactly.
+        // Same-meridiem collapse strips the start suffix even when it is "12am".
         XCTAssertEqual(deriver.rangeLabel(startIndex: 8, endIndex: 9), "12–1am")
     }
 
@@ -55,8 +48,6 @@ final class CardSublabelTests: XCTestCase {
     }
 
     func testRedDaySublabelIsThePlainDayName() {
-        // rating null ⇒ no stretch: "Today"/"Tonight" with no time (spec §2 —
-        // there IS no window; the solid red slice carries the verdict).
         XCTAssertEqual(deriver.sublabel(forDayIndex: 0, startIndex: nil, endIndex: nil, nocturnal: false),
                        "Today")
         XCTAssertEqual(deriver.sublabel(forDayIndex: 0, startIndex: nil, endIndex: nil, nocturnal: true),
