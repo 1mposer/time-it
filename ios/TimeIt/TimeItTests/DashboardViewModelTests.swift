@@ -176,9 +176,9 @@ final class DashboardViewModelTests: XCTestCase {
         await vm.loadForecast()
 
         XCTAssertFalse(locationProvider.requestLocationCalled,
-                       "not authorized → no fix request from a load (audit F1: the CTA owns onboarding)")
+                       "not authorized → no fix request from a load")
         XCTAssertFalse(locationProvider.requestAuthorizationCalled,
-                       "a load must NEVER fire the permission prompt — that would pre-empt the CTA")
+                       "a load must NEVER fire the permission prompt — the first-launch hook and the CTA own it (issue #16)")
         XCTAssertEqual(api.fetchCount, 0, "the Dubai fallback is deleted — a nil chain never POSTs coordinates")
         XCTAssertNil(vm.forecast)
         XCTAssertTrue(vm.hasNoLocation)
@@ -231,6 +231,49 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertTrue(restrictedVM.locationPermissionRestricted,
                       "restricted (MDM/parental) → honest copy, not a dead-end Settings link (audit F5)")
         XCTAssertFalse(restrictedVM.locationPermissionDenied)
+    }
+
+    // MARK: first-launch permission prompt (issue #16 — reverses audit F1 for the cold start)
+
+    func testInitialPromptFiresWhenNeverAskedAndNoHome() {
+        let (vm, _, locationProvider, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])),
+                                                     location: nil)
+
+        vm.requestInitialLocationPermissionIfNeeded()
+
+        XCTAssertTrue(locationProvider.requestAuthorizationCalled,
+                      "fresh install → prompt immediately; a new user defaults to where they are (issue #16)")
+    }
+
+    func testInitialPromptSkippedWhenHomeIsSet() {
+        let (vm, _, locationProvider, _, preferences) = makeVM(result: .success(Fixtures.makeForecast(activities: [])),
+                                                               location: nil)
+        preferences.homeLocation = SavedLocation(name: "Bangkok", lat: 13.7563, lon: 100.5018)
+
+        vm.requestInitialLocationPermissionIfNeeded()
+
+        XCTAssertFalse(locationProvider.requestAuthorizationCalled,
+                       "a chosen home already answers the location question — don't prompt over it")
+    }
+
+    func testInitialPromptSkippedWhenDenied() {
+        let (vm, _, locationProvider, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])),
+                                                     location: nil, authorization: .denied)
+
+        vm.requestInitialLocationPermissionIfNeeded()
+
+        XCTAssertFalse(locationProvider.requestAuthorizationCalled,
+                       "denied → the system prompt can't re-fire; the CTA's Settings deep-link owns this route")
+    }
+
+    func testInitialPromptSkippedWhenAlreadyAuthorized() {
+        let (vm, _, locationProvider, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])),
+                                                     location: nil, authorization: .authorizedWhenInUse)
+
+        vm.requestInitialLocationPermissionIfNeeded()
+
+        XCTAssertFalse(locationProvider.requestAuthorizationCalled,
+                       "already granted → nothing to ask; loads warm the fix themselves")
     }
 
     func testUsesDeviceLocationWhenAvailable() async {

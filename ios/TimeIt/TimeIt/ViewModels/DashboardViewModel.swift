@@ -172,6 +172,16 @@ final class DashboardViewModel: ObservableObject {
         }
     }
 
+    /// First-launch onboarding (issue #16 — reverses audit F1 for the cold
+    /// start): fire the system prompt immediately, so a new user defaults to
+    /// where they actually are. The grant flows through the existing sinks
+    /// (authorization change → fix request → reload).
+    func requestInitialLocationPermissionIfNeeded() {
+        guard preferences.homeLocation == nil,
+              locationProvider.authorizationStatus == .notDetermined else { return }
+        locationProvider.requestAuthorization()
+    }
+
     /// Resolves the active location and fetches ratings for the live
     /// Activities; publishes forecast/error/empty-state accordingly.
     func loadForecast() async {

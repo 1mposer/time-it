@@ -82,7 +82,10 @@ struct DashboardView: View {
                 FeedbackView(deviceId: registration.installId)
             }
         }
-        .task { await viewModel.loadForecast() }
+        .task {
+            viewModel.requestInitialLocationPermissionIfNeeded()
+            await viewModel.loadForecast()
+        }
         .onReceive(router.$focusActivityId.compactMap { $0 }) { activityId in
             showSettings = false
             showAdd = false
