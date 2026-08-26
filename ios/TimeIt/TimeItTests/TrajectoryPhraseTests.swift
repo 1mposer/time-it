@@ -1,16 +1,16 @@
 import XCTest
 @testable import TimeIt
 
-/// Spec 14 §5: the phrases toggle's reduction rule — phrase keyed on
-/// (first hour tier, last hour tier) → 9 cases; any interior hour outside the
-/// CLOSED tier span between first and last overrides to "Mixed conditions".
-/// Ten strings, one rule — the phrase can never contradict the gradient.
+/// The phrases toggle's reduction rule — phrase keyed on (first hour tier,
+/// last hour tier) → 9 cases; any interior hour outside the CLOSED tier span
+/// between first and last overrides to "Mixed conditions". Ten strings, one
+/// rule — the phrase can never contradict the gradient.
 final class TrajectoryPhraseTests: XCTestCase {
 
     // MARK: the 9 (first, last) cases — no interior escape
 
     func testSpecExampleGoodTurningPerfect() {
-        // The one string the spec pins verbatim ("Good, turning perfect").
+        // The one string pinned verbatim ("Good, turning perfect").
         XCTAssertEqual(TrajectoryPhrase.phrase(for: [.orange, .orange, .green]), "Good, turning perfect")
     }
 
@@ -43,7 +43,7 @@ final class TrajectoryPhraseTests: XCTestCase {
     // MARK: the interior-escape override
 
     func testInteriorDipOutsideSpanIsMixedConditions() {
-        // The spec's own example: green→green with an orange dip.
+        // Canonical case: green→green with an orange dip.
         XCTAssertEqual(TrajectoryPhrase.phrase(for: [.green, .orange, .green]), "Mixed conditions")
     }
 

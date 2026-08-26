@@ -1,15 +1,14 @@
 import XCTest
 @testable import TimeIt
 
-/// Spec 14 §2: the range renders as a gradient slice with one color stop per
-/// hour, truthful to the per-hour tiers — a green-orange-green afternoon
-/// renders exactly that (zigzag preserved), and an all-bad range is solid red
-/// (bad weather is painted, never absent). Owner decision 2026-08-14 (Figma
-/// "Conditions Tier Sequence" 255:1311): the midpoint math stays exactly, and
-/// a YELLOW BLEND WAYPOINT is inserted at the hour boundary `(i+1)/n` at every
-/// green↔orange transition — both directions, never at a red boundary. Yellow
-/// is a waypoint color, not a fourth tier: `HourTier` stays three cases and
-/// yellow exists only inside the gradient stop model.
+/// The range renders as a gradient slice with one color stop per hour,
+/// truthful to the per-hour tiers — a green-orange-green afternoon renders
+/// exactly that (zigzag preserved), and an all-bad range is solid red (bad
+/// weather is painted, never absent). The midpoint math stays exact, and a
+/// YELLOW BLEND WAYPOINT is inserted at the hour boundary `(i+1)/n` at every
+/// green↔orange transition — both directions, never at a red boundary.
+/// Yellow is a waypoint color, not a fourth tier: `HourTier` stays three
+/// cases; yellow exists only inside the gradient stop model.
 final class TierGradientTests: XCTestCase {
 
     private let G = SliceStopColor.tier(.green)
@@ -39,9 +38,8 @@ final class TierGradientTests: XCTestCase {
     }
 
     func testStopsSitAtHourMidpointsWithPinnedEdges() {
-        // Midpoint math unchanged by the waypoint rule: 4 hours → edge + 4
-        // midpoints at (i + 0.5)/4 + edge. The one boundary here is R→O — a
-        // red boundary, so no waypoint appears.
+        // Midpoint math: 4 hours → edge + 4 midpoints at (i+0.5)/4 + edge.
+        // The one boundary here is R→O — red, so no waypoint appears.
         assertStops([.red, .red, .orange, .orange],
                     [(0, R), (0.125, R), (0.375, R), (0.625, O), (0.875, O), (1, O)])
     }
@@ -58,8 +56,8 @@ final class TierGradientTests: XCTestCase {
     }
 
     func testNoWaypointAtRedBoundaries() {
-        // G→R and R→O both touch red — red keeps its hard transitions; the
-        // waypoint exists to kill the green↔orange brown smudge only.
+        // G→R and R→O both touch red — red keeps hard transitions; the
+        // waypoint exists only to kill the green↔orange brown smudge.
         assertStops([.green, .red, .orange],
                     [(0, G), (1.0 / 6, G), (0.5, R), (5.0 / 6, O), (1, O)])
     }
@@ -70,9 +68,8 @@ final class TierGradientTests: XCTestCase {
     }
 
     func testZigzagIsPreservedWithWaypointsOnBothShoulders() {
-        // The truthfulness rule: a green-orange-green afternoon renders as
-        // exactly that — the interior dip survives at its hour's midpoint,
-        // now flanked by a waypoint on each green↔orange shoulder.
+        // Truthfulness rule: the interior dip survives at its hour's
+        // midpoint, flanked by a waypoint on each green↔orange shoulder.
         assertStops([.green, .orange, .green],
                     [(0, G), (1.0 / 6, G), (1.0 / 3, Y), (0.5, O), (2.0 / 3, Y), (5.0 / 6, G), (1, G)])
     }
@@ -95,10 +92,9 @@ final class TierGradientTests: XCTestCase {
     }
 
     func testBlendIsAWaypointNotAFourthTier() {
-        // The vocabulary rule (Figma 255:1311): exactly three tiers. Yellow
-        // lives only in the stop model — `HourTier` cannot represent it, so
-        // chips, phrases, and solid fills (all typed on HourTier) can never
-        // paint it.
+        // Exactly three tiers — yellow lives only in the stop model;
+        // `HourTier` cannot represent it, so chips, phrases, and solid
+        // fills (all typed on HourTier) can never paint it.
         XCTAssertEqual(HourTier.allCases, [.red, .orange, .green])
 
         // And inside the gradient it only ever sits BETWEEN a green stop and
@@ -114,8 +110,7 @@ final class TierGradientTests: XCTestCase {
     }
 
     func testCanonicalFigmaVariantStopTables() {
-        // The nine "Tier Gradient Slice" variants (Figma 255:1311 → 273:26,
-        // owner-approved reference of record) as exact stop tables.
+        // The nine "Tier Gradient Slice" variants as exact stop tables.
         assertStops([.green], [(0, G), (0.5, G), (1, G)])
         assertStops([.green, .green, .green, .green],
                     [(0, G), (0.125, G), (0.375, G), (0.625, G), (0.875, G), (1, G)])

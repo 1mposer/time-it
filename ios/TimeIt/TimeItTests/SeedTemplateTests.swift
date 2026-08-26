@@ -1,10 +1,10 @@
 import XCTest
 @testable import TimeIt
 
-/// Tripwire: a Template with an invalid body silently 400s the WHOLE dashboard
-/// (validation is atomic server-side). Pins the ADR-0005 invariants on the
-/// Template catalog (#5b §4.1) — every curated starting point must be a valid
-/// body, because a template copy is saved (and POSTed) with minimal edits.
+/// Tripwire: an invalid Template body 400s the whole dashboard (validation
+/// is atomic server-side). Pins the ADR-0005 invariants on the Template
+/// catalog — every curated starting point must be a valid body, since a
+/// template copy is saved (and POSTed) with minimal edits.
 final class SeedTemplateTests: XCTestCase {
 
     /// Live metrics per src/weather/metricCatalog.js — the only metrics a request may use.
@@ -19,11 +19,10 @@ final class SeedTemplateTests: XCTestCase {
     }
 
     func testFirstLaunchSeedsAreTheFullCatalogLandingDormant() {
-        // Spec 14 §6 (amended 2026-08-13, owner ruling: the Figma
-        // Empty — Showcase frame is authoritative — all FOUR templates, not
-        // two): first-launch seeds land DORMANT (window nil in the store
-        // until the user confirms a range) — nothing POSTs on first launch;
-        // the dashboard shows the showcase cards.
+        // First-launch seeds land DORMANT (window nil until the user
+        // confirms a range) — nothing POSTs on first launch; the dashboard
+        // shows the showcase cards. All FOUR templates ship, not two (a
+        // prior scope cut was reversed).
         XCTAssertEqual(SeedTemplates.firstLaunchSeeds.map(\.id),
                        ["cycling", "fishing-lite", "running", "stargazing"])
         for seed in SeedTemplates.firstLaunchSeeds {
@@ -32,8 +31,6 @@ final class SeedTemplateTests: XCTestCase {
     }
 
     func testFirstLaunchSeedsCarryTheFullTemplateBodyApartFromTheRange() {
-        // The seed is the template minus its prefill range — thresholds,
-        // metrics, and icon must not fork from the catalog entry.
         XCTAssertEqual(SeedTemplates.firstLaunchSeeds.count, SeedTemplates.all.count)
         for (seed, template) in zip(SeedTemplates.firstLaunchSeeds, SeedTemplates.all) {
             XCTAssertEqual(seed.id, template.id)
@@ -45,9 +42,8 @@ final class SeedTemplateTests: XCTestCase {
     }
 
     func testTemplatesCarryTheSpec14PrefillRanges() {
-        // The §6 prefill table (owner-picked): the range the editor preloads
-        // when adding from a Template — a starting value the user must
-        // confirm by saving, never an active default.
+        // The range the editor preloads when adding from a Template — a
+        // starting value the user must confirm by saving, never an active default.
         XCTAssertEqual(SeedTemplates.cycling.window, WindowSpec(startHour: 6, endHour: 10))
         XCTAssertEqual(SeedTemplates.fishingLite.window, WindowSpec(startHour: 15, endHour: 19))
         XCTAssertEqual(SeedTemplates.running.window, WindowSpec(startHour: 6, endHour: 9))
@@ -132,8 +128,8 @@ final class SeedTemplateTests: XCTestCase {
                 XCTAssertNotNil(threshold["required"], "\(metric) threshold is missing required — hard 400")
                 XCTAssertTrue(threshold["required"] is Bool)
             }
-            // Spec 14 §6: every template carries its prefill range, so a
-            // template copy saved as-is is a LIVE windowed body.
+            // Every template carries its prefill range, so a template copy
+            // saved as-is is a LIVE windowed body.
             let window = try XCTUnwrap(activity["window"] as? [String: Any],
                                        "\(activity["id"] ?? "?") must send its prefill window")
             if activity["id"] as? String == "stargazing" {
@@ -147,9 +143,9 @@ final class SeedTemplateTests: XCTestCase {
     }
 
     func testEveryTemplateIconIsInTheActivityIconManifest() {
-        // Drift tripwire: the editor's icon picker reads the manifest list, not
-        // the Templates — a Template whose icon is missing from the manifest
-        // would silently lose its icon the first time a user edits it.
+        // Drift tripwire: the icon picker reads the manifest, not the
+        // Templates — a Template icon missing from the manifest silently
+        // vanishes on first edit.
         for template in SeedTemplates.all {
             XCTAssertTrue(ActivityIconView.activityIconManifest.contains(template.iconSymbol),
                           "\(template.id) uses \(template.iconSymbol), which is not in ActivityIconView.activityIconManifest — update the design-decisions manifest table first, then the list")

@@ -1,11 +1,10 @@
 import XCTest
 @testable import TimeIt
 
-/// Spec 14 §7.2: metrics + thresholds stated once as one compact block —
-/// "Temp 15 – 32°C required · Wind ≤ 25 km/h optional · …". Format mirrors
-/// the approved detail frames (111:62 / 275:1535): short metric names, unit
-/// once (glued for °C/%, spaced for word units), ≤/≥ for one-sided bounds,
-/// entries in displayMetrics order.
+/// Metrics + thresholds stated once as one compact block — "Temp 15 – 32°C
+/// required · Wind ≤ 25 km/h optional · …": short metric names, unit once
+/// (glued for °C/%, spaced for word units), ≤/≥ for one-sided bounds, entries
+/// in displayMetrics order.
 final class ThresholdSummaryTests: XCTestCase {
 
     func testCyclingSummaryMatchesTheApprovedFrame() {

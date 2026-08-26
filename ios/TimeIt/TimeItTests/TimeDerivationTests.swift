@@ -26,7 +26,7 @@ final class TimeDerivationTests: XCTestCase {
     }
 
     /// ADR-0004 amendment: a nocturnal (wrapped-window) activity's dayIndex is
-    /// the EVENING's ordinal, so its labels are night-phrased (#5b §1).
+    /// the EVENING's ordinal, so its labels are night-phrased.
     func testNocturnalDayNames() {
         XCTAssertEqual(deriver.dayName(forDayIndex: 0, nocturnal: true), "Tonight")
         XCTAssertEqual(deriver.dayName(forDayIndex: 1, nocturnal: true), "Tomorrow night")

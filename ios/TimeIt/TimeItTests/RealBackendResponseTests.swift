@@ -2,20 +2,18 @@ import XCTest
 @testable import TimeIt
 
 /// Regression net against a REAL captured backend response (see
-/// `RealBackendResponseFixture.swift`). The synthetic fixtures decode a shape
-/// *I* hand-wrote; this decodes the shape the provider actually emits, at real
-/// scale (166 hours) and spanning 118 night hours — the conditions that blanked
-/// the dashboard before the uV-null fix. If the decoder or the wire contract
-/// ever drifts from reality, this fails where the daytime-only mocks stayed green.
+/// `RealBackendResponseFixture.swift`): decodes the shape the provider
+/// actually emits, at real scale (166 hours, 118 night) — the conditions
+/// that blanked the dashboard before the uV-null fix. Catches decoder/wire
+/// drift that daytime-only mocks would miss.
 final class RealBackendResponseTests: XCTestCase {
 
     private func decode(_ json: String = RealBackendResponse.json) throws -> ForecastResponse {
         try JSONDecoder().decode(ForecastResponse.self, from: Data(json.utf8))
     }
 
-    /// The whole point: a real, full-scale, night-spanning response decodes
-    /// end-to-end. Pre-fix, this exact payload threw on the first night hour
-    /// (`uV: null`) and failed the *entire* decode on every real request.
+    /// Pre-fix, this exact payload threw on the first night hour (`uV: null`)
+    /// and failed the entire decode on every real request.
     func testRealBackendResponseDecodesFully() throws {
         let f = try decode()
         XCTAssertEqual(f.hours.count, RealBackendResponse.hourCount,
@@ -24,24 +22,23 @@ final class RealBackendResponseTests: XCTestCase {
         XCTAssertEqual(f.activities.count, 2)
         XCTAssertTrue(f.forecastStart.hasSuffix("Z"), "forecastStart must be UTC-Z for ISO8601 decode")
         XCTAssertEqual(f.timezone, "Asia/Dubai")
-        // days.length is provider-driven (8 here, not 7) and per-activity — never hardcoded.
+        // days.length is provider-driven (8, not 7) and per-activity — never hardcoded.
         XCTAssertTrue(f.activities.allSatisfy { !$0.days.isEmpty })
     }
 
-    /// The response genuinely spans night — the trigger for the original bug.
-    /// Night hours (`uV == 0` after dark) must be present *and* fully decoded.
+    /// Night hours (`uV == 0` after dark) — the trigger for the uV-null bug —
+    /// must be present and fully decoded.
     func testRealResponseSpansNightAndDecodesThoseHours() throws {
         let f = try decode()
         let nightHours = f.hours.filter { $0.uV == 0 }
         XCTAssertGreaterThan(nightHours.count, 24, "a 7-day forecast must span multiple nights")
-        // Night didn't break decoding: those hours still carry their other metrics.
+        // Night hours still decode their other metrics correctly.
         XCTAssertTrue(nightHours.allSatisfy { $0.temp != nil })
     }
 
-    /// Defence-in-depth: the backend now sends `uV: 0` (never null), but if that
-    /// default is ever removed a null on ANY metric must render "—", not fail the
-    /// whole decode. Inject nulls into hour 0 of the REAL payload and prove the
-    /// full 166-hour response still decodes.
+    /// Defence-in-depth: backend now sends `uV: 0` (never null), but if that
+    /// default is removed, a null on ANY metric must render "—", not fail the
+    /// whole decode. Inject nulls into hour 0 and prove the full decode survives.
     func testRealResponseSurvivesInjectedNullMetrics() throws {
         var json = RealBackendResponse.json
         for key in ["uV", "windSpeed", "rainFall", "cloudCover"] {
@@ -56,9 +53,9 @@ final class RealBackendResponseTests: XCTestCase {
         XCTAssertNotNil(f.hours[1].uV)
     }
 
-    /// Replace the first `"key":<value>` with `"key":null`. In the compact
-    /// response the first such match is hour 0 (metric keys appear as bare array
-    /// elements — no colon — inside displayMetrics, so they don't match).
+    /// Replaces the first `"key":<value>` with `"key":null`. In the compact
+    /// response the first match is hour 0 — metric names inside displayMetrics
+    /// arrays have no colon, so they don't match.
     private func nullingFirstValue(of key: String, in json: String) -> String {
         guard let keyRange = json.range(of: "\"\(key)\":") else { return json }
         let valueStart = keyRange.upperBound
