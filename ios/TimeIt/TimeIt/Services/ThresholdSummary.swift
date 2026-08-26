@@ -1,15 +1,13 @@
 import Foundation
 
-/// Spec 14 §7.2: the Activity's setup stated once — thresholds don't vary by
-/// hour, so the detail page says them in one compact line instead of 24×.
-/// Format per the approved detail frames: short metric names, unit once
-/// (glued for symbol units, spaced for word units), "≤"/"≥" for one-sided
-/// bounds, " required"/" optional" per entry, joined with " · " in
-/// displayMetrics order.
+/// States the Activity's setup once — thresholds don't vary by hour, so this
+/// replaces 24 repeats. Short metric names; unit glued for symbols, spaced
+/// for words; "≤"/"≥" for one-sided bounds; " required"/" optional" suffix;
+/// joined " · " in displayMetrics order.
 enum ThresholdSummary {
 
-    /// nil when nothing is thresholded (an all-display profile has nothing
-    /// to state — the block hides).
+    /// nil when nothing is thresholded — an all-display profile has nothing
+    /// to state, so the block hides.
     static func line(for activity: AuthoredActivity,
                      catalog: MetricCatalogProviding = StaticMetricCatalog()) -> String? {
         let entries = activity.displayMetrics.compactMap { metric -> String? in
@@ -24,7 +22,7 @@ enum ThresholdSummary {
         let name = catalog.shortName(for: metric)
         let suffix = threshold.required ? "required" : "optional"
         if threshold.isFlag {
-            // forbidTrue is the only flag shape (requireTrue is Issue #8).
+            // forbidTrue is the only flag shape — requireTrue doesn't exist yet (Issue #8).
             return "No \(name.lowercased()) alerts \(suffix)"
         }
         let unit = catalog.descriptor(for: metric)?.unit ?? ""

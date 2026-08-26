@@ -1,14 +1,14 @@
 import Foundation
 
-/// Spec 14 §5: the trajectory phrase behind the Settings phrases toggle.
-/// The phrase is keyed on (first hour tier, last hour tier) — 9 cases; if any
-/// interior hour falls outside the CLOSED tier span between first and last
-/// (e.g. green→green with an orange dip), it overrides to "Mixed conditions".
-/// Ten strings, one rule — the phrase can never contradict the gradient.
+/// The trajectory phrase behind the Settings phrases toggle, keyed on
+/// (first hour tier, last hour tier) — 9 cases; if any interior hour falls
+/// outside the CLOSED span between first and last (e.g. green→green with an
+/// orange dip), it overrides to "Mixed conditions". Ten strings, one rule —
+/// the phrase can never contradict the gradient.
 ///
-/// ⚠️ PROVISIONAL copy (feasibility I3): only "Good, turning perfect" and
-/// "Mixed conditions" are spec-pinned; the other eight strings await the
-/// owner's design-pass review. Cheap to change — they live only here.
+/// ⚠️ PROVISIONAL copy: only "Good, turning perfect" and "Mixed conditions"
+/// are pinned; the other eight strings await design review. Cheap to
+/// change — they live only here.
 enum TrajectoryPhrase {
 
     static func phrase(for tiers: [HourTier]) -> String? {
@@ -19,7 +19,7 @@ enum TrajectoryPhrase {
         if interiorEscapes { return "Mixed conditions" }
 
         switch (first, last) {
-        case (.red, .red): return "Nothing in your range" // the §2 all-bad copy — only ever renders all-red
+        case (.red, .red): return "Nothing in your range" // all-bad copy — only ever renders all-red
         case (.red, .orange): return "Bad, turning good"
         case (.red, .green): return "Bad, turning perfect"
         case (.orange, .red): return "Good, turning bad"
@@ -31,18 +31,18 @@ enum TrajectoryPhrase {
         }
     }
 
-    /// §5 accessibility force: when the system's Differentiate Without Color
-    /// is on, phrases are enabled regardless of the Settings preference —
-    /// color is never the only carrier of quality.
+    /// Accessibility force: when Differentiate Without Color is on, phrases
+    /// are enabled regardless of the Settings preference — color is never
+    /// the only carrier of quality.
     static func phrasesEnabled(preference: Bool, differentiateWithoutColor: Bool) -> Bool {
         preference || differentiateWithoutColor
     }
 
     /// The card's phrase slot. An UNRATED day (server `rating: null` — the
-    /// all-red state) always reads "Nothing in your range" (§2; the approved
-    /// Loaded frame shows it with phrases off, and the server's day rating is
-    /// truth over the mirror's tiers). A rated day's trajectory phrase is
-    /// gated by the §5 toggle; nil hides the slot.
+    /// all-red state) always reads "Nothing in your range", regardless of
+    /// the phrases setting — the server's day rating is truth over the
+    /// mirror's tiers. A rated day's phrase is gated by the toggle; nil
+    /// hides the slot.
     static func cardPhrase(dayRated: Bool, tiers: [HourTier], phrasesEnabled: Bool) -> String? {
         guard dayRated else { return "Nothing in your range" }
         return phrasesEnabled ? phrase(for: tiers) : nil

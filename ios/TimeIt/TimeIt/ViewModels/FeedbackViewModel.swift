@@ -1,20 +1,20 @@
 import Foundation
 import UIKit
 
-/// Feedback-route seam (`POST /api/v1/feedback`, beta-feedback spec §2).
+/// Feedback-route seam (`POST /api/v1/feedback`).
 protocol SuggestionSending {
     func send(_ body: FeedbackBody) async throws
 }
 
-/// State machine for the suggestion sheet (beta-feedback spec §4). The one
-/// hard rule: a typed suggestion is never discarded — any non-204 keeps
-/// `message` intact and surfaces a retryable error (429 gets the throttle
-/// copy); success shows a brief confirmation, then the view dismisses.
+/// State machine for the suggestion sheet. The one hard rule: a typed
+/// suggestion is never discarded — any non-204 keeps `message` intact and
+/// surfaces a retryable error (429 gets the throttle copy); success shows a
+/// brief confirmation, then the view dismisses.
 @MainActor
 final class FeedbackViewModel: ObservableObject {
 
-    /// Client mirror of the route's message cap — drives the counter and the
-    /// Send gate; the server stays authoritative (ADR-0007 discipline).
+    /// Client mirror of the route's message cap — drives the counter and
+    /// Send gate; the server stays authoritative (ADR-0007).
     static let messageLimit = 1000
 
     enum Phase: Equatable {
@@ -33,9 +33,9 @@ final class FeedbackViewModel: ObservableObject {
     private let build: String
     private let iosVersion: String
 
-    /// `deviceId` is the same Keychain install UUID the push path uses (spec
-    /// §4 — push opt-in NOT required); the caller passes it from its
-    /// DeviceRegistration so UI-test runs stay on the seamed Keychain.
+    /// `deviceId` is the same Keychain install UUID the push path uses (push
+    /// opt-in is NOT required); passed in from the caller's DeviceRegistration
+    /// so UI tests stay on the seamed Keychain.
     init(sender: SuggestionSending,
          deviceId: String,
          appVersion: String? = nil,
@@ -74,7 +74,7 @@ final class FeedbackViewModel: ObservableObject {
                                                iosVersion: iosVersion))
             phase = .sent
         } catch {
-            // Non-204: the typed text stays put; Send remains as the retry.
+            // Non-204: text stays put, Send remains the retry.
             phase = .editing
             errorMessage = Self.errorCopy(for: error)
         }
