@@ -53,8 +53,7 @@ struct MapKitGeocoderService: GeocodingProviding {
 
     /// The picker row's disambiguation line. A sub-city result carries its
     /// parent city ("Bang O" → "Bangkok, Thailand") — without it, a
-    /// subdistrict row reads as the city the user searched for (issue #15:
-    /// a Bangkok tester saved the khwaeng "Bang O" believing it was Bangkok).
+    /// subdistrict row reads as the city the user searched for.
     static func regionLine(name: String,
                            locality: String,
                            administrativeArea: String?,
