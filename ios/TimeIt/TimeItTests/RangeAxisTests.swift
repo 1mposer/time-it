@@ -1,9 +1,8 @@
 import XCTest
 @testable import TimeIt
 
-/// The detail week bar's pure layer (§7.3, audit follow-up 2026-08-17): where
-/// a day's COVERED range hours sit on the shared range-zoomed axis, and what
-/// the bar paints. The rule the audit pinned: red is reserved for
+/// The detail week bar's pure layer: where a day's COVERED range hours sit on
+/// the shared range-zoomed axis, and what the bar paints. Red is reserved for
 /// BAD-WITH-DATA — a Range the forecast doesn't cover paints the plain track,
 /// and a partially-covered rated day paints only its true sub-span (stretching
 /// fewer tiers across the full width would fabricate verdicts for hours that
@@ -32,14 +31,14 @@ final class RangeAxisTests: XCTestCase {
     }
 
     func testLeadingGapStartsTheSpanAtItsTrueClockPosition() {
-        // Forecast opens mid-range (a 6–10am activity viewed at 8am): hours
-        // 6–7 are gone — the covered half paints at the RIGHT half of the
-        // axis, not stretched from the left edge.
+        // Forecast opens mid-range (viewed at 8am for a 6–10am window): hours
+        // 6–7 are gone — the covered half paints at the RIGHT, not stretched
+        // from the left edge.
         XCTAssertEqual(RangeAxis.coverageSpan(window: morning, localHours: [8, 9]), 0.5..<1)
     }
 
     func testTrailingGapEndsTheSpanEarly() {
-        // Horizon ends mid-range (the partial tail bucket): only 6–8am exists.
+        // Horizon ends mid-range: only 6–8am exists.
         XCTAssertEqual(RangeAxis.coverageSpan(window: morning, localHours: [6, 7]), 0..<0.5)
     }
 
@@ -53,8 +52,8 @@ final class RangeAxisTests: XCTestCase {
     }
 
     func testNocturnalTailNightCoversTheEveningOnly() throws {
-        // The horizon's last evening has no morning after it — its two
-        // evening hours sit at the START of the night axis.
+        // The horizon's last evening has no morning after it — its two evening
+        // hours sit at the START of the night axis.
         let span = try XCTUnwrap(RangeAxis.coverageSpan(window: nocturnal, localHours: [22, 23]))
         XCTAssertEqual(span.lowerBound, 0, accuracy: 1e-9)
         XCTAssertEqual(span.upperBound, 1.0 / 3, accuracy: 1e-9)
@@ -76,7 +75,7 @@ final class RangeAxisTests: XCTestCase {
         XCTAssertNil(RangeAxis.coverageSpan(window: morning, localHours: [6, 7, 12]))
     }
 
-    // MARK: the paint decision (the audit's three cases + the rated fallback)
+    // MARK: the paint decision (three cases + the rated fallback)
 
     func testNilRatingWithNoCoverageIsThePlainTrack() {
         // Case 1: range fully outside the forecast — red is reserved for
@@ -85,7 +84,7 @@ final class RangeAxisTests: XCTestCase {
     }
 
     func testNilRatingWithCoverageIsSolidRed() {
-        // Case 2 — unchanged: the server judged the covered hours and found
+        // Case 2, unchanged: the server judged the covered hours and found
         // nothing; bad weather is painted, never absent.
         XCTAssertEqual(DayBarPaint.decide(rating: nil, tiers: [.red], coverage: 0..<1), .solidRed)
     }

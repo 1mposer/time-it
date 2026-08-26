@@ -1,8 +1,8 @@
 import XCTest
 @testable import TimeIt
 
-/// Push receipt routing (spec §3). The detector payload's custom keys land at
-/// the ROOT of userInfo beside "aps" (apns2 `data:` merge) — pinned here.
+/// Push receipt routing. The detector payload's custom keys land at the ROOT
+/// of userInfo beside "aps" (apns2 `data:` merge) — pinned here.
 @MainActor
 final class PushRouterTests: XCTestCase {
 

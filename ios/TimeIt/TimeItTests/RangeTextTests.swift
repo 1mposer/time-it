@@ -1,14 +1,13 @@
 import XCTest
 @testable import TimeIt
 
-/// Spec 14 rendering copy derived from the authored Range (pure hour ints —
-/// no timezone math): the card's range chip ("6 – 10am"), the detail header
+/// Rendering copy derived from the authored Range (pure hour ints — no
+/// timezone math): the card's range chip ("6 – 10am"), the detail header
 /// ("Your window: 10pm – 4am nightly"), and the detail week's range-zoomed
-/// axis (start / midpoint / end). Formats mirror the approved frames
-/// (Dashboard Loaded 111:2, Activity Detail 111:62 / nocturnal 275:1535).
+/// axis (start / midpoint / end).
 final class RangeTextTests: XCTestCase {
 
-    // MARK: hourText (moved from ActivityEditorView — one clock dialect)
+    // MARK: hourText (one clock dialect)
 
     func testHourTextMatchesTheAxisLabelStyle() {
         XCTAssertEqual(RangeText.hourText(0), "12am")
@@ -30,7 +29,7 @@ final class RangeTextTests: XCTestCase {
         XCTAssertEqual(RangeText.chipLabel(WindowSpec(startHour: 8, endHour: 12)), "8am – 12pm")
     }
 
-    // MARK: detail window header — range stated once (§7.1)
+    // MARK: detail window header — range stated once
 
     func testHeaderLabelSaysDailyForDiurnal() {
         XCTAssertEqual(RangeText.headerLabel(WindowSpec(startHour: 6, endHour: 10)),
@@ -42,7 +41,7 @@ final class RangeTextTests: XCTestCase {
                        "Your window: 10pm – 4am nightly")
     }
 
-    // MARK: range-zoomed axis — start / midpoint / end, once under the stack (§7.3)
+    // MARK: range-zoomed axis — start / midpoint / end, once under the stack
 
     func testAxisLabelsForDiurnalRange() {
         XCTAssertEqual(RangeText.axisLabels(WindowSpec(startHour: 6, endHour: 10)),
@@ -50,7 +49,6 @@ final class RangeTextTests: XCTestCase {
     }
 
     func testAxisLabelsForNocturnalRangeCrossMidnight() {
-        // The approved nocturnal detail frame's axis: 10pm / 1am / 4am.
         XCTAssertEqual(RangeText.axisLabels(WindowSpec(startHour: 22, endHour: 4)),
                        ["10pm", "1am", "4am"])
     }

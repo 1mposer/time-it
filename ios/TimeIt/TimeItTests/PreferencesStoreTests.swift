@@ -2,8 +2,8 @@ import XCTest
 import CoreLocation
 @testable import TimeIt
 
-/// PreferencesStore owns the optional home location (#5b §5): persisted
-/// locally, used over GPS by the dashboard, cleared back to GPS.
+/// PreferencesStore owns the optional home location: persisted locally, used
+/// over GPS by the dashboard, cleared back to GPS.
 @MainActor
 final class PreferencesStoreTests: XCTestCase {
 
@@ -49,7 +49,7 @@ final class PreferencesStoreTests: XCTestCase {
         XCTAssertNil(PreferencesStore(defaults: defaults).homeLocation)
     }
 
-    // MARK: last-resolved cache (#5c)
+    // MARK: last-resolved cache
 
     func testLastResolvedLocationPersistsAndRestores() {
         let store = PreferencesStore(defaults: defaults)
@@ -71,7 +71,7 @@ final class PreferencesStoreTests: XCTestCase {
                        "the cache is the safety net for exactly this case — clearing home must not empty it")
     }
 
-    // MARK: spec 14 — dismissed templates + the phrases toggle
+    // MARK: dismissed templates + the phrases toggle
 
     func testDismissedTemplateIdsDefaultEmptyAndPersist() {
         XCTAssertTrue(PreferencesStore(defaults: defaults).dismissedTemplateIds.isEmpty)
@@ -105,8 +105,8 @@ final class PreferencesStoreTests: XCTestCase {
     }
 
     func testPreFiveCSavedLocationDecodesWithoutRegion() throws {
-        // #5b persisted SavedLocation without the optional `region` — a #5c
-        // build must still decode it.
+        // A SavedLocation persisted without the optional `region` field must
+        // still decode.
         let legacy = Data(#"{"name":"Dubai Marina","lat":25.08,"lon":55.14}"#.utf8)
         defaults.set(legacy, forKey: PreferencesStore.homeLocationKey)
 

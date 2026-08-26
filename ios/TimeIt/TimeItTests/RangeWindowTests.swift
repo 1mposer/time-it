@@ -2,11 +2,11 @@ import XCTest
 import CoreLocation
 @testable import TimeIt
 
-/// Spec 14 §2/§7 plumbing: which global hours[] indices an Activity's Range
-/// covers within a day bucket (the client twin of the server's window filter
-/// and night-stitch selection), the per-hour tiers over them (HourQuality),
-/// and the card phrase rule. Fixture zone: forecastStart 2026-06-19T12:00:00Z
-/// in Asia/Dubai (+04) → hours[0] is 4pm local; day 0 spans indices 0..<8,
+/// Which global hours[] indices an Activity's Range covers within a day
+/// bucket (the client twin of the server's window filter and night-stitch
+/// selection), the per-hour tiers over them (HourQuality), and the card
+/// phrase rule. Fixture zone: forecastStart 2026-06-19T12:00:00Z in
+/// Asia/Dubai (+04) → hours[0] is 4pm local; day 0 spans indices 0..<8,
 /// day 1 spans 8..<32, day 2 spans 32..<56.
 @MainActor
 final class RangeWindowTests: XCTestCase {
@@ -133,11 +133,10 @@ final class RangeWindowTests: XCTestCase {
         XCTAssertTrue(vm.rangeTiers(for: activity, dayIndex: 0).isEmpty)
     }
 
-    // MARK: cardPhrase — §2 all-bad copy is unconditional; §5 gates the rest
+    // MARK: cardPhrase — all-bad copy is unconditional; the toggle gates the rest
 
     func testUnratedDayAlwaysReadsNothingInYourRange() {
-        // The all-red day's phrase is part of the state (approved Loaded frame
-        // 111:2 shows it with phrases OFF), not gated by the §5 toggle.
+        // The all-red day's phrase is part of the state, not gated by the toggle.
         XCTAssertEqual(TrajectoryPhrase.cardPhrase(dayRated: false, tiers: [], phrasesEnabled: false),
                        "Nothing in your range")
         XCTAssertEqual(TrajectoryPhrase.cardPhrase(dayRated: false, tiers: [.green], phrasesEnabled: true),

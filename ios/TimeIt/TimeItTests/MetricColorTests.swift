@@ -1,7 +1,7 @@
 import XCTest
 @testable import TimeIt
 
-/// Pins the chip colour tiers from ios/guidelines/Guidelines.md ("Metric chip colour tiers").
+/// Pins the chip colour tiers from ios/guidelines/Guidelines.md.
 final class MetricColorTests: XCTestCase {
 
     func testTempBoundaries() {

@@ -1,9 +1,9 @@
 import XCTest
 @testable import TimeIt
 
-/// The client-side static metric catalog (#5b §4): a hand-maintained mirror of
-/// the backend LIVE set behind the MetricCatalogProviding swap seam. These are
-/// the drift tripwires until GET /api/v1/metrics (ADR-0006) lands.
+/// Client-side static metric catalog: a hand-maintained mirror of the backend
+/// LIVE set behind the MetricCatalogProviding swap seam — the drift tripwire
+/// until GET /api/v1/metrics lands (its ADR is unwritten; 0006 is the push ADR).
 final class MetricCatalogTests: XCTestCase {
 
     /// LIVE_METRICS in src/weather/metricCatalog.js — mirror exactly.
@@ -32,7 +32,6 @@ final class MetricCatalogTests: XCTestCase {
     }
 
     func testEveryEntryHasAManifestIconAndDisplayName() {
-        // Manifest table B (design-decisions-issue-5.md §B) — verified names only.
         let manifestIcons: [String: String] = [
             "temp": "thermometer.medium",
             "windSpeed": "wind",
