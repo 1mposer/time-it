@@ -30,7 +30,8 @@ struct MapKitGeocoderService: GeocodingProviding {
         var seen = Set<String>()
         return response.mapItems.compactMap { item -> SavedLocation? in
             let placemark = item.placemark
-            guard let locality = placemark.locality else { return nil }
+            guard let locality = Self.cityIdentity(locality: placemark.locality,
+                                                   administrativeArea: placemark.administrativeArea) else { return nil }
             // Street-level rows also carry a locality — "123 Main St" is not
             // a city. A thoroughfare marks them; neighborhoods ("Dubai
             // Marina") have none and stay.
@@ -49,6 +50,14 @@ struct MapKitGeocoderService: GeocodingProviding {
                                  lon: placemark.coordinate.longitude,
                                  region: region)
         }
+    }
+
+    /// The row's city identity: the locality, or the administrative area for
+    /// places Apple models at province level with no locality (Bangkok,
+    /// Hong Kong) — a bare locality guard filters those cities out entirely.
+    /// nil drops the row (country-level matches carry neither).
+    static func cityIdentity(locality: String?, administrativeArea: String?) -> String? {
+        locality ?? administrativeArea
     }
 
     /// The picker row's disambiguation line. A sub-city result carries its

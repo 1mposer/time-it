@@ -39,4 +39,25 @@ final class GeocodingRegionTests: XCTestCase {
                                                       country: nil)
         XCTAssertNil(region, "an empty line stays nil — the row renders name only")
     }
+
+    // MARK: city identity — locality, or the admin area for province-modeled cities
+
+    func testProvinceModeledCityFallsBackToAdministrativeArea() {
+        let identity = MapKitGeocoderService.cityIdentity(locality: nil,
+                                                          administrativeArea: "Bangkok")
+        XCTAssertEqual(identity, "Bangkok",
+                       "Apple models Bangkok at province level (no locality) — the admin area is the city")
+    }
+
+    func testLocalityOutranksAdministrativeArea() {
+        let identity = MapKitGeocoderService.cityIdentity(locality: "Toronto",
+                                                          administrativeArea: "Ontario")
+        XCTAssertEqual(identity, "Toronto", "a real locality is the city; the province stays disambiguation")
+    }
+
+    func testCountryLevelRowHasNoCityIdentity() {
+        let identity = MapKitGeocoderService.cityIdentity(locality: nil,
+                                                          administrativeArea: nil)
+        XCTAssertNil(identity, "a bare country match is not a pickable place")
+    }
 }
