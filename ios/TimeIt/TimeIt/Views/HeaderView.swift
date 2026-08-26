@@ -1,21 +1,20 @@
 import SwiftUI
 
-/// Gradient dashboard header: the Active location's name (#5c), current
-/// wall-clock time, plus the forecast location's current-hour weather
-/// (temp / wind / humidity from `hours[0]`). Values fall back to `—` while
-/// loading, on error, or when the provider omitted a metric; in the
-/// no-location state the weather rows hide entirely (`showsWeather`) — no
-/// fabricated conditions. The top-right control is the Settings gear — there
-/// is no sign-in (ADR-0001).
+/// Gradient dashboard header: Active location name, wall-clock time, and the
+/// forecast location's current-hour weather (temp/wind/humidity from
+/// `hours[0]`). Falls back to `—` while loading, on error, or when a metric
+/// is missing; in the no-location state the weather rows hide entirely
+/// (`showsWeather`) — no fabricated conditions. Top-right control is the
+/// Settings gear — no sign-in (ADR-0001).
 struct HeaderView: View {
-    /// The Active location's display name (picked city, "Current location",
-    /// or the cached name); nil renders "NO LOCATION" (#5c).
+    /// Active location's display name (picked city, "Current location", or
+    /// the cached name); nil renders "NO LOCATION".
     let locationName: String?
-    /// The current forecast hour (`forecast.hours.first`); nil while loading
-    /// or on error, in which case the placeholders show.
+    /// Current forecast hour (`forecast.hours.first`); nil while loading or
+    /// on error — placeholders show.
     let currentHour: HourlyWeather?
-    /// False in the no-location state: hide temp + conditions rather than
-    /// show placeholders for a location that doesn't exist.
+    /// False in the no-location state — hides temp/conditions rather than
+    /// show placeholders for a nonexistent location.
     var showsWeather = true
     let onGearTap: () -> Void
 
@@ -96,7 +95,7 @@ struct HeaderView: View {
         }
         .fixedSize(horizontal: false, vertical: true)
         // Content stays in the safe area (a control under the status bar is
-        // untappable); only the gradient extends behind it.
+        // untappable) — only the gradient bleeds behind it.
         .background(Theme.headerGradient.ignoresSafeArea(edges: .top))
     }
 }

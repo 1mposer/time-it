@@ -11,8 +11,8 @@ extension Color {
     }
 }
 
-/// Shipped colour tokens — the shipped-truth home (ADR-0009 two-home rule).
-/// Design truth is the Figma file (addresses: docs/design/FIGMA.md); docs carry no values.
+/// Shipped colour tokens — the shipped-truth home (ADR-0009 two-home rule);
+/// Figma holds design truth, docs carry no values.
 enum Theme {
     static let appBackground = Color(hex: 0xf2f2f7)
     static let cardBackground = Color.white
@@ -26,8 +26,8 @@ enum Theme {
     static let accentInteractive = Color(hex: 0x007aff) // Semantic accent/interactive
     static let divider = Color(hex: 0x3c3c43, opacity: 0.18)
 
-    /// The HourTier → rating color binding for the spec 14 gradient slice
-    /// (Semantic rating/perfect · rating/good · rating/bad).
+    /// HourTier → rating color binding for the gradient slice (Semantic
+    /// rating/perfect · rating/good · rating/bad).
     static func tierColor(_ tier: HourTier) -> Color {
         switch tier {
         case .green: return perfectGreen
@@ -36,9 +36,9 @@ enum Theme {
         }
     }
 
-    /// The ONE home of the stop→color binding for gradient slices — the card
-    /// timeline and the detail week rows both route through here, so the
-    /// yellow-waypoint rule (`TierGradient`) exists in exactly one place.
+    /// Single home for the stop→color binding — the card timeline and detail
+    /// week rows both route through here, so the yellow-waypoint rule
+    /// (`TierGradient`) lives in exactly one place.
     static func sliceStops(for tiers: [HourTier]) -> [Gradient.Stop] {
         TierGradient.stops(for: tiers).map { stop in
             Gradient.Stop(color: color(for: stop.color), location: stop.location)

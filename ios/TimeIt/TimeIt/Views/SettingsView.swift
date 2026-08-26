@@ -1,11 +1,9 @@
 import SwiftUI
 
-/// Settings sheet (grill Q9: ship only live controls). Home location (#5b §5,
-/// upgraded to the #5c as-you-type city picker) + the push opt-in
-/// Notifications toggle (item 7, frame section order: HOME LOCATION →
-/// NOTIFICATIONS → DASHBOARD) + the spec 14 §5 dashboard phrases toggle +
-/// About + a location note — no subscription/Pro row (deferred §8), no
-/// account (cut, ADR-0001).
+/// Settings sheet: home location (as-you-type city picker), the push opt-in
+/// Notifications toggle, the dashboard phrases toggle, About, and a location
+/// note. Ships only live controls — no subscription/Pro row, no account
+/// (cut, ADR-0001).
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
@@ -59,8 +57,8 @@ struct SettingsView: View {
                 }
             }
             .sheet(isPresented: $showCityPicker, onDismiss: {
-                // Backing out of the picker without a home abandons a
-                // location-pending opt-in — the toggle must not lie ON later.
+                // Backing out without a home abandons the pending opt-in —
+                // the toggle must never lie ON.
                 if preferences.homeLocation == nil {
                     registration.cancelPendingEnable()
                 }
@@ -69,18 +67,18 @@ struct SettingsView: View {
             }
             .onDisappear {
                 // Leaving Settings mid-detour (prompt ignored, no home yet)
-                // drops the pending opt-in; the user re-flips to retry.
+                // drops the pending opt-in; re-flip to retry.
                 registration.cancelPendingEnable()
             }
         }
     }
 
-    // MARK: notifications — the push opt-in toggle (spec §1)
+    // MARK: notifications — the push opt-in toggle
 
-    /// The real switch (grill Q9: no inert controls — this row shipped only
-    /// with the push client). ON runs location-first (#5c onboarding doors),
-    /// then the permission prompt, then APNs registration; the switch lands
-    /// ON only when that flow completes. OFF deletes the device row.
+    /// The real switch — no inert controls, shipped only with the push
+    /// client. ON runs location-first, then the permission prompt, then APNs
+    /// registration; the switch lands ON only when that flow completes. OFF
+    /// deletes the device row.
     private var notificationsSection: some View {
         Section {
             Toggle(isOn: notificationsBinding) {
@@ -111,28 +109,27 @@ struct SettingsView: View {
     private func enableNotifications() async {
         switch await registration.requestEnable() {
         case .enabled, .authorizationDenied:
-            // Denied: the switch simply stays off — same convention as iOS
-            // Settings; re-flipping re-prompts (or no-ops once determined).
+            // Denied: switch stays off, matching iOS Settings convention;
+            // re-flipping re-prompts (or no-ops once determined).
             break
         case .needsLocation:
             if registration.canPromptForLocationAccess {
                 // Grant → fix → the pending opt-in auto-continues.
                 registration.promptForLocationAccess()
             } else {
-                // Authorized-but-fixless also warms a fix (the #5c doors) —
-                // whichever resolves first, GPS or a picked city, continues.
+                // Authorized-but-fixless also warms a fix — whichever
+                // resolves first, GPS or a picked city, continues.
                 registration.warmLocationFixIfAuthorized()
                 showCityPicker = true
             }
         }
     }
 
-    // MARK: dashboard — the spec 14 §5 phrases toggle
+    // MARK: dashboard — the phrases toggle
 
-    /// Default OFF: the card carries quality in color alone. When the
-    /// system's Differentiate Without Color is on, phrases force-enable and
-    /// the row reads on + locked (§5 accessibility force — color is never
-    /// the only carrier).
+    /// Default OFF — cards carry quality in color alone. When Differentiate
+    /// Without Color is on, phrases force-enable and the row reads on +
+    /// locked (color is never the only carrier).
     private var dashboardSection: some View {
         Section {
             Toggle(isOn: differentiateWithoutColor ? .constant(true) : $preferences.showPhrases) {

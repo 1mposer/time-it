@@ -1,30 +1,29 @@
 import XCTest
 
-/// Acceptance tests for the dashboard (#5a) and the authoring layer (#5b).
-/// The app is launched with a hermetic mock backend (launch arguments below)
-/// so the suite is deterministic — it does not need the Node server or a
-/// Meteosource key.
+/// Acceptance tests for the dashboard and the authoring layer. The app is
+/// launched with a hermetic mock backend (launch arguments below), so the
+/// suite is deterministic — no Node server or Meteosource key needed.
 /// - `UITEST_MOCK_SUCCESS`: canned ForecastResponse (first activity windowed
 ///   today, second windowed tomorrow, the rest null).
 /// - `UITEST_MOCK_FAILURE`: the API throws providerUnavailable (server down / 502).
-/// - `UITEST_RESET`: wipes persisted activities + preferences (including the
-///   #5c last-resolved cache and the spec 14 dismissals/phrases keys) so each
-///   test starts from the first-launch state (omit it to test persistence).
+/// - `UITEST_RESET`: wipes persisted activities + preferences (incl. the
+///   last-resolved cache and the dismissals/phrases keys) so each test starts
+///   from first-launch state (omit to test persistence).
 /// - `UITEST_SEED_LIVE`: pre-persists the two templates as LIVE (ranges
-///   confirmed). Spec 14 §1 made the real first launch dormant — no request,
-///   no rated cards — so every card/flow test scaffolds on this instead.
+///   confirmed) — the real first launch is dormant (no request, no rated
+///   cards), so card/flow tests scaffold on this instead.
 /// - `UITEST_SEED_NOCTURNAL`: pre-persists stargazing LIVE (wrapped 10pm–4am
-///   range) — the §8 nocturnal parity path (6 night buckets, "Tonight" copy).
-/// - `UITEST_LOCATION`: the mock location provider returns a fixed fix (#5c —
-///   without it the provider never resolves and the app shows the no-location
-///   empty state, since the Dubai fallback is deleted).
-/// - `UITEST_LOCATION_DENIED`: no fix and a `.denied` status — acceptance
-///   §3.1's "fresh install, location denied" path.
+///   range) — the nocturnal parity path (6 night buckets, "Tonight" copy).
+/// - `UITEST_LOCATION`: mock location provider returns a fixed fix — without
+///   it the provider never resolves and the app shows the no-location empty
+///   state (the Dubai fallback is deleted).
+/// - `UITEST_LOCATION_DENIED`: no fix and a `.denied` status — the "fresh
+///   install, location denied" path.
 /// - `UITEST_PUSH_DENY`: the mock notification authorizer denies instead of
-///   granting — the push opt-in toggle must revert (item 7).
-/// - `UITEST_BETA`: pins the item-10 beta gate ON (mock runs never read the
-///   simulator's receipt) — the disclaimer banner + suggestion button render.
-///   Omitting it pins the gate OFF: the App Store face of the same archive.
+///   granting — the push opt-in toggle must revert.
+/// - `UITEST_BETA`: pins the beta gate ON (mock runs never read the
+///   simulator's receipt) — the disclaimer banner + suggestion button render;
+///   omitting it pins the gate OFF (the App Store face of the same archive).
 /// - `UITEST_FEEDBACK_FAIL`: the mock feedback route throws a 500 — the
 ///   non-204 path must keep the typed text and offer retry.
 final class TimeItUITests: XCTestCase {
@@ -54,7 +53,7 @@ final class TimeItUITests: XCTestCase {
         }
     }
 
-    // MARK: launch surface (#5a)
+    // MARK: launch surface
 
     func testLaunchesDirectlyToDashboardWithNoGateOrTabBar() {
         let app = launchApp()
@@ -69,15 +68,15 @@ final class TimeItUITests: XCTestCase {
         let app = launchApp()
 
         XCTAssertTrue(app.staticTexts["headerTime"].waitForExistence(timeout: 5))
-        // The mock fixture's hours[0] is temp 24 / wind 10 / humidity 40 — the
-        // header renders the location's current-hour conditions from hours.first.
+        // Mock fixture's hours[0] = temp 24 / wind 10 / humidity 40 — header
+        // renders from hours.first.
         XCTAssertTrue(app.staticTexts["24°C"].exists)
         XCTAssertTrue(app.staticTexts["10 km/h"].exists)
         XCTAssertTrue(app.staticTexts["40%"].exists)
         XCTAssertTrue(app.buttons["settingsGear"].exists, "top-right gear, not a sign-in button")
     }
 
-    // MARK: cards (#5a)
+    // MARK: cards
 
     func testOneCardPerSeedTemplateInRequestOrderWithNoProBadge() {
         let app = launchApp()
@@ -96,12 +95,12 @@ final class TimeItUITests: XCTestCase {
         let app = launchApp()
 
         XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5))
-        // Mock: Cycling is Perfect today across its 6–10am range — the spec 14
-        // §2 sublabel carries the best stretch in the push-copy dialect.
+        // Mock: Cycling is Perfect today across its 6–10am range — the
+        // sublabel carries the best stretch in the push-copy dialect.
         XCTAssertTrue(app.staticTexts["Today · 6–10am"].exists)
         // Fishing Lite has nothing today (all-red range): plain "Today", the
-        // always-visible all-bad phrase — and its tomorrow window must NOT
-        // roll forward onto the card (ADR-0004 amendment 2026-07-20).
+        // always-visible all-bad phrase — its tomorrow window must NOT roll
+        // forward onto the card (ADR-0004 amendment).
         XCTAssertTrue(app.staticTexts["Today"].exists)
         XCTAssertTrue(app.staticTexts["Nothing in your range"].exists)
         XCTAssertFalse(app.staticTexts["Tomorrow"].exists,
@@ -117,7 +116,7 @@ final class TimeItUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["chip.cycling.temp"].exists, "at least one metric chip on the card")
     }
 
-    // MARK: navigation (#5a)
+    // MARK: navigation
 
     func testTappingCardOpensDetailAndBackReturns() {
         let app = launchApp()
@@ -146,12 +145,12 @@ final class TimeItUITests: XCTestCase {
         XCTAssertTrue(app.buttons["settingsGear"].waitForExistence(timeout: 5))
     }
 
-    // MARK: first launch is dormant — the showcase (spec 14 §1/§6)
+    // MARK: first launch is dormant — the showcase
 
     func testFirstLaunchShowsTheDormantShowcase() {
         // The REAL first launch (no UITEST_SEED_LIVE): the full four-template
-        // catalog renders as "Set your range →" showcase cards (Figma
-        // Empty—Showcase 111:32), no request is made, no rated cards.
+        // catalog renders as "Set your range →" showcase cards — no request
+        // is made, no rated cards.
         let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_LOCATION"])
 
         XCTAssertTrue(app.staticTexts["headerTime"].waitForExistence(timeout: 5), "the header still renders")
@@ -162,14 +161,14 @@ final class TimeItUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts["trueEmptyMessage"].exists,
                        "dormant is NOT the no-activities empty state — the store is seeded")
         XCTAssertFalse(app.staticTexts["Weather Unavailable"].exists, "and it is not an error — no request was made")
-        // I2 (all-dormant header state, PROPOSED — owner review pending): no
-        // fetch happened, so the weather rows hide rather than dangle "—".
+        // PROPOSED (owner review pending): no fetch happened, so the weather
+        // rows hide rather than dangle "—".
         XCTAssertFalse(app.staticTexts["headerTemp"].exists,
                        "no fabricated or placeholder weather while nothing is live")
     }
 
     func testShowcaseSetYourRangeConfirmsThePrefillAndRatesTheCard() {
-        // §1: the Range step (the editor, until the wizard lands) is the only
+        // The Range step (the editor, until the wizard lands) is the only
         // door out of dormancy — confirming the prefilled range triggers the
         // first POST and the rated card replaces the showcase card.
         let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_LOCATION"])
@@ -202,9 +201,9 @@ final class TimeItUITests: XCTestCase {
     }
 
     func testDismissingEveryTemplateShowsTheTrueEmptyAddCTA() {
-        // §6 standing invariant: the dashboard always offers a next action.
-        // With every template dismissed the showcase cannot re-seed — the
-        // true-empty state's Add CTA is the way forward (Figma 266:1651).
+        // Standing invariant: the dashboard always offers a next action. With
+        // every template dismissed the showcase cannot re-seed — the
+        // true-empty state's Add CTA is the way forward.
         let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_LOCATION"])
 
         for id in ["cycling", "fishing-lite", "running", "stargazing"] {
@@ -221,12 +220,12 @@ final class TimeItUITests: XCTestCase {
         XCTAssertTrue(app.buttons["addFromScratch"].waitForExistence(timeout: 5), "the CTA opens the Add flow")
     }
 
-    // MARK: error state (#5a)
+    // MARK: error state
 
     func testServerFailureShowsErrorState() {
-        // UITEST_LOCATION matters here: without a resolvable location the #5c
-        // no-location state wins and the failing API is never even called —
-        // and the store must be seeded LIVE or no request happens at all.
+        // UITEST_LOCATION matters here: without a resolvable location, the
+        // no-location state wins and the failing API is never called — the
+        // store must be seeded LIVE or no request happens at all.
         let app = launchApp(arguments: ["UITEST_MOCK_FAILURE", "UITEST_RESET", "UITEST_SEED_LIVE", "UITEST_LOCATION"])
 
         XCTAssertTrue(app.staticTexts["Weather Unavailable"].waitForExistence(timeout: 5),
@@ -234,7 +233,7 @@ final class TimeItUITests: XCTestCase {
         XCTAssertFalse(app.buttons["card.cycling"].exists)
     }
 
-    // MARK: ghost add-card + add flow (#5b)
+    // MARK: ghost add-card + add flow
 
     func testGhostAddCardIsVisibleAfterCardsAndOpensAddFlow() {
         let app = launchApp()
@@ -298,9 +297,9 @@ final class TimeItUITests: XCTestCase {
         minField.typeText("15")
         XCTAssertTrue(save.isEnabled, "one bound satisfies the numeric threshold rule")
 
-        // Spec 14 §1: the "Only at certain hours" toggle is DELETED — the
-        // Range section always shows its pickers (prefilled 6–10am from
-        // scratch) and saving confirms the range. No whole-day path exists.
+        // The "Only at certain hours" toggle is DELETED — the Range section
+        // always shows its pickers (prefilled 6–10am from scratch); saving
+        // confirms the range. No whole-day path exists.
         XCTAssertFalse(app.switches["editor.windowToggle"].exists,
                        "the window toggle is gone — ranges are mandatory")
         scrollTo(app.buttons["editor.startHour"], in: app)
@@ -311,7 +310,7 @@ final class TimeItUITests: XCTestCase {
                       "the scratch-built card renders with its confirmed range")
     }
 
-    // MARK: edit + delete via the card gear (#5b)
+    // MARK: edit + delete via the card gear
 
     func testGearOpensEditorAndEditedLabelReflectsOnCard() {
         let app = launchApp()
@@ -354,9 +353,9 @@ final class TimeItUITests: XCTestCase {
         XCTAssertTrue(app.buttons["editor.confirmDelete"].firstMatch.waitForExistence(timeout: 5))
         app.buttons["editor.confirmDelete"].firstMatch.tap()
 
-        // Spec 14 §6 ruling: deleting the last Activity re-seeds the showcase
-        // DORMANT — the four "Set your range →" cards render (no rated cards,
-        // no request), NOT the no-activities empty state.
+        // Deleting the last Activity re-seeds the showcase DORMANT — the
+        // four "Set your range →" cards render (no rated cards, no request),
+        // NOT the no-activities empty state.
         XCTAssertTrue(app.buttons["card.fishing-lite"].waitForNonExistence(timeout: 5),
                       "no rated cards — the re-seeded showcase is dormant")
         XCTAssertTrue(app.otherElements["showcase.cycling"].waitForExistence(timeout: 5),
@@ -366,7 +365,7 @@ final class TimeItUITests: XCTestCase {
                        "the re-seeded showcase is not the empty state — deleting everything is not a dead end")
     }
 
-    // MARK: persistence across relaunch (#5b)
+    // MARK: persistence across relaunch
 
     func testAuthoredListPersistsAcrossRelaunch() {
         var app = launchApp()
@@ -389,10 +388,10 @@ final class TimeItUITests: XCTestCase {
                       "the authored list (not the seeds) survives a relaunch")
     }
 
-    // MARK: home location (#5b, city picker re-recorded for #5c)
+    // MARK: home location
 
-    /// Searches the city picker (#5c as-you-type — no Search button) and taps
-    /// the first mock result. The picker sheet must already be on screen.
+    /// Searches the city picker (as-you-type — no Search button) and taps the
+    /// first mock result. The picker sheet must already be on screen.
     private func pickCity(_ name: String, in app: XCUIApplication) {
         let search = app.textFields["cityPicker.search"]
         XCTAssertTrue(search.waitForExistence(timeout: 5))
@@ -425,13 +424,13 @@ final class TimeItUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Using current location"].waitForExistence(timeout: 5), "clearing returns to GPS")
     }
 
-    // MARK: no-location onboarding (#5c)
+    // MARK: no-location onboarding
 
     func testNoLocationShowsSkeletonsAndCTAsWithNoWeather() {
-        // No UITEST_LOCATION: the provider never resolves — nothing in the
-        // chain. Seeded LIVE because spec 14 made the all-dormant showcase the
-        // first-launch screen: no-location surfaces once a confirmed range
-        // makes a fetch worth attempting (feasibility I2 note).
+        // No UITEST_LOCATION: the provider never resolves. Seeded LIVE
+        // because the all-dormant showcase is the first-launch screen —
+        // no-location surfaces once a confirmed range makes a fetch worth
+        // attempting.
         let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_SEED_LIVE"])
 
         XCTAssertTrue(app.buttons["enableLocationButton"].waitForExistence(timeout: 5))
@@ -445,11 +444,11 @@ final class TimeItUITests: XCTestCase {
     }
 
     func testLiveActivitiesWithLocationDeniedShowTheSameEmptyState() {
-        // The #5c acceptance path re-based on spec 14: a TRUE fresh install
-        // now shows the dormant showcase (location not yet needed), so the
-        // denied case is pinned with live activities. The provider reports
-        // .denied with no fix — the CTA would deep-link to system Settings
-        // (not provable hermetically), but the honest empty state must render.
+        // A TRUE fresh install now shows the dormant showcase (location not
+        // yet needed), so the denied case is pinned with live activities. The
+        // provider reports .denied with no fix — the CTA would deep-link to
+        // system Settings (not provable hermetically), but the honest empty
+        // state must render.
         let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_SEED_LIVE", "UITEST_LOCATION_DENIED"])
 
         XCTAssertTrue(app.buttons["enableLocationButton"].waitForExistence(timeout: 5))
@@ -472,7 +471,7 @@ final class TimeItUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["DUBAI MARINA"].exists, "the picked city names the header")
     }
 
-    // MARK: phrases toggle (spec 14 §5)
+    // MARK: phrases toggle
 
     func testPhrasesToggleDefaultOffAndShowsPhraseWhenEnabled() {
         let app = launchApp()
@@ -497,7 +496,7 @@ final class TimeItUITests: XCTestCase {
                       "with the toggle on, the card shows its trajectory phrase")
     }
 
-    // MARK: detail page (spec 14 §7)
+    // MARK: detail page
 
     func testDetailShowsRangeOnceSetupOnceAlignedWeekAndTapToExpand() {
         let app = launchApp()
@@ -507,26 +506,26 @@ final class TimeItUITests: XCTestCase {
         card.tap()
         XCTAssertTrue(app.navigationBars["Cycling"].waitForExistence(timeout: 5))
 
-        // §7.1 — the Range stated once, with its edit door.
+        // The Range stated once, with its edit door.
         XCTAssertTrue(app.staticTexts["Your window: 6 – 10am daily"].exists)
         XCTAssertTrue(app.buttons["detail.editRange"].exists)
-        // §7.2 — the setup stated once (never repeated per hour).
+        // The setup stated once (never repeated per hour).
         XCTAssertTrue(app.staticTexts["Temp 15 – 32°C required · Wind ≤ 25 km/h optional · Rain ≤ 0.2 mm required · UV ≤ 8 optional"].exists)
         XCTAssertTrue(app.buttons["detail.editMetrics"].exists)
-        // §7.3 — 7 aligned day rows (diurnal), best-stretch time on rated days.
+        // 7 aligned day rows (diurnal), best-stretch time on rated days.
         XCTAssertTrue(app.staticTexts["Today"].exists)
         XCTAssertTrue(app.staticTexts["6–10am"].exists, "Today's best stretch")
 
-        // §7.4 — hourly numbers only behind a tap, collapsed by default
-        // (expanded while Today is still on screen, before scrolling).
+        // Hourly numbers only behind a tap, collapsed by default (expanded
+        // while Today is still on screen, before scrolling).
         XCTAssertFalse(app.otherElements["detail.hours.0"].exists, "collapsed by default")
         app.buttons["detail.day.0"].tap()
         XCTAssertTrue(app.otherElements["detail.hours.0"].waitForExistence(timeout: 5),
                       "the tapped day reveals its range hours")
 
-        // §7.3 — the week runs to Thursday (7 rows) and shares the
-        // range-zoomed axis once under the stack. Rows beyond the first are
-        // read via their VoiceOver labels (XCUI flattens button inner texts).
+        // The week runs to Thursday (7 rows) and shares the range-zoomed axis
+        // once under the stack. Rows beyond the first are read via VoiceOver
+        // labels (XCUI flattens button inner texts).
         let dayRows = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'detail.day.'"))
         XCTAssertEqual(dayRows.count, 7, "7 aligned day rows for a diurnal activity")
         XCTAssertTrue(app.buttons["detail.day.6"].label.hasPrefix("Thursday"),
@@ -535,9 +534,9 @@ final class TimeItUITests: XCTestCase {
     }
 
     func testNocturnalDetailShowsSixNightRowsAndNightlyHeader() {
-        // §8 nocturnal parity: same skeleton, night-phrased — 6 night buckets
+        // Nocturnal parity: same skeleton, night-phrased — 6 night buckets
         // (per-activity days.length), evening-keyed rows, range-zoomed
-        // 10pm/1am/4am axis (Figma 275:1535).
+        // 10pm/1am/4am axis.
         let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_SEED_NOCTURNAL", "UITEST_LOCATION"])
 
         let card = app.buttons["card.stargazing"]
@@ -549,7 +548,7 @@ final class TimeItUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Your window: 10pm – 4am nightly"].exists)
         // Day rows read via their VoiceOver labels — XCUI flattens a SwiftUI
         // button's inner texts, so the label (day name + rating + times, the
-        // §2 spoken-summary dialect) is the deterministic surface.
+        // spoken-summary dialect) is the deterministic surface.
         let dayRows = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'detail.day.'"))
         XCTAssertEqual(dayRows.count, 6, "a nocturnal activity has 6 night buckets, never an assumed 7")
         XCTAssertTrue(app.buttons["detail.day.0"].label.hasPrefix("Tonight"),
@@ -585,7 +584,7 @@ final class TimeItUITests: XCTestCase {
         XCTAssertFalse(app.buttons["enableLocationButton"].exists, "not the empty state")
     }
 
-    // MARK: push opt-in client (item 7)
+    // MARK: push opt-in client
 
     /// Polls an XCUI switch for a target value — the enable flow completes
     /// asynchronously (permission → registration), so a plain read races it.
@@ -634,8 +633,8 @@ final class TimeItUITests: XCTestCase {
     }
 
     func testNotificationsToggleRoutesThroughCityPickerWithoutALocation() {
-        // GPS denied, no home: spec §1 routes the opt-in through the #5c
-        // onboarding — here the city-picker door. Cancelling abandons it.
+        // GPS denied, no home: routes the opt-in through onboarding — here
+        // the city-picker door. Cancelling abandons it.
         let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_SEED_LIVE",
                                         "UITEST_LOCATION_DENIED"])
 
@@ -659,8 +658,8 @@ final class TimeItUITests: XCTestCase {
         let callout = app.buttons["pushCallout"]
         XCTAssertTrue(callout.waitForExistence(timeout: 5),
                       "the one-time callout sits above the card list")
-        // Round-3 display copy (FIGMA.md §7, owner hand-edit 2026-08-18): the
-        // hyphen is dropped in UI copy only — docs keep "Perfect-window alert".
+        // The hyphen is dropped in UI copy only — docs keep "Perfect-window
+        // alert".
         XCTAssertTrue(app.staticTexts["Get a morning digest + Perfect window alerts"].exists)
 
         callout.tap()
@@ -669,7 +668,7 @@ final class TimeItUITests: XCTestCase {
                       "the callout deep-links to the Settings Notifications row")
     }
 
-    // MARK: beta feedback — disclaimer banner + suggestion sheet (item 10)
+    // MARK: beta feedback — disclaimer banner + suggestion sheet
 
     func testBetaBannerAndSuggestionButtonRenderWhenGateOn() {
         let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_SEED_LIVE",
@@ -682,7 +681,7 @@ final class TimeItUITests: XCTestCase {
             NSPredicate(format: "label CONTAINS 'early build for Time it'")).firstMatch.exists,
                       "the owner's round-2 disclaimer copy")
         XCTAssertTrue(app.buttons["betaBanner.suggest"].exists, "with its suggestion entry point")
-        // The approved stacking order: the push callout first, banner below.
+        // Stacking order: the push callout first, banner below.
         XCTAssertLessThan(app.buttons["pushCallout"].frame.minY, banner.frame.minY)
     }
 

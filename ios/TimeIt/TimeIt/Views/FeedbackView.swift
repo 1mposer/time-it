@@ -1,9 +1,7 @@
 import SwiftUI
 
-/// The beta suggestion sheet (beta-feedback spec §4): text editor + Send —
-/// type, tap Send, done. Non-204 keeps the typed text with Send as the retry
-/// (a typed suggestion is never discarded); success shows a brief
-/// confirmation, then the sheet dismisses itself.
+/// Beta suggestion sheet: type, Send. A non-204 keeps the typed text with
+/// Send as retry (never discarded); success briefly confirms, then dismisses.
 struct FeedbackView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel: FeedbackViewModel
@@ -33,8 +31,8 @@ struct FeedbackView: View {
                 }
             }
         }
-        // Mid-send, an accidental swipe-down would orphan the in-flight POST
-        // with no way to see its outcome; editing text stays user-cancellable.
+        // Blocks swipe-to-dismiss mid-send — an orphaned in-flight POST would
+        // have no visible outcome; editing text stays cancellable.
         .interactiveDismissDisabled(viewModel.phase == .sending)
         .onChange(of: viewModel.phase) { _, phase in
             guard phase == .sent else { return }
@@ -109,7 +107,7 @@ struct FeedbackView: View {
     }
 
     /// UI-test mock runs get the hermetic feedback route; everyone else the
-    /// real client (same factory pattern as the app's other seams).
+    /// real client (same seam pattern as elsewhere).
     @MainActor
     private static func makeSender() -> SuggestionSending {
         #if DEBUG

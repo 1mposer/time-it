@@ -1,9 +1,8 @@
 import SwiftUI
 
-/// A DORMANT Activity's card (spec 14 §1/§6, Figma Showcase Card 92:12 /
-/// Empty—Showcase 111:32): a template preview, NOT a rated card — no weather,
-/// no timeline, no chips. "Set your range →" opens the editor with the
-/// Range prefill loaded (confirmation = saving; the only door out of
+/// A DORMANT Activity's card: a template preview, NOT a rated card — no
+/// weather, no timeline, no chips. "Set your range →" opens the editor with
+/// the Range prefill loaded (confirmation = saving; the only door out of
 /// dormancy); "✕" dismisses (remembered in preferences, survives re-seeds).
 struct ShowcaseCardView: View {
     let activity: AuthoredActivity
@@ -74,15 +73,15 @@ struct ShowcaseCardView: View {
             RoundedRectangle(cornerRadius: 16)
                 .stroke(Color.black.opacity(0.06), lineWidth: 0.5)
         )
-        // .contain creates a named CONTAINER element — a bare identifier on
-        // a stack would instead propagate onto every child element and
-        // clobber the buttons' own identifiers in the XCUI tree.
+        // .contain creates a named CONTAINER — a bare identifier on the
+        // stack would propagate onto every child and clobber the buttons'
+        // own XCUI identifiers.
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("showcase.\(activity.id)")
     }
 
-    /// "Temperature · Wind Speed · Rainfall · UV Index" — the same one-line
-    /// summary the Add sheet's template rows use.
+    /// e.g. "Temperature · Wind Speed · Rainfall · UV Index" — same one-line
+    /// summary format as the Add sheet's template rows.
     private var metricSummary: String {
         activity.displayMetrics
             .map { catalog.displayName(for: $0) }
