@@ -9,16 +9,16 @@ protocol LocationProviding: AnyObject {
     /// consumer that read `location` too early subscribes here to react when
     /// the real fix lands (e.g. rate a forecast that had no location yet).
     var locationPublisher: AnyPublisher<CLLocation?, Never> { get }
-    /// #5c: distinguishes not-yet-asked from denied, so the "Enable location"
-    /// CTA can fire the system prompt in the first case and deep-link to
-    /// system Settings in the second.
+    /// Distinguishes not-yet-asked from denied, so the "Enable location" CTA
+    /// can fire the system prompt in the first case and deep-link to system
+    /// Settings in the second.
     var authorizationStatus: CLAuthorizationStatus { get }
     /// Emits when authorization changes (e.g. the user returns from system
     /// Settings after granting access).
     var authorizationPublisher: AnyPublisher<CLAuthorizationStatus, Never> { get }
     /// Ask for a fresh fix. Fix-only — never triggers the permission prompt;
-    /// callers check `authorizationStatus` first (#5c audit F1: the prompt
-    /// belongs to the "Enable location" CTA, not to every load).
+    /// callers check `authorizationStatus` first (the prompt belongs to the
+    /// "Enable location" CTA, not to every load).
     func requestLocation()
     /// Fire the When-In-Use permission prompt. Only the CTA calls this — a
     /// no-op once the status is determined.
@@ -27,8 +27,8 @@ protocol LocationProviding: AnyObject {
 
 /// Thin CLLocationManager wrapper. Silent failure by design — when nothing
 /// arrives, `location` stays nil and the ViewModel walks the rest of the
-/// Active-location chain (#5c: last-resolved cache, then the no-location
-/// empty state — never a substitute coordinate).
+/// Active-location chain (last-resolved cache, then the no-location empty
+/// state — never a substitute coordinate).
 @MainActor
 final class LocationManager: NSObject, ObservableObject, LocationProviding {
     static let shared = LocationManager()

@@ -3,8 +3,8 @@ import Security
 
 /// The real Keychain (ADR-0001): a generic-password item per key, so the
 /// install UUID survives reinstall. Service string is deliberately NOT the
-/// bundle id — the pending com.timeit.app.dev rename (ROADMAP item 4) must
-/// not strand the install id under the old name.
+/// bundle id — a bundle id rename must not strand the install id under the
+/// old name.
 struct KeychainStore: KeychainStoring {
 
     private static let service = "com.timeit.device"
@@ -27,16 +27,16 @@ struct KeychainStore: KeychainStoring {
         SecItemDelete(base as CFDictionary)
         var add = base
         add[kSecValueData as String] = data
-        // Readable after the first unlock (add-time only — an accessibility
+        // Readable after first unlock (add-time only — an accessibility
         // attribute in the copy-matching query would mismatch existing
-        // items): a protection-class miss at a locked-state launch re-mints
-        // the UUID, and a duplicate device row means duplicate pushes.
+        // items). A protection-class miss at a locked-state launch re-mints
+        // the UUID, causing a duplicate device row and duplicate pushes.
         add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
         let status = SecItemAdd(add as CFDictionary, nil)
         if status != errSecSuccess || read(key: key) != value {
-            // One retry covers a transient duplicate-item race; beyond that
-            // the failure is accepted residual risk — this session keeps its
-            // minted id and the next launch re-mints.
+            // One retry covers a transient duplicate-item race; beyond that,
+            // accepted residual risk — this session keeps its minted id and
+            // the next launch re-mints.
             SecItemDelete(base as CFDictionary)
             SecItemAdd(add as CFDictionary, nil)
         }

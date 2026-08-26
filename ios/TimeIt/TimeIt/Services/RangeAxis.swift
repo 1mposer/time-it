@@ -1,11 +1,11 @@
 import Foundation
 
-/// Position math for the detail week's range-zoomed axis (§7.3, audit
-/// follow-up 2026-08-17): where a day's COVERED range hours sit on the shared
-/// [0, 1] axis whose full span is the Range. A day whose forecast covers only
-/// part of the Range (partial day 0, horizon tail, nocturnal tail night)
-/// paints only its true sub-span — stretching fewer tiers across the full
-/// width would fabricate verdicts for hours that have no data.
+/// Position math for the detail week's range-zoomed axis: where a day's
+/// COVERED range hours sit on the shared [0, 1] axis whose full span is the
+/// Range. A day whose forecast covers only part of the Range (partial day 0,
+/// horizon tail, nocturnal tail night) paints only its true sub-span —
+/// stretching fewer tiers across the full width would fabricate verdicts for
+/// hours that have no data.
 enum RangeAxis {
 
     /// The Range's slot count — `(end − start + 24) % 24`, the wrap-safe
@@ -16,10 +16,10 @@ enum RangeAxis {
 
     /// The axis fraction the covered range hours occupy. Each local hour maps
     /// to slot `(hour − start + 24) % 24` of `slotCount`; forecast hours are
-    /// contiguous, so the covered slots are one run and the span is the first
-    /// slot's leading edge to the last slot's trailing edge. Nil when nothing
-    /// is covered — or when an hour falls outside the Range (the inputs
-    /// disagree; paint nothing rather than lie).
+    /// contiguous, so the covered slots form one run from the first slot's
+    /// leading edge to the last slot's trailing edge. Nil when nothing is
+    /// covered, or when an hour falls outside the Range (inputs disagree —
+    /// paint nothing rather than lie).
     static func coverageSpan(window: WindowSpec, localHours: [Int]) -> Range<Double>? {
         let count = slotCount(window)
         guard count > 0, !localHours.isEmpty else { return nil }
@@ -30,8 +30,8 @@ enum RangeAxis {
     }
 }
 
-/// What the detail week bar paints — the audit warning's decision table. Red
-/// is reserved for BAD-WITH-DATA (the rule the card already follows): an
+/// What the detail week bar paints — the decision table for it. Red is
+/// reserved for BAD-WITH-DATA (the rule the card already follows): an
 /// uncovered Range shows the plain track, and a rated day's gradient paints
 /// only over its covered sub-span at true clock position.
 enum DayBarPaint: Equatable {

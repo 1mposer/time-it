@@ -1,21 +1,20 @@
 import Foundation
 
-/// A geocoded place the user chose as home (#5b §5). When set, the dashboard
-/// fetches for these coords instead of GPS.
+/// A geocoded place the user chose as home. When set, the dashboard fetches
+/// for these coords instead of GPS.
 struct SavedLocation: Codable, Equatable {
     var name: String
     var lat: Double
     var lon: Double
     /// Disambiguation shown in the city picker ("Ontario, Canada"). Optional
-    /// so pre-#5c persisted values still decode. Participates in the
-    /// synthesized Equatable like every field — which the home-change
-    /// refetch sink's removeDuplicates relies on.
+    /// so previously persisted values still decode. Participates in the
+    /// synthesized Equatable like every field — the home-change refetch
+    /// sink's removeDuplicates relies on this.
     var region: String? = nil
 }
 
-/// User preferences that aren't the activity list (#5b §5): the optional home
-/// location plus the last-resolved cache (#5c). Persists locally; no cloud
-/// sync (scoping #3).
+/// User preferences that aren't the activity list: the optional home location
+/// plus the last-resolved cache. Persists locally; no cloud sync.
 @MainActor
 final class PreferencesStore: ObservableObject {
     static let shared = PreferencesStore()
@@ -26,34 +25,34 @@ final class PreferencesStore: ObservableObject {
     static let showPhrasesKey = "showPhrases"
     static let pushCalloutDismissedKey = "pushCalloutDismissed"
 
-    /// nil = follow the device location (#5c: then the last-resolved cache).
+    /// nil = follow the device location (then the last-resolved cache).
     @Published var homeLocation: SavedLocation? {
         didSet { persist(homeLocation, key: Self.homeLocationKey) }
     }
 
-    /// #5c: the location the most recent successful rating actually used.
-    /// Read only when home and GPS are both unavailable — real data the user
-    /// has seen before beats an empty dashboard. Clearing home does NOT clear
+    /// The location the most recent successful rating actually used. Read
+    /// only when home and GPS are both unavailable — real data the user has
+    /// seen before beats an empty dashboard. Clearing home does NOT clear
     /// this.
     @Published var lastResolvedLocation: SavedLocation? {
         didSet { persist(lastResolvedLocation, key: Self.lastResolvedLocationKey) }
     }
 
-    /// Spec 14 §6: showcase templates the user dismissed ("✕ not for me").
-    /// A dismissal survives the delete-all re-seed — only these ids stay gone.
+    /// Showcase templates the user dismissed ("✕ not for me"). A dismissal
+    /// survives the delete-all re-seed — only these ids stay gone.
     @Published var dismissedTemplateIds: Set<String> {
         didSet { persist(dismissedTemplateIds.isEmpty ? nil : dismissedTemplateIds, key: Self.dismissedTemplatesKey) }
     }
 
-    /// Spec 14 §5: the phrases toggle — default OFF (the card carries quality
-    /// in color alone). The system's Differentiate Without Color force-enables
-    /// phrases regardless of this value (`TrajectoryPhrase.phrasesEnabled`).
+    /// The phrases toggle — default OFF (the card carries quality in color
+    /// alone). The system's Differentiate Without Color force-enables phrases
+    /// regardless of this value (`TrajectoryPhrase.phrasesEnabled`).
     @Published var showPhrases: Bool {
         didSet { defaults.set(showPhrases, forKey: Self.showPhrasesKey) }
     }
 
-    /// Push-client spec §1: the dashboard callout is one-time — ✕ hides it
-    /// for good (enabling notifications hides it without setting this).
+    /// The dashboard callout is one-time — ✕ hides it for good (enabling
+    /// notifications hides it without setting this).
     @Published var pushCalloutDismissed: Bool {
         didSet { defaults.set(pushCalloutDismissed, forKey: Self.pushCalloutDismissedKey) }
     }
