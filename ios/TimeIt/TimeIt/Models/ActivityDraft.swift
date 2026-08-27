@@ -112,9 +112,19 @@ struct ThresholdDraft: Equatable {
         isFlag = threshold.isFlag
     }
 
+    /// The one-tap prefill: the metric's preset bounds as a Must-have
+    /// threshold (`required: true`), zero typing needed.
+    init(preset descriptor: MetricDescriptor) {
+        minText = descriptor.presetMin.map(Self.format) ?? ""
+        maxText = descriptor.presetMax.map(Self.format) ?? ""
+        required = true
+        isFlag = descriptor.kind == .flag
+    }
+
     /// Int(Double) traps outside Int64's range, so only whole numbers safely
-    /// inside it take the integer form.
-    private static func format(_ value: Double) -> String {
+    /// inside it take the integer form. Internal — the threshold slider writes
+    /// its snapped values back through the same formatting.
+    static func format(_ value: Double) -> String {
         if value.isFinite, value == value.rounded(), abs(value) < 1e15 {
             return String(Int(value))
         }
