@@ -19,37 +19,11 @@ struct ActivityIconView: View {
         UIImage(systemName: identifier) != nil ? identifier : "questionmark.circle"
     }
 
-    /// The activity-icon manifest — the editor's icon picker reads this list,
-    /// not whatever the current Templates happen to use.
-    static let activityIconManifest: [String] = [
-        "figure.outdoor.cycle",
-        "figure.baseball",
-        "figure.american.football",
-        "figure.basketball",
-        "figure.cricket",
-        "figure.skiing.downhill",
-        "figure.golf",
-        "figure.hiking",
-        "figure.mind.and.body",
-        "figure.pickleball",
-        "figure.pool.swim",
-        "figure.outdoor.rowing",
-        "figure.rugby",
-        "figure.sailing",
-        "figure.skateboarding",
-        "soccerball",
-        "baseball",
-        "rugbyball",
-        "tennis.racket",
-        "figure.surfing",
-        "figure.tennis",
-        "figure.volleyball",
-        "figure.yoga",
-        "figure.fishing",
-        "figure.run",
-        "moon.stars.fill",
-        "questionmark.circle",
-    ]
+    /// The activity-icon manifest — derived from the `IconCatalog` tree (the
+    /// single source of truth), so the picker, this fallback list, and the
+    /// audit preview can never drift. The sentinel stays a *fallback* in
+    /// `resolve(_:)` but is not in the pickable set.
+    static let activityIconManifest: [String] = IconCatalog.allIcons
 }
 #Preview("Icon manifest") {
     ScrollView {
