@@ -29,3 +29,19 @@ struct ActivityIconView: View {
         "questionmark.circle",
     ]
 }
+
+#Preview("Icon manifest") {
+    ScrollView {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 80))], spacing: 24) {
+            ForEach(ActivityIconView.activityIconManifest, id: \.self) { name in
+                VStack(spacing: 6) {
+                    ActivityIconView(identifier: name, size: 28)
+                    Text(name)
+                        .font(.caption2)
+                        .multilineTextAlignment(.center)
+                }
+            }
+        }
+        .padding()
+    }
+}
