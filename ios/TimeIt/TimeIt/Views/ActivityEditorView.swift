@@ -93,18 +93,21 @@ struct ActivityEditorView: View {
     private var rangeIsValid: Bool { draft.startHour != draft.endHour }
 
     private func tapTab(_ index: Int) {
-        showingRangeWarning = false
         if index <= step {
+            showingRangeWarning = false
             step = index
         } else if index == EditorStep.review.rawValue, rangeIsValid, !rangeConfirmed,
                   isComplete(EditorStep.nameIcon.rawValue), isComplete(EditorStep.metrics.rawValue) {
             // §6: tapping Review over a valid-but-unconfirmed range takes the
-            // warn-then-proceed path (shown on the Range tab, under the button).
+            // warn-then-proceed path (shown on the Range tab, under the
+            // button) — warnThenProceed reads the warning flag to tell first
+            // press from second, so it must not be cleared before this call.
             warnThenProceed()
-        } else if isUnlocked(index) {
-            step = index
+        } else {
+            showingRangeWarning = false
+            if isUnlocked(index) { step = index }
+            // Locked tab: no-op.
         }
-        // Locked tab: no-op.
     }
 
     private func confirmRange() {

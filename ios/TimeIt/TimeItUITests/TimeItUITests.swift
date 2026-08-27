@@ -202,6 +202,32 @@ final class TimeItUITests: XCTestCase {
                       "the other templates stay dormant showcase cards — visible, never POSTed")
     }
 
+    func testReviewTabTapTakesTheWarnThenProceedPath() {
+        // Plan §6: the SECOND press proceeds for BOTH paths — "presses Next
+        // Step (or taps the Review tab)". The Review-tab tap must not loop
+        // on the warning.
+        let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_LOCATION"])
+
+        let cta = app.buttons["showcase.setRange.cycling"]
+        XCTAssertTrue(cta.waitForExistence(timeout: 5))
+        cta.tap()
+
+        let reviewTab = app.buttons["editor.tab.3"]
+        XCTAssertTrue(reviewTab.waitForExistence(timeout: 5))
+        reviewTab.tap()
+
+        XCTAssertTrue(app.staticTexts["editor.rangeWarning"].waitForExistence(timeout: 5),
+                      "first Review-tab tap warns")
+        XCTAssertTrue(app.pickers["editor.startHour"].exists,
+                      "…landing on the Range tab so the skipped range is visible")
+        XCTAssertFalse(app.buttons["editor.save"].exists, "not on Review yet")
+
+        reviewTab.tap()
+        XCTAssertTrue(app.buttons["editor.save"].waitForExistence(timeout: 5),
+                      "second Review-tab tap proceeds to Review (rangeConfirmed set)")
+        XCTAssertFalse(app.staticTexts["editor.rangeWarning"].exists)
+    }
+
     func testDismissingAShowcaseCardRemovesIt() {
         let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_LOCATION"])
 
