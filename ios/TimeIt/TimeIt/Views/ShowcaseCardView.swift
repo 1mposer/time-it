@@ -88,3 +88,19 @@ struct ShowcaseCardView: View {
             .joined(separator: " · ")
     }
 }
+
+#if DEBUG
+#Preview("Dormant templates") {
+    ScrollView {
+        VStack(spacing: 10) {
+            ForEach(SeedTemplates.firstLaunchSeeds) { activity in
+                ShowcaseCardView(activity: activity,
+                                 onSetRange: {},
+                                 onDismiss: {})
+            }
+        }
+        .padding(14)
+    }
+    .background(Theme.appBackground)
+}
+#endif

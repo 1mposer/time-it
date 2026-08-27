@@ -286,3 +286,37 @@ struct TimelineBarView: View {
         return "\(day.ratingDisplay) window, \(deriver.hourLabel(at: startIndex)) to \(deriver.hourLabel(at: endIndex))"
     }
 }
+
+#if DEBUG
+#Preview("Perfect + no-window") {
+    let forecast = PreviewFixtures.forecast
+    let perfect = forecast.activities[0]
+    let perfectDay = perfect.days[0]
+    let red = forecast.activities[2]
+    ScrollView {
+        VStack(spacing: 10) {
+            ActivityCardView(activity: perfect,
+                             day: perfectDay,
+                             windowStartHour: perfectDay.startIndex.map { forecast.hours[$0] },
+                             deriver: PreviewFixtures.timeDeriver,
+                             hoursCount: forecast.hours.count,
+                             iconSymbol: "figure.outdoor.cycle",
+                             rangeChipLabel: RangeText.chipLabel(WindowSpec(startHour: 6, endHour: 10)),
+                             sliceRange: 2..<6,
+                             tiers: [.green, .green, .green, .green],
+                             phrase: "Perfect all morning.")
+            ActivityCardView(activity: red,
+                             day: nil,
+                             windowStartHour: nil,
+                             deriver: PreviewFixtures.timeDeriver,
+                             hoursCount: forecast.hours.count,
+                             iconSymbol: "figure.run",
+                             rangeChipLabel: RangeText.chipLabel(WindowSpec(startHour: 6, endHour: 9)),
+                             sliceRange: 2..<5,
+                             tiers: [.red, .red, .orange])
+        }
+        .padding(14)
+    }
+    .background(Theme.appBackground)
+}
+#endif

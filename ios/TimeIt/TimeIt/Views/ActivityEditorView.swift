@@ -284,3 +284,11 @@ struct ActivityEditorView: View {
         RangeText.hourText(hour)
     }
 }
+
+#Preview("New Activity") {
+    NavigationStack {
+        ActivityEditorView(existing: SeedTemplates.cycling,
+                           isNew: true,
+                           onSave: { _ in })
+    }
+}

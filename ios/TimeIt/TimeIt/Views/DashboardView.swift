@@ -593,3 +593,29 @@ struct DashboardView: View {
         )
     }
 }
+
+#if DEBUG
+#Preview("Live cards") {
+    DashboardView(viewModel: PreviewFixtures.dashboardViewModel(),
+                  registration: PreviewFixtures.registration(),
+                  router: PushRouter())
+}
+
+#Preview("Weather error") {
+    DashboardView(viewModel: PreviewFixtures.dashboardViewModel(mode: .failure),
+                  registration: PreviewFixtures.registration(),
+                  router: PushRouter())
+}
+
+#Preview("No location") {
+    DashboardView(viewModel: PreviewFixtures.dashboardViewModel(home: nil),
+                  registration: PreviewFixtures.registration(),
+                  router: PushRouter())
+}
+
+#Preview("Showcase (dormant)") {
+    DashboardView(viewModel: PreviewFixtures.dashboardViewModel(activities: SeedTemplates.firstLaunchSeeds),
+                  registration: PreviewFixtures.registration(),
+                  router: PushRouter())
+}
+#endif

@@ -113,3 +113,25 @@ struct HeaderView: View {
         .background(Theme.headerGradient.ignoresSafeArea(edges: .top))
     }
 }
+
+#if DEBUG
+#Preview("Header") {
+    VStack(spacing: 0) {
+        HeaderView(locationName: "Dubai",
+                   currentHour: PreviewFixtures.forecast.hours.first,
+                   timezoneIdentifier: "Asia/Dubai") {}
+        Spacer()
+    }
+    .background(Theme.appBackground)
+}
+
+#Preview("Header — no location") {
+    VStack(spacing: 0) {
+        HeaderView(locationName: nil,
+                   currentHour: nil,
+                   showsWeather: false) {}
+        Spacer()
+    }
+    .background(Theme.appBackground)
+}
+#endif

@@ -105,3 +105,10 @@ struct CityPickerView: View {
         }
     }
 }
+
+#if DEBUG
+#Preview("City picker") {
+    CityPickerView(preferences: PreviewFixtures.preferences(home: nil),
+                   geocoder: PreviewFixtures.CannedGeocoder())
+}
+#endif

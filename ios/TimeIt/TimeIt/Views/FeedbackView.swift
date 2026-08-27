@@ -119,3 +119,9 @@ struct FeedbackView: View {
         return FeedbackClient.shared
     }
 }
+
+#if DEBUG
+#Preview("Send a suggestion") {
+    FeedbackView(deviceId: "preview-device")
+}
+#endif

@@ -245,3 +245,24 @@ struct ActivityDetailView: View {
         return "\(name), \(day.ratingDisplay) window, \(deriver.hourLabel(at: startIndex)) to \(deriver.hourLabel(at: endIndex))"
     }
 }
+
+#if DEBUG
+#Preview("Cycling (Perfect today)") {
+    let viewModel = PreviewFixtures.dashboardViewModel()
+    NavigationStack {
+        ActivityDetailView(activity: PreviewFixtures.forecast.activities[0],
+                           viewModel: viewModel)
+    }
+    .task { await viewModel.loadForecast() }
+}
+
+#Preview("Stargazing (nocturnal)") {
+    let viewModel = PreviewFixtures.dashboardViewModel()
+    NavigationStack {
+        ActivityDetailView(activity: PreviewFixtures.forecast.activities[3],
+                           viewModel: viewModel,
+                           isNocturnal: true)
+    }
+    .task { await viewModel.loadForecast() }
+}
+#endif

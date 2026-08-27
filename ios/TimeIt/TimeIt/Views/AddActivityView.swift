@@ -87,3 +87,9 @@ struct AddActivityView: View {
             .joined(separator: " · ")
     }
 }
+
+#if DEBUG
+#Preview("Add Activity") {
+    AddActivityView(store: PreviewFixtures.store())
+}
+#endif

@@ -189,3 +189,12 @@ struct SettingsView: View {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
     }
 }
+
+#if DEBUG
+#Preview("Settings") {
+    let preferences = PreviewFixtures.preferences()
+    SettingsView(preferences: preferences,
+                 geocoder: PreviewFixtures.CannedGeocoder(),
+                 registration: PreviewFixtures.registration(preferences: preferences))
+}
+#endif
