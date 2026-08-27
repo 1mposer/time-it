@@ -23,13 +23,34 @@ struct ActivityIconView: View {
     /// not whatever the current Templates happen to use.
     static let activityIconManifest: [String] = [
         "figure.outdoor.cycle",
+        "figure.baseball",
+        "figure.american.football",
+        "figure.basketball",
+        "figure.cricket",
+        "figure.skiing.downhill",
+        "figure.golf",
+        "figure.hiking",
+        "figure.mind.and.body",
+        "figure.pickleball",
+        "figure.pool.swim",
+        "figure.outdoor.rowing",
+        "figure.rugby",
+        "figure.sailing",
+        "figure.skateboarding",
+        "soccerball",
+        "baseball",
+        "rugbyball",
+        "tennis.racket",
+        "figure.surfing",
+        "figure.tennis",
+        "figure.volleyball",
+        "figure.yoga",
         "figure.fishing",
-        "figure.run", // TODO: verify this SF Symbol exists
+        "figure.run",
         "moon.stars.fill",
         "questionmark.circle",
     ]
 }
-
 #Preview("Icon manifest") {
     ScrollView {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 80))], spacing: 24) {
