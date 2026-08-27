@@ -13,6 +13,10 @@ struct ActivityDraft: Equatable {
     var thresholds: [String: ThresholdDraft]
     var startHour: Int
     var endHour: Int
+    /// Whether the incoming activity already carried a confirmed window —
+    /// seeds the wizard's `rangeConfirmed` (an untouched prefill is not a
+    /// confirmed Range; a previously saved one is).
+    let hadWindow: Bool
 
     /// A live activity drafts at its own range; a dormant one at its
     /// template's prefill — a starting value, confirmed only by saving.
@@ -26,6 +30,7 @@ struct ActivityDraft: Equatable {
         let prefill = activity.window ?? SeedTemplates.prefill(for: activity)
         startHour = prefill.startHour
         endHour = prefill.endHour
+        hadWindow = activity.window != nil
     }
 
     // MARK: metric selection — a threshold can only exist for a selected metric
@@ -43,6 +48,17 @@ struct ActivityDraft: Equatable {
 
     mutating func addThreshold(for descriptor: MetricDescriptor) {
         thresholds[descriptor.key] = ThresholdDraft(isFlag: descriptor.kind == .flag)
+    }
+
+    /// §4's one-tap select: selects the metric AND pre-creates its preset
+    /// Must-have threshold (display-only metrics just select). A no-op when
+    /// already selected — re-tapping must not clobber authored values.
+    mutating func selectWithPreset(_ descriptor: MetricDescriptor) {
+        guard !isSelected(descriptor.key) else { return }
+        metrics.append(descriptor.key)
+        if descriptor.isThresholdable {
+            thresholds[descriptor.key] = ThresholdDraft(preset: descriptor)
+        }
     }
 
     mutating func removeThreshold(for key: String) {
