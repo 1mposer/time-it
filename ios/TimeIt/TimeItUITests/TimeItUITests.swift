@@ -168,17 +168,31 @@ final class TimeItUITests: XCTestCase {
     }
 
     func testShowcaseSetYourRangeConfirmsThePrefillAndRatesTheCard() {
-        // The Range step (the editor, until the wizard lands) is the only
-        // door out of dormancy — confirming the prefilled range triggers the
-        // first POST and the rated card replaces the showcase card.
+        // The Range step is the only door out of dormancy. The wizard opens
+        // with the template prefill loaded (tabs 0–1 already green); an
+        // untouched prefill is NOT a confirmed range, so Review is reached
+        // through the warn-then-proceed path, and saving there triggers the
+        // first POST.
         let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_LOCATION"])
 
         let cta = app.buttons["showcase.setRange.cycling"]
         XCTAssertTrue(cta.waitForExistence(timeout: 5))
         cta.tap()
 
+        let rangeTab = app.buttons["editor.tab.2"]
+        XCTAssertTrue(rangeTab.waitForExistence(timeout: 5), "the wizard opens with the template prefill loaded")
+        rangeTab.tap()
+
+        let next = app.buttons["editor.nextStep"]
+        XCTAssertTrue(next.waitForExistence(timeout: 5))
+        XCTAssertTrue(next.isEnabled, "a valid-but-unconfirmed range keeps Next enabled for the warning path")
+        next.tap()
+        XCTAssertTrue(app.staticTexts["editor.rangeWarning"].waitForExistence(timeout: 5),
+                      "first press warns — the prefill was never touched")
+        next.tap()
+
         let save = app.buttons["editor.save"]
-        XCTAssertTrue(save.waitForExistence(timeout: 5), "the editor opens with the template prefill loaded")
+        XCTAssertTrue(save.waitForExistence(timeout: 5), "second press proceeds to Review")
         XCTAssertTrue(save.isEnabled, "a template prefill is valid as-is — saving is the confirmation")
         save.tap()
 
@@ -260,7 +274,11 @@ final class TimeItUITests: XCTestCase {
         XCTAssertTrue(nameField.waitForExistence(timeout: 5))
         XCTAssertEqual(nameField.value as? String, "Running", "editor is pre-filled from the Template")
 
+        // A template copy passes every gate (window prefill included) — all
+        // four tabs are green/unlocked, so Review is one tap away.
+        app.buttons["editor.tab.3"].tap()
         let save = app.buttons["editor.save"]
+        XCTAssertTrue(save.waitForExistence(timeout: 5), "every tab is green — Review is freely tappable")
         XCTAssertTrue(save.isEnabled, "a Template copy is valid as-is")
         save.tap()
 
@@ -269,45 +287,91 @@ final class TimeItUITests: XCTestCase {
         XCTAssertEqual(cardCount(in: app), before + 1)
     }
 
-    func testAddFromScratchGatesSaveUntilValid() {
+    func testAddFromScratchWalksTheGatedWizard() {
         let app = launchApp()
         XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5))
         app.swipeUp()
         app.buttons["addActivityCard"].tap()
         app.buttons["addFromScratch"].tap()
 
-        let save = app.buttons["editor.save"]
-        XCTAssertTrue(save.waitForExistence(timeout: 5))
-        XCTAssertFalse(save.isEnabled, "empty label + no metrics → invalid")
+        let next = app.buttons["editor.nextStep"]
+        XCTAssertTrue(next.waitForExistence(timeout: 5))
+        XCTAssertFalse(next.isEnabled, "empty name + sentinel icon → tab 0 incomplete")
+
+        // Locked-tab no-op: Review is gated behind tabs 0–2.
+        app.buttons["editor.tab.3"].tap()
+        XCTAssertTrue(app.textFields["editor.name"].exists,
+                      "tapping a locked tab does nothing — still on tab 0")
+        XCTAssertFalse(app.buttons["editor.save"].exists)
 
         let nameField = app.textFields["editor.name"]
         nameField.tap()
         nameField.typeText("Padel")
-        XCTAssertFalse(save.isEnabled, "a label alone is not enough — displayMetrics must be non-empty")
+        XCTAssertFalse(next.isEnabled, "a name alone is not enough — an icon must be chosen (the sentinel is gated)")
 
-        app.buttons["metric.temp"].tap()
-        XCTAssertTrue(save.isEnabled, "label + one metric (no threshold) is a valid show-but-don't-judge body")
+        // From scratch every category starts collapsed — expand and pick.
+        scrollTo(app.staticTexts["Sports"], in: app)
+        app.staticTexts["Sports"].tap()
+        let icon = app.buttons["icon.figure.tennis"]
+        scrollTo(icon, in: app)
+        icon.tap()
+        XCTAssertTrue(next.isEnabled, "name + icon completes the Name & Icon tab")
+        next.tap()
 
-        app.swipeUp()
-        app.buttons["editor.addThreshold.temp"].tap()
-        XCTAssertFalse(save.isEnabled, "a bound-less numeric threshold is a hard 400 — Save must lock")
+        // Tab 1: one tap = a working Must-have threshold (the old
+        // editor.addThreshold flow is gone).
+        let metric = app.buttons["metric.temp"]
+        XCTAssertTrue(metric.waitForExistence(timeout: 5))
+        XCTAssertFalse(next.isEnabled, "no metric selected yet")
+        metric.tap()
+        XCTAssertTrue(next.isEnabled, "selecting auto-creates the preset threshold — zero typing")
 
+        // The tap-the-label exact-entry path.
+        app.buttons["editor.value.temp"].tap()
         let minField = app.textFields["editor.min.temp"]
+        XCTAssertTrue(minField.waitForExistence(timeout: 5))
+        XCTAssertEqual(minField.value as? String, "15", "the preset min prefills the field")
         minField.tap()
-        minField.typeText("15")
-        XCTAssertTrue(save.isEnabled, "one bound satisfies the numeric threshold rule")
+        minField.typeText("\n")
+        next.tap()
 
-        // The "Only at certain hours" toggle is DELETED — the Range section
-        // always shows its pickers (prefilled 6–10am from scratch); saving
-        // confirms the range. No whole-day path exists.
-        XCTAssertFalse(app.switches["editor.windowToggle"].exists,
-                       "the window toggle is gone — ranges are mandatory")
-        scrollTo(app.buttons["editor.startHour"], in: app)
-        XCTAssertTrue(app.buttons["editor.startHour"].exists, "the Range pickers are always present")
+        // Tab 2: both wheels always visible; a valid but untouched prefill
+        // takes the warn-then-proceed path.
+        XCTAssertTrue(app.pickers["editor.startHour"].waitForExistence(timeout: 5),
+                      "both hour wheels render on entry")
+        XCTAssertTrue(app.pickers["editor.endHour"].exists)
+        XCTAssertTrue(next.isEnabled, "the warning path keeps Next Step enabled")
+        next.tap()
+        XCTAssertTrue(app.staticTexts["editor.rangeWarning"].waitForExistence(timeout: 5),
+                      "first press shows the skip warning exactly once")
+        next.tap()
 
+        let save = app.buttons["editor.save"]
+        XCTAssertTrue(save.waitForExistence(timeout: 5), "second press proceeds to Review")
+        XCTAssertTrue(save.isEnabled)
         save.tap()
         XCTAssertTrue(app.staticTexts["Padel"].waitForExistence(timeout: 5),
                       "the scratch-built card renders with its confirmed range")
+    }
+
+    func testRangeTabShowsNightNoteWhenFromIsAfterUntil() {
+        let app = launchApp()
+        XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5))
+        app.buttons["gear.cycling"].tap()
+
+        let rangeTab = app.buttons["editor.tab.2"]
+        XCTAssertTrue(rangeTab.waitForExistence(timeout: 5))
+        rangeTab.tap()
+
+        let startWheel = app.pickers["editor.startHour"].pickerWheels.firstMatch
+        XCTAssertTrue(startWheel.waitForExistence(timeout: 5))
+        let nightNote = app.descendants(matching: .any).matching(identifier: "editor.nightNote").firstMatch
+        XCTAssertFalse(nightNote.exists, "6–10am is a same-day range — no night note")
+
+        startWheel.adjust(toPickerWheelValue: "11pm")
+        XCTAssertTrue(nightNote.waitForExistence(timeout: 5),
+                      "From after Until = overnight — moon.stars + night-activity note")
+        app.buttons["editor.cancel"].tap()
     }
 
     // MARK: edit + delete via the card gear
@@ -323,7 +387,12 @@ final class TimeItUITests: XCTestCase {
 
         nameField.tap()
         nameField.typeText(" Pro")
-        app.buttons["editor.save"].tap()
+        // Edit mode: everything is pre-filled and the window exists — all
+        // four tabs pass their gates, so Review is one tap away.
+        app.buttons["editor.tab.3"].tap()
+        let save = app.buttons["editor.save"]
+        XCTAssertTrue(save.waitForExistence(timeout: 5))
+        save.tap()
 
         XCTAssertTrue(app.staticTexts["Cycling Pro"].waitForExistence(timeout: 5), "the card reflects the edit after refetch")
     }
@@ -333,7 +402,9 @@ final class TimeItUITests: XCTestCase {
         XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5))
 
         app.buttons["gear.cycling"].tap()
-        XCTAssertTrue(app.textFields["editor.name"].waitForExistence(timeout: 5))
+        // Delete lives on the Review tab now — edit mode unlocks it directly.
+        XCTAssertTrue(app.buttons["editor.tab.3"].waitForExistence(timeout: 5))
+        app.buttons["editor.tab.3"].tap()
         scrollTo(app.buttons["editor.delete"], in: app)
         XCTAssertTrue(app.buttons["editor.delete"].waitForExistence(timeout: 5))
         app.buttons["editor.delete"].tap()
@@ -345,7 +416,8 @@ final class TimeItUITests: XCTestCase {
         XCTAssertFalse(app.buttons["card.cycling"].exists, "deleted card is gone")
 
         app.buttons["gear.fishing-lite"].tap()
-        XCTAssertTrue(app.textFields["editor.name"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["editor.tab.3"].waitForExistence(timeout: 5))
+        app.buttons["editor.tab.3"].tap()
         scrollTo(app.buttons["editor.delete"], in: app)
         XCTAssertTrue(app.buttons["editor.delete"].waitForExistence(timeout: 5))
         app.buttons["editor.delete"].tap()
@@ -373,6 +445,8 @@ final class TimeItUITests: XCTestCase {
         app.swipeUp()
         app.buttons["addActivityCard"].tap()
         app.buttons["template.running"].tap()
+        XCTAssertTrue(app.buttons["editor.tab.3"].waitForExistence(timeout: 5))
+        app.buttons["editor.tab.3"].tap()
         XCTAssertTrue(app.buttons["editor.save"].waitForExistence(timeout: 5))
         app.buttons["editor.save"].tap()
         XCTAssertTrue(app.staticTexts["Running"].waitForExistence(timeout: 5))
