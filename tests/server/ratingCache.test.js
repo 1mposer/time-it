@@ -12,7 +12,6 @@ const supertest = require('supertest');
 
 const createRatingRouter = require('../../src/routes/rating');
 const { createWeatherCache } = require('../../src/services/weatherCache');
-const { evaluateAll } = require('../../src/decision');
 const { tagLocalDays } = require('../../src/weather/timeBoundary');
 
 const FORECAST_START = '2026-06-19T20:00:00Z';
@@ -42,7 +41,7 @@ test('a repeat /rating request for a cached location within the TTL does not hit
 
   const app = express();
   app.use(express.json());
-  app.use('/api/v1', createRatingRouter({ getWeather, evaluateAll }));
+  app.use('/api/v1', createRatingRouter({ getWeather }));
 
   const first = await supertest(app).post('/api/v1/rating').send(BODY);
   const second = await supertest(app).post('/api/v1/rating').send(BODY);

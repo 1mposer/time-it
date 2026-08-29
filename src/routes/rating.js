@@ -4,11 +4,11 @@
 
 const express = require('express');
 const { getWeather: defaultGetWeather } = require('../weather');
-const { evaluateAll: defaultEvaluateAll } = require('../decision');
+const { evaluateAll } = require('../decision/evaluateAll');
 const { validateRatingRequest } = require('./validateRatingRequest');
 const { sendRouteError } = require('./errorEnvelope');
 
-function createRatingRouter({ getWeather = defaultGetWeather, evaluateAll = defaultEvaluateAll } = {}) {
+function createRatingRouter({ getWeather = defaultGetWeather } = {}) {
   const router = express.Router();
 
   router.post('/rating', async (req, res) => {

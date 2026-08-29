@@ -27,10 +27,10 @@ function makeTaggedHours(count = 48, overrides = {}) {
   return tagLocalDays(hours, FORECAST_START, TIMEZONE);
 }
 
-function makeApp({ getWeather, evaluateAll }) {
+function makeApp({ getWeather }) {
   const app = express();
   app.use(express.json());
-  app.use('/api/v1', createRatingRouter({ getWeather, evaluateAll }));
+  app.use('/api/v1', createRatingRouter({ getWeather }));
   return app;
 }
 
@@ -47,13 +47,12 @@ function validBody(activities = REQUEST_ACTIVITIES) {
 
 const happyFixture = { forecastStart: FORECAST_START, timezone: TIMEZONE, hours: makeTaggedHours() };
 const happyGetWeather = async () => happyFixture;
-const realEvaluateAll = require('../../src/decision').evaluateAll;
 
 const post = (app, body) => supertest(app).post('/api/v1/rating').send(body);
 
 // --- validation 400s (ADR-0005, uniform { errors: [...] }) ---
 test('missing lat returns 400 with a structured errors[] body', async () => {
-  const app = makeApp({ getWeather: happyGetWeather, evaluateAll: realEvaluateAll });
+  const app = makeApp({ getWeather: happyGetWeather });
   const body = validBody(); delete body.lat;
   const res = await post(app, body);
   assert.equal(res.status, 400);
@@ -62,7 +61,7 @@ test('missing lat returns 400 with a structured errors[] body', async () => {
 });
 
 test('an invalid activity rejects the whole request atomically (400)', async () => {
-  const app = makeApp({ getWeather: happyGetWeather, evaluateAll: realEvaluateAll });
+  const app = makeApp({ getWeather: happyGetWeather });
   const body = validBody([
     REQUEST_ACTIVITIES[0],
     { id: 'bad', label: 'Bad', displayMetrics: ['temp'], thresholds: { temp: { required: true } } }, // bound-less
@@ -75,14 +74,14 @@ test('an invalid activity rejects the whole request atomically (400)', async () 
 test('validation runs BEFORE getWeather — a bad body spends no provider call', async () => {
   let called = false;
   const spyGetWeather = async () => { called = true; return happyFixture; };
-  const app = makeApp({ getWeather: spyGetWeather, evaluateAll: realEvaluateAll });
+  const app = makeApp({ getWeather: spyGetWeather });
   await post(app, { lat: 999, lon: 0, activities: [] });
   assert.equal(called, false);
 });
 
 // --- happy path ---
 test('valid POST returns 200 with the day-bucketed top-level shape', async () => {
-  const app = makeApp({ getWeather: happyGetWeather, evaluateAll: realEvaluateAll });
+  const app = makeApp({ getWeather: happyGetWeather });
   const res = await post(app, validBody());
   assert.equal(res.status, 200);
   assert.ok('forecastStart' in res.body);
@@ -92,7 +91,7 @@ test('valid POST returns 200 with the day-bucketed top-level shape', async () =>
 });
 
 test('hours are dense with contiguous index and no internal tag leak', async () => {
-  const app = makeApp({ getWeather: happyGetWeather, evaluateAll: realEvaluateAll });
+  const app = makeApp({ getWeather: happyGetWeather });
   const res = await post(app, validBody());
   assert.equal(res.body.hours.length, 48);
   res.body.hours.forEach((h, i) => {
@@ -104,7 +103,7 @@ test('hours are dense with contiguous index and no internal tag leak', async () 
 });
 
 test('response activities echo the caller-supplied activities, in order', async () => {
-  const app = makeApp({ getWeather: happyGetWeather, evaluateAll: realEvaluateAll });
+  const app = makeApp({ getWeather: happyGetWeather });
   const res = await post(app, validBody());
   assert.deepStrictEqual(res.body.activities.map((a) => a.activityId), ['boat-fishing-pro', 'volleyball']);
   for (const a of res.body.activities) {
@@ -117,7 +116,7 @@ test('response activities echo the caller-supplied activities, in order', async 
 // --- error envelope: uniform across 502/500 (ADR-0005 §6) ---
 test('UpstreamError from getWeather → 502 with errors[] envelope', async () => {
   const failingGetWeather = async () => { throw new UpstreamError('provider down'); };
-  const app = makeApp({ getWeather: failingGetWeather, evaluateAll: realEvaluateAll });
+  const app = makeApp({ getWeather: failingGetWeather });
   const res = await post(app, validBody());
   assert.equal(res.status, 502);
   assert.ok(Array.isArray(res.body.errors));
@@ -127,7 +126,7 @@ test('UpstreamError from getWeather → 502 with errors[] envelope', async () =>
 
 test('generic Error from getWeather → 500 with errors[] envelope, not 502', async () => {
   const failingGetWeather = async () => { throw new Error('fetch is not defined'); };
-  const app = makeApp({ getWeather: failingGetWeather, evaluateAll: realEvaluateAll });
+  const app = makeApp({ getWeather: failingGetWeather });
   const res = await post(app, validBody());
   assert.equal(res.status, 500);
   assert.ok(Array.isArray(res.body.errors));
@@ -164,7 +163,7 @@ test('oversized body (>100kb) → 413 with the uniform { errors[] } envelope', a
 test('a stray timezone field in the body is ignored — getWeather gets (lat, lon) only', async () => {
   let receivedArgs = null;
   const spyGetWeather = async (...args) => { receivedArgs = args; return happyFixture; };
-  const app = makeApp({ getWeather: spyGetWeather, evaluateAll: realEvaluateAll });
+  const app = makeApp({ getWeather: spyGetWeather });
   const body = validBody(); body.timezone = 'Asia/Dubai';
   const res = await post(app, body);
   assert.equal(res.status, 200);
@@ -174,7 +173,7 @@ test('a stray timezone field in the body is ignored — getWeather gets (lat, lo
 // --- null-day wire convention ---
 test('a null-rated day keeps its slot with the window fields absent (ADR-0004 sub-decision 3)', async () => {
   const fixture = { forecastStart: FORECAST_START, timezone: TIMEZONE, hours: makeTaggedHours(48, { temp: 100 }) };
-  const app = makeApp({ getWeather: async () => fixture, evaluateAll: realEvaluateAll });
+  const app = makeApp({ getWeather: async () => fixture });
   const res = await post(app, validBody());
   const allDays = res.body.activities.flatMap((a) => a.days);
   const nullDays = allDays.filter((d) => d.rating === null);
@@ -196,7 +195,7 @@ test('partial day-0: variable-length buckets with a non-24 global offset (ADR-00
     return tagLocalDays(hours, '2026-06-22T07:00:00Z', TIMEZONE);
   })();
   const fixture = { forecastStart: '2026-06-22T07:00:00Z', timezone: TIMEZONE, hours: partialHours };
-  const app = makeApp({ getWeather: async () => fixture, evaluateAll: realEvaluateAll });
+  const app = makeApp({ getWeather: async () => fixture });
   const res = await post(app, validBody());
 
   assert.equal(res.body.hours.length, 37);
@@ -219,7 +218,7 @@ test('a nocturnal (wrapped-window) activity buckets by night; days.length is per
     }));
     return tagLocalDays(raw, '2026-06-19T12:00:00Z', TIMEZONE);
   })();
-  const app = makeApp({ getWeather: async () => ({ forecastStart: '2026-06-19T12:00:00Z', timezone: TIMEZONE, hours }), evaluateAll: realEvaluateAll });
+  const app = makeApp({ getWeather: async () => ({ forecastStart: '2026-06-19T12:00:00Z', timezone: TIMEZONE, hours }) });
 
   const body = validBody([
     { id: 'walk', label: 'Walk', displayMetrics: ['temp'], thresholds: { temp: { min: 15, max: 35, required: true } } },
@@ -241,7 +240,7 @@ test('a nocturnal (wrapped-window) activity buckets by night; days.length is per
 
 // --- golden snapshot — the executable spec (hand-verified against ADR-0004/0005) ---
 test('golden: full response shape, key order, and global window indices', async () => {
-  const app = makeApp({ getWeather: happyGetWeather, evaluateAll: realEvaluateAll });
+  const app = makeApp({ getWeather: happyGetWeather });
   const res = await post(app, validBody());
   assert.equal(res.status, 200);
 

@@ -6,7 +6,7 @@
 const cron = require('node-cron');
 const db = require('../db');
 const { getCachedWeather } = require('../services/weatherCache');
-const { evaluateAll } = require('../decision');
+const { evaluateAll } = require('../decision/evaluateAll');
 const { sendPush } = require('../notifications/apns');
 const { createDailyDigestJob } = require('./dailyDigest');
 const { createPerfectWindowDetectorJob } = require('./perfectWindowDetector');

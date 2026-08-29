@@ -4,7 +4,7 @@
 // live in the shared validateActivities.js; the non-empty activities rule is
 // this route's own.
 
-const { validateActivities, isFiniteNumber, MAX_ACTIVITIES } = require('./validateActivities');
+const { validateActivities, isFiniteNumber } = require('./validateActivities');
 
 const LAT_MIN = -90, LAT_MAX = 90;
 const LON_MIN = -180, LON_MAX = 180;
@@ -33,4 +33,4 @@ function validateRatingRequest(body) {
   return errors;
 }
 
-module.exports = { validateRatingRequest, MAX_ACTIVITIES };
+module.exports = { validateRatingRequest };

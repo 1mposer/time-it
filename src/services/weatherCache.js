@@ -9,13 +9,13 @@ const { getWeather: defaultGetWeather } = require('../weather');
 
 const TTL_MS = 60 * 60 * 1000;
 
-function createWeatherCache({ getWeather = defaultGetWeather, ttlMs = TTL_MS, now = Date.now } = {}) {
+function createWeatherCache({ getWeather = defaultGetWeather, now = Date.now } = {}) {
   const cache = new Map();
 
   return async function getCachedWeather(lat, lon) {
     const key = `${lat.toFixed(2)},${lon.toFixed(2)}`;
     const entry = cache.get(key);
-    if (entry && now() - entry.fetchedAt < ttlMs) return entry.promise;
+    if (entry && now() - entry.fetchedAt < TTL_MS) return entry.promise;
 
     const promise = getWeather(lat, lon);
     cache.set(key, { fetchedAt: now(), promise });
