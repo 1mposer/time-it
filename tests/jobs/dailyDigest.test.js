@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { createDailyDigestJob, markerDateString } = require('../../src/jobs/dailyDigest');
+const { createDailyDigestJob } = require('../../src/jobs/dailyDigest');
 const { StaleTokenError } = require('../../src/notifications/apns');
 const { bucketDate } = require('../../src/weather/timeBoundary');
 
@@ -135,14 +135,6 @@ test('a device already sent today (Date-object marker) is suppressed; yesterday 
   result = await runPass({ rows: [sentYesterday], results: PERFECT_DAY0, nowIso: '2026-08-01T02:30:00Z' });
   assert.equal(result.sent.length, 1, 'marker < local today → sends');
   assert.deepStrictEqual(result.db.markers, [{ deviceId: 'device-1', date: '2026-08-01' }]);
-});
-
-test('markerDateString normalises the driver Date to YYYY-MM-DD (the naive < comparison is always false)', () => {
-  const marker = new Date(2026, 7, 1);
-  assert.equal(marker < '2026-08-02', false, 'the trap: Date < string coerces to NaN');
-  assert.equal(markerDateString(marker), '2026-08-01');
-  assert.equal(markerDateString(null), null);
-  assert.equal(markerDateString('2026-08-01'), '2026-08-01');
 });
 
 // --- per-device error isolation ---

@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { tagLocalDays, zonedWallTimeToUtcIso, bucketDate } = require('../../src/weather/timeBoundary');
+const { tagLocalDays, zonedWallTimeToUtcIso, bucketDate, dateOnlyString, weekdayLabel } = require('../../src/weather/timeBoundary');
 
 // ADR-0003 worked example (real probe numbers): Meteosource `flexi` returned
 // 164 hourly entries starting 2026-06-19T12:00:00Z = 16:00 in Asia/Dubai.
@@ -114,4 +114,19 @@ test('bucketDate is date-of-day-0 plus dayIndex, in the forecast location zone',
 test('bucketDate rolls over month and year boundaries', () => {
   assert.equal(bucketDate('2026-08-30T02:00:00Z', TIMEZONE, 4), '2026-09-03');
   assert.equal(bucketDate('2026-12-29T02:00:00Z', TIMEZONE, 5), '2027-01-03');
+});
+
+// dateOnlyString — the #6c §7 type trap: pg returns DATE columns as JS Date
+// objects (LOCAL midnight), and dateObject < 'YYYY-MM-DD' is always false.
+test('dateOnlyString normalises the driver Date to YYYY-MM-DD (the naive < comparison is always false)', () => {
+  const marker = new Date(2026, 7, 1);
+  assert.equal(marker < '2026-08-02', false, 'the trap: Date < string coerces to NaN');
+  assert.equal(dateOnlyString(marker), '2026-08-01');
+  assert.equal(dateOnlyString(null), null);
+  assert.equal(dateOnlyString('2026-08-01'), '2026-08-01');
+});
+
+test('weekdayLabel renders the short weekday of a YYYY-MM-DD date', () => {
+  assert.equal(weekdayLabel('2026-08-01'), 'Sat');
+  assert.equal(weekdayLabel('2026-12-28'), 'Mon');
 });

@@ -4,8 +4,9 @@ const { evaluate } = require('./decision_engine');
 // { offset, hours }: a slice of the global hours[] plus its global start
 // offset, which converts slice-relative window indices back to global ones
 // (ADR-0004 pin 1).
-// Seam (ADR-0003): hours must arrive pre-tagged with localDay/localHour —
-// untagged hours silently collapse to a single bucket.
+// Seam (ADR-0003): hours must arrive pre-tagged with localDay/localHour
+// (tagLocalDays) — enforced by a guard in evaluateAll, because untagged hours
+// would otherwise silently collapse to a single bucket.
 
 // Diurnal / no-window: one bucket per contiguous local-calendar-day run.
 function bucketByLocalDay(hours) {
@@ -88,6 +89,10 @@ function toDay(dayIndex, bucket, prefs) {
 // per-activity (a wrapped window buckets by night), so days.length varies
 // per activity.
 function evaluateAll(hours, activities) {
+  if (hours.length > 0 && (hours[0].localDay === undefined || hours[0].localHour === undefined)) {
+    throw new Error('evaluateAll: hours are not tagged with localDay/localHour — pass them through tagLocalDays first');
+  }
+
   const results = [];
 
   for (const activity of activities) {

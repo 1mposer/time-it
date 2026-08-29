@@ -89,6 +89,29 @@ function bucketDate(forecastStart, timezone, dayIndex) {
   return new Date(Date.UTC(y, m - 1, d + dayIndex)).toISOString().slice(0, 10);
 }
 
+// Normalise a date-ish value to 'YYYY-MM-DD'. The #6c §7 type trap: pg returns
+// DATE columns as JS Date objects (at LOCAL midnight), and dateObject < 'YYYY-MM-DD'
+// is always false in JS — so read the local date parts, never toISOString().
+function dateOnlyString(value) {
+  if (value == null) return null;
+  if (value instanceof Date) {
+    const y = value.getFullYear();
+    const m = String(value.getMonth() + 1).padStart(2, '0');
+    const d = String(value.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+  return String(value).slice(0, 10);
+}
+
+// Short weekday label ('Mon') for a 'YYYY-MM-DD' date string — the digest's
+// week-ahead line. Formatting a date-only value needs no zone: build the UTC
+// instant of that calendar day and read it back in UTC.
+const WEEKDAY_FMT = new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: 'UTC' });
+function weekdayLabel(dateString) {
+  const [y, m, d] = dateString.split('-').map(Number);
+  return WEEKDAY_FMT.format(new Date(Date.UTC(y, m - 1, d)));
+}
+
 function tagLocalDays(hours, forecastStart, timezone) {
   const startMs = Date.parse(forecastStart);
   return hours.map((hour, index) => {
@@ -101,4 +124,4 @@ function tagLocalDays(hours, forecastStart, timezone) {
   });
 }
 
-module.exports = { tagLocalDays, localDay, localHour, zonedWallTimeToUtcIso, bucketDate };
+module.exports = { tagLocalDays, localDay, localHour, zonedWallTimeToUtcIso, bucketDate, dateOnlyString, weekdayLabel };

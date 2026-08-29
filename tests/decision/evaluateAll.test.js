@@ -118,12 +118,18 @@ test("dustAlert true yields null rating on the affected day only", () => {
   assert.equal(vb.days[1].rating, "perfect");
 });
 
-// Seam #2 (ADR-0003): hours MUST be pre-tagged with localDay. UNTAGGED hours
-// collapse to a single bucket — this pins that the contract is to pass tagged hours.
+// Seam #2 (ADR-0003): hours MUST be pre-tagged with localDay/localHour. The
+// guard makes an untagged batch fail loudly instead of silently collapsing to
+// a single bucket rated as one "day".
 test("tagged hours bucket per day; the localDay tag drives bucketing", () => {
   const tagged = makeHours(48);
   const [vb] = evaluateAll(tagged, [VOLLEYBALL]);
   assert.equal(vb.days.length, 2);
+});
+
+test("untagged hours are rejected, not silently collapsed", () => {
+  const untagged = Array.from({ length: 48 }, () => baseHour());
+  assert.throws(() => evaluateAll(untagged, [VOLLEYBALL]), /tagLocalDays/);
 });
 
 // ───────────────────────── time-of-day window + night-stitch ─────────────────────────

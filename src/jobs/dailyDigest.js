@@ -4,33 +4,13 @@
 // only when something qualifies. All local-day/hour math goes through
 // src/weather/timeBoundary.js — never hand-rolled Intl calls.
 
-const { localDay, localHour, bucketDate } = require('../weather/timeBoundary');
+const { localDay, localHour, bucketDate, dateOnlyString, weekdayLabel } = require('../weather/timeBoundary');
 const { StaleTokenError } = require('../notifications/apns');
 const { rangeLabel } = require('./labels');
 
 const MS_PER_HOUR = 3600 * 1000;
 const DIGEST_START_HOUR = 6;
 const DIGEST_END_HOUR = 12; // exclusive — past noon, skip
-
-// The #6c §7 type trap: pg returns DATE columns as JS Date objects, and
-// dateObject < 'YYYY-MM-DD' is always false in JS — normalise the marker to
-// its 'YYYY-MM-DD' string before any comparison.
-function markerDateString(marker) {
-  if (marker == null) return null;
-  if (marker instanceof Date) {
-    const y = marker.getFullYear();
-    const m = String(marker.getMonth() + 1).padStart(2, '0');
-    const d = String(marker.getDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
-  }
-  return String(marker).slice(0, 10);
-}
-
-const WEEKDAY_FMT = new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: 'UTC' });
-function weekdayLabel(dateString) {
-  const [y, m, d] = dateString.split('-').map(Number);
-  return WEEKDAY_FMT.format(new Date(Date.UTC(y, m - 1, d)));
-}
 
 const capitalize = (rating) => rating.charAt(0).toUpperCase() + rating.slice(1);
 
@@ -83,7 +63,7 @@ function createDailyDigestJob({ db, getWeather, evaluateAll, sendPush, now = Dat
         if (hour < DIGEST_START_HOUR || hour >= DIGEST_END_HOUR) continue;
 
         const today = localDay(nowMs, device.timezone);
-        const sent = markerDateString(device.last_digest_date);
+        const sent = dateOnlyString(device.last_digest_date);
         if (sent !== null && sent >= today) continue;
 
         const { forecastStart, timezone, hours } = await getWeather(device.home_lat, device.home_lon);
@@ -119,4 +99,4 @@ function createDailyDigestJob({ db, getWeather, evaluateAll, sendPush, now = Dat
   return { runDigestPass };
 }
 
-module.exports = { createDailyDigestJob, composeDigest, markerDateString };
+module.exports = { createDailyDigestJob, composeDigest };
