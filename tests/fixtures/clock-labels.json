@@ -1,0 +1,24 @@
+{
+  "comment": "Shared clock-label table (ADR-0007): pins src/jobs/labels.js (tests/jobs/labels.test.js) AND the iOS RangeText mirror (RangeTextTests). A copy change edits this file once and both suites must follow.",
+  "hourLabels": {
+    "0": "12am",
+    "1": "1am",
+    "6": "6am",
+    "11": "11am",
+    "12": "12pm",
+    "13": "1pm",
+    "15": "3pm",
+    "22": "10pm",
+    "23": "11pm"
+  },
+  "rangeLabels": [
+    { "startHour": 7,  "endHour": 10, "label": "7–10am" },
+    { "startHour": 6,  "endHour": 10, "label": "6–10am" },
+    { "startHour": 15, "endHour": 19, "label": "3–7pm" },
+    { "startHour": 22, "endHour": 2,  "label": "10pm–2am" },
+    { "startHour": 22, "endHour": 4,  "label": "10pm–4am" },
+    { "startHour": 8,  "endHour": 12, "label": "8am–12pm" },
+    { "startHour": 0,  "endHour": 5,  "label": "12–5am" },
+    { "startHour": 12, "endHour": 15, "label": "12–3pm" }
+  ]
+}

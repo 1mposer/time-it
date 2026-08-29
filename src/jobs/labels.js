@@ -1,6 +1,8 @@
 // Clock-label copy shared by both push jobs — the server-side twin of the iOS
-// TimeDeriver (a copy change here needs one there too). Known limitation:
-// half-hour zones (e.g. +05:30) render these labels :30 off.
+// RangeText (ADR-0007 mirror; TimeDeriver.rangeLabel routes through it). A copy
+// change here lands there in the same wave — both suites pin the shared table
+// in tests/fixtures/clock-labels.json. Known limitation: half-hour zones
+// (e.g. +05:30) render these labels :30 off.
 
 function hourLabel(h) {
   if (h === 0) return '12am';

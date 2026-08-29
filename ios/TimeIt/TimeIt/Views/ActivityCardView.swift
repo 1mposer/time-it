@@ -25,7 +25,7 @@ struct ActivityCardView: View {
     var iconSymbol: String?
     /// Wrapped-window activity → night-phrased labels.
     var isNocturnal: Bool = false
-    /// The authored Range as chip copy ("6 – 10am"); nil hides the chip.
+    /// The authored Range as chip copy ("6–10am"); nil hides the chip.
     var rangeChipLabel: String?
     /// Global hours[] indices the Range covers today — where the slice
     /// paints. Nil/empty paints nothing; the gray track alone means no data.
