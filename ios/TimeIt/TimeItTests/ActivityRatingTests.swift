@@ -36,7 +36,7 @@ final class ActivityRatingTests: XCTestCase {
 
     func testWindowedDayDecodesIndicesPresent() throws {
         let day = try JSONDecoder().decode(Day.self, from: Data(Fixtures.windowedDayJSON.utf8))
-        XCTAssertEqual(day.rating, "perfect")
+        XCTAssertEqual(day.rating, .perfect)
         XCTAssertEqual(day.startIndex, 3)
         XCTAssertEqual(day.endIndex, 9)
         XCTAssertEqual(day.duration, 6)

@@ -45,8 +45,9 @@ enum DayBarPaint: Equatable {
     /// Rated day: one gradient stop per covered hour, over `span`.
     case slice(span: Range<Double>, tiers: [HourTier])
 
-    static func decide(rating: String?, tiers: [HourTier], coverage: Range<Double>?) -> DayBarPaint {
-        guard rating != nil else {
+    static func decide(rating: Rating?, tiers: [HourTier], coverage: Range<Double>?) -> DayBarPaint {
+        // null and unknown verdicts paint identically (no qualifying Window).
+        guard rating?.isQualifying == true else {
             return coverage == nil && tiers.isEmpty ? .track : .solidRed
         }
         guard let coverage, !tiers.isEmpty else { return .flat }

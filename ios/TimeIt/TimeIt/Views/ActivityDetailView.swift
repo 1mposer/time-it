@@ -142,7 +142,7 @@ struct ActivityDetailView: View {
             case .solidRed:
                 shape.fill(Theme.badRed)
             case .flat:
-                shape.fill(day.rating == "perfect" ? Theme.perfectGreen : Theme.accentOrange)
+                shape.fill(day.rating == .perfect ? Theme.perfectGreen : Theme.accentOrange)
             case .slice(let span, let tiers):
                 ZStack(alignment: .leading) {
                     shape.fill(Theme.timelineTrack)
@@ -202,8 +202,8 @@ struct ActivityDetailView: View {
         }
         .padding(.horizontal, 7)
         .padding(.vertical, 2)
-        .foregroundStyle(tier.textColor)
-        .background(tier.backgroundColor, in: Capsule())
+        .foregroundStyle(Theme.chipTextColor(tier))
+        .background(Theme.chipBackgroundColor(tier), in: Capsule())
     }
 
     /// The Range axis, once under the stack: start / midpoint / end.

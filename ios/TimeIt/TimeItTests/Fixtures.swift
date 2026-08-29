@@ -170,7 +170,10 @@ enum Fixtures {
                         startIndex: Int? = nil,
                         endIndex: Int? = nil,
                         duration: Int? = nil) -> Day {
-        Day(dayIndex: dayIndex, rating: rating, startIndex: startIndex, endIndex: endIndex, duration: duration)
+        // String param kept so call sites read like the wire; mapped through
+        // the same tolerant Rating(wire:) the decoder uses.
+        Day(dayIndex: dayIndex, rating: rating.map(Rating.init(wire:)),
+            startIndex: startIndex, endIndex: endIndex, duration: duration)
     }
 
     static func makeActivity(id: String = "cycling", label: String = "Cycling", days: [Day]) -> ActivityRating {

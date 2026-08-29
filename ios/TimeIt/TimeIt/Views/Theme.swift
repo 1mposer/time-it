@@ -26,6 +26,28 @@ enum Theme {
     static let accentInteractive = Color(hex: 0x007aff) // Semantic accent/interactive
     static let divider = Color(hex: 0x3c3c43, opacity: 0.18)
 
+    /// Metric-chip tier colors — text uses darker high-contrast variants so
+    /// the label passes contrast on the 12% tint; backgrounds tint the
+    /// semantic rating tokens. The ONLY home for these values (ADR-0009
+    /// shipped-truth rule) — never respell a chip hex in a view.
+    static func chipTextColor(_ tier: MetricTier) -> Color {
+        switch tier {
+        case .green: return Color(hex: 0x1a7a35)
+        case .orange: return Color(hex: 0xb85c00)
+        case .red: return Color(hex: 0xc0392b)
+        case .neutral: return Color(hex: 0x636366)
+        }
+    }
+
+    static func chipBackgroundColor(_ tier: MetricTier) -> Color {
+        switch tier {
+        case .green: return perfectGreen.opacity(0.12)
+        case .orange: return accentOrange.opacity(0.12)
+        case .red: return badRed.opacity(0.12)
+        case .neutral: return secondaryText.opacity(0.12)
+        }
+    }
+
     /// HourTier → rating color binding for the gradient slice (Semantic
     /// rating/perfect · rating/good · rating/bad).
     static func tierColor(_ tier: HourTier) -> Color {

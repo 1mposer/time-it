@@ -148,10 +148,10 @@ final class HourQualityInvariantTests: XCTestCase {
                 let label = "\(activity.activityId) day \(day.dayIndex)"
 
                 switch day.rating {
-                case "perfect":
+                case .perfect:
                     try assertWindowIsMaximalRun(day, bucket: bucket, bucketTiers: bucketTiers,
                                                  tier: .green, label: label)
-                case "good":
+                case .good:
                     XCTAssertFalse(bucketTiers.contains(.green),
                                    "\(label): a good day can hold no green hour — one green hour is a 1h perfect window server-side")
                     try assertWindowIsMaximalRun(day, bucket: bucket, bucketTiers: bucketTiers,

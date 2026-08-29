@@ -132,8 +132,8 @@ struct ActivityCardView: View {
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 3)
-        .foregroundStyle(tier.textColor)
-        .background(tier.backgroundColor, in: Capsule())
+        .foregroundStyle(Theme.chipTextColor(tier))
+        .background(Theme.chipBackgroundColor(tier), in: Capsule())
     }
 
     /// Legacy icon fallback by activity id; unlisted glyphs get the
@@ -143,61 +143,6 @@ struct ActivityCardView: View {
         if key.contains("cycling") { return "figure.outdoor.cycle" }
         if key.contains("fishing") { return "figure.fishing" }
         return "questionmark.circle"
-    }
-}
-
-/// Chip colour tiers — presentation logic, so it lives with the card view.
-enum MetricTier: Equatable {
-    case green
-    case orange
-    case red
-    /// No data (nil value) or a metric with no tier table.
-    case neutral
-
-    static func tier(for metric: String, value: Double?) -> MetricTier {
-        guard let value else { return .neutral }
-        switch metric {
-        case "temp":
-            if value >= 38 { return .red }
-            if value >= 33 { return .orange }
-            return .green
-        case "uV":
-            if value >= 7 { return .red }
-            if value >= 4 { return .orange }
-            return .green
-        case "windSpeed":
-            if value >= 36 { return .red }
-            if value >= 21 { return .orange }
-            return .green
-        case "humidity":
-            if value >= 76 { return .red }
-            if value >= 61 { return .orange }
-            return .green
-        case "cloudCover":
-            if value >= 61 { return .red }
-            if value >= 21 { return .orange }
-            return .green
-        default:
-            return .neutral
-        }
-    }
-
-    var textColor: Color {
-        switch self {
-        case .green: return Color(hex: 0x1a7a35)
-        case .orange: return Color(hex: 0xb85c00)
-        case .red: return Color(hex: 0xc0392b)
-        case .neutral: return Color(hex: 0x636366)
-        }
-    }
-
-    var backgroundColor: Color {
-        switch self {
-        case .green: return Color(hex: 0x34c759, opacity: 0.12)
-        case .orange: return Color(hex: 0xff9500, opacity: 0.12)
-        case .red: return Color(hex: 0xff3b30, opacity: 0.12)
-        case .neutral: return Color(hex: 0x8e8e93, opacity: 0.12)
-        }
     }
 }
 
@@ -267,7 +212,7 @@ struct TimelineBarView: View {
     /// A rating-null day is solid red regardless of the tiers; a rated day
     /// blends one gradient stop per hour.
     private var sliceStyle: AnyShapeStyle {
-        guard day?.rating != nil, !tiers.isEmpty else {
+        guard day?.hasWindow == true, !tiers.isEmpty else {
             return AnyShapeStyle(Theme.badRed)
         }
         return AnyShapeStyle(LinearGradient(stops: Theme.sliceStops(for: tiers),

@@ -173,7 +173,7 @@ Validation is **atomic** (one bad activity rejects the whole request, `400`) and
 
 **`days[]` field types:**
 - `dayIndex`: `number` — 0-based ordinal of the local calendar day (`0` = today, `1` = tomorrow…). For a nocturnal activity it is the **evening's** day ordinal (`0` = tonight); the wrapped window's early-morning tail is attributed to its evening, not the next day.
-- `rating`: `"perfect" | "good" | null` — `null` means no qualifying **Window** that day.
+- `rating`: `"perfect" | "good" | null` — `null` means no qualifying **Window** that day. **Client hardening (2026-08-29):** the iOS decoder maps this to a typed `Rating` verdict; an unrecognized string decodes to a safe `.unknown` case rendered like a `null` day (never favorable on a verdict that build doesn't know), so a future tier can never fail the decode or paint Perfect.
 - `startIndex`, `endIndex`, `duration`: `number` when `rating` is non-null; **absent from the object** when `rating` is `null`. `startIndex`/`endIndex` are **global indices into `hours[]`** (not day-relative).
 
 **`hours[]` field types (provider-determined count, ≤168):**

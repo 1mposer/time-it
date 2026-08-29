@@ -654,7 +654,7 @@ final class DashboardViewModelTests: XCTestCase {
         let day = vm.cardDay(for: Fixtures.makeActivity(days: days))
 
         XCTAssertEqual(day?.dayIndex, 0)
-        XCTAssertEqual(day?.rating, "good", "day 0 renders as-is — a later Perfect is irrelevant to the card")
+        XCTAssertEqual(day?.rating, .good, "day 0 renders as-is — a later Perfect is irrelevant to the card")
     }
 
     // Guards the cancelled roll-forward (ADR-0004 amendment): the old rule

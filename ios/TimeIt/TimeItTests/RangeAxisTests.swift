@@ -92,15 +92,15 @@ final class RangeAxisTests: XCTestCase {
     func testRatedDayWithCoveragePaintsTheGradientOverItsSpan() {
         // Case 3: the sub-span rides through so a partially-covered rated day
         // paints at its true clock position.
-        XCTAssertEqual(DayBarPaint.decide(rating: "perfect", tiers: [.green, .orange], coverage: 0.5..<1),
+        XCTAssertEqual(DayBarPaint.decide(rating: .perfect, tiers: [.green, .orange], coverage: 0.5..<1),
                        .slice(span: 0.5..<1, tiers: [.green, .orange]))
     }
 
     func testRatedDayWithoutMirrorDataFallsBackToTheFlatServerVerdict() {
         // Authored-lookup miss: no tiers to blend — the flat server rating
         // fill (pre-existing fallback, unchanged).
-        XCTAssertEqual(DayBarPaint.decide(rating: "good", tiers: [], coverage: nil), .flat)
-        XCTAssertEqual(DayBarPaint.decide(rating: "good", tiers: [.green], coverage: nil), .flat)
-        XCTAssertEqual(DayBarPaint.decide(rating: "good", tiers: [], coverage: 0..<1), .flat)
+        XCTAssertEqual(DayBarPaint.decide(rating: .good, tiers: [], coverage: nil), .flat)
+        XCTAssertEqual(DayBarPaint.decide(rating: .good, tiers: [.green], coverage: nil), .flat)
+        XCTAssertEqual(DayBarPaint.decide(rating: .good, tiers: [], coverage: 0..<1), .flat)
     }
 }
