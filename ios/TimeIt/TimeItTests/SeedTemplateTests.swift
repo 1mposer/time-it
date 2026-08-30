@@ -14,17 +14,17 @@ final class SeedTemplateTests: XCTestCase {
     ]
 
     func testTemplateCatalogShipsInOrder() {
-        XCTAssertEqual(SeedTemplates.all.map(\.id), ["cycling", "fishing-lite", "running", "stargazing"])
-        XCTAssertEqual(SeedTemplates.all.map(\.label), ["Cycling", "Fishing Lite", "Running", "Stargazing"])
+        XCTAssertEqual(SeedTemplates.all.map(\.id), ["cycling", "fishing-lite", "running"])
+        XCTAssertEqual(SeedTemplates.all.map(\.label), ["Cycling", "Fishing Lite", "Running"])
     }
 
     func testFirstLaunchSeedsAreTheFullCatalogLandingDormant() {
         // First-launch seeds land DORMANT (window nil until the user
         // confirms a range) — nothing POSTs on first launch; the dashboard
-        // shows the showcase cards. All FOUR templates ship, not two (a
-        // prior scope cut was reversed).
+        // shows the showcase cards. Three templates ship (stargazing left
+        // the catalog — owner edit 2026-08-30).
         XCTAssertEqual(SeedTemplates.firstLaunchSeeds.map(\.id),
-                       ["cycling", "fishing-lite", "running", "stargazing"])
+                       ["cycling", "fishing-lite", "running"])
         for seed in SeedTemplates.firstLaunchSeeds {
             XCTAssertTrue(seed.isDormant, "\(seed.id) must seed dormant — a range is confirmed, never defaulted")
         }
@@ -47,8 +47,6 @@ final class SeedTemplateTests: XCTestCase {
         XCTAssertEqual(SeedTemplates.cycling.window, WindowSpec(startHour: 6, endHour: 10))
         XCTAssertEqual(SeedTemplates.fishingLite.window, WindowSpec(startHour: 15, endHour: 19))
         XCTAssertEqual(SeedTemplates.running.window, WindowSpec(startHour: 6, endHour: 9))
-        XCTAssertEqual(SeedTemplates.stargazing.window, WindowSpec(startHour: 22, endHour: 4),
-                       "already authored nocturnal — unchanged")
     }
 
     func testIdsAreUniqueWithinCatalog() {
@@ -101,15 +99,6 @@ final class SeedTemplateTests: XCTestCase {
         }
     }
 
-    func testNocturnalTemplateHasAValidWrapWindow() {
-        let stargazing = SeedTemplates.all.first { $0.id == "stargazing" }
-        let window = stargazing?.window
-
-        XCTAssertNotNil(window, "the catalog needs a nocturnal Template to exercise the night-stitch")
-        XCTAssertGreaterThan(window?.startHour ?? 0, window?.endHour ?? 0, "wrap = startHour > endHour")
-        XCTAssertEqual(stargazing?.isNocturnal, true)
-    }
-
     func testEncodedBodyMatchesADR0005() throws {
         let request = RatingRequest(lat: 25.1627, lon: 55.2077,
                                     activities: SeedTemplates.all.map(\.activityInput))
@@ -120,7 +109,7 @@ final class SeedTemplateTests: XCTestCase {
         XCTAssertEqual(body["lon"] as? Double, 55.2077)
 
         let activities = try XCTUnwrap(body["activities"] as? [[String: Any]])
-        XCTAssertEqual(activities.count, 4)
+        XCTAssertEqual(activities.count, 3)
 
         for activity in activities {
             let thresholds = try XCTUnwrap(activity["thresholds"] as? [String: [String: Any]])
@@ -132,13 +121,8 @@ final class SeedTemplateTests: XCTestCase {
             // saved as-is is a LIVE windowed body.
             let window = try XCTUnwrap(activity["window"] as? [String: Any],
                                        "\(activity["id"] ?? "?") must send its prefill window")
-            if activity["id"] as? String == "stargazing" {
-                XCTAssertTrue((window["startHour"] as? Int ?? 0) > (window["endHour"] as? Int ?? 0),
-                              "the nocturnal template's window wraps midnight")
-            } else {
-                XCTAssertTrue((window["startHour"] as? Int ?? 0) < (window["endHour"] as? Int ?? 24),
-                              "diurnal prefills are same-day windows")
-            }
+            XCTAssertTrue((window["startHour"] as? Int ?? 0) < (window["endHour"] as? Int ?? 24),
+                          "diurnal prefills are same-day windows")
         }
     }
 

@@ -170,11 +170,11 @@ final class ActivityValidationTests: XCTestCase {
     }
 
     func testDormantTemplateCopyDraftsAtItsOriginsPrefillRange() {
-        var copy = SeedTemplates.stargazing.copyFromTemplate()
+        var copy = SeedTemplates.running.copyFromTemplate()
         copy.window = nil
         let draft = ActivityDraft(from: copy)
-        XCTAssertEqual(draft.startHour, 22)
-        XCTAssertEqual(draft.endHour, 4)
+        XCTAssertEqual(draft.startHour, 6)
+        XCTAssertEqual(draft.endHour, 9)
     }
 
     func testWindowWithEqualHoursIsInvalid() {

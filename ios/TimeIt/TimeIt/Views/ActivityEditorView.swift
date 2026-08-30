@@ -323,36 +323,39 @@ struct ActivityEditorView: View {
         }
     }
 
-    /// The two-checkbox mode row (owner edit 2026-08-30 — replaces the mode
-    /// menu): "Priority: ☐ – Show don't calculate: ☐". Semantics live in
+    /// The two-checkbox mode row
+    ///                      '   Priority: ☐                                 Show only: ☐    '
+    /// Semantics live in
     /// `ThresholdCheckboxes`.
     private func modeCheckboxes(_ descriptor: MetricDescriptor) -> some View {
-        HStack(spacing: 8) {
+        VStack(
+                alignment: .leading, spacing: 4) {
             checkbox("Priority:",
                      checked: ThresholdCheckboxes.isPriority(for: descriptor.key, in: draft),
                      identifier: "editor.priority.\(descriptor.key)") {
                 ThresholdCheckboxes.togglePriority(for: descriptor, in: &draft)
             }
-            Text("–")
+            Text("  ")
                 .foregroundStyle(Theme.secondaryText)
-            checkbox("Show don't calculate:",
+            checkbox("Show only:",
                      checked: ThresholdCheckboxes.isShowOnly(for: descriptor.key, in: draft),
                      identifier: "editor.showOnly.\(descriptor.key)") {
                 ThresholdCheckboxes.toggleShowOnly(for: descriptor, in: &draft)
             }
-            Spacer(minLength: 0)
+            Spacer(minLength: 10)
         }
     }
 
     private func checkbox(_ title: String, checked: Bool, identifier: String,
                           action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            HStack(spacing: 5) {
+            HStack(spacing: 20) {
                 Text(title)
-                    .font(.system(size: 13))
+                    .font(.system(size: 14))
                     .foregroundStyle(Theme.secondaryText)
+                    .frame(minWidth: 80, alignment: .leading)
                 Image(systemName: checked ? "checkmark.square.fill" : "square")
-                    .font(.system(size: 17))
+                    .font(.system(size: 22))
                     .foregroundStyle(checked ? Theme.accentOrange : Theme.secondaryText)
             }
         }
@@ -423,8 +426,12 @@ struct ActivityEditorView: View {
                     .accessibilityIdentifier("editor.reviewCard")
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
-            } footer: {
-                Text("This is how your card will look on the home screen.")
+            }
+            footer:
+            {
+                Text("This is how your activity will look on the home screen.")
+                    .font(.system(size: 16, weight: .medium, design: .rounded))
+                    .padding(.top, 10)
             }
             if !buildResult.issues.isEmpty {
                 Section {
@@ -434,10 +441,6 @@ struct ActivityEditorView: View {
                             .foregroundStyle(.red)
                     }
                 }
-            }
-            Section {
-            } footer: {
-                Text("You can always change these later by pressing the card in the home screen.")
             }
             if !isNew, onDelete != nil {
                 deleteSection

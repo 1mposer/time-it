@@ -28,8 +28,8 @@ final class ActivityStoreTests: XCTestCase {
         ActivityStore(defaults: defaults, seeds: seeds, preferences: preferences)
     }
 
-    /// The showcase is the full four-card template catalog.
-    private let seedIds = ["cycling", "fishing-lite", "running", "stargazing"]
+    /// The showcase is the full template catalog.
+    private let seedIds = ["cycling", "fishing-lite", "running"]
 
     private func makeActivity(id: String = UUID().uuidString, label: String = "Padel") -> AuthoredActivity {
         AuthoredActivity(id: id,
@@ -82,8 +82,8 @@ final class ActivityStoreTests: XCTestCase {
 
         store.delete(id: "cycling")
 
-        XCTAssertEqual(store.activities.map(\.id), ["fishing-lite", "running", "stargazing"])
-        XCTAssertEqual(makeStore().activities.map(\.id), ["fishing-lite", "running", "stargazing"])
+        XCTAssertEqual(store.activities.map(\.id), ["fishing-lite", "running"])
+        XCTAssertEqual(makeStore().activities.map(\.id), ["fishing-lite", "running"])
     }
 
     // MARK: delete-all re-seeds the showcase; dismissals survive
@@ -93,7 +93,6 @@ final class ActivityStoreTests: XCTestCase {
         store.delete(id: "cycling")
         store.delete(id: "fishing-lite")
         store.delete(id: "running")
-        store.delete(id: "stargazing")
 
         XCTAssertEqual(store.activities.map(\.id), seedIds,
                        "delete-all re-seeds the showcase — the dashboard always offers a next action, never a dead end")
@@ -117,16 +116,15 @@ final class ActivityStoreTests: XCTestCase {
 
         store.dismissTemplate(id: "cycling")
 
-        XCTAssertEqual(store.activities.map(\.id), ["fishing-lite", "running", "stargazing"],
+        XCTAssertEqual(store.activities.map(\.id), ["fishing-lite", "running"],
                        "✕ removes the showcase card")
         XCTAssertTrue(preferences.dismissedTemplateIds.contains("cycling"),
                       "the dismissal is remembered in preferences")
 
         store.delete(id: "fishing-lite")
         store.delete(id: "running")
-        store.delete(id: "stargazing")
 
-        XCTAssertEqual(store.activities.map(\.id), ["fishing-lite", "running", "stargazing"],
+        XCTAssertEqual(store.activities.map(\.id), ["fishing-lite", "running"],
                        "a dismissed template stays gone; a merely-deleted one returns (deletion ≠ dismissal)")
     }
 
@@ -136,7 +134,6 @@ final class ActivityStoreTests: XCTestCase {
         store.dismissTemplate(id: "cycling")
         store.dismissTemplate(id: "fishing-lite")
         store.dismissTemplate(id: "running")
-        store.dismissTemplate(id: "stargazing")
 
         XCTAssertTrue(store.activities.isEmpty,
                       "every template dismissed → the true-empty Add-CTA state, not a resurrected showcase")
@@ -161,7 +158,6 @@ final class ActivityStoreTests: XCTestCase {
         store.dismissTemplate(id: "cycling")
         store.dismissTemplate(id: "fishing-lite")
         store.dismissTemplate(id: "running")
-        store.dismissTemplate(id: "stargazing")
 
         store.delete(id: "ghost")
 

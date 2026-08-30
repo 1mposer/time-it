@@ -51,24 +51,9 @@ enum SeedTemplates {
         window: WindowSpec(startHour: 6, endHour: 9)
     )
 
-    /// Nocturnal — its wrapped window exercises the night-stitch path;
-    /// `moon` is display-only (no threshold).
-    static let stargazing = AuthoredActivity(
-        id: "stargazing",
-        label: "Stargazing",
-        iconSymbol: "moon.stars.fill",
-        templateOrigin: nil,
-        displayMetrics: ["cloudCover", "moon", "temp", "visibility"],
-        thresholds: [
-            "cloudCover": Threshold(max: 20, required: true),
-            "temp": Threshold(min: 8, max: 35, required: false),
-            "visibility": Threshold(min: 8, required: false),
-        ],
-        window: WindowSpec(startHour: 22, endHour: 4)
-    )
 
     /// The "Add from Template" catalog, in display order.
-    static let all: [AuthoredActivity] = [cycling, fishingLite, running, stargazing]
+    static let all: [AuthoredActivity] = [cycling, fishingLite, running]
 
     /// What ActivityStore seeds on first launch — the full catalog as showcase
     /// cards, landing DORMANT: nothing POSTs until a range is confirmed.

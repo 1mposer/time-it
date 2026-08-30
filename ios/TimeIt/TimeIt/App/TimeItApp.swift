@@ -28,10 +28,6 @@ struct TimeItApp: App {
            let data = try? JSONEncoder().encode([SeedTemplates.cycling, SeedTemplates.fishingLite]) {
             UserDefaults.standard.set(data, forKey: ActivityStore.storageKey)
         }
-        if ProcessInfo.processInfo.arguments.contains("UITEST_SEED_NOCTURNAL"),
-           let data = try? JSONEncoder().encode([SeedTemplates.stargazing]) {
-            UserDefaults.standard.set(data, forKey: ActivityStore.storageKey)
-        }
         #endif
     }
 
@@ -39,6 +35,7 @@ struct TimeItApp: App {
         WindowGroup {
             DashboardView(viewModel: Self.makeViewModel(),
                           registration: Self.makeRegistration())
+                .fontDesign(.rounded)
         }
     }
 

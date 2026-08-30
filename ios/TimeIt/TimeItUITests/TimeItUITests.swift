@@ -12,8 +12,6 @@ import XCTest
 /// - `UITEST_SEED_LIVE`: pre-persists the two templates as LIVE (ranges
 ///   confirmed) — the real first launch is dormant (no request, no rated
 ///   cards), so card/flow tests scaffold on this instead.
-/// - `UITEST_SEED_NOCTURNAL`: pre-persists stargazing LIVE (wrapped 10pm–4am
-///   range) — the nocturnal parity path (6 night buckets, "Tonight" copy).
 /// - `UITEST_LOCATION`: mock location provider returns a fixed fix — without
 ///   it the provider never resolves and the app shows the no-location empty
 ///   state (the Dubai fallback is deleted).
@@ -157,7 +155,8 @@ final class TimeItUITests: XCTestCase {
 
         XCTAssertTrue(app.staticTexts["headerTime"].waitForExistence(timeout: 5), "the header still renders")
         XCTAssertTrue(app.otherElements["showcase.cycling"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.otherElements["showcase.stargazing"].exists, "all four templates show (owner ruling 2026-08-13)")
+        XCTAssertTrue(app.otherElements["showcase.running"].exists,
+                      "the full catalog shows (stargazing left the catalog — owner edit 2026-08-30)")
         XCTAssertTrue(app.buttons["showcase.setRange.cycling"].exists, "the Range door is the CTA")
         XCTAssertEqual(cardCount(in: app), 0, "dormant activities never rate — no cards without a confirmed range")
         XCTAssertFalse(app.staticTexts["trueEmptyMessage"].exists,
@@ -187,7 +186,7 @@ final class TimeItUITests: XCTestCase {
         // true-empty state's Add CTA is the way forward.
         let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_LOCATION"])
 
-        for id in ["cycling", "fishing-lite", "running", "stargazing"] {
+        for id in ["cycling", "fishing-lite", "running"] {
             let dismiss = app.buttons["showcase.dismiss.\(id)"]
             XCTAssertTrue(dismiss.waitForExistence(timeout: 5), "showcase card \(id) offers its ✕")
             dismiss.tap()
@@ -696,30 +695,6 @@ final class TimeItUITests: XCTestCase {
         XCTAssertTrue(app.buttons["detail.day.6"].label.hasPrefix("Thursday"),
                       "the week runs Today through Thursday")
         XCTAssertTrue(app.staticTexts["8am"].exists, "the shared range axis midpoint")
-    }
-
-    func testNocturnalDetailShowsSixNightRowsAndNightlyHeader() {
-        // Nocturnal parity: same skeleton, night-phrased — 6 night buckets
-        // (per-activity days.length), evening-keyed rows, range-zoomed
-        // 10pm/1am/4am axis.
-        let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_SEED_NOCTURNAL", "UITEST_LOCATION"])
-
-        let card = app.buttons["card.stargazing"]
-        XCTAssertTrue(card.waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["Tonight · 10pm–2am"].exists, "the nocturnal sublabel says Tonight")
-        card.tap()
-        XCTAssertTrue(app.navigationBars["Stargazing"].waitForExistence(timeout: 5))
-
-        XCTAssertTrue(app.staticTexts["Your window: 10pm – 4am nightly"].exists)
-        // Day rows read via their VoiceOver labels — XCUI flattens a SwiftUI
-        // button's inner texts, so the label (day name + rating + times, the
-        // spoken-summary dialect) is the deterministic surface.
-        let dayRows = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'detail.day.'"))
-        XCTAssertEqual(dayRows.count, 6, "a nocturnal activity has 6 night buckets, never an assumed 7")
-        XCTAssertTrue(app.buttons["detail.day.0"].label.hasPrefix("Tonight"),
-                      "night rows are evening-keyed — bucket 0 is Tonight")
-        XCTAssertTrue(app.buttons["detail.day.1"].label.hasPrefix("Tomorrow night"))
-        XCTAssertTrue(app.staticTexts["1am"].exists, "the range-zoomed axis midpoint crosses midnight")
     }
 
     // MARK: - Push opt-in client
