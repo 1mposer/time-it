@@ -7,6 +7,8 @@ import XCTest
 /// "visited".
 final class EditorWizardTests: XCTestCase {
 
+    // MARK: - Helpers
+
     private let catalog = StaticMetricCatalog()
 
     private func blankDraft() -> ActivityDraft {
@@ -22,7 +24,7 @@ final class EditorWizardTests: XCTestCase {
         step.isComplete(draft: draft, catalog: catalog, rangeConfirmed: rangeConfirmed)
     }
 
-    // MARK: tab 0 — name & icon
+    // MARK: - Tab 0 — name & icon
 
     func testNameIconGateNeedsBothANameAndANonSentinelIcon() {
         var draft = blankDraft()
@@ -47,7 +49,7 @@ final class EditorWizardTests: XCTestCase {
         XCTAssertFalse(complete(.nameIcon, draft), "green is live validity, never visited")
     }
 
-    // MARK: tab 1 — metrics
+    // MARK: - Tab 1 — metrics
 
     func testMetricsGateNeedsAtLeastOneSelectedMetric() {
         XCTAssertFalse(complete(.metrics, blankDraft()))
@@ -77,7 +79,7 @@ final class EditorWizardTests: XCTestCase {
         XCTAssertTrue(complete(.metrics, draft))
     }
 
-    // MARK: tab 2 — range
+    // MARK: - Tab 2 — range
 
     func testRangeGateNeedsDistinctHoursAndConfirmation() {
         var draft = blankDraft()
@@ -102,14 +104,14 @@ final class EditorWizardTests: XCTestCase {
                        "a dormant showcase activity must confirm its prefill")
     }
 
-    // MARK: tab 3 — review
+    // MARK: - Tab 3 — review
 
     func testReviewGateIsTheBuildResult() {
         XCTAssertFalse(complete(.review, blankDraft()))
         XCTAssertTrue(complete(.review, ActivityDraft(from: SeedTemplates.cycling), rangeConfirmed: true))
     }
 
-    // MARK: gating — tab i is tappable iff tabs 0..<i are all complete
+    // MARK: - Gating chain — tab i is tappable iff tabs 0..<i are all complete
 
     func testForwardGatingUnlocksTabsInOrder() {
         var draft = blankDraft()
@@ -138,7 +140,7 @@ final class EditorWizardTests: XCTestCase {
         }
     }
 
-    // MARK: selection with preset (§4 — one tap = a working Must-have threshold)
+    // MARK: - Preset selection (§4 — one tap = a working Must-have threshold)
 
     func testSelectWithPresetCreatesAPresetThreshold() {
         var draft = blankDraft()
@@ -161,7 +163,7 @@ final class EditorWizardTests: XCTestCase {
         XCTAssertEqual(draft, before, "re-selecting must not clobber authored threshold values")
     }
 
-    // MARK: threshold mode mapping (§4)
+    // MARK: - Threshold mode mapping (§4)
 
     func testCurrentModeReflectsTheDraftState() {
         var draft = ActivityDraft(from: SeedTemplates.cycling)
@@ -218,7 +220,7 @@ final class EditorWizardTests: XCTestCase {
         XCTAssertEqual(ThresholdMode.showOnly.label, "Show only")
     }
 
-    // MARK: two-checkbox surface (owner edit 2026-08-30 — replaces the mode menu)
+    // MARK: - Two-checkbox surface (owner edit 2026-08-30 — replaces the mode menu)
 
     func testCheckboxStateReflectsTheDraft() {
         var draft = ActivityDraft(from: SeedTemplates.cycling)

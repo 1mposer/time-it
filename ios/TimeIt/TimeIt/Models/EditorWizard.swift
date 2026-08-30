@@ -1,5 +1,7 @@
 import Foundation
 
+// MARK: - EditorStep — wizard tabs, completion & gating
+
 /// The four wizard tabs of the Activity editor (§1 of the redesign) and
 /// their completion rules. Green in the tab header = live validity: a tab is
 /// complete the moment its rule passes and reverts if the user breaks it —
@@ -19,6 +21,8 @@ enum EditorStep: Int, CaseIterable {
         case .review: return "Review"
         }
     }
+
+    // MARK: Completion
 
     /// The tab's completion rule (the §1 table).
     func isComplete(draft: ActivityDraft, catalog: MetricCatalogProviding,
@@ -46,6 +50,8 @@ enum EditorStep: Int, CaseIterable {
         }
     }
 
+    // MARK: Gating
+
     /// Gating: tab *i* is tappable iff tabs `0..<i` are all complete.
     /// (Backward taps are always allowed — a lower rawValue is never gated.)
     func isUnlocked(draft: ActivityDraft, catalog: MetricCatalogProviding,
@@ -55,6 +61,8 @@ enum EditorStep: Int, CaseIterable {
             .allSatisfy { $0.isComplete(draft: draft, catalog: catalog, rangeConfirmed: rangeConfirmed) }
     }
 }
+
+// MARK: - ThresholdMode — 3-way threshold state
 
 /// The 3-way threshold mode of a selected metric (§4): replaces the old
 /// required-toggle and Add/Remove-threshold rows.
@@ -94,6 +102,8 @@ enum ThresholdMode: CaseIterable {
         }
     }
 }
+
+// MARK: - ThresholdCheckboxes — two-checkbox surface over ThresholdMode
 
 /// The two-checkbox surface over `ThresholdMode` (owner edit 2026-08-30 —
 /// replaces the mode menu). Independent boxes: Priority ✓ = must-have,

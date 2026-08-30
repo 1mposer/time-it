@@ -28,6 +28,8 @@ import XCTest
 ///   non-204 path must keep the typed text and offer retry.
 final class TimeItUITests: XCTestCase {
 
+    // MARK: - Launch helpers
+
     override func setUpWithError() throws {
         continueAfterFailure = false
     }
@@ -53,7 +55,7 @@ final class TimeItUITests: XCTestCase {
         }
     }
 
-    // MARK: launch surface
+    // MARK: - Launch surface
 
     func testLaunchesDirectlyToDashboardWithNoGateOrTabBar() {
         let app = launchApp()
@@ -76,7 +78,7 @@ final class TimeItUITests: XCTestCase {
         XCTAssertTrue(app.buttons["settingsGear"].exists, "top-right gear, not a sign-in button")
     }
 
-    // MARK: cards
+    // MARK: - Cards
 
     func testOneCardPerSeedTemplateInRequestOrderWithNoProBadge() {
         let app = launchApp()
@@ -116,7 +118,7 @@ final class TimeItUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["chip.cycling.temp"].exists, "at least one metric chip on the card")
     }
 
-    // MARK: navigation
+    // MARK: - Navigation
 
     func testTappingCardOpensDetailAndBackReturns() {
         let app = launchApp()
@@ -145,7 +147,7 @@ final class TimeItUITests: XCTestCase {
         XCTAssertTrue(app.buttons["settingsGear"].waitForExistence(timeout: 5))
     }
 
-    // MARK: first launch is dormant — the showcase
+    // MARK: - Showcase & dormancy (first launch is dormant)
 
     func testFirstLaunchShowsTheDormantShowcase() {
         // The REAL first launch (no UITEST_SEED_LIVE): the full four-template
@@ -165,67 +167,6 @@ final class TimeItUITests: XCTestCase {
         // rows hide rather than dangle "—".
         XCTAssertFalse(app.staticTexts["headerTemp"].exists,
                        "no fabricated or placeholder weather while nothing is live")
-    }
-
-    func testShowcaseSetYourRangeConfirmsThePrefillAndRatesTheCard() {
-        // The Range step is the only door out of dormancy. The wizard opens
-        // with the template prefill loaded (tabs 0–1 already green); an
-        // untouched prefill is NOT a confirmed range, so Review is reached
-        // through the warn-then-proceed path, and saving there triggers the
-        // first POST.
-        let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_LOCATION"])
-
-        let cta = app.buttons["showcase.setRange.cycling"]
-        XCTAssertTrue(cta.waitForExistence(timeout: 5))
-        cta.tap()
-
-        let rangeTab = app.buttons["editor.tab.2"]
-        XCTAssertTrue(rangeTab.waitForExistence(timeout: 5), "the wizard opens with the template prefill loaded")
-        rangeTab.tap()
-
-        let next = app.buttons["editor.nextStep"]
-        XCTAssertTrue(next.waitForExistence(timeout: 5))
-        XCTAssertTrue(next.isEnabled, "a valid-but-unconfirmed range keeps Next enabled for the warning path")
-        next.tap()
-        XCTAssertTrue(app.staticTexts["editor.rangeWarning"].waitForExistence(timeout: 5),
-                      "first press warns — the prefill was never touched")
-        next.tap()
-
-        let save = app.buttons["editor.save"]
-        XCTAssertTrue(save.waitForExistence(timeout: 5), "second press proceeds to Review")
-        XCTAssertTrue(save.isEnabled, "a template prefill is valid as-is — saving is the confirmation")
-        save.tap()
-
-        XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5),
-                      "the first confirmed range makes the first request and rates the card")
-        XCTAssertTrue(app.otherElements["showcase.fishing-lite"].exists,
-                      "the other templates stay dormant showcase cards — visible, never POSTed")
-    }
-
-    func testReviewTabTapTakesTheWarnThenProceedPath() {
-        // Plan §6: the SECOND press proceeds for BOTH paths — "presses Next
-        // Step (or taps the Review tab)". The Review-tab tap must not loop
-        // on the warning.
-        let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_LOCATION"])
-
-        let cta = app.buttons["showcase.setRange.cycling"]
-        XCTAssertTrue(cta.waitForExistence(timeout: 5))
-        cta.tap()
-
-        let reviewTab = app.buttons["editor.tab.3"]
-        XCTAssertTrue(reviewTab.waitForExistence(timeout: 5))
-        reviewTab.tap()
-
-        XCTAssertTrue(app.staticTexts["editor.rangeWarning"].waitForExistence(timeout: 5),
-                      "first Review-tab tap warns")
-        XCTAssertTrue(app.pickers["editor.startHour"].exists,
-                      "…landing on the Range tab so the skipped range is visible")
-        XCTAssertFalse(app.buttons["editor.save"].exists, "not on Review yet")
-
-        reviewTab.tap()
-        XCTAssertTrue(app.buttons["editor.save"].waitForExistence(timeout: 5),
-                      "second Review-tab tap proceeds to Review (rangeConfirmed set)")
-        XCTAssertFalse(app.staticTexts["editor.rangeWarning"].exists)
     }
 
     func testDismissingAShowcaseCardRemovesIt() {
@@ -260,7 +201,7 @@ final class TimeItUITests: XCTestCase {
         XCTAssertTrue(app.buttons["addFromScratch"].waitForExistence(timeout: 5), "the CTA opens the Add flow")
     }
 
-    // MARK: error state
+    // MARK: - Error state
 
     func testServerFailureShowsErrorState() {
         // UITEST_LOCATION matters here: without a resolvable location, the
@@ -273,7 +214,7 @@ final class TimeItUITests: XCTestCase {
         XCTAssertFalse(app.buttons["card.cycling"].exists)
     }
 
-    // MARK: ghost add-card + add flow
+    // MARK: - Editor wizard flows (ghost add-card + add flow)
 
     func testGhostAddCardIsVisibleAfterCardsAndOpensAddFlow() {
         let app = launchApp()
@@ -380,6 +321,67 @@ final class TimeItUITests: XCTestCase {
                       "the scratch-built card renders with its confirmed range")
     }
 
+    func testShowcaseSetYourRangeConfirmsThePrefillAndRatesTheCard() {
+        // The Range step is the only door out of dormancy. The wizard opens
+        // with the template prefill loaded (tabs 0–1 already green); an
+        // untouched prefill is NOT a confirmed range, so Review is reached
+        // through the warn-then-proceed path, and saving there triggers the
+        // first POST.
+        let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_LOCATION"])
+
+        let cta = app.buttons["showcase.setRange.cycling"]
+        XCTAssertTrue(cta.waitForExistence(timeout: 5))
+        cta.tap()
+
+        let rangeTab = app.buttons["editor.tab.2"]
+        XCTAssertTrue(rangeTab.waitForExistence(timeout: 5), "the wizard opens with the template prefill loaded")
+        rangeTab.tap()
+
+        let next = app.buttons["editor.nextStep"]
+        XCTAssertTrue(next.waitForExistence(timeout: 5))
+        XCTAssertTrue(next.isEnabled, "a valid-but-unconfirmed range keeps Next enabled for the warning path")
+        next.tap()
+        XCTAssertTrue(app.staticTexts["editor.rangeWarning"].waitForExistence(timeout: 5),
+                      "first press warns — the prefill was never touched")
+        next.tap()
+
+        let save = app.buttons["editor.save"]
+        XCTAssertTrue(save.waitForExistence(timeout: 5), "second press proceeds to Review")
+        XCTAssertTrue(save.isEnabled, "a template prefill is valid as-is — saving is the confirmation")
+        save.tap()
+
+        XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5),
+                      "the first confirmed range makes the first request and rates the card")
+        XCTAssertTrue(app.otherElements["showcase.fishing-lite"].exists,
+                      "the other templates stay dormant showcase cards — visible, never POSTed")
+    }
+
+    func testReviewTabTapTakesTheWarnThenProceedPath() {
+        // Plan §6: the SECOND press proceeds for BOTH paths — "presses Next
+        // Step (or taps the Review tab)". The Review-tab tap must not loop
+        // on the warning.
+        let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_LOCATION"])
+
+        let cta = app.buttons["showcase.setRange.cycling"]
+        XCTAssertTrue(cta.waitForExistence(timeout: 5))
+        cta.tap()
+
+        let reviewTab = app.buttons["editor.tab.3"]
+        XCTAssertTrue(reviewTab.waitForExistence(timeout: 5))
+        reviewTab.tap()
+
+        XCTAssertTrue(app.staticTexts["editor.rangeWarning"].waitForExistence(timeout: 5),
+                      "first Review-tab tap warns")
+        XCTAssertTrue(app.pickers["editor.startHour"].exists,
+                      "…landing on the Range tab so the skipped range is visible")
+        XCTAssertFalse(app.buttons["editor.save"].exists, "not on Review yet")
+
+        reviewTab.tap()
+        XCTAssertTrue(app.buttons["editor.save"].waitForExistence(timeout: 5),
+                      "second Review-tab tap proceeds to Review (rangeConfirmed set)")
+        XCTAssertFalse(app.staticTexts["editor.rangeWarning"].exists)
+    }
+
     func testMetricCheckboxesSwitchThresholdModes() {
         // Owner edit 2026-08-30: the mode menu is gone — a selected metric
         // carries two checkboxes, "Priority" and "Show don't calculate".
@@ -432,7 +434,7 @@ final class TimeItUITests: XCTestCase {
         app.buttons["editor.cancel"].tap()
     }
 
-    // MARK: edit + delete via the card gear
+    // MARK: - Edit + delete via the card gear
 
     func testGearOpensEditorAndEditedLabelReflectsOnCard() {
         let app = launchApp()
@@ -499,7 +501,7 @@ final class TimeItUITests: XCTestCase {
                        "the re-seeded showcase is not the empty state — deleting everything is not a dead end")
     }
 
-    // MARK: persistence across relaunch
+    // MARK: - Persistence across relaunch
 
     func testAuthoredListPersistsAcrossRelaunch() {
         var app = launchApp()
@@ -524,7 +526,34 @@ final class TimeItUITests: XCTestCase {
                       "the authored list (not the seeds) survives a relaunch")
     }
 
-    // MARK: home location
+    func testCachedLastResolvedFeedsARelaunchWithNothingElse() {
+        // First run: place a city so a successful rating persists the cache…
+        var app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_SEED_LIVE"])
+        let place = app.buttons["placeLocationButton"]
+        XCTAssertTrue(place.waitForExistence(timeout: 5))
+        place.tap()
+        pickCity("Dubai Marina", in: app)
+        XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5))
+
+        // …then clear home, so on relaunch only the cache can feed the chain.
+        app.buttons["settingsGear"].tap()
+        let clear = app.buttons["settings.useCurrentLocation"]
+        XCTAssertTrue(clear.waitForExistence(timeout: 5))
+        clear.tap()
+        app.buttons["Done"].tap()
+        XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5),
+                      "with home cleared and no GPS, the cache keeps the dashboard rated")
+
+        app.terminate()
+        app = launchApp(arguments: ["UITEST_MOCK_SUCCESS"]) // no RESET, no UITEST_LOCATION
+
+        XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5),
+                      "a previously successful location renders real data on a bare relaunch")
+        XCTAssertTrue(app.staticTexts["DUBAI MARINA"].exists, "the cached name labels the header")
+        XCTAssertFalse(app.buttons["enableLocationButton"].exists, "not the empty state")
+    }
+
+    // MARK: - Home location
 
     /// Searches the city picker (as-you-type — no Search button) and taps the
     /// first mock result. The picker sheet must already be on screen.
@@ -560,7 +589,7 @@ final class TimeItUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Using current location"].waitForExistence(timeout: 5), "clearing returns to GPS")
     }
 
-    // MARK: no-location onboarding
+    // MARK: - No-location onboarding
 
     func testNoLocationShowsSkeletonsAndCTAsWithNoWeather() {
         // No UITEST_LOCATION: the provider never resolves. Seeded LIVE
@@ -607,7 +636,7 @@ final class TimeItUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["DUBAI MARINA"].exists, "the picked city names the header")
     }
 
-    // MARK: phrases toggle
+    // MARK: - Phrases toggle
 
     func testPhrasesToggleDefaultOffAndShowsPhraseWhenEnabled() {
         let app = launchApp()
@@ -632,7 +661,7 @@ final class TimeItUITests: XCTestCase {
                       "with the toggle on, the card shows its trajectory phrase")
     }
 
-    // MARK: detail page
+    // MARK: - Detail page
 
     func testDetailShowsRangeOnceSetupOnceAlignedWeekAndTapToExpand() {
         let app = launchApp()
@@ -693,34 +722,7 @@ final class TimeItUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["1am"].exists, "the range-zoomed axis midpoint crosses midnight")
     }
 
-    func testCachedLastResolvedFeedsARelaunchWithNothingElse() {
-        // First run: place a city so a successful rating persists the cache…
-        var app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_SEED_LIVE"])
-        let place = app.buttons["placeLocationButton"]
-        XCTAssertTrue(place.waitForExistence(timeout: 5))
-        place.tap()
-        pickCity("Dubai Marina", in: app)
-        XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5))
-
-        // …then clear home, so on relaunch only the cache can feed the chain.
-        app.buttons["settingsGear"].tap()
-        let clear = app.buttons["settings.useCurrentLocation"]
-        XCTAssertTrue(clear.waitForExistence(timeout: 5))
-        clear.tap()
-        app.buttons["Done"].tap()
-        XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5),
-                      "with home cleared and no GPS, the cache keeps the dashboard rated")
-
-        app.terminate()
-        app = launchApp(arguments: ["UITEST_MOCK_SUCCESS"]) // no RESET, no UITEST_LOCATION
-
-        XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5),
-                      "a previously successful location renders real data on a bare relaunch")
-        XCTAssertTrue(app.staticTexts["DUBAI MARINA"].exists, "the cached name labels the header")
-        XCTAssertFalse(app.buttons["enableLocationButton"].exists, "not the empty state")
-    }
-
-    // MARK: push opt-in client
+    // MARK: - Push opt-in client
 
     /// Polls an XCUI switch for a target value — the enable flow completes
     /// asynchronously (permission → registration), so a plain read races it.
@@ -804,7 +806,21 @@ final class TimeItUITests: XCTestCase {
                       "the callout deep-links to the Settings Notifications row")
     }
 
-    // MARK: beta feedback — disclaimer banner + suggestion sheet
+    func testPushCalloutDismissIsRememberedAcrossRelaunch() {
+        var app = launchApp()
+
+        let dismiss = app.buttons["pushCallout.dismiss"]
+        XCTAssertTrue(dismiss.waitForExistence(timeout: 5))
+        dismiss.tap()
+        XCTAssertFalse(app.buttons["pushCallout"].exists, "dismissed on the spot")
+
+        // Relaunch WITHOUT UITEST_RESET — one-time means gone for good.
+        app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_SEED_LIVE", "UITEST_LOCATION"])
+        XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["pushCallout"].exists, "the dismissal persists")
+    }
+
+    // MARK: - Beta feedback — disclaimer banner + suggestion sheet
 
     func testBetaBannerAndSuggestionButtonRenderWhenGateOn() {
         let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_SEED_LIVE",
@@ -873,19 +889,5 @@ final class TimeItUITests: XCTestCase {
         XCTAssertEqual(editor.value as? String, "Keep this text", "a typed suggestion is never discarded")
         XCTAssertTrue(app.buttons["feedback.send"].isEnabled, "Send stays as the retry")
         XCTAssertFalse(app.staticTexts["feedback.success"].exists)
-    }
-
-    func testPushCalloutDismissIsRememberedAcrossRelaunch() {
-        var app = launchApp()
-
-        let dismiss = app.buttons["pushCallout.dismiss"]
-        XCTAssertTrue(dismiss.waitForExistence(timeout: 5))
-        dismiss.tap()
-        XCTAssertFalse(app.buttons["pushCallout"].exists, "dismissed on the spot")
-
-        // Relaunch WITHOUT UITEST_RESET — one-time means gone for good.
-        app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_SEED_LIVE", "UITEST_LOCATION"])
-        XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5))
-        XCTAssertFalse(app.buttons["pushCallout"].exists, "the dismissal persists")
     }
 }

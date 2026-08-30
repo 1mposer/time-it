@@ -7,6 +7,9 @@ import SwiftUI
 /// Activity — one invalid Activity would 400 the whole dashboard request
 /// (ADR-0005 atomic validation), so an invalid one can never be saved.
 struct ActivityEditorView: View {
+
+    // MARK: - Dependencies & state
+
     private let isNew: Bool
     private let catalog: MetricCatalogProviding
     private let onSave: (AuthoredActivity) -> Void
@@ -23,6 +26,8 @@ struct ActivityEditorView: View {
     @State private var expandedCategories: Set<String>
     @FocusState private var nameFocused: Bool
     @Environment(\.dismiss) private var dismiss
+
+    // MARK: - Init
 
     init(existing: AuthoredActivity,
          isNew: Bool,
@@ -41,6 +46,8 @@ struct ActivityEditorView: View {
         _expandedCategories = State(initialValue:
             IconCatalog.category(containing: draft.iconSymbol).map { [$0.id] } ?? [])
     }
+
+    // MARK: - Body
 
     /// One parse+validate pass per render — the wizard re-renders on every
     /// keystroke, so computing the result per consumer would triple the work.
@@ -79,7 +86,7 @@ struct ActivityEditorView: View {
         }
     }
 
-    // MARK: step completion / gating (EditorStep owns the rules)
+    // MARK: - Step completion / gating (EditorStep owns the rules)
 
     private func isComplete(_ index: Int) -> Bool {
         guard let tab = EditorStep(rawValue: index) else { return false }
@@ -129,7 +136,7 @@ struct ActivityEditorView: View {
         }
     }
 
-    // MARK: bottom primary button (§8)
+    // MARK: - Bottom primary button (§8)
 
     private func bottomBar(_ buildResult: (activity: AuthoredActivity?, issues: [String])) -> some View {
         VStack(spacing: 8) {
@@ -182,7 +189,7 @@ struct ActivityEditorView: View {
         }
     }
 
-    // MARK: tab 0 — Name & Icon (§3)
+    // MARK: - Tab 0 — Name & Icon (§3)
 
     /// An edited activity may carry an icon that predates the catalog tree —
     /// it renders in a "Current" slot so editing can never lose it.
@@ -255,7 +262,7 @@ struct ActivityEditorView: View {
         .accessibilityLabel(symbol)
     }
 
-    // MARK: tab 1 — Metrics (merged thresholds, §4)
+    // MARK: - Tab 1 — Metrics (merged thresholds, §4)
 
     private var metricsTab: some View {
         Form {
@@ -361,7 +368,7 @@ struct ActivityEditorView: View {
                 set: { draft.thresholds[key]?[keyPath: path] = $0 })
     }
 
-    // MARK: tab 2 — Range (§6)
+    // MARK: - Tab 2 — Range (§6)
 
     /// From and To are distinct boxes — one Form section each, so they render
     /// as separate spaced cards (owner edit 2026-08-30).
@@ -407,7 +414,7 @@ struct ActivityEditorView: View {
         .accessibilityIdentifier(identifier)
     }
 
-    // MARK: tab 3 — Review (§7)
+    // MARK: - Tab 3 — Review (§7)
 
     private func reviewTab(_ buildResult: (activity: AuthoredActivity?, issues: [String])) -> some View {
         Form {
@@ -438,6 +445,8 @@ struct ActivityEditorView: View {
         }
         .scrollContentBackground(.hidden)
     }
+
+    // MARK: - Review card
 
     /// The actual dashboard card as a representative preview (owner edit
     /// 2026-08-30): real icon, name, range chip, and metric chips from the
@@ -472,7 +481,7 @@ struct ActivityEditorView: View {
                                 catalog: catalog)
     }
 
-    // MARK: delete (edit mode only)
+    // MARK: - Delete (edit mode only)
 
     private var deleteSection: some View {
         Section {
@@ -491,13 +500,15 @@ struct ActivityEditorView: View {
         }
     }
 
+    // MARK: - Helpers
+
     /// "12am", "1am" … "11pm" — the shared clock dialect (RangeText).
     static func hourText(_ hour: Int) -> String {
         RangeText.hourText(hour)
     }
 }
 
-// MARK: - tab header (§2)
+// MARK: - Tab header (§2)
 
 /// The fixed 4-segment capsule header. States: current (accent fill),
 /// complete (perfectGreen outline + checkmark — live validity, never
@@ -561,6 +572,8 @@ private struct EditorTabBar: View {
         complete ? Theme.perfectGreen : Theme.secondaryText.opacity(0.4)
     }
 }
+
+// MARK: - Previews
 
 #if DEBUG
 #Preview("New (scratch)") {
