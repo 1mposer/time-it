@@ -194,7 +194,7 @@ struct ActivityEditorView: View {
     private var nameIconTab: some View {
         Form {
             Section("Name") {
-                TextField("Cycling", text: $draft.label)
+                TextField("Cycling...", text: $draft.label)
                     .accessibilityIdentifier("editor.name")
             }
             Section("Icon") {
@@ -254,7 +254,7 @@ struct ActivityEditorView: View {
         Form {
             Section {
                 DidYouKnowBox(key: "metricModes",
-                              body: "• Must-have: bad weather blocks the day. • Nice-to-have: failing only downgrades Perfect to Good. • Show only: on the card, doesn't affect rating.")
+                              body: "If 'Priority' is selected for a metric, it will be considered more in the calculation.")
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
             }
@@ -339,19 +339,19 @@ struct ActivityEditorView: View {
         Form {
             Section {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("From")
-                        .font(.system(size: 14, weight: .semibold))
+                    Text("From:")
+                        .font(.system(size: 16, weight: .bold))
                         .foregroundStyle(Theme.secondaryText)
                     hourWheel(selection: $draft.startHour, identifier: "editor.startHour")
-                    Text("Until")
-                        .font(.system(size: 14, weight: .semibold))
+                    Text("To:")
+                        .font(.system(size: 16, weight: .bold))
                         .foregroundStyle(Theme.secondaryText)
                     hourWheel(selection: $draft.endHour, identifier: "editor.endHour")
                 }
             }
             Section {
                 if draft.startHour == draft.endHour {
-                    Text("Start and end can't match")
+                    Text("Start and end be the same.")
                         .font(.system(size: 13))
                         .foregroundStyle(.red)
                 } else if draft.startHour > draft.endHour {
@@ -366,7 +366,7 @@ struct ActivityEditorView: View {
                     .accessibilityIdentifier("editor.nightNote")
                 }
                 DidYouKnowBox(key: "nightRange",
-                              body: "End before start? That's an overnight range — rated per night, made for stargazing.")
+                              body: "This activity is rated per night.")
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
             }
@@ -382,7 +382,7 @@ struct ActivityEditorView: View {
             }
         }
         .pickerStyle(.wheel)
-        .frame(height: 110)
+        .frame(height: 120)
         .clipped()
         .accessibilityIdentifier(identifier)
     }

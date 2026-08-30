@@ -14,30 +14,30 @@ struct DidYouKnowBox: View {
 
     var body: some View {
         if !dismissed {
-            HStack(alignment: .top, spacing: 10) {
+            HStack(alignment: .top, spacing: 16) {
                 Image(systemName: "lightbulb.fill")
-                    .font(.system(size: 16))
+                    .font(.system(size: 22))
                     .foregroundStyle(Theme.accentOrange)
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 7) {
                     Text("Did you know?")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(Theme.primaryText)
                     Text(body_)
                         .font(.system(size: 13))
                         .foregroundStyle(Theme.secondaryText)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                Spacer(minLength: 0)
+                Spacer(minLength: 12)
                 Button {
                     dismissed = true
                 } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(Theme.secondaryText)
                 }
                 .buttonStyle(.plain)
             }
-            .padding(12)
+            .padding(19)
             .background(Theme.accentOrange.opacity(0.1),
                         in: RoundedRectangle(cornerRadius: 12))
         }
@@ -48,9 +48,9 @@ struct DidYouKnowBox: View {
 #Preview("Did you know — metric modes") {
     VStack(spacing: 16) {
         DidYouKnowBox(key: "metricModes",
-                      body: "• Must-have: bad weather blocks the day. • Nice-to-have: failing only downgrades Perfect to Good. • Show only: on the card, doesn't affect rating.")
+                      body: "If 'Priority' is selected for a metric, it will be considered more in the calculation.")
         DidYouKnowBox(key: "nightRange",
-                      body: "End before start? That's an overnight range — rated per night, made for stargazing.")
+                      body: "This activity is rated per night.")
     }
     .padding()
     .background(Theme.appBackground)
