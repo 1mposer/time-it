@@ -21,6 +21,7 @@ struct ActivityEditorView: View {
     @State private var showingRangeWarning = false
     @State private var confirmingDelete = false
     @State private var expandedCategories: Set<String>
+    @FocusState private var nameFocused: Bool
     @Environment(\.dismiss) private var dismiss
 
     init(existing: AuthoredActivity,
@@ -194,7 +195,13 @@ struct ActivityEditorView: View {
     private var nameIconTab: some View {
         Form {
             Section("Name") {
+                // The whole row must raise the keyboard, not just the text's
+                // leading edge (device finding 2026-08-30).
                 TextField("Cycling...", text: $draft.label)
+                    .focused($nameFocused)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
+                    .onTapGesture { nameFocused = true }
                     .accessibilityIdentifier("editor.name")
             }
             Section("Icon") {
@@ -305,25 +312,46 @@ struct ActivityEditorView: View {
                                 minText: boundText(descriptor.key, \.minText),
                                 maxText: boundText(descriptor.key, \.maxText))
             }
-            modeMenu(descriptor)
+            modeCheckboxes(descriptor)
         }
     }
 
-    /// The 3-way mode control (§4) — replaces the required-toggle and the
-    /// Add/Remove-threshold rows.
-    private func modeMenu(_ descriptor: MetricDescriptor) -> some View {
-        let current = ThresholdMode.current(for: descriptor.key, in: draft)
-        return ControlGroup {
-            ForEach(ThresholdMode.allCases, id: \.self) { mode in
-                Button(mode.label) {
-                    mode.apply(for: descriptor, to: &draft)
-                }
+    /// The two-checkbox mode row (owner edit 2026-08-30 — replaces the mode
+    /// menu): "Priority: ☐ – Show don't calculate: ☐". Semantics live in
+    /// `ThresholdCheckboxes`.
+    private func modeCheckboxes(_ descriptor: MetricDescriptor) -> some View {
+        HStack(spacing: 8) {
+            checkbox("Priority:",
+                     checked: ThresholdCheckboxes.isPriority(for: descriptor.key, in: draft),
+                     identifier: "editor.priority.\(descriptor.key)") {
+                ThresholdCheckboxes.togglePriority(for: descriptor, in: &draft)
             }
-        } label: {
-            Label(current.label, systemImage: "slider.horizontal.3")
+            Text("–")
+                .foregroundStyle(Theme.secondaryText)
+            checkbox("Show don't calculate:",
+                     checked: ThresholdCheckboxes.isShowOnly(for: descriptor.key, in: draft),
+                     identifier: "editor.showOnly.\(descriptor.key)") {
+                ThresholdCheckboxes.toggleShowOnly(for: descriptor, in: &draft)
+            }
+            Spacer(minLength: 0)
         }
-        .controlGroupStyle(.compactMenu)
-        .accessibilityIdentifier("editor.mode.\(descriptor.key)")
+    }
+
+    private func checkbox(_ title: String, checked: Bool, identifier: String,
+                          action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                Text(title)
+                    .font(.system(size: 13))
+                    .foregroundStyle(Theme.secondaryText)
+                Image(systemName: checked ? "checkmark.square.fill" : "square")
+                    .font(.system(size: 17))
+                    .foregroundStyle(checked ? Theme.accentOrange : Theme.secondaryText)
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(identifier)
+        .accessibilityAddTraits(checked ? .isSelected : [])
     }
 
     /// Binding into one bound's text of the metric's threshold. The rows only
@@ -335,6 +363,8 @@ struct ActivityEditorView: View {
 
     // MARK: tab 2 — Range (§6)
 
+    /// From and To are distinct boxes — one Form section each, so they render
+    /// as separate spaced cards (owner edit 2026-08-30).
     private var rangeTab: some View {
         Form {
             Section {
@@ -343,34 +373,24 @@ struct ActivityEditorView: View {
                         .font(.system(size: 16, weight: .bold))
                         .foregroundStyle(Theme.secondaryText)
                     hourWheel(selection: $draft.startHour, identifier: "editor.startHour")
+                }
+            }
+            Section {
+                VStack(alignment: .leading, spacing: 4) {
                     Text("To:")
                         .font(.system(size: 16, weight: .bold))
                         .foregroundStyle(Theme.secondaryText)
                     hourWheel(selection: $draft.endHour, identifier: "editor.endHour")
                 }
             }
-            Section {
-                if draft.startHour == draft.endHour {
-                    Text("Start and end be the same.")
+            if draft.startHour == draft.endHour {
+                Section {
+                    Text("Start and end can't be the same.")
                         .font(.system(size: 13))
                         .foregroundStyle(.red)
-                } else if draft.startHour > draft.endHour {
-                    HStack(spacing: 8) {
-                        Image(systemName: "moon.stars")
-                            .foregroundStyle(Theme.secondaryText)
-                        Text("This is a night activity")
-                            .font(.system(size: 14))
-                            .foregroundStyle(Theme.primaryText)
-                    }
-                    .accessibilityElement(children: .combine)
-                    .accessibilityIdentifier("editor.nightNote")
                 }
-                DidYouKnowBox(key: "nightRange",
-                              body: "This activity is rated per night.")
-                    .listRowInsets(EdgeInsets())
-                    .listRowBackground(Color.clear)
+                .listRowBackground(Color.clear)
             }
-            .listRowBackground(Color.clear)
         }
         .scrollContentBackground(.hidden)
     }
@@ -392,19 +412,12 @@ struct ActivityEditorView: View {
     private func reviewTab(_ buildResult: (activity: AuthoredActivity?, issues: [String])) -> some View {
         Form {
             Section {
-                HStack(spacing: 12) {
-                    ActivityIconView(identifier: draft.iconSymbol, size: 20)
-                        .foregroundStyle(Color.white)
-                        .frame(width: 40, height: 40)
-                        .background(Theme.accentOrange, in: Circle())
-                    Text(draft.label.trimmingCharacters(in: .whitespacesAndNewlines))
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(Theme.primaryText)
-                }
-                ForEach(draft.metrics, id: \.self) { key in
-                    summaryRow(key)
-                }
-                rangeLine
+                reviewCard
+                    .accessibilityIdentifier("editor.reviewCard")
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+            } footer: {
+                Text("This is how your card will look on the home screen.")
             }
             if !buildResult.issues.isEmpty {
                 Section {
@@ -426,47 +439,37 @@ struct ActivityEditorView: View {
         .scrollContentBackground(.hidden)
     }
 
-    private func summaryRow(_ key: String) -> some View {
-        let mode = ThresholdMode.current(for: key, in: draft)
-        return HStack(spacing: 6) {
-            ActivityIconView(identifier: catalog.iconSymbol(for: key), size: 14)
-                .foregroundStyle(Theme.secondaryText)
-                .frame(width: 20)
-            Text(summaryText(key, mode: mode))
-                .font(.system(size: 14))
-                .foregroundStyle(Theme.primaryText)
-        }
-    }
-
-    /// "Temp 15–32 °C · Must-have" / "Wind ≤ 25 km/h · Nice-to-have" /
-    /// "Moon · Show only".
-    private func summaryText(_ key: String, mode: ThresholdMode) -> String {
-        var parts = catalog.shortName(for: key)
-        if let threshold = draft.thresholds[key], !threshold.isFlag {
-            let unit = catalog.descriptor(for: key)?.unit ?? ""
-            let suffix = unit.isEmpty ? "" : " \(unit)"
-            let min = threshold.minText.trimmingCharacters(in: .whitespaces)
-            let max = threshold.maxText.trimmingCharacters(in: .whitespaces)
-            switch (min.isEmpty, max.isEmpty) {
-            case (false, false): parts += " \(min)–\(max)\(suffix)"
-            case (false, true): parts += " ≥ \(min)\(suffix)"
-            case (true, false): parts += " ≤ \(max)\(suffix)"
-            case (true, true): break
-            }
-        }
-        return "\(parts) · \(mode.label)"
-    }
-
-    @ViewBuilder
-    private var rangeLine: some View {
+    /// The actual dashboard card as a representative preview (owner edit
+    /// 2026-08-30): real icon, name, range chip, and metric chips from the
+    /// draft; the timeline slice and its green are illustrative — a real
+    /// rating exists only after the first fetch. The fixed UTC-midnight
+    /// deriver makes hour index == clock hour, so the draft's Range maps
+    /// straight onto the axis.
+    private var reviewCard: some View {
         let wrapped = draft.startHour > draft.endHour
-        HStack(spacing: 8) {
-            Image(systemName: wrapped ? "moon.stars" : "clock")
-                .foregroundStyle(Theme.secondaryText)
-            Text("\(Self.hourText(draft.startHour)) – \(Self.hourText(draft.endHour))\(wrapped ? " night" : "")")
-                .font(.system(size: 14))
-                .foregroundStyle(Theme.primaryText)
-        }
+        let endExclusive = wrapped ? draft.endHour + 24 : draft.endHour
+        let duration = max(endExclusive - draft.startHour, 1)
+        let day = Day(dayIndex: 0, rating: "perfect",
+                      startIndex: draft.startHour,
+                      endIndex: draft.startHour + duration,
+                      duration: duration)
+        let rating = ActivityRating(activityId: draft.id,
+                                    label: draft.label.trimmingCharacters(in: .whitespacesAndNewlines),
+                                    displayMetrics: draft.metrics,
+                                    days: [day])
+        return ActivityCardView(activity: rating,
+                                day: day,
+                                windowStartHour: nil,
+                                deriver: TimeDeriver(forecastStart: "2026-06-01T00:00:00Z",
+                                                     timezone: "UTC"),
+                                hoursCount: max(24, draft.startHour + duration),
+                                iconSymbol: draft.iconSymbol,
+                                isNocturnal: wrapped,
+                                rangeChipLabel: RangeText.chipLabel(WindowSpec(startHour: draft.startHour,
+                                                                              endHour: draft.endHour)),
+                                sliceRange: draft.startHour..<(draft.startHour + duration),
+                                tiers: Array(repeating: .green, count: duration),
+                                catalog: catalog)
     }
 
     // MARK: delete (edit mode only)

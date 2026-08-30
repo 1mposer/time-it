@@ -217,4 +217,63 @@ final class EditorWizardTests: XCTestCase {
         XCTAssertEqual(ThresholdMode.niceToHave.label, "Nice-to-have")
         XCTAssertEqual(ThresholdMode.showOnly.label, "Show only")
     }
+
+    // MARK: two-checkbox surface (owner edit 2026-08-30 — replaces the mode menu)
+
+    func testCheckboxStateReflectsTheDraft() {
+        var draft = ActivityDraft(from: SeedTemplates.cycling)
+        XCTAssertTrue(ThresholdCheckboxes.isPriority(for: "temp", in: draft),
+                      "a required threshold reads as Priority checked")
+        XCTAssertFalse(ThresholdCheckboxes.isShowOnly(for: "temp", in: draft))
+
+        XCTAssertFalse(ThresholdCheckboxes.isPriority(for: "windSpeed", in: draft),
+                       "an optional threshold is calculating but not Priority")
+        XCTAssertFalse(ThresholdCheckboxes.isShowOnly(for: "windSpeed", in: draft))
+
+        draft.removeThreshold(for: "temp")
+        XCTAssertFalse(ThresholdCheckboxes.isPriority(for: "temp", in: draft))
+        XCTAssertTrue(ThresholdCheckboxes.isShowOnly(for: "temp", in: draft),
+                      "no threshold on a selected metric = show don't calculate")
+    }
+
+    func testTogglingPriorityFlipsRequiredWithoutTouchingValues() {
+        var draft = ActivityDraft(from: SeedTemplates.cycling)
+        draft.thresholds["temp"]?.minText = "18"
+
+        ThresholdCheckboxes.togglePriority(for: descriptor("temp"), in: &draft)
+        XCTAssertEqual(draft.thresholds["temp"]?.required, false,
+                       "unchecking Priority keeps calculating, just softer")
+        XCTAssertEqual(draft.thresholds["temp"]?.minText, "18", "authored values survive")
+
+        ThresholdCheckboxes.togglePriority(for: descriptor("temp"), in: &draft)
+        XCTAssertEqual(draft.thresholds["temp"]?.required, true)
+        XCTAssertEqual(draft.thresholds["temp"]?.minText, "18")
+    }
+
+    func testCheckingShowOnlyRemovesTheThresholdAndUnchecksPriority() {
+        var draft = ActivityDraft(from: SeedTemplates.cycling)
+        ThresholdCheckboxes.toggleShowOnly(for: descriptor("temp"), in: &draft)
+        XCTAssertNil(draft.thresholds["temp"], "show don't calculate drops the threshold")
+        XCTAssertTrue(draft.isSelected("temp"), "the metric stays on the card")
+        XCTAssertFalse(ThresholdCheckboxes.isPriority(for: "temp", in: draft),
+                       "the two boxes can never both read checked")
+    }
+
+    func testUncheckingShowOnlyRecreatesThePresetAsPriority() {
+        var draft = ActivityDraft(from: SeedTemplates.cycling)
+        ThresholdCheckboxes.toggleShowOnly(for: descriptor("temp"), in: &draft)
+        ThresholdCheckboxes.toggleShowOnly(for: descriptor("temp"), in: &draft)
+        XCTAssertEqual(draft.thresholds["temp"], ThresholdDraft(preset: descriptor("temp")),
+                       "back to calculating = the preset Must-have threshold")
+        XCTAssertTrue(ThresholdCheckboxes.isPriority(for: "temp", in: draft))
+    }
+
+    func testCheckingPriorityFromShowOnlyRecreatesThePreset() {
+        var draft = ActivityDraft(from: SeedTemplates.cycling)
+        ThresholdCheckboxes.toggleShowOnly(for: descriptor("temp"), in: &draft)
+        ThresholdCheckboxes.togglePriority(for: descriptor("temp"), in: &draft)
+        XCTAssertEqual(draft.thresholds["temp"], ThresholdDraft(preset: descriptor("temp")),
+                       "checking Priority while show-only re-creates the threshold and unchecks the show box")
+        XCTAssertFalse(ThresholdCheckboxes.isShowOnly(for: "temp", in: draft))
+    }
 }

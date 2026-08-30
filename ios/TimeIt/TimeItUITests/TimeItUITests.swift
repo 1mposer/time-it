@@ -380,23 +380,55 @@ final class TimeItUITests: XCTestCase {
                       "the scratch-built card renders with its confirmed range")
     }
 
-    func testRangeTabShowsNightNoteWhenFromIsAfterUntil() {
+    func testMetricCheckboxesSwitchThresholdModes() {
+        // Owner edit 2026-08-30: the mode menu is gone — a selected metric
+        // carries two checkboxes, "Priority" and "Show don't calculate".
         let app = launchApp()
         XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5))
         app.buttons["gear.cycling"].tap()
 
-        let rangeTab = app.buttons["editor.tab.2"]
-        XCTAssertTrue(rangeTab.waitForExistence(timeout: 5))
-        rangeTab.tap()
+        let metricsTab = app.buttons["editor.tab.1"]
+        XCTAssertTrue(metricsTab.waitForExistence(timeout: 5))
+        metricsTab.tap()
 
-        let startWheel = app.pickers["editor.startHour"].pickerWheels.firstMatch
-        XCTAssertTrue(startWheel.waitForExistence(timeout: 5))
-        let nightNote = app.descendants(matching: .any).matching(identifier: "editor.nightNote").firstMatch
-        XCTAssertFalse(nightNote.exists, "6–10am is a same-day range — no night note")
+        // Cycling's temp threshold is required → Priority arrives checked,
+        // with the slider's value label rendered.
+        let priority = app.buttons["editor.priority.temp"]
+        let showOnly = app.buttons["editor.showOnly.temp"]
+        XCTAssertTrue(priority.waitForExistence(timeout: 5))
+        XCTAssertTrue(showOnly.exists)
+        XCTAssertTrue(priority.isSelected, "a required threshold reads as Priority checked")
+        XCTAssertFalse(showOnly.isSelected)
+        XCTAssertTrue(app.buttons["editor.value.temp"].exists)
 
-        startWheel.adjust(toPickerWheelValue: "11pm")
-        XCTAssertTrue(nightNote.waitForExistence(timeout: 5),
-                      "From after Until = overnight — moon.stars + night-activity note")
+        showOnly.tap()
+        XCTAssertFalse(app.buttons["editor.value.temp"].exists,
+                       "show don't calculate drops the threshold — the slider goes")
+        XCTAssertTrue(showOnly.isSelected)
+        XCTAssertFalse(priority.isSelected, "the boxes never both read checked")
+
+        priority.tap()
+        XCTAssertTrue(app.buttons["editor.value.temp"].waitForExistence(timeout: 5),
+                      "checking Priority re-creates the preset threshold")
+        XCTAssertTrue(priority.isSelected)
+        XCTAssertFalse(showOnly.isSelected)
+        app.buttons["editor.cancel"].tap()
+    }
+
+    func testNameFieldWholeRowActivatesTheKeyboard() {
+        // Device finding 2026-08-30: only the leading edge of the name row
+        // focused the field — the whole row must raise the keyboard.
+        let app = launchApp()
+        XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5))
+        app.swipeUp()
+        app.buttons["addActivityCard"].tap()
+        app.buttons["addFromScratch"].tap()
+
+        let nameField = app.textFields["editor.name"]
+        XCTAssertTrue(nameField.waitForExistence(timeout: 5))
+        nameField.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5),
+                      "tapping the trailing end of the row focuses the field")
         app.buttons["editor.cancel"].tap()
     }
 
@@ -418,6 +450,10 @@ final class TimeItUITests: XCTestCase {
         app.buttons["editor.tab.3"].tap()
         let save = app.buttons["editor.save"]
         XCTAssertTrue(save.waitForExistence(timeout: 5))
+        // Owner edit 2026-08-30: Review renders the actual dashboard card as
+        // a representative preview, not a text summary.
+        XCTAssertTrue(app.otherElements["editor.reviewCard"].exists,
+                      "the Review tab shows the dashboard card preview")
         save.tap()
 
         XCTAssertTrue(app.staticTexts["Cycling Pro"].waitForExistence(timeout: 5), "the card reflects the edit after refetch")

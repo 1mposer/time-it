@@ -94,3 +94,39 @@ enum ThresholdMode: CaseIterable {
         }
     }
 }
+
+/// The two-checkbox surface over `ThresholdMode` (owner edit 2026-08-30 —
+/// replaces the mode menu). Independent boxes: Priority ✓ = must-have,
+/// Priority ✗ = the soft mode (nice-to-have, unnamed in the UI); "Show don't
+/// calculate" ✓ = no threshold. Checking either clears the other's
+/// contradictory state — they can never both read checked.
+enum ThresholdCheckboxes {
+
+    static func isPriority(for key: String, in draft: ActivityDraft) -> Bool {
+        draft.thresholds[key]?.required == true
+    }
+
+    static func isShowOnly(for key: String, in draft: ActivityDraft) -> Bool {
+        draft.thresholds[key] == nil
+    }
+
+    /// On a calculating metric, flips required. From show-only, re-creates
+    /// the preset threshold (which is Must-have, so the box lands checked).
+    static func togglePriority(for descriptor: MetricDescriptor, in draft: inout ActivityDraft) {
+        if isShowOnly(for: descriptor.key, in: draft) || !isPriority(for: descriptor.key, in: draft) {
+            ThresholdMode.mustHave.apply(for: descriptor, to: &draft)
+        } else {
+            ThresholdMode.niceToHave.apply(for: descriptor, to: &draft)
+        }
+    }
+
+    /// Checking drops the threshold; unchecking re-creates the preset
+    /// Must-have threshold — back to calculating with Priority on.
+    static func toggleShowOnly(for descriptor: MetricDescriptor, in draft: inout ActivityDraft) {
+        if isShowOnly(for: descriptor.key, in: draft) {
+            ThresholdMode.mustHave.apply(for: descriptor, to: &draft)
+        } else {
+            ThresholdMode.showOnly.apply(for: descriptor, to: &draft)
+        }
+    }
+}
