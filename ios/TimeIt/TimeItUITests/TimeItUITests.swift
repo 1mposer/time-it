@@ -120,6 +120,10 @@ final class TimeItUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["chip.cycling.temp"].exists, "at least one metric chip on the card")
         XCTAssertTrue(app.staticTexts["chip.fishing-lite.temp"].exists,
                       "metric chips render on all card states")
+        // A null verdict still shows LIVE values, not grayed-out metric
+        // names (owner ruling 2026-09-01) — read from the Range's first hour.
+        XCTAssertTrue(app.staticTexts["chip.fishing-lite.temp"].label.contains("24°C"),
+                      "null-verdict chips carry real values from the Range's first hour")
     }
 
     // MARK: - Navigation

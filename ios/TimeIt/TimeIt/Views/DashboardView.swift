@@ -627,7 +627,10 @@ struct DashboardView: View {
         return ActivityCardView(
             activity: activity,
             day: day,
-            windowStartHour: day.flatMap { viewModel.windowStartHour(for: $0) },
+            // Chips show live values on every verdict (owner ruling 2026-09-01):
+            // a null day reads the Range's first hour instead of going neutral.
+            windowStartHour: day.flatMap { viewModel.windowStartHour(for: $0) }
+                ?? viewModel.rangeHours(for: authored, dayIndex: 0).first,
             deriver: viewModel.timeDeriver,
             hoursCount: forecast.hours.count,
             iconSymbol: authored.iconSymbol,

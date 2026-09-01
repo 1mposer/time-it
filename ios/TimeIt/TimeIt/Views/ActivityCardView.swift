@@ -9,6 +9,10 @@ struct ActivityCardView: View {
     /// Day 0 from `DashboardViewModel.cardDay(for:)`; nil means today's Range
     /// has no qualifying window (the all-red state).
     let day: Day?
+    /// The hour the metric chips read their values from — the qualifying
+    /// window's start, or (null verdict) the Range's first hour today.
+    /// Chips carry live values on every verdict (owner ruling 2026-09-01);
+    /// nil means no forecast at all → name-only neutral chips.
     let windowStartHour: HourlyWeather?
     let deriver: TimeDeriver?
     let hoursCount: Int
@@ -309,7 +313,7 @@ struct TimelineBarView: View {
                              phrase: "Perfect all morning.")
             ActivityCardView(activity: red,
                              day: nil,
-                             windowStartHour: nil,
+                             windowStartHour: forecast.hours[2],
                              deriver: PreviewFixtures.timeDeriver,
                              hoursCount: forecast.hours.count,
                              iconSymbol: "figure.run",
