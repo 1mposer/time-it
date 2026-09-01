@@ -44,7 +44,7 @@ src/jobs/perfectWindowDetector.js →  createPerfectWindowDetectorJob({ db, getW
 src/jobs/labels.js           →  hourLabel / rangeLabel            clock-label copy shared by both push jobs
 ```
 
-There is **no** `src/activities/` module — activities are caller-supplied in the request body (deleted in Phase 2; the curated list moves to client-side Templates per [ADR-0002](docs/adr/0002-activity-agnostic-engine.md)).
+There is **no** `src/activities/` module — activities are caller-supplied in the request body (deleted in Phase 2 per [ADR-0002](docs/adr/0002-activity-agnostic-engine.md); the client authors them in its own wizard — its interim Template catalog was removed 2026-09-01).
 
 The full data flow is two steps (the route validates the body first, then):
 

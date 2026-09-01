@@ -38,13 +38,15 @@ enum TrajectoryPhrase {
         preference || differentiateWithoutColor
     }
 
-    /// The card's phrase slot. An UNRATED day (server `rating: null` — the
-    /// all-red state) always reads "Nothing in your range", regardless of
-    /// the phrases setting — the server's day rating is truth over the
-    /// mirror's tiers. A rated day's phrase is gated by the toggle; nil
-    /// hides the slot.
+    /// The card's phrase slot — every phrase is gated by the toggle (owner
+    /// ruling 2026-09-01: on an unrated day the red slice alone carries the
+    /// verdict; Differentiate Without Color force-enables the words so color
+    /// is never the only carrier). An UNRATED day (server `rating: null`)
+    /// reads "Nothing in your range." — the server's day rating is truth
+    /// over the mirror's tiers. nil hides the slot.
     static func cardPhrase(dayRated: Bool, tiers: [HourTier], phrasesEnabled: Bool) -> String? {
-        guard dayRated else { return "Nothing in your range" }
-        return phrasesEnabled ? phrase(for: tiers) : nil
+        guard phrasesEnabled else { return nil }
+        guard dayRated else { return "Nothing in your range." }
+        return phrase(for: tiers)
     }
 }

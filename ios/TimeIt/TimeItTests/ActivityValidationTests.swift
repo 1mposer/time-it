@@ -153,28 +153,20 @@ final class ActivityValidationTests: XCTestCase {
     }
 
     func testDraftAlwaysBuildsARangedActivity() {
-        let built = ActivityDraft(from: SeedTemplates.firstLaunchSeeds[0])
+        // makeValid() is window-less (dormant) — the draft loads the 6–10am
+        // fallback and saving confirms it: never a window-less body.
+        let built = ActivityDraft(from: makeValid())
             .result(against: StaticMetricCatalog()).activity
         XCTAssertEqual(built?.window, WindowSpec(startHour: 6, endHour: 10),
                        "saving confirms the prefilled range — never a window-less body")
     }
 
-    func testDormantShowcaseSeedDraftsAtItsTemplatePrefillRange() {
-        for (seed, template) in zip(SeedTemplates.firstLaunchSeeds, SeedTemplates.all) {
-            let draft = ActivityDraft(from: seed)
-            XCTAssertEqual(draft.startHour, template.window?.startHour,
-                           "\(seed.id) must prefill its template's startHour")
-            XCTAssertEqual(draft.endHour, template.window?.endHour,
-                           "\(seed.id) must prefill its template's endHour")
-        }
-    }
-
-    func testDormantTemplateCopyDraftsAtItsOriginsPrefillRange() {
-        var copy = SeedTemplates.running.copyFromTemplate()
-        copy.window = nil
-        let draft = ActivityDraft(from: copy)
-        XCTAssertEqual(draft.startHour, 6)
-        XCTAssertEqual(draft.endHour, 9)
+    func testLiveActivityDraftsAtItsOwnRangeNotTheFallback() {
+        var activity = makeValid()
+        activity.window = WindowSpec(startHour: 15, endHour: 19)
+        let draft = ActivityDraft(from: activity)
+        XCTAssertEqual(draft.startHour, 15)
+        XCTAssertEqual(draft.endHour, 19)
     }
 
     func testWindowWithEqualHoursIsInvalid() {

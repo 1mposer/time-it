@@ -114,8 +114,7 @@ final class DeviceRegistrationTests: XCTestCase {
 
     private func seedStore(_ seeds: [AuthoredActivity]? = nil) {
         store = ActivityStore(defaults: defaults,
-                              seeds: seeds ?? [liveCycling(), dormantRunning(), nocturnalStargazing()],
-                              preferences: preferences)
+                              seeds: seeds ?? [liveCycling(), dormantRunning(), nocturnalStargazing()])
     }
 
     private func makeRegistration(enabled: Bool = true) -> DeviceRegistration {

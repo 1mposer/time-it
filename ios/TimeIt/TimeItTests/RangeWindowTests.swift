@@ -31,7 +31,7 @@ final class RangeWindowTests: XCTestCase {
                                         activities: [],
                                         hours: hours ?? (0..<60).map { Fixtures.makeHour(index: $0) })
         let preferences = PreferencesStore(defaults: defaults)
-        let store = ActivityStore(defaults: defaults, seeds: Fixtures.liveSeeds, preferences: preferences)
+        let store = ActivityStore(defaults: defaults, seeds: Fixtures.liveSeeds)
         let vm = DashboardViewModel(api: FakeRatingService(result: .success(forecast)),
                                     locationProvider: FakeLocationProvider(location: CLLocation(latitude: 25.2, longitude: 55.27)),
                                     store: store, preferences: preferences)
@@ -133,14 +133,15 @@ final class RangeWindowTests: XCTestCase {
         XCTAssertTrue(vm.rangeTiers(for: activity, dayIndex: 0).isEmpty)
     }
 
-    // MARK: cardPhrase — all-bad copy is unconditional; the toggle gates the rest
+    // MARK: cardPhrase — the toggle gates EVERY phrase (owner ruling 2026-09-01)
 
-    func testUnratedDayAlwaysReadsNothingInYourRange() {
-        // The all-red day's phrase is part of the state, not gated by the toggle.
-        XCTAssertEqual(TrajectoryPhrase.cardPhrase(dayRated: false, tiers: [], phrasesEnabled: false),
-                       "Nothing in your range")
+    func testUnratedDayPhraseIsGatedByTheToggle() {
+        XCTAssertNil(TrajectoryPhrase.cardPhrase(dayRated: false, tiers: [], phrasesEnabled: false),
+                     "default off — the red range slice alone carries the verdict")
+        XCTAssertEqual(TrajectoryPhrase.cardPhrase(dayRated: false, tiers: [], phrasesEnabled: true),
+                       "Nothing in your range.")
         XCTAssertEqual(TrajectoryPhrase.cardPhrase(dayRated: false, tiers: [.green], phrasesEnabled: true),
-                       "Nothing in your range",
+                       "Nothing in your range.",
                        "server rating is truth — a mirror disagreement never rewrites the all-bad copy")
     }
 

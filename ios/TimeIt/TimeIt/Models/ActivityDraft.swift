@@ -18,8 +18,8 @@ struct ActivityDraft: Equatable {
     /// confirmed Range; a previously saved one is).
     let hadWindow: Bool
 
-    /// A live activity drafts at its own range; a dormant one at its
-    /// template's prefill — a starting value, confirmed only by saving.
+    /// A live activity drafts at its own range; a window-less one at the
+    /// 6–10am fallback — a starting value, confirmed only by saving.
     init(from activity: AuthoredActivity) {
         id = activity.id
         templateOrigin = activity.templateOrigin
@@ -27,7 +27,7 @@ struct ActivityDraft: Equatable {
         iconSymbol = activity.iconSymbol
         metrics = activity.displayMetrics
         thresholds = activity.thresholds.mapValues(ThresholdDraft.init(from:))
-        let prefill = activity.window ?? SeedTemplates.prefill(for: activity)
+        let prefill = activity.window ?? WindowSpec(startHour: 6, endHour: 10)
         startHour = prefill.startHour
         endHour = prefill.endHour
         hadWindow = activity.window != nil

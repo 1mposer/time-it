@@ -106,7 +106,7 @@ final class DashboardViewModelTests: XCTestCase {
         // spawns a background reload whose generation bump cancels the test's
         // own awaited load — the assertion then reads stale state.
         if let home { preferences.homeLocation = home }
-        let store = ActivityStore(defaults: defaults, seeds: seeds, preferences: preferences)
+        let store = ActivityStore(defaults: defaults, seeds: seeds)
         let vm = DashboardViewModel(api: api, locationProvider: locationProvider,
                                     store: store, preferences: preferences,
                                     deviceTimeZone: deviceTimeZone)
@@ -459,7 +459,7 @@ final class DashboardViewModelTests: XCTestCase {
     }
 
     func testAllDormantStoreMakesNoRequestAtAll() async {
-        let dormantSeeds = SeedTemplates.firstLaunchSeeds.map { seed -> AuthoredActivity in
+        let dormantSeeds = Fixtures.liveSeeds.map { seed -> AuthoredActivity in
             var copy = seed
             copy.window = nil
             return copy
@@ -477,19 +477,8 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertFalse(vm.hasLiveActivities)
     }
 
-    func testFirstLaunchSeedsAreDormantAndMakeNoRequest() async {
-        let (vm, api, _, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])),
-                                        seeds: SeedTemplates.firstLaunchSeeds)
-
-        await vm.loadForecast()
-
-        XCTAssertEqual(api.fetchCount, 0)
-        XCTAssertTrue(vm.hasActivities)
-        XCTAssertFalse(vm.hasLiveActivities)
-    }
-
     func testConfirmingARangeOnADormantActivityTriggersTheFirstPost() async {
-        let dormantSeeds = SeedTemplates.firstLaunchSeeds.map { seed -> AuthoredActivity in
+        let dormantSeeds = Fixtures.liveSeeds.map { seed -> AuthoredActivity in
             var copy = seed
             copy.window = nil
             return copy
@@ -539,18 +528,18 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertFalse(vm.hasActivities)
     }
 
-    func testDeletingAllLiveActivitiesBringsBackTheDormantShowcaseAndStopsPosting() async {
+    func testDeletingAllActivitiesLandsTheEmptyStateAndStopsPosting() async {
         let (vm, api, _, store, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])))
 
         XCTAssertTrue(vm.hasActivities)
         store.delete(id: "cycling")
         store.delete(id: "fishing-lite")
 
-        XCTAssertTrue(vm.hasActivities, "the re-seeded showcase is NOT the empty state")
-        XCTAssertFalse(vm.hasLiveActivities, "re-seeded cards are dormant")
+        XCTAssertFalse(vm.hasActivities,
+                       "no showcase re-seed — deleting everything lands the Add-CTA empty state")
 
         await vm.loadForecast()
-        XCTAssertEqual(api.fetchCount, 0, "an all-dormant dashboard makes no network call")
+        XCTAssertEqual(api.fetchCount, 0, "an empty dashboard makes no network call")
     }
 
     // MARK: store mutations trigger a refetch

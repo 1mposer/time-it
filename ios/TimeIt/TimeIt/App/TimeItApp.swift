@@ -15,7 +15,9 @@ struct TimeItApp: App {
             UserDefaults.standard.removeObject(forKey: ActivityStore.storageKey)
             UserDefaults.standard.removeObject(forKey: PreferencesStore.homeLocationKey)
             UserDefaults.standard.removeObject(forKey: PreferencesStore.lastResolvedLocationKey)
-            UserDefaults.standard.removeObject(forKey: PreferencesStore.dismissedTemplatesKey)
+            // dismissedTemplates: legacy showcase-ledger key, cleared by raw
+            // string — the property died with the template removal.
+            UserDefaults.standard.removeObject(forKey: "dismissedTemplates")
             UserDefaults.standard.removeObject(forKey: PreferencesStore.showPhrasesKey)
             UserDefaults.standard.removeObject(forKey: PreferencesStore.pushCalloutDismissedKey)
             UserDefaults.standard.removeObject(forKey: PreferencesStore.timezoneWarnedHomeKey)
@@ -25,7 +27,7 @@ struct TimeItApp: App {
             UserDefaults.standard.removeObject(forKey: DeviceRegistration.pendingDeleteKey)
         }
         if ProcessInfo.processInfo.arguments.contains("UITEST_SEED_LIVE"),
-           let data = try? JSONEncoder().encode([SeedTemplates.cycling, SeedTemplates.fishingLite]) {
+           let data = try? JSONEncoder().encode([PreviewFixtures.cycling, PreviewFixtures.fishingLite]) {
             UserDefaults.standard.set(data, forKey: ActivityStore.storageKey)
         }
         #endif

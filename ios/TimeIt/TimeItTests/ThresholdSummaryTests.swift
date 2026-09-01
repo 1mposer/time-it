@@ -8,7 +8,7 @@ import XCTest
 final class ThresholdSummaryTests: XCTestCase {
 
     func testCyclingSummaryMatchesTheApprovedFrame() {
-        XCTAssertEqual(ThresholdSummary.line(for: SeedTemplates.cycling),
+        XCTAssertEqual(ThresholdSummary.line(for: Fixtures.cycling),
                        "Temp 15 – 32°C required · Wind ≤ 25 km/h optional · Rain ≤ 0.2 mm required · UV ≤ 8 optional")
     }
 
@@ -32,14 +32,14 @@ final class ThresholdSummaryTests: XCTestCase {
     }
 
     func testEntriesFollowDisplayMetricsOrder() {
-        var activity = SeedTemplates.fishingLite
+        var activity = Fixtures.fishingLite
         activity.displayMetrics = ["cloudCover", "windSpeed", "temp"]
         XCTAssertEqual(ThresholdSummary.line(for: activity),
                        "Cloud ≤ 80% optional · Wind ≤ 25 km/h required · Temp 12 – 36°C required")
     }
 
     func testFlagThresholdReadsAsAlertFree() {
-        var activity = SeedTemplates.cycling
+        var activity = Fixtures.cycling
         activity.displayMetrics = ["temp", "dustAlert"]
         activity.thresholds = [
             "temp": Threshold(min: 15, max: 32, required: true),
@@ -50,14 +50,14 @@ final class ThresholdSummaryTests: XCTestCase {
     }
 
     func testNoThresholdsProducesNil() {
-        var activity = SeedTemplates.cycling
+        var activity = Fixtures.cycling
         activity.thresholds = [:]
         XCTAssertNil(ThresholdSummary.line(for: activity),
                      "an all-display profile has nothing to state — the block hides")
     }
 
     func testWholeNumbersDropTheDecimalPoint() {
-        var activity = SeedTemplates.cycling
+        var activity = Fixtures.cycling
         activity.displayMetrics = ["rainFall"]
         activity.thresholds = ["rainFall": Threshold(max: 2.0, required: true)]
         XCTAssertEqual(ThresholdSummary.line(for: activity), "Rain ≤ 2 mm required")

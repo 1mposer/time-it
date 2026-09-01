@@ -1,20 +1,19 @@
 import XCTest
 @testable import TimeIt
 
-/// ActivityStore: seeded on first launch, persisted to UserDefaults on every
-/// mutation, corrupt data falls back to the seeds rather than crashing.
+/// ActivityStore: EMPTY on first launch (templates removed 2026-09-01),
+/// persisted to UserDefaults on every mutation, and the one-time launch purge
+/// that drops dormant showcase residue from pre-removal installs.
 @MainActor
 final class ActivityStoreTests: XCTestCase {
 
     private var defaults: UserDefaults!
     private var suiteName: String!
-    private var preferences: PreferencesStore!
 
     override func setUp() {
         super.setUp()
         suiteName = "ActivityStoreTests-\(UUID().uuidString)"
         defaults = UserDefaults(suiteName: suiteName)
-        preferences = PreferencesStore(defaults: defaults)
     }
 
     override func tearDown() {
@@ -22,33 +21,37 @@ final class ActivityStoreTests: XCTestCase {
         super.tearDown()
     }
 
-    /// Injects this suite's PreferencesStore — the shared singleton would
-    /// leak state across tests.
-    private func makeStore(seeds: [AuthoredActivity] = SeedTemplates.firstLaunchSeeds) -> ActivityStore {
-        ActivityStore(defaults: defaults, seeds: seeds, preferences: preferences)
+    private func makeStore(seeds: [AuthoredActivity] = []) -> ActivityStore {
+        ActivityStore(defaults: defaults, seeds: seeds)
     }
 
-    /// The showcase is the full template catalog.
-    private let seedIds = ["cycling", "fishing-lite", "running"]
-
-    private func makeActivity(id: String = UUID().uuidString, label: String = "Padel") -> AuthoredActivity {
+    private func makeActivity(id: String = UUID().uuidString,
+                              label: String = "Padel",
+                              templateOrigin: String? = nil,
+                              window: WindowSpec? = WindowSpec(startHour: 16, endHour: 19)) -> AuthoredActivity {
         AuthoredActivity(id: id,
                          label: label,
                          iconSymbol: "questionmark.circle",
-                         templateOrigin: nil,
+                         templateOrigin: templateOrigin,
                          displayMetrics: ["temp"],
                          thresholds: ["temp": Threshold(min: 15, max: 35, required: true)],
-                         window: WindowSpec(startHour: 16, endHour: 19))
+                         window: window)
     }
 
-    // MARK: seeding
+    /// Persists a list directly, bypassing the store — the shape of a
+    /// pre-existing install's UserDefaults.
+    private func persistDirectly(_ activities: [AuthoredActivity]) {
+        defaults.set(try! JSONEncoder().encode(activities), forKey: ActivityStore.storageKey)
+    }
 
-    func testFirstLaunchSeedsTheFullCatalogInOrderAndPersists() {
+    // MARK: first launch
+
+    func testFirstLaunchIsEmptyAndPersists() {
         let store = makeStore()
 
-        XCTAssertEqual(store.activities.map(\.id), seedIds)
+        XCTAssertTrue(store.activities.isEmpty, "no templates — first launch is the Add-CTA state")
         XCTAssertNotNil(defaults.data(forKey: ActivityStore.storageKey),
-                        "the seed must persist immediately so it is stable across launches")
+                        "the empty list persists immediately so it is stable across launches")
     }
 
     // MARK: mutations + persistence round-trip
@@ -67,114 +70,90 @@ final class ActivityStoreTests: XCTestCase {
 
     func testUpdateReplacesByIdWithoutChangingOrderOrId() {
         let store = makeStore()
-        var edited = store.activities[0]
-        edited.label = "Road Cycling"
+        let first = makeActivity(label: "Padel")
+        let second = makeActivity(label: "Tennis")
+        store.add(first)
+        store.add(second)
+        var edited = first
+        edited.label = "Beach Padel"
 
         store.update(edited)
 
-        XCTAssertEqual(store.activities.map(\.id), seedIds, "order and id unchanged")
-        XCTAssertEqual(store.activities[0].label, "Road Cycling")
-        XCTAssertEqual(makeStore().activities[0].label, "Road Cycling")
+        XCTAssertEqual(store.activities.map(\.id), [first.id, second.id], "order and id unchanged")
+        XCTAssertEqual(store.activities[0].label, "Beach Padel")
+        XCTAssertEqual(makeStore().activities[0].label, "Beach Padel")
     }
 
-    func testDeleteRemovesById() {
+    func testDeleteRemovesByIdAndLastDeleteLandsTrueEmpty() {
         let store = makeStore()
+        let padel = makeActivity(label: "Padel")
+        store.add(padel)
 
-        store.delete(id: "cycling")
-
-        XCTAssertEqual(store.activities.map(\.id), ["fishing-lite", "running"])
-        XCTAssertEqual(makeStore().activities.map(\.id), ["fishing-lite", "running"])
-    }
-
-    // MARK: delete-all re-seeds the showcase; dismissals survive
-
-    func testDeletingTheLastActivityReseedsTheShowcaseDormant() {
-        let store = makeStore()
-        store.delete(id: "cycling")
-        store.delete(id: "fishing-lite")
-        store.delete(id: "running")
-
-        XCTAssertEqual(store.activities.map(\.id), seedIds,
-                       "delete-all re-seeds the showcase — the dashboard always offers a next action, never a dead end")
-        XCTAssertTrue(store.activities.allSatisfy(\.isDormant),
-                      "re-seeded cards land dormant, never active")
-        XCTAssertEqual(makeStore().activities.map(\.id), seedIds, "the re-seed persists")
-    }
-
-    func testReseedForcesDormancyEvenFromLiveSeeds() {
-        let liveSeed = makeActivity(id: "padel", label: "Padel")
-        let store = makeStore(seeds: [liveSeed])
-
-        store.delete(id: "padel")
-
-        XCTAssertEqual(store.activities.map(\.id), ["padel"])
-        XCTAssertTrue(store.activities.allSatisfy(\.isDormant))
-    }
-
-    func testDismissalSurvivesTheReseed() {
-        let store = makeStore()
-
-        store.dismissTemplate(id: "cycling")
-
-        XCTAssertEqual(store.activities.map(\.id), ["fishing-lite", "running"],
-                       "✕ removes the showcase card")
-        XCTAssertTrue(preferences.dismissedTemplateIds.contains("cycling"),
-                      "the dismissal is remembered in preferences")
-
-        store.delete(id: "fishing-lite")
-        store.delete(id: "running")
-
-        XCTAssertEqual(store.activities.map(\.id), ["fishing-lite", "running"],
-                       "a dismissed template stays gone; a merely-deleted one returns (deletion ≠ dismissal)")
-    }
-
-    func testAllDismissedDeleteAllLandsTrueEmptyAndStaysEmptyAcrossRelaunch() {
-        let store = makeStore()
-
-        store.dismissTemplate(id: "cycling")
-        store.dismissTemplate(id: "fishing-lite")
-        store.dismissTemplate(id: "running")
+        store.delete(id: padel.id)
 
         XCTAssertTrue(store.activities.isEmpty,
-                      "every template dismissed → the true-empty Add-CTA state, not a resurrected showcase")
+                      "deleting the last Activity lands the Add-CTA state — nothing re-seeds")
         XCTAssertTrue(makeStore().activities.isEmpty,
-                      "a relaunch must not re-seed — a persisted empty list is a user choice, not a first launch")
+                      "a persisted empty list is a user choice, not a first launch — never re-seeded")
     }
 
-    func testDismissingANonTemplateIdDeletesButRecordsNoDismissal() {
-        let store = makeStore()
-        store.add(makeActivity(id: "padel-1", label: "Padel"))
-
-        store.dismissTemplate(id: "padel-1")
-
-        XCTAssertFalse(store.activities.contains { $0.id == "padel-1" },
-                       "the row is still deleted — only the ledger write is guarded")
-        XCTAssertFalse(preferences.dismissedTemplateIds.contains("padel-1"),
-                       "a non-template id must never enter the dismissal ledger")
-    }
-
-    func testDeleteOnATrueEmptyStoreDoesNotReseed() {
-        let store = makeStore()
-        store.dismissTemplate(id: "cycling")
-        store.dismissTemplate(id: "fishing-lite")
-        store.dismissTemplate(id: "running")
+    func testNoOpDeleteDoesNotPersist() {
+        let store = makeStore(seeds: [makeActivity(label: "Padel")])
 
         store.delete(id: "ghost")
 
-        XCTAssertTrue(store.activities.isEmpty,
-                      "nothing was removed — a stray delete must not resurrect the showcase")
+        XCTAssertEqual(store.activities.count, 1, "nothing was removed")
+    }
+
+    // MARK: launch purge — template-removal cleanup of existing installs
+
+    func testLaunchPurgeDropsDormantLegacySeedsIncludingRetiredIds() {
+        let dormantSeeds = ["cycling", "fishing-lite", "running", "stargazing"].map {
+            makeActivity(id: $0, label: $0, window: nil)
+        }
+        let survivor = makeActivity(label: "Padel")
+        persistDirectly(dormantSeeds + [survivor])
+
+        let store = makeStore()
+
+        XCTAssertEqual(store.activities.map(\.id), [survivor.id],
+                       "dormant showcase residue is purged — incl. stargazing, retired before the catalog itself")
+        XCTAssertEqual(makeStore().activities.map(\.id), [survivor.id], "the purge persists")
+    }
+
+    func testLaunchPurgeKeepsConfirmedActivitiesWhateverTheirOrigin() {
+        let confirmedSeed = makeActivity(id: "cycling", label: "Cycling",
+                                         window: WindowSpec(startHour: 6, endHour: 10))
+        let confirmedCopy = makeActivity(label: "Morning Ride", templateOrigin: "cycling",
+                                         window: WindowSpec(startHour: 6, endHour: 10))
+        persistDirectly([confirmedSeed, confirmedCopy])
+
+        let store = makeStore()
+
+        XCTAssertEqual(store.activities.map(\.id), [confirmedSeed.id, confirmedCopy.id],
+                       "a confirmed (windowed) activity is the user's, whatever its origin")
+    }
+
+    func testLaunchPurgeDropsDormantTemplateCopiesButKeepsDormantScratchWork() {
+        let dormantCopy = makeActivity(label: "Ride", templateOrigin: "cycling", window: nil)
+        let dormantScratch = makeActivity(label: "Padel", window: nil)
+        persistDirectly([dormantCopy, dormantScratch])
+
+        let store = makeStore()
+
+        XCTAssertEqual(store.activities.map(\.id), [dormantScratch.id],
+                       "seed-descended dormancy is residue; scratch dormancy is the user's own work")
     }
 
     // MARK: robustness
 
-    func testCorruptPersistedDataFallsBackToSeeds() {
+    func testCorruptPersistedDataFallsBackToEmpty() {
         defaults.set(Data("not json".utf8), forKey: ActivityStore.storageKey)
 
         let store = makeStore()
 
-        XCTAssertEqual(store.activities.map(\.id), seedIds,
-                       "corrupt data must fall back to the seed set, not crash")
-        XCTAssertEqual(makeStore().activities.map(\.id), seedIds)
+        XCTAssertTrue(store.activities.isEmpty, "corrupt data must fall back to empty, not crash")
+        XCTAssertTrue(makeStore().activities.isEmpty)
     }
 
     // MARK: soft quantity cap

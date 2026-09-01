@@ -1,8 +1,9 @@
 import Foundation
 
 /// The single source of truth for the user's authored Activity list.
-/// Ordered (store order = request order = card order), seeded DORMANT on
-/// first launch, persisted to UserDefaults on every mutation.
+/// Ordered (store order = request order = card order), EMPTY on first launch
+/// (the dashboard's Add card is the only path in — the template showcase was
+/// removed 2026-09-01), persisted to UserDefaults on every mutation.
 @MainActor
 final class ActivityStore: ObservableObject {
     static let shared = ActivityStore()
@@ -13,21 +14,23 @@ final class ActivityStore: ObservableObject {
     /// ceiling (ADR-0005).
     static let softCap = 10
 
+    /// Every id the retired seed catalog ever shipped (incl. "stargazing",
+    /// dropped from the catalog before the catalog itself was removed) — the
+    /// launch-purge target set. A DORMANT row with one of these ids is
+    /// showcase residue on an existing install, not user data.
+    static let legacySeedIds: Set<String> = ["cycling", "fishing-lite", "running", "stargazing"]
+
     @Published private(set) var activities: [AuthoredActivity] = []
 
     private let defaults: UserDefaults
+    /// First-load contents when nothing is persisted. Production passes
+    /// nothing (empty first launch) — this is a test/preview seam only.
     private let seeds: [AuthoredActivity]
-    /// Dismissed template ids filter the delete-all re-seed.
-    private let preferences: PreferencesStore
 
-    /// The shared singleton is resolved inside the body — default arguments
-    /// would evaluate in the caller's context.
     init(defaults: UserDefaults = .standard,
-         seeds: [AuthoredActivity] = SeedTemplates.firstLaunchSeeds,
-         preferences: PreferencesStore? = nil) {
+         seeds: [AuthoredActivity] = []) {
         self.defaults = defaults
         self.seeds = seeds
-        self.preferences = preferences ?? PreferencesStore.shared
         load()
     }
 
@@ -51,44 +54,20 @@ final class ActivityStore: ObservableObject {
         persist()
     }
 
-    /// Deleting the last Activity re-seeds the showcase; a no-op delete
-    /// (unknown id) must never persist or re-seed.
+    /// Deleting the last Activity lands the true-empty Add-CTA state — there
+    /// is no showcase to re-seed. A no-op delete (unknown id) never persists.
     func delete(id: String) {
         let countBefore = activities.count
         activities.removeAll { $0.id == id }
         guard activities.count != countBefore else { return }
-        if activities.isEmpty {
-            activities = reseededShowcase()
-        }
         persist()
-    }
-
-    /// "✕ not for me" on a showcase card — records the dismissal BEFORE
-    /// deleting, so dismissing the last card re-seeds without it. Only seed
-    /// ids enter the dismissal ledger.
-    func dismissTemplate(id: String) {
-        if seeds.contains(where: { $0.id == id }) {
-            preferences.dismissedTemplateIds.insert(id)
-        }
-        delete(id: id)
-    }
-
-    /// The delete-all re-seed: non-dismissed seed templates come back DORMANT
-    /// so the dashboard always offers a next action.
-    private func reseededShowcase() -> [AuthoredActivity] {
-        seeds
-            .filter { !preferences.dismissedTemplateIds.contains($0.id) }
-            .map { seed in
-                var dormant = seed
-                dormant.window = nil
-                return dormant
-            }
     }
 
     // MARK: persistence
 
-    /// Seeds on true first launch (no stored data) or a corrupt decode. A
-    /// persisted EMPTY list is a user choice, not a first launch — never re-seed it.
+    /// First launch (no stored data) and corrupt decodes land on the seam's
+    /// `seeds` — empty in production. A persisted EMPTY list is a user
+    /// choice, not a first launch — never re-seed it.
     private func load() {
         guard let data = defaults.data(forKey: Self.storageKey) else {
             activities = seeds
@@ -96,10 +75,23 @@ final class ActivityStore: ObservableObject {
             return
         }
         do {
-            activities = try JSONDecoder().decode([AuthoredActivity].self, from: data)
+            let decoded = try JSONDecoder().decode([AuthoredActivity].self, from: data)
+            activities = Self.purgingLegacySeeds(decoded)
+            if activities.count != decoded.count { persist() }
         } catch {
             activities = seeds
             persist()
+        }
+    }
+
+    /// The 2026-09-01 template-removal cleanup: a DORMANT activity descending
+    /// from the retired seed catalog (a never-confirmed showcase card) is
+    /// dropped; anything the user confirmed (windowed) or authored from
+    /// scratch survives, whatever its origin. Idempotent — safe on every load.
+    static func purgingLegacySeeds(_ list: [AuthoredActivity]) -> [AuthoredActivity] {
+        list.filter { activity in
+            let seedDescended = activity.templateOrigin != nil || legacySeedIds.contains(activity.id)
+            return !(activity.isDormant && seedDescended)
         }
     }
 

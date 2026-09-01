@@ -10,7 +10,9 @@ struct AuthoredActivity: Codable, Identifiable, Hashable {
     var label: String
     /// SF Symbol name from the manifest; falls back to questionmark.circle.
     var iconSymbol: String
-    /// The Template this was created from (nil for from-scratch). UI metadata only.
+    /// Legacy: the Template this was copied from, back when the template flow
+    /// existed. Kept so old persisted lists still decode and the launch purge
+    /// can recognise seed descendants. Always nil for new Activities.
     var templateOrigin: String?
     /// Ordered render superset; every entry must be a LIVE metric key.
     var displayMetrics: [String]
@@ -49,17 +51,6 @@ struct AuthoredActivity: Codable, Identifiable, Hashable {
                          window: nil)
     }
 
-    /// A user-owned copy of this Template: fresh request-unique id, origin
-    /// recorded, everything else carried over for the editor to tweak.
-    func copyFromTemplate() -> AuthoredActivity {
-        AuthoredActivity(id: UUID().uuidString,
-                         label: label,
-                         iconSymbol: iconSymbol,
-                         templateOrigin: id,
-                         displayMetrics: displayMetrics,
-                         thresholds: thresholds,
-                         window: window)
-    }
 }
 
 // MARK: - Client-side validation (mirrors the server's ADR-0005 rules)

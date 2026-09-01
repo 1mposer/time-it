@@ -32,9 +32,13 @@ struct ActivityCardView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             topRow
-            Text(sublabel)
-                .font(.system(size: 12))
-                .foregroundStyle(Theme.secondaryText)
+            // A rating-null day carries no sublabel — the red slice alone is
+            // the verdict (approved frame: Card — Nothing in your range).
+            if day != nil {
+                Text(sublabel)
+                    .font(.system(size: 12))
+                    .foregroundStyle(Theme.secondaryText)
+            }
             TimelineBarView(day: day,
                             deriver: deriver,
                             hoursCount: hoursCount,
@@ -71,12 +75,12 @@ struct ActivityCardView: View {
                 .tracking(-0.1)
                 .foregroundStyle(Theme.primaryText)
             if let rangeChipLabel {
-                Text(rangeChipLabel)
+                Text("Range · \(rangeChipLabel)")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(Theme.secondaryText)
+                    .foregroundStyle(Theme.accentInteractive)
                     .padding(.horizontal, 7)
                     .padding(.vertical, 2)
-                    .background(Theme.timelineTrack, in: Capsule())
+                    .background(Theme.accentInteractive.opacity(0.12), in: Capsule())
                     .accessibilityLabel("Range \(rangeChipLabel)")
                     .accessibilityIdentifier("rangeChip.\(activity.activityId)")
             }
@@ -257,15 +261,13 @@ struct TimelineBarView: View {
                                             startPoint: .leading, endPoint: .trailing))
     }
 
+    /// Two labels only — the axis ends (owner edit 2026-09-01: the interior
+    /// labels were clutter).
     @ViewBuilder
     private var axisLabels: some View {
         if let range = axisRange, let deriver, range.count >= 3 {
             HStack {
                 Text(deriver.hourLabel(at: range.lowerBound))
-                Spacer()
-                Text(deriver.hourLabel(at: range.lowerBound + range.count / 3))
-                Spacer()
-                Text(deriver.hourLabel(at: range.lowerBound + 2 * range.count / 3))
                 Spacer()
                 Text(deriver.hourLabel(at: range.upperBound))
             }

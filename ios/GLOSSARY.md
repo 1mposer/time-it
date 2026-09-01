@@ -10,45 +10,36 @@ Tags: **(shipped)** = in the built #5a/#5b app · **(ship scope — unbuilt)** =
 
 ## Cards & templates
 
-**Template** *(shipped)*
-A curated, pre-filled Activity starting point (Cycling, Fishing Lite, Running, Stargazing) that lives **only inside the app** (`SeedTemplates.swift`) — the server has never heard of it. Adding from a Template *copies* it; from that moment it's the user's own Activity, indistinguishable from one made from scratch.
+**Template** *(REMOVED 2026-09-01 — historical term)*
+Was: a curated, pre-filled Activity starting point (Cycling, Fishing Lite, Running, Stargazing) living only inside the app (`SeedTemplates.swift`). The whole template flow — catalog, first-launch seeding, template-copy path, showcase — was removed in the 2026-09-01 interim polish round (owner ruling): the "+" into the wizard is the only way to create an Activity. The old values survive in git history and as test/preview fixtures (`PreviewFixtures`, `Fixtures`); the onboarding-v2 design may resurrect the *concept* as its hobby-pick prefills ([ROADMAP item 12](../docs/issues/ROADMAP.md)).
 
-**Seed / first-launch seeds** *(shipped — spec 14 semantics since 2026-08-12; four-card ruling 2026-08-13)*
-All four Templates (Cycling, Fishing Lite, Running, Stargazing — the full catalog, per the Figma Empty — Showcase frame) auto-inserted on first launch (`SeedTemplates.firstLaunchSeeds`). They land **dormant** (`window == nil`, the template's Range prefill stripped) and belong on the **showcase**; nothing rates or POSTs until a range is confirmed. The store is never empty on first launch. (The old #5b behavior — active whole-day seeds — is gone: whole-day Activities no longer exist.)
+**First launch** *(shipped 2026-09-01)*
+The store starts **empty**; the dashboard shows the approved **Add-Activity hero** (one dashed card — ⊕, "Add Activity", two-line invitation; press eases the blue dark→light) and no weather rows. Tapping it opens the wizard directly. A persisted empty list is a user choice, not a first launch — nothing ever re-seeds.
 
-**Showcase card** *(shipped — dormancy model 2026-08-12, rendering 2026-08-14: `ShowcaseCardView`)*
-The dashboard rendering of a **dormant** Activity — a seeded template card showing "Set your range →" instead of weather. It **is** a stored Activity (spec 14 §1: `window == nil` — stored, visible, never evaluated): it lives in the store but is excluded from every request body and device snapshot until its range is confirmed. *(Ruled 2026-08-12 — supersedes this file's earlier not-an-Activity overlay model.)*
+**Launch purge** *(shipped 2026-09-01)*
+One-time cleanup on load for installs that predate the template removal: a **dormant** Activity descending from the retired seed catalog (`templateOrigin != nil`, or an id in `ActivityStore.legacySeedIds` — cycling, fishing-lite, running, stargazing) is dropped. Anything the user confirmed (windowed) or authored from scratch survives. Idempotent.
 
-**Showcase card button** *(shipped 2026-08-14 — minimal cut)*
-The "Set your range →" call-to-action on a showcase card — the only door out of dormancy. Minimal cut (shipped): opens the existing editor with the Range prefill loaded (spec 14 header); saving is the confirmation. Full scope *(deferred)*: jumps straight into the wizard's Range screen (the shortest path: 3 screens).
+**Dormant card** *(shipped 2026-09-01 — replaces the showcase card, legacy edge only)*
+The dashboard rendering of a **dormant** Activity (`window == nil` — stored, visible, never evaluated, excluded from every request body and device snapshot): icon + label + "Set your range →" into the editor. After the launch purge this state is only reachable by legacy from-scratch dormant rows — the wizard always saves a ranged Activity.
 
-**Dismissed template** *(shipped — store/preference logic 2026-08-12 (`dismissTemplate`, re-seed filter); the "✕" UI 2026-08-14)*
-A showcase card the user hid with "✕ not for me" — its dormant Activity is removed and the dismissal is remembered in preferences so it stays gone. Deleting the **last** Activity re-seeds the **non-dismissed** showcase cards; dismissals survive the re-seed, and if every template is dismissed the dashboard shows the **true-empty state** — an "Add activities +" CTA into the Add flow — instead *(rulings 2026-08-12, recorded in spec 14 §6)*.
+**Ghost add-card** *(shipped — wizard-direct since 2026-09-01)*
+The "+" card at the end of the dashboard. Opens the wizard directly (the Add sheet / template chooser is gone).
 
-**Ghost add-card** *(shipped)*
-The "+" card at the end of the dashboard that opens the Add flow.
-
-**Live card / Activity card** *(shipped — spec 14 anatomy since 2026-08-14)*
-The dashboard card of a live authored Activity: range chip, "Today · 6–8pm" best-stretch sublabel, the per-hour gradient slice on the day axis (no rating word — color carries quality; the §5 phrase is opt-in), metric chips. What a showcase card becomes once its range is confirmed.
+**Live card / Activity card** *(shipped — main look since 2026-09-01; spec 14 anatomy 2026-08-14)*
+The dashboard card of a live authored Activity, the **main look** for ALL states (owner ruling 2026-09-01): blue "Range · 6 – 10am" chip in the header, per-hour gradient slice on the day axis with **two** axis labels (the ends only), metric chips on every state. A rated day carries the "Today · 6–8pm" best-stretch sublabel; a rating-null day carries **no sublabel and no phrase by default** — the solid-red range slice alone is the verdict ("Nothing in your range." appears only with the Show-phrases toggle on, or under Differentiate Without Color). No rating word anywhere — color carries quality.
 
 ---
 
 ## The wizard
 
-**Wizard** *(deferred)*
-The **5-screen** Add flow replacing the single #5b editor screen: Add sheet → Name + Icon → Range → Metrics → Review. Screen 1 (the Add sheet) is shipped; screens 2–5 are the deferred build ([ROADMAP §Deferred](../docs/issues/ROADMAP.md)). No journey visits all 5 — see paths below.
+**Wizard** *(shipped — the 4-tab editor; the only add path since 2026-09-01)*
+The authoring surface: a gated 4-tab flow (Name & Icon → Metrics → Range → Review) reached directly from any "+" (hero or ghost add-card) and from a card's gear. The old 5-screen wizard concept's unbuilt screens are demoted to a deferred power-user path ([ROADMAP §Deferred](../docs/issues/ROADMAP.md)).
 
-**Add sheet** *(shipped — becomes wizard screen 1)*
-The entry screen listing Templates plus "Start from scratch".
+**Add sheet / Template path / Showcase path** *(REMOVED 2026-09-01 — historical terms)*
+The template-chooser entry sheet and the journeys that started from a Template or a showcase card died with the template flow. Every creation journey is now the custom path.
 
-**Template path** *(deferred)*
-Journey that starts from a Template. Skips Name + Icon (renaming lives on the Review screen). 4 screens.
-
-**Custom path** *(deferred)*
-Journey that starts from scratch. The only path that sees Name + Icon. 5 screens.
-
-**Showcase path** *(deferred)*
-Journey that starts from a **showcase card button**. Skips the Add sheet *and* Name + Icon: Range → Metrics → Review. 3 screens.
+**Custom path** *(shipped)*
+The one creation journey: "+" → the wizard, from scratch.
 
 **Range screen** *(deferred)*
 Wizard step where the user picks From / To (whole hours only). Picking From later than To makes the range **wrapped** (overnight).
@@ -59,8 +50,8 @@ One screen doing double duty: pick which metrics the card shows, and expand a me
 **Review screen** *(deferred)*
 Final wizard step: summary of everything chosen, rename field, Save. Saving is what turns the draft into a real Activity (and triggers the first/next rating request).
 
-**Wizard-born** *(deferred)*
-The rule that every Activity is created through the wizard — which is what guarantees every Activity has a range *the user personally confirmed*.
+**Wizard-born** *(shipped 2026-09-01)*
+The rule that every Activity is created through the wizard — which is what guarantees every Activity has a range *the user personally confirmed*. True since the template removal: the wizard is the only creation path and always saves a ranged Activity.
 
 ---
 
@@ -72,8 +63,8 @@ The From/To slice the app checks **every day** for an Activity — full definiti
 **Range-first** *(locked direction 2026-07-20)*
 The product direction: the app's core promise is "you pick a range, we check it daily." No "any time" option in the wizard.
 
-**Suggested range** *(shipped 2026-08-12 — minimal cut: each Template's `window` is its prefill, preloaded by the existing editor; the wizard Range step is deferred)*
-The per-Template prefill the Range step opens with (full prefill table: spec 14 §6; from-scratch defaults to 6–10am). Purely a starting value — it never becomes real without the user confirming it by saving.
+**Suggested range** *(shipped — single fallback since 2026-09-01)*
+The prefill the wizard's Range tab opens with: the Activity's own range when editing, else **6–10am** (the per-Template prefill table died with the templates). Purely a starting value — it never becomes real without the user confirming it (touching a wheel, or the warn-then-proceed path) and saving.
 
 **Wrapped / overnight range** *(shipped)*
 A range whose From is later than its To (22:00 → 02:00), meaning it crosses midnight. The one and only thing that makes an Activity nocturnal.
@@ -82,7 +73,7 @@ A range whose From is later than its To (22:00 → 02:00), meaning it crosses mi
 Fancy word for a **daytime activity** — its range stays inside one calendar day. Rated per day; cards say "Today" / "Tomorrow".
 
 **Nocturnal** *(shipped)*
-A **night activity** — its range wraps midnight. Rated per *night* (an evening plus the next morning count as one unit); cards say "Tonight". Stargazing is the shipped example.
+A **night activity** — its range wraps midnight. Rated per *night* (an evening plus the next morning count as one unit); cards say "Tonight". Stargazing is the canonical example.
 
 **Variant** *(deferred affordance)*
 The same real-world pursuit authored more than once with different ranges — "Cycling — Morning 9–11" and "Cycling — Evening 16–19". Each variant is a full, independent Activity with its own card and rating. (The backend already supports this; the glossary term for the shared real-world thing is **Pursuit** in `docs/CONTEXT.md`.)

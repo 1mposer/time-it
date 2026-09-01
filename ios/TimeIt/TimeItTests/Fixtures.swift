@@ -109,6 +109,36 @@ enum Fixtures {
                          window: WindowSpec(startHour: 15, endHour: 19)),
     ]
 
+    /// Fully-authored activities (the former seed-template values, kept as
+    /// test data after the template flow was removed) — the editor/summary
+    /// suites use them as known-valid drafts with multi-metric thresholds.
+    static let cycling = AuthoredActivity(
+        id: "cycling",
+        label: "Cycling",
+        iconSymbol: "figure.outdoor.cycle",
+        templateOrigin: nil,
+        displayMetrics: ["temp", "windSpeed", "rainFall", "uV"],
+        thresholds: [
+            "temp": Threshold(min: 15, max: 32, required: true),
+            "windSpeed": Threshold(max: 25, required: false),
+            "rainFall": Threshold(max: 0.2, required: true),
+            "uV": Threshold(max: 8, required: false),
+        ],
+        window: WindowSpec(startHour: 6, endHour: 10))
+
+    static let fishingLite = AuthoredActivity(
+        id: "fishing-lite",
+        label: "Fishing Lite",
+        iconSymbol: "figure.fishing",
+        templateOrigin: nil,
+        displayMetrics: ["temp", "windSpeed", "cloudCover"],
+        thresholds: [
+            "temp": Threshold(min: 12, max: 36, required: true),
+            "windSpeed": Threshold(max: 25, required: true),
+            "cloudCover": Threshold(max: 80, required: false),
+        ],
+        window: WindowSpec(startHour: 15, endHour: 19))
+
     static func makeHour(index: Int,
                          temp: Double? = 24,
                          humidity: Double? = 40,

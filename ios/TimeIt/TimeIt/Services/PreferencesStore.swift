@@ -21,7 +21,6 @@ final class PreferencesStore: ObservableObject {
 
     static let homeLocationKey = "homeLocation"
     static let lastResolvedLocationKey = "lastResolvedLocation"
-    static let dismissedTemplatesKey = "dismissedTemplates"
     static let showPhrasesKey = "showPhrases"
     static let pushCalloutDismissedKey = "pushCalloutDismissed"
     static let timezoneWarnedHomeKey = "timezoneWarnedHome"
@@ -37,12 +36,6 @@ final class PreferencesStore: ObservableObject {
     /// this.
     @Published var lastResolvedLocation: SavedLocation? {
         didSet { persist(lastResolvedLocation, key: Self.lastResolvedLocationKey) }
-    }
-
-    /// Showcase templates the user dismissed ("✕ not for me"). A dismissal
-    /// survives the delete-all re-seed — only these ids stay gone.
-    @Published var dismissedTemplateIds: Set<String> {
-        didSet { persist(dismissedTemplateIds.isEmpty ? nil : dismissedTemplateIds, key: Self.dismissedTemplatesKey) }
     }
 
     /// The phrases toggle — default OFF (the card carries quality in color
@@ -70,7 +63,6 @@ final class PreferencesStore: ObservableObject {
         self.defaults = defaults
         homeLocation = Self.load(Self.homeLocationKey, from: defaults)
         lastResolvedLocation = Self.load(Self.lastResolvedLocationKey, from: defaults)
-        dismissedTemplateIds = Self.load(Self.dismissedTemplatesKey, from: defaults) ?? []
         showPhrases = defaults.bool(forKey: Self.showPhrasesKey)
         pushCalloutDismissed = defaults.bool(forKey: Self.pushCalloutDismissedKey)
         timezoneWarnedHome = Self.load(Self.timezoneWarnedHomeKey, from: defaults)

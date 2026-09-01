@@ -71,17 +71,7 @@ final class PreferencesStoreTests: XCTestCase {
                        "the cache is the safety net for exactly this case — clearing home must not empty it")
     }
 
-    // MARK: dismissed templates + the phrases toggle
-
-    func testDismissedTemplateIdsDefaultEmptyAndPersist() {
-        XCTAssertTrue(PreferencesStore(defaults: defaults).dismissedTemplateIds.isEmpty)
-
-        let store = PreferencesStore(defaults: defaults)
-        store.dismissedTemplateIds = ["cycling"]
-
-        XCTAssertEqual(PreferencesStore(defaults: defaults).dismissedTemplateIds, ["cycling"],
-                       "a dismissal must survive relaunch — it is what keeps a dismissed showcase card gone (spec 14 §6)")
-    }
+    // MARK: the phrases toggle
 
     func testPushCalloutDismissedDefaultsFalseAndPersists() {
         XCTAssertFalse(PreferencesStore(defaults: defaults).pushCalloutDismissed,

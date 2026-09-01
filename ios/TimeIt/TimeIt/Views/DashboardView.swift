@@ -3,9 +3,8 @@ import UIKit
 
 /// Root surface: gradient header → divider → scrollable card list. One
 /// NavigationStack, no tab bar, no sign-in gate (ADR-0001). Cards come from
-/// the user's authored store;
-/// every dashboard state (showcase, no-location, error, empty) always offers
-/// a next action — never a dead end.
+/// the user's authored store; every dashboard state (first-launch hero,
+/// no-location, error, dormant) always offers a next action — never a dead end.
 struct DashboardView: View {
     @StateObject private var viewModel: DashboardViewModel
     @ObservedObject private var store: ActivityStore
@@ -18,6 +17,7 @@ struct DashboardView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showSettings = false
     @State private var showAdd = false
+    @State private var showingCapAlert = false
     @State private var showCityPicker = false
     @State private var showFeedback = false
     @State private var editing: AuthoredActivity?
@@ -46,9 +46,8 @@ struct DashboardView: View {
     var body: some View {
         NavigationStack(path: $navigationPath) {
             VStack(spacing: 0) {
-                // All-dormant: the weather rows HIDE (no fetch, nothing real
-                // to show) — the approved Empty—Showcase frame shows values
-                // here. PROPOSED divergence, flagged for owner review.
+                // No live Activity → no fetch, nothing real to show: the
+                // weather rows hide (matches the approved First Launch frame).
                 HeaderView(locationName: viewModel.activeLocationName,
                            currentHour: viewModel.forecast?.hours.first,
                            showsWeather: !viewModel.hasNoLocation && viewModel.hasLiveActivities,
@@ -65,8 +64,23 @@ struct DashboardView: View {
             .sheet(isPresented: $showSettings) {
                 SettingsView(registration: registration)
             }
+            // "+" opens the wizard directly — the template chooser sheet is
+            // gone (approved frame: First Launch, PROPOSED row).
             .sheet(isPresented: $showAdd) {
-                AddActivityView(store: store)
+                NavigationStack {
+                    ActivityEditorView(existing: .blank(),
+                                       isNew: true,
+                                       onSave: { activity in
+                                           if !store.add(activity) {
+                                               showingCapAlert = true
+                                           }
+                                       })
+                }
+            }
+            .alert("Activity limit reached", isPresented: $showingCapAlert) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("You can keep up to \(ActivityStore.softCap) activities. Delete one to add another.")
             }
             .sheet(isPresented: $showCityPicker) {
                 CityPickerView(preferences: viewModel.preferences)
@@ -124,14 +138,14 @@ struct DashboardView: View {
         }
     }
 
-    /// State ladder — the all-dormant showcase outranks every fetch-driven
-    /// state (no fetch was made), including no-location.
+    /// State ladder — a fetch-less state (empty store, all-dormant legacy
+    /// store) outranks every fetch-driven state, including no-location.
     @ViewBuilder
     private var content: some View {
         if !viewModel.hasActivities {
-            trueEmptyState
+            firstLaunchState
         } else if !viewModel.hasLiveActivities {
-            showcaseList
+            dormantList
         } else if viewModel.hasNoLocation {
             noLocationState
         } else if viewModel.isLoading {
@@ -147,43 +161,38 @@ struct DashboardView: View {
         }
     }
 
-    /// True-empty state: every template dismissed and the last Activity
-    /// deleted. The Add CTA is the standing next action.
-    private var trueEmptyState: some View {
+    /// First-launch / emptied-store state: the approved Add-Activity hero —
+    /// one dashed card, and the wizard is the only path in.
+    private var firstLaunchState: some View {
         ScrollView {
             VStack(spacing: 0) {
                 if isBetaBuild {
                     betaBanner
+                        .padding(.bottom, 10)
                 }
-                Image(systemName: "plus.circle")
-                    .font(.system(size: 40))
-                    .foregroundStyle(Theme.secondaryText)
-                    .padding(.top, 96)
-                Text("No activities")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(Theme.primaryText)
-                    .padding(.top, 16)
-                Text("You've dismissed every starter template. Add your own and Time It will rate the week ahead.")
-                    .font(.system(size: 14))
-                    .foregroundStyle(Theme.secondaryText)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: 280)
-                    .padding(.top, 6)
-                    .accessibilityIdentifier("trueEmptyMessage")
                 Button {
                     showAdd = true
                 } label: {
-                    Text("Add activities +")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 9)
-                        .background(Capsule().fill(Theme.accentInteractive))
-                        .frame(minHeight: 44)
-                        .contentShape(Rectangle())
+                    VStack(spacing: 0) {
+                        Image(systemName: "plus.circle")
+                            .font(.system(size: 44))
+                        Text("Add Activity")
+                            .font(.system(size: 17, weight: .semibold))
+                            .padding(.top, 14)
+                        Text("Time It rates the week ahead for every activity you add.\nStart with your first one.")
+                            .font(.system(size: 14))
+                            .foregroundStyle(Theme.secondaryText)
+                            .multilineTextAlignment(.center)
+                            .padding(.top, 8)
+                            .accessibilityIdentifier("firstLaunchMessage")
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 52)
+                    .contentShape(RoundedRectangle(cornerRadius: 16))
                 }
-                .buttonStyle(.plain)
-                .padding(.top, 12)
+                .buttonStyle(HeroAddButtonStyle())
+                .padding(.top, 84)
                 .accessibilityIdentifier("addActivitiesButton")
             }
             .padding(14)
@@ -191,16 +200,18 @@ struct DashboardView: View {
         }
     }
 
-    /// The all-dormant showcase: every stored Activity as a "Set your range →"
-    /// card, ghost add-card after.
-    private var showcaseList: some View {
+    /// Legacy edge case (pre-template-removal installs): a stored Activity
+    /// with no confirmed Range. Nothing rates and no request is made, so the
+    /// list renders "Set your range →" cards with the ghost add-card after —
+    /// never a dead end.
+    private var dormantList: some View {
         ScrollView {
             LazyVStack(spacing: 10) {
                 if isBetaBuild {
                     betaBanner
                 }
                 ForEach(store.activities) { authored in
-                    showcaseCard(for: authored)
+                    dormantCard(for: authored)
                 }
                 addCard
                 Spacer()
@@ -211,10 +222,49 @@ struct DashboardView: View {
         }
     }
 
-    private func showcaseCard(for authored: AuthoredActivity) -> some View {
-        ShowcaseCardView(activity: authored,
-                         onSetRange: { editing = authored },
-                         onDismiss: { store.dismissTemplate(id: authored.id) })
+    /// A dormant Activity's card: no weather, no timeline — the Range door
+    /// (the editor) is the only way out of dormancy.
+    private func dormantCard(for authored: AuthoredActivity) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .center, spacing: 8) {
+                ActivityIconView(identifier: authored.iconSymbol, size: 18)
+                    .foregroundStyle(Theme.primaryText.opacity(0.75))
+                    .accessibilityHidden(true)
+                Text(authored.label)
+                    .font(.system(size: 15, weight: .medium))
+                    .tracking(-0.1)
+                    .foregroundStyle(Theme.primaryText)
+                Spacer()
+            }
+            Button {
+                editing = authored
+            } label: {
+                HStack(spacing: 5) {
+                    Text("Set your range")
+                        .font(.system(size: 15, weight: .semibold))
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 13, weight: .semibold))
+                }
+                .foregroundStyle(Theme.accentInteractive)
+                .frame(minHeight: 30)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.borderless)
+            .accessibilityIdentifier("dormant.setRange.\(authored.id)")
+        }
+        .padding(EdgeInsets(top: 12, leading: 14, bottom: 10, trailing: 14))
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.cardBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .shadow(color: .black.opacity(0.08), radius: 3, x: 0, y: 1)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.black.opacity(0.06), lineWidth: 0.5)
+        )
+        // .contain creates a named CONTAINER — a bare identifier on the
+        // stack would clobber the button's own XCUI identifier.
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("dormant.\(authored.id)")
     }
 
     /// No-location empty state: grayed skeleton cards above the two CTAs —
@@ -385,7 +435,7 @@ struct DashboardView: View {
                     ForEach(store.activities) { authored in
                         Group {
                             if authored.isDormant {
-                                showcaseCard(for: authored)
+                                dormantCard(for: authored)
                             } else if let activity = viewModel.rating(forActivityId: authored.id) {
                                 ZStack(alignment: .topTrailing) {
                                     NavigationLink(value: activity.activityId) {
@@ -594,6 +644,22 @@ struct DashboardView: View {
     }
 }
 
+/// The hero card's press feedback (approved frame annotation): the blue
+/// eases dark → light (#007AFF → #66B2FF) over ~0.15s while pressed.
+private struct HeroAddButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        let blue = configuration.isPressed ? Color(hex: 0x66b2ff) : Theme.accentInteractive
+        configuration.label
+            .foregroundStyle(blue)
+            .background(RoundedRectangle(cornerRadius: 16).fill(Theme.cardBackground))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .strokeBorder(blue, style: StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
+            )
+            .animation(.easeOut(duration: 0.15), value: configuration.isPressed)
+    }
+}
+
 #if DEBUG
 #Preview("Live cards") {
     DashboardView(viewModel: PreviewFixtures.dashboardViewModel(),
@@ -613,8 +679,8 @@ struct DashboardView: View {
                   router: PushRouter())
 }
 
-#Preview("Showcase (dormant)") {
-    DashboardView(viewModel: PreviewFixtures.dashboardViewModel(activities: SeedTemplates.firstLaunchSeeds),
+#Preview("First launch (empty)") {
+    DashboardView(viewModel: PreviewFixtures.dashboardViewModel(activities: []),
                   registration: PreviewFixtures.registration(),
                   router: PushRouter())
 }

@@ -79,18 +79,4 @@ final class AuthoredActivityProjectionTests: XCTestCase {
         XCTAssertFalse(makeAuthored(window: nil).isNocturnal, "whole-day is diurnal")
     }
 
-    // MARK: template instantiation
-
-    func testCopyFromTemplateGetsFreshIdAndRecordsOrigin() {
-        let template = SeedTemplates.cycling
-
-        let copy = template.copyFromTemplate()
-
-        XCTAssertNotEqual(copy.id, template.id, "the copy needs its own request-unique id")
-        XCTAssertNotNil(UUID(uuidString: copy.id), "fresh ids are UUID strings")
-        XCTAssertEqual(copy.templateOrigin, template.id)
-        XCTAssertEqual(copy.label, template.label)
-        XCTAssertEqual(copy.displayMetrics, template.displayMetrics)
-        XCTAssertEqual(copy.thresholds, template.thresholds)
-    }
 }

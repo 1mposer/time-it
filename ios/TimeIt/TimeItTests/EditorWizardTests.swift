@@ -93,12 +93,12 @@ final class EditorWizardTests: XCTestCase {
     }
 
     func testRangeConfirmedSeedsFromTheIncomingWindow() {
-        XCTAssertTrue(ActivityDraft(from: SeedTemplates.cycling).hadWindow,
+        XCTAssertTrue(ActivityDraft(from: Fixtures.cycling).hadWindow,
                       "a live activity arrives range-confirmed")
         XCTAssertFalse(ActivityDraft(from: .blank()).hadWindow,
                        "a from-scratch draft must confirm its range")
 
-        var dormant = SeedTemplates.cycling
+        var dormant = Fixtures.cycling
         dormant.window = nil
         XCTAssertFalse(ActivityDraft(from: dormant).hadWindow,
                        "a dormant showcase activity must confirm its prefill")
@@ -108,7 +108,7 @@ final class EditorWizardTests: XCTestCase {
 
     func testReviewGateIsTheBuildResult() {
         XCTAssertFalse(complete(.review, blankDraft()))
-        XCTAssertTrue(complete(.review, ActivityDraft(from: SeedTemplates.cycling), rangeConfirmed: true))
+        XCTAssertTrue(complete(.review, ActivityDraft(from: Fixtures.cycling), rangeConfirmed: true))
     }
 
     // MARK: - Gating chain — tab i is tappable iff tabs 0..<i are all complete
@@ -132,7 +132,7 @@ final class EditorWizardTests: XCTestCase {
     }
 
     func testEditModeUnlocksEverythingImmediately() {
-        let draft = ActivityDraft(from: SeedTemplates.cycling)
+        let draft = ActivityDraft(from: Fixtures.cycling)
         for step in EditorStep.allCases {
             XCTAssertTrue(step.isComplete(draft: draft, catalog: catalog, rangeConfirmed: draft.hadWindow),
                           "\(step) must pass for a previously saved activity")
@@ -157,7 +157,7 @@ final class EditorWizardTests: XCTestCase {
     }
 
     func testSelectWithPresetIsANoOpOnAnAlreadySelectedMetric() {
-        var draft = ActivityDraft(from: SeedTemplates.cycling)
+        var draft = ActivityDraft(from: Fixtures.cycling)
         let before = draft
         draft.selectWithPreset(descriptor("temp"))
         XCTAssertEqual(draft, before, "re-selecting must not clobber authored threshold values")
@@ -166,7 +166,7 @@ final class EditorWizardTests: XCTestCase {
     // MARK: - Threshold mode mapping (§4)
 
     func testCurrentModeReflectsTheDraftState() {
-        var draft = ActivityDraft(from: SeedTemplates.cycling)
+        var draft = ActivityDraft(from: Fixtures.cycling)
         XCTAssertEqual(ThresholdMode.current(for: "temp", in: draft), .mustHave)
         XCTAssertEqual(ThresholdMode.current(for: "windSpeed", in: draft), .niceToHave)
         draft.removeThreshold(for: "temp")
@@ -174,7 +174,7 @@ final class EditorWizardTests: XCTestCase {
     }
 
     func testApplyModeTogglesRequiredWithoutTouchingValues() {
-        var draft = ActivityDraft(from: SeedTemplates.cycling)
+        var draft = ActivityDraft(from: Fixtures.cycling)
         draft.thresholds["temp"]?.minText = "18"
 
         ThresholdMode.niceToHave.apply(for: descriptor("temp"), to: &draft)
@@ -187,14 +187,14 @@ final class EditorWizardTests: XCTestCase {
     }
 
     func testApplyShowOnlyRemovesTheThresholdButKeepsTheMetric() {
-        var draft = ActivityDraft(from: SeedTemplates.cycling)
+        var draft = ActivityDraft(from: Fixtures.cycling)
         ThresholdMode.showOnly.apply(for: descriptor("temp"), to: &draft)
         XCTAssertNil(draft.thresholds["temp"])
         XCTAssertTrue(draft.isSelected("temp"), "show only: on the card, doesn't affect rating")
     }
 
     func testApplyAThresholdModeAfterShowOnlyRecreatesThePreset() {
-        var draft = ActivityDraft(from: SeedTemplates.cycling)
+        var draft = ActivityDraft(from: Fixtures.cycling)
         ThresholdMode.showOnly.apply(for: descriptor("temp"), to: &draft)
         ThresholdMode.mustHave.apply(for: descriptor("temp"), to: &draft)
         XCTAssertEqual(draft.thresholds["temp"], ThresholdDraft(preset: descriptor("temp")))
@@ -223,7 +223,7 @@ final class EditorWizardTests: XCTestCase {
     // MARK: - Two-checkbox surface (owner edit 2026-08-30 — replaces the mode menu)
 
     func testCheckboxStateReflectsTheDraft() {
-        var draft = ActivityDraft(from: SeedTemplates.cycling)
+        var draft = ActivityDraft(from: Fixtures.cycling)
         XCTAssertTrue(ThresholdCheckboxes.isPriority(for: "temp", in: draft),
                       "a required threshold reads as Priority checked")
         XCTAssertFalse(ThresholdCheckboxes.isShowOnly(for: "temp", in: draft))
@@ -239,7 +239,7 @@ final class EditorWizardTests: XCTestCase {
     }
 
     func testTogglingPriorityFlipsRequiredWithoutTouchingValues() {
-        var draft = ActivityDraft(from: SeedTemplates.cycling)
+        var draft = ActivityDraft(from: Fixtures.cycling)
         draft.thresholds["temp"]?.minText = "18"
 
         ThresholdCheckboxes.togglePriority(for: descriptor("temp"), in: &draft)
@@ -253,7 +253,7 @@ final class EditorWizardTests: XCTestCase {
     }
 
     func testCheckingShowOnlyRemovesTheThresholdAndUnchecksPriority() {
-        var draft = ActivityDraft(from: SeedTemplates.cycling)
+        var draft = ActivityDraft(from: Fixtures.cycling)
         ThresholdCheckboxes.toggleShowOnly(for: descriptor("temp"), in: &draft)
         XCTAssertNil(draft.thresholds["temp"], "show don't calculate drops the threshold")
         XCTAssertTrue(draft.isSelected("temp"), "the metric stays on the card")
@@ -262,7 +262,7 @@ final class EditorWizardTests: XCTestCase {
     }
 
     func testUncheckingShowOnlyRecreatesThePresetAsPriority() {
-        var draft = ActivityDraft(from: SeedTemplates.cycling)
+        var draft = ActivityDraft(from: Fixtures.cycling)
         ThresholdCheckboxes.toggleShowOnly(for: descriptor("temp"), in: &draft)
         ThresholdCheckboxes.toggleShowOnly(for: descriptor("temp"), in: &draft)
         XCTAssertEqual(draft.thresholds["temp"], ThresholdDraft(preset: descriptor("temp")),
@@ -271,7 +271,7 @@ final class EditorWizardTests: XCTestCase {
     }
 
     func testCheckingPriorityFromShowOnlyRecreatesThePreset() {
-        var draft = ActivityDraft(from: SeedTemplates.cycling)
+        var draft = ActivityDraft(from: Fixtures.cycling)
         ThresholdCheckboxes.toggleShowOnly(for: descriptor("temp"), in: &draft)
         ThresholdCheckboxes.togglePriority(for: descriptor("temp"), in: &draft)
         XCTAssertEqual(draft.thresholds["temp"], ThresholdDraft(preset: descriptor("temp")),

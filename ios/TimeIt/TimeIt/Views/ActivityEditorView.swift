@@ -587,17 +587,9 @@ private struct EditorTabBar: View {
     }
 }
 
-#Preview("New (template)") {
-    NavigationStack {
-        ActivityEditorView(existing: SeedTemplates.running.copyFromTemplate(),
-                           isNew: true,
-                           onSave: { _ in })
-    }
-}
-
 #Preview("Edit (existing)") {
     NavigationStack {
-        ActivityEditorView(existing: SeedTemplates.cycling,
+        ActivityEditorView(existing: PreviewFixtures.cycling,
                            isNew: false,
                            onSave: { _ in },
                            onDelete: {})
