@@ -179,7 +179,7 @@ struct DashboardView: View {
                         Text("Add Activity")
                             .font(.system(size: 17, weight: .semibold))
                             .padding(.top, 14)
-                        Text("Time It rates the week ahead for every activity you add.\nStart with your first one.")
+                        Text("Time It checks weather conditions\nfor any activity you create.\n\nStart with your first one.")
                             .font(.system(size: 14))
                             .foregroundStyle(Theme.secondaryText)
                             .multilineTextAlignment(.center)

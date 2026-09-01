@@ -162,7 +162,10 @@ final class TimeItUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["headerTime"].waitForExistence(timeout: 5), "the header still renders")
         let hero = app.buttons["addActivitiesButton"]
         XCTAssertTrue(hero.waitForExistence(timeout: 5), "the Add-Activity hero is the whole state")
-        XCTAssertTrue(app.staticTexts["firstLaunchMessage"].exists, "with its two-line invitation copy")
+        let message = app.staticTexts["firstLaunchMessage"]
+        XCTAssertTrue(message.exists, "with its two-paragraph invitation copy")
+        XCTAssertTrue(message.label.contains("for any activity you create."),
+                      "the owner-approved wording (edited 2026-09-01, pre-archive)")
         XCTAssertEqual(cardCount(in: app), 0, "an empty store never rates — no request, no cards")
         XCTAssertFalse(app.staticTexts["Weather Unavailable"].exists, "and it is not an error — no request was made")
         XCTAssertFalse(app.staticTexts["headerTemp"].exists,
