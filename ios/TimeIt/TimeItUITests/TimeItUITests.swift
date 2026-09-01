@@ -609,12 +609,16 @@ final class TimeItUITests: XCTestCase {
         card.tap()
         XCTAssertTrue(app.navigationBars["Cycling"].waitForExistence(timeout: 5))
 
-        // The Range stated once, with its edit door.
-        XCTAssertTrue(app.staticTexts["Your window: 6 – 10am daily"].exists)
+        // One setup card (owner prune 2026-09-01): icon + the prefix-less
+        // Range, then the Edit range / Edit metrics doors — the threshold
+        // summary line and the word "thresholds" are gone.
+        XCTAssertTrue(app.staticTexts["6 – 10am daily"].exists)
         XCTAssertTrue(app.buttons["detail.editRange"].exists)
-        // The setup stated once (never repeated per hour).
-        XCTAssertTrue(app.staticTexts["Temp 15 – 32°C required · Wind ≤ 25 km/h optional · Rain ≤ 0.2 mm required · UV ≤ 8 optional"].exists)
         XCTAssertTrue(app.buttons["detail.editMetrics"].exists)
+        XCTAssertEqual(app.buttons["detail.editMetrics"].label, "Edit metrics",
+                       "no \u{201C}& thresholds\u{201D}")
+        XCTAssertFalse(app.staticTexts["detail.setupSummary"].exists,
+                       "the threshold summary line was pruned")
         // 7 aligned day rows (diurnal), best-stretch time on rated days.
         XCTAssertTrue(app.staticTexts["Today"].exists)
         XCTAssertTrue(app.staticTexts["6–10am"].exists, "Today's best stretch")

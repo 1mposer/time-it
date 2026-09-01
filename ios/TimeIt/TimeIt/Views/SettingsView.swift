@@ -28,6 +28,7 @@ struct SettingsView: View {
                 homeLocationSection
                 notificationsSection
                 dashboardSection
+                // Blurb pruned entirely — owner edit 2026-09-01.
                 Section("About") {
                     HStack {
                         Text("Version")
@@ -35,9 +36,6 @@ struct SettingsView: View {
                         Text(appVersion)
                             .foregroundStyle(.secondary)
                     }
-                    Text("Time It rates the next 7 days for your outdoor activities from the local weather forecast.")
-                        .font(.system(size: 14))
-                        .foregroundStyle(.secondary)
                 }
                 Section("Location") {
                     Label {
@@ -88,7 +86,9 @@ struct SettingsView: View {
         } header: {
             Text("Notifications")
         } footer: {
-            Text("A morning digest plus Perfect-window alerts for your activities.")
+            // Owner copy 2026-09-01 (prune pass) — no hyphen, matching the
+            // push-callout UI-copy ruling.
+            Text("Perfect window alerts")
         }
     }
 
@@ -151,7 +151,8 @@ struct SettingsView: View {
             if differentiateWithoutColor {
                 Text("On — required while Differentiate Without Color is active.")
             } else {
-                Text("Adds a one-line summary under each card — \u{201C}Good, turning perfect.\u{201D} Turns on automatically when Differentiate Without Color is enabled.")
+                // Owner copy 2026-09-01 (prune pass).
+                Text("Adds a summary under each card")
             }
         }
     }
@@ -179,9 +180,8 @@ struct SettingsView: View {
                 .accessibilityIdentifier("settings.useCurrentLocation")
             }
         } header: {
+            // Footer pruned entirely — owner edit 2026-09-01.
             Text("Home location")
-        } footer: {
-            Text("Forecasts use your home location when set; clear it to follow your device location again.")
         }
     }
 

@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Activity detail, top to bottom: the Range stated once (+ Edit range), the
-/// setup stated once (+ Edit metrics & thresholds), the week as aligned
+/// Activity detail, top to bottom: one setup card (icon + the Range stated
+/// once, with the Edit range / Edit metrics doors), the week as aligned
 /// range-zoomed gradient rows with the axis once under the stack, and
 /// per-hour numbers behind a tap (one day at a time, collapsed by default).
 struct ActivityDetailView: View {
@@ -27,10 +27,7 @@ struct ActivityDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 10) {
                 if let authored, let window = authored.window {
-                    windowHeader(authored: authored, window: window)
-                    if let summary = ThresholdSummary.line(for: authored, catalog: catalog) {
-                        setupSummary(summary, authored: authored)
-                    }
+                    setupCard(authored: authored, window: window)
                 }
                 weekCard
             }
@@ -48,42 +45,33 @@ struct ActivityDetailView: View {
         }
     }
 
-    // MARK: The Range stated once
+    // MARK: The setup card — Range stated once + both edit doors
+    // (merged into one card, prune pass — owner edit 2026-09-01: icon +
+    // "6 – 10am daily", then Edit range, then Edit metrics; the threshold
+    // summary line and the word "thresholds" are gone).
 
-    private func windowHeader(authored: AuthoredActivity, window: WindowSpec) -> some View {
-        HStack(spacing: 8) {
-            ActivityIconView(identifier: authored.iconSymbol, size: 16)
-                .foregroundStyle(Theme.primaryText.opacity(0.75))
-                .accessibilityHidden(true)
-            Text(RangeText.headerLabel(window))
-                .font(.system(size: 14))
-                .foregroundStyle(Theme.primaryText)
-            Spacer()
+    private func setupCard(authored: AuthoredActivity, window: WindowSpec) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                ActivityIconView(identifier: authored.iconSymbol, size: 16)
+                    .foregroundStyle(Theme.primaryText.opacity(0.75))
+                    .accessibilityHidden(true)
+                Text(RangeText.headerLabel(window))
+                    .font(.system(size: 14))
+                    .foregroundStyle(Theme.primaryText)
+                Spacer()
+            }
             Button("Edit range") { editing = authored }
                 .font(.system(size: 14))
                 .foregroundStyle(Theme.accentInteractive)
                 .accessibilityIdentifier("detail.editRange")
-        }
-        .padding(EdgeInsets(top: 13, leading: 14, bottom: 13, trailing: 14))
-        .background(Theme.cardBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-    }
-
-    // MARK: The setup stated once (thresholds don't vary by hour)
-
-    private func setupSummary(_ summary: String, authored: AuthoredActivity) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(summary)
-                .font(.system(size: 13))
-                .foregroundStyle(Theme.secondaryText)
-                .accessibilityIdentifier("detail.setupSummary")
-            Button("Edit metrics & thresholds") { editing = authored }
+            Button("Edit metrics") { editing = authored }
                 .font(.system(size: 14))
                 .foregroundStyle(Theme.accentInteractive)
                 .accessibilityIdentifier("detail.editMetrics")
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(EdgeInsets(top: 12, leading: 14, bottom: 12, trailing: 14))
+        .padding(EdgeInsets(top: 13, leading: 14, bottom: 13, trailing: 14))
         .background(Theme.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 16))
     }

@@ -3,8 +3,8 @@ import XCTest
 
 /// Rendering copy derived from the authored Range (pure hour ints — no
 /// timezone math): the card's range chip ("6 – 10am"), the detail header
-/// ("Your window: 10pm – 4am nightly"), and the detail week's range-zoomed
-/// axis (start / midpoint / end).
+/// ("10pm – 4am nightly" — prefix-less, owner prune 2026-09-01), and the
+/// detail week's range-zoomed axis (start / midpoint / end).
 final class RangeTextTests: XCTestCase {
 
     // MARK: hourText (one clock dialect)
@@ -33,12 +33,12 @@ final class RangeTextTests: XCTestCase {
 
     func testHeaderLabelSaysDailyForDiurnal() {
         XCTAssertEqual(RangeText.headerLabel(WindowSpec(startHour: 6, endHour: 10)),
-                       "Your window: 6 – 10am daily")
+                       "6 – 10am daily")
     }
 
     func testHeaderLabelSaysNightlyForNocturnal() {
         XCTAssertEqual(RangeText.headerLabel(WindowSpec(startHour: 22, endHour: 4)),
-                       "Your window: 10pm – 4am nightly")
+                       "10pm – 4am nightly")
     }
 
     // MARK: range-zoomed axis — start / midpoint / end, once under the stack

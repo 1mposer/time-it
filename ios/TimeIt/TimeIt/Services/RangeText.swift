@@ -24,10 +24,11 @@ enum RangeText {
         return "\(start.dropLast(2)) – \(end)"
     }
 
-    /// States the Range once for the detail header:
-    /// "Your window: 6 – 10am daily" / "Your window: 10pm – 4am nightly".
+    /// States the Range once for the detail header: "6 – 10am daily" /
+    /// "10pm – 4am nightly" (the "Your window:" prefix was pruned — owner
+    /// edit 2026-09-01).
     static func headerLabel(_ window: WindowSpec) -> String {
-        "Your window: \(chipLabel(window)) \(window.isWrapped ? "nightly" : "daily")"
+        "\(chipLabel(window)) \(window.isWrapped ? "nightly" : "daily")"
     }
 
     /// The week axis, rendered once: start / midpoint / end ("6am"/"8am"/"10am";
