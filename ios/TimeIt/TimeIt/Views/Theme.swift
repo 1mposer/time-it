@@ -52,15 +52,39 @@ enum Theme {
         }
     }
 
-    /// Ocean blue header gradient, #1253a4 → #3ec6e8 at ~160°.
-    static let headerGradient = LinearGradient(
-        colors: [
-            Color(hex: 0x1253a4),
-            Color(hex: 0x1a78c2),
-            Color(hex: 0x29a8e0),
-            Color(hex: 0x3ec6e8),
-        ],
-        startPoint: UnitPoint(x: 0.33, y: 0),
-        endPoint: UnitPoint(x: 0.67, y: 1)
-    )
+    /// The header's temperature band — drives the gradient (Figma: Header,
+    /// node 92:11). Delegates to the temp chip's tier table (owner ruling
+    /// 2026-09-01: one consistent 33/38 language — a chip-band change must
+    /// move the header with it); no reading defaults to Cool.
+    enum HeaderBand {
+        case cool
+        case mid
+        case hot
+
+        static func band(forTemp temp: Double?) -> HeaderBand {
+            switch MetricTier.tier(for: "temp", value: temp) {
+            case .red: return .hot
+            case .orange: return .mid
+            case .green, .neutral: return .cool
+            }
+        }
+    }
+
+    /// Header gradient by current-hour temperature. Stops sampled from the
+    /// Figma header states (Cool blue / Mid amber / Hot salmon — the old
+    /// ocean-blue gradient is retired per the design page note).
+    static func headerGradient(forTemp temp: Double?) -> LinearGradient {
+        let colors: [Color]
+        switch HeaderBand.band(forTemp: temp) {
+        case .cool:
+            colors = [Color(hex: 0x1774ff), Color(hex: 0x3295fd), Color(hex: 0x68d7fc)]
+        case .mid:
+            colors = [Color(hex: 0xe49b23), Color(hex: 0xe9ab36), Color(hex: 0xf3ca5d)]
+        case .hot:
+            colors = [Color(hex: 0xee6a4d), Color(hex: 0xf27b60), Color(hex: 0xfa9c86)]
+        }
+        return LinearGradient(colors: colors,
+                              startPoint: UnitPoint(x: 0.33, y: 0),
+                              endPoint: UnitPoint(x: 0.67, y: 1))
+    }
 }

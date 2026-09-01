@@ -15,6 +15,7 @@ struct DashboardView: View {
     @ObservedObject private var router: PushRouter
     @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
     @State private var showSettings = false
     @State private var showAdd = false
     @State private var showingCapAlert = false
@@ -74,7 +75,9 @@ struct DashboardView: View {
                                            if !store.add(activity) {
                                                showingCapAlert = true
                                            }
-                                       })
+                                       },
+                                       reviewRangeStartHour: { viewModel.reviewRangeStartHour(for: $0) },
+                                       rangeHasPassedToday: { viewModel.rangeHasPassedToday($0) })
                 }
             }
             .alert("Activity limit reached", isPresented: $showingCapAlert) {
@@ -90,7 +93,9 @@ struct DashboardView: View {
                     ActivityEditorView(existing: activity,
                                        isNew: false,
                                        onSave: { store.update($0) },
-                                       onDelete: { store.delete(id: activity.id) })
+                                       onDelete: { store.delete(id: activity.id) },
+                                       reviewRangeStartHour: { viewModel.reviewRangeStartHour(for: $0) },
+                                       rangeHasPassedToday: { viewModel.rangeHasPassedToday($0) })
                 }
             }
             .sheet(isPresented: $showFeedback) {
@@ -111,6 +116,14 @@ struct DashboardView: View {
         .task {
             viewModel.requestInitialLocationPermissionIfNeeded()
             await viewModel.loadForecast()
+        }
+        // A backgrounded app returns with a stale forecast — hours[0] and the
+        // passed-range signal (card fallback + save alert) all read it, so
+        // re-entering the foreground refetches. Launch is covered by .task;
+        // the generation guard makes an overlapping load harmless.
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else { return }
+            Task { await viewModel.loadForecast() }
         }
         .onReceive(router.$focusActivityId.compactMap { $0 }) { activityId in
             showSettings = false
@@ -622,21 +635,25 @@ struct DashboardView: View {
     }
 
     private func card(for activity: ActivityRating, authored: AuthoredActivity, in forecast: ForecastResponse) -> ActivityCardView {
-        let day = viewModel.cardDay(for: activity)
-        let tiers = viewModel.rangeTiers(for: authored, dayIndex: 0)
+        // Day 0, unless today's Range has fully passed — then the card falls
+        // forward to tomorrow (owner ruling 2026-09-01).
+        let dayIndex = viewModel.cardDayIndex(for: authored)
+        let day = viewModel.cardDay(for: activity, dayIndex: dayIndex)
+        let tiers = viewModel.rangeTiers(for: authored, dayIndex: dayIndex)
         return ActivityCardView(
             activity: activity,
             day: day,
             // Chips show live values on every verdict (owner ruling 2026-09-01):
             // a null day reads the Range's first hour instead of going neutral.
             windowStartHour: day.flatMap { viewModel.windowStartHour(for: $0) }
-                ?? viewModel.rangeHours(for: authored, dayIndex: 0).first,
+                ?? viewModel.rangeHours(for: authored, dayIndex: dayIndex).first,
             deriver: viewModel.timeDeriver,
             hoursCount: forecast.hours.count,
+            shownDayIndex: dayIndex,
             iconSymbol: authored.iconSymbol,
             isNocturnal: authored.isNocturnal,
             rangeChipLabel: authored.window.map(RangeText.chipLabel),
-            sliceRange: viewModel.rangeHourIndices(for: authored, dayIndex: 0),
+            sliceRange: viewModel.rangeHourIndices(for: authored, dayIndex: dayIndex),
             tiers: tiers,
             phrase: TrajectoryPhrase.cardPhrase(
                 dayRated: day != nil,

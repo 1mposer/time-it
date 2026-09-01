@@ -10,12 +10,16 @@ struct ActivityCardView: View {
     /// has no qualifying window (the all-red state).
     let day: Day?
     /// The hour the metric chips read their values from — the qualifying
-    /// window's start, or (null verdict) the Range's first hour today.
-    /// Chips carry live values on every verdict (owner ruling 2026-09-01);
-    /// nil means no forecast at all → name-only neutral chips.
+    /// window's start, or (null verdict) the Range's first hour in the shown
+    /// day. Chips carry live values on every verdict (owner ruling
+    /// 2026-09-01); nil means no forecast at all → name-only neutral chips.
     let windowStartHour: HourlyWeather?
     let deriver: TimeDeriver?
     let hoursCount: Int
+    /// The day bucket the card shows: 0 today, 1 when today's Range has
+    /// fully passed (the passed-range fallback) — drives the sublabel's
+    /// "Today"/"Tomorrow" and the axis when `day` is nil.
+    var shownDayIndex: Int = 0
     /// Explicit icon from the authored Activity; nil falls back to the legacy
     /// id heuristic below.
     var iconSymbol: String?
@@ -47,6 +51,7 @@ struct ActivityCardView: View {
                             deriver: deriver,
                             hoursCount: hoursCount,
                             activityId: activity.activityId,
+                            fallbackDayIndex: shownDayIndex,
                             sliceRange: sliceRange,
                             tiers: tiers)
             if let phrase {
@@ -94,10 +99,11 @@ struct ActivityCardView: View {
     }
 
     /// "Today · 6–8pm" / "Tonight · 10pm–2am" — same dialect as the push
-    /// copy. A red day is the plain day name.
+    /// copy; the passed-range fallback reads "Tomorrow · …". A red day is
+    /// the plain day name.
     private var sublabel: String {
         guard let deriver else { return isNocturnal ? "Tonight" : "Today" }
-        return deriver.sublabel(forDayIndex: 0,
+        return deriver.sublabel(forDayIndex: day?.dayIndex ?? shownDayIndex,
                                 startIndex: day?.startIndex,
                                 endIndex: day?.endIndex,
                                 nocturnal: isNocturnal)
@@ -203,6 +209,9 @@ struct TimelineBarView: View {
     let deriver: TimeDeriver?
     let hoursCount: Int
     let activityId: String
+    /// The day the axis spans when `day` is nil (the passed-range fallback
+    /// shows tomorrow's axis even for a red day).
+    var fallbackDayIndex: Int = 0
     /// Global hours[] indices the Range covers in the shown day bucket.
     var sliceRange: Range<Int>?
     /// Per-hour tiers over `sliceRange` — one gradient stop per hour.
@@ -212,7 +221,7 @@ struct TimelineBarView: View {
     /// the range slice — a night-stitched range crosses the calendar day's
     /// end, so without the widening the slice would draw off the track.
     private var axisRange: Range<Int>? {
-        guard var span = deriver?.hourRange(forDayIndex: day?.dayIndex ?? 0, hourCount: hoursCount) else {
+        guard var span = deriver?.hourRange(forDayIndex: day?.dayIndex ?? fallbackDayIndex, hourCount: hoursCount) else {
             return nil
         }
         if let day, day.hasWindow,

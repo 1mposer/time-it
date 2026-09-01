@@ -307,11 +307,27 @@ final class DashboardViewModel: ObservableObject {
         authoredActivity(forActivityId: activityId)?.isNocturnal ?? false
     }
 
-    /// The card's day: day 0 (today/tonight) only — the roll-forward to a
-    /// later day was cancelled (ADR-0004 amendment). Nil when today has no
-    /// window — the card renders its none-state; the week lives in the detail.
-    func cardDay(for activity: ActivityRating) -> Day? {
-        activity.days.first.flatMap { $0.rating != nil ? $0 : nil }
+    /// The day bucket the card shows: 0 (today/tonight) — except when the
+    /// activity's Range has already fully passed today (no forecast hour left
+    /// inside it), where the card falls forward to tomorrow (owner ruling
+    /// 2026-09-01). This is deliberately narrower than the cancelled
+    /// roll-forward (ADR-0004 amendment): a bad-weather today stays red.
+    func cardDayIndex(for authored: AuthoredActivity) -> Int {
+        guard let window = authored.window,
+              rangeHasPassedToday(window),
+              rangeHourIndices(window: window, dayIndex: 1) != nil else {
+            return 0
+        }
+        return 1
+    }
+
+    /// The card's day at `dayIndex` (0 today, 1 the passed-range fallback).
+    /// Nil when that day has no window — the card renders its none-state; the
+    /// week lives in the detail.
+    func cardDay(for activity: ActivityRating, dayIndex: Int = 0) -> Day? {
+        guard activity.days.indices.contains(dayIndex) else { return nil }
+        let day = activity.days[dayIndex]
+        return day.rating != nil ? day : nil
     }
 
     /// The current response's rating for an authored id — keeps a pushed
@@ -327,8 +343,33 @@ final class DashboardViewModel: ObservableObject {
     /// the morning tail belongs to its evening, ADR-0004 amendment).
     /// Nil when dormant, without a forecast, or when no in-range hour exists.
     func rangeHourIndices(for authored: AuthoredActivity, dayIndex: Int) -> Range<Int>? {
-        guard let window = authored.window,
-              let deriver = timeDeriver,
+        authored.window.flatMap { rangeHourIndices(window: $0, dayIndex: dayIndex) }
+    }
+
+    /// True when a same-day Range has no forecast hour left today — the
+    /// forecast starts at the current hour, so an empty day-0 slice means the
+    /// Range has fully passed. Drives the card's tomorrow-fallback and the
+    /// editor's "already passed" save alert. A wrapped Range never "passes"
+    /// (tonight is always ahead of, or inside, the forecast).
+    func rangeHasPassedToday(_ window: WindowSpec) -> Bool {
+        guard !window.isWrapped, forecast != nil else { return false }
+        return rangeHourIndices(window: window, dayIndex: 0) == nil
+    }
+
+    /// The forecast hour the editor's review pills read: the Range's first
+    /// hour today, or tomorrow once today's Range has passed. Nil without a
+    /// forecast — the pills fall back to their neutral name-only state.
+    func reviewRangeStartHour(for window: WindowSpec) -> HourlyWeather? {
+        guard let hours = forecast?.hours else { return nil }
+        let range = rangeHourIndices(window: window, dayIndex: 0)
+            ?? rangeHourIndices(window: window, dayIndex: 1)
+        return range.map { hours[$0.lowerBound] }
+    }
+
+    /// The window-only core of the Range filter — the draft editor has a
+    /// WindowSpec before an AuthoredActivity exists.
+    func rangeHourIndices(window: WindowSpec, dayIndex: Int) -> Range<Int>? {
+        guard let deriver = timeDeriver,
               let hourCount = forecast?.hours.count, hourCount > 0 else {
             return nil
         }

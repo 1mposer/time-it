@@ -85,7 +85,7 @@ struct ActivityDraft: Equatable {
         }
 
         let activity = AuthoredActivity(id: id,
-                                        label: label.trimmingCharacters(in: .whitespacesAndNewlines),
+                                        label: Self.finalLabel(label),
                                         iconSymbol: iconSymbol,
                                         templateOrigin: templateOrigin,
                                         displayMetrics: metrics,
@@ -93,6 +93,15 @@ struct ActivityDraft: Equatable {
                                         window: WindowSpec(startHour: startHour, endHour: endHour))
         issues += activity.validationIssues(against: catalog)
         return (issues.isEmpty ? activity : nil, issues)
+    }
+
+    /// The label as saved: trimmed, first letter uppercased (the keyboard
+    /// auto-capitalizes as you type, but pasted or corrected text must land
+    /// capitalized too — owner ruling 2026-09-01).
+    static func finalLabel(_ raw: String) -> String {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let first = trimmed.first else { return trimmed }
+        return first.uppercased() + trimmed.dropFirst()
     }
 
     /// Empty text = no bound; non-numeric text is an issue, not a silent nil.

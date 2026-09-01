@@ -109,8 +109,10 @@ struct HeaderView: View {
         }
         .fixedSize(horizontal: false, vertical: true)
         // Content stays in the safe area (a control under the status bar is
-        // untappable) — only the gradient bleeds behind it.
-        .background(Theme.headerGradient.ignoresSafeArea(edges: .top))
+        // untappable) — only the gradient bleeds behind it. The gradient is
+        // temperature-banded: cool blue / mid amber / hot salmon.
+        .background(Theme.headerGradient(forTemp: showsWeather ? currentHour?.temp : nil)
+            .ignoresSafeArea(edges: .top))
     }
 }
 

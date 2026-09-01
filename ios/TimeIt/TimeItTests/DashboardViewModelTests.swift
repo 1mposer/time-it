@@ -721,4 +721,65 @@ final class DashboardViewModelTests: XCTestCase {
         let outOfRange = Fixtures.makeDay(dayIndex: 0, rating: "good", startIndex: 58, endIndex: 70, duration: 12)
         XCTAssertTrue(vm.windowHours(for: outOfRange).isEmpty)
     }
+
+    // MARK: passed-range fallback — the ONLY forward jump (owner ruling
+    // 2026-09-01); bad weather today still shows today (ADR-0004 amendment
+    // stays cancelled for that case).
+
+    // The fixture forecast starts 16:00 Dubai — the 6–10am seed's Range has
+    // fully passed, the TestFlight build-3 finding.
+    func testCardDayIndexFallsToTomorrowWhenRangePassedToday() async {
+        let (vm, _, _, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])))
+        await vm.loadForecast()
+
+        XCTAssertEqual(vm.cardDayIndex(for: Fixtures.cycling), 1)
+    }
+
+    func testCardDayIndexStaysTodayWhileRangeAhead() async {
+        // fishing-lite's 3–7pm Range is under way at the 16:00 forecast start.
+        let (vm, _, _, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])))
+        await vm.loadForecast()
+
+        XCTAssertEqual(vm.cardDayIndex(for: Fixtures.fishingLite), 0)
+    }
+
+    func testCardDayIndexStaysTodayWithoutForecast() {
+        let (vm, _, _, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])))
+
+        XCTAssertEqual(vm.cardDayIndex(for: Fixtures.cycling), 0, "no forecast → no fallback signal")
+    }
+
+    func testRangeHasPassedTodayReadsTheForecastNotTheClock() async {
+        let (vm, _, _, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])))
+        await vm.loadForecast()
+
+        XCTAssertTrue(vm.rangeHasPassedToday(WindowSpec(startHour: 6, endHour: 10)))
+        XCTAssertFalse(vm.rangeHasPassedToday(WindowSpec(startHour: 15, endHour: 19)))
+        XCTAssertFalse(vm.rangeHasPassedToday(WindowSpec(startHour: 22, endHour: 2)),
+                       "a wrapped Range never passes — tonight is always ahead or ongoing")
+    }
+
+    // MARK: review pills — first Range hour today, tomorrow once passed
+
+    func testReviewRangeStartHourFallsToTomorrowOncePassed() async {
+        let (vm, _, _, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])))
+        await vm.loadForecast()
+
+        // Forecast starts 16:00 Dubai → index 8 is local midnight, 14 is 6am.
+        XCTAssertEqual(vm.reviewRangeStartHour(for: WindowSpec(startHour: 6, endHour: 10))?.index, 14)
+    }
+
+    func testReviewRangeStartHourReadsTodayWhileAhead() async {
+        let (vm, _, _, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])))
+        await vm.loadForecast()
+
+        // 3–7pm at a 16:00 start: the first in-range hour is hours[0] itself.
+        XCTAssertEqual(vm.reviewRangeStartHour(for: WindowSpec(startHour: 15, endHour: 19))?.index, 0)
+    }
+
+    func testReviewRangeStartHourNilWithoutForecast() {
+        let (vm, _, _, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])))
+
+        XCTAssertNil(vm.reviewRangeStartHour(for: WindowSpec(startHour: 6, endHour: 10)))
+    }
 }

@@ -14,6 +14,14 @@ struct ActivityEditorView: View {
     private let catalog: MetricCatalogProviding
     private let onSave: (AuthoredActivity) -> Void
     private let onDelete: (() -> Void)?
+    /// The forecast hour the review pills read for the draft's Range (today,
+    /// or tomorrow once today's Range has passed) — the pills must never sit
+    /// gray when live data exists (owner ruling 2026-09-01). Nil closure or
+    /// nil result → neutral name-only pills (no forecast to read).
+    private let reviewRangeStartHour: ((WindowSpec) -> HourlyWeather?)?
+    /// True when the draft's Range has already fully passed today — Save
+    /// surfaces the "showing you tomorrow" alert before committing.
+    private let rangeHasPassedToday: ((WindowSpec) -> Bool)?
 
     @State private var draft: ActivityDraft
     @State private var step: Int = 0
@@ -23,6 +31,9 @@ struct ActivityEditorView: View {
     @State private var rangeConfirmed: Bool
     @State private var showingRangeWarning = false
     @State private var confirmingDelete = false
+    /// The built Activity parked while the passed-range alert is up; saving
+    /// completes from the alert's OK.
+    @State private var pendingPassedRangeSave: AuthoredActivity?
     @State private var expandedCategories: Set<String>
     @FocusState private var nameFocused: Bool
     @Environment(\.dismiss) private var dismiss
@@ -33,11 +44,15 @@ struct ActivityEditorView: View {
          isNew: Bool,
          catalog: MetricCatalogProviding = StaticMetricCatalog(),
          onSave: @escaping (AuthoredActivity) -> Void,
-         onDelete: (() -> Void)? = nil) {
+         onDelete: (() -> Void)? = nil,
+         reviewRangeStartHour: ((WindowSpec) -> HourlyWeather?)? = nil,
+         rangeHasPassedToday: ((WindowSpec) -> Bool)? = nil) {
         self.isNew = isNew
         self.catalog = catalog
         self.onSave = onSave
         self.onDelete = onDelete
+        self.reviewRangeStartHour = reviewRangeStartHour
+        self.rangeHasPassedToday = rangeHasPassedToday
         let draft = ActivityDraft(from: existing)
         _draft = State(initialValue: draft)
         _rangeConfirmed = State(initialValue: draft.hadWindow)
@@ -143,8 +158,15 @@ struct ActivityEditorView: View {
             if step == EditorStep.review.rawValue {
                 Button("Save Activity") {
                     guard let activity = buildResult.activity else { return }
-                    onSave(activity)
-                    dismiss()
+                    // A Range that already passed today still saves — but the
+                    // user is told the card will show tomorrow's conditions.
+                    if let window = activity.window,
+                       rangeHasPassedToday?(window) == true {
+                        pendingPassedRangeSave = activity
+                    } else {
+                        onSave(activity)
+                        dismiss()
+                    }
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
@@ -152,6 +174,19 @@ struct ActivityEditorView: View {
                 .frame(maxWidth: .infinity)
                 .disabled(buildResult.activity == nil)
                 .accessibilityIdentifier("editor.save")
+                .alert("The time you set has already passed today",
+                       isPresented: Binding(get: { pendingPassedRangeSave != nil },
+                                            set: { if !$0 { pendingPassedRangeSave = nil } })) {
+                    Button("OK") {
+                        guard let activity = pendingPassedRangeSave else { return }
+                        pendingPassedRangeSave = nil
+                        onSave(activity)
+                        dismiss()
+                    }
+                    .accessibilityIdentifier("editor.passedRangeOK")
+                } message: {
+                    Text("We're going to show you tomorrow's conditions.")
+                }
             } else {
                 Button("Next Step") { nextStep() }
                     .buttonStyle(.borderedProminent)
@@ -205,6 +240,7 @@ struct ActivityEditorView: View {
                 // The whole row must raise the keyboard, not just the text's
                 // leading edge (device finding 2026-08-30).
                 TextField("Cycling...", text: $draft.label)
+                    .textInputAutocapitalization(.sentences)
                     .focused($nameFocused)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .contentShape(Rectangle())
@@ -454,9 +490,11 @@ struct ActivityEditorView: View {
     /// The actual dashboard card as a representative preview (owner edit
     /// 2026-08-30): real icon, name, range chip, and metric chips from the
     /// draft; the timeline slice and its green are illustrative — a real
-    /// rating exists only after the first fetch. The fixed UTC-midnight
-    /// deriver makes hour index == clock hour, so the draft's Range maps
-    /// straight onto the axis.
+    /// rating exists only after the first fetch — but the metric pills read
+    /// live forecast values when the dashboard has them (owner ruling
+    /// 2026-09-01: pills never sit gray over live data). The fixed
+    /// UTC-midnight deriver makes hour index == clock hour, so the draft's
+    /// Range maps straight onto the axis.
     private var reviewCard: some View {
         let wrapped = draft.startHour > draft.endHour
         let endExclusive = wrapped ? draft.endHour + 24 : draft.endHour
@@ -466,12 +504,13 @@ struct ActivityEditorView: View {
                       endIndex: draft.startHour + duration,
                       duration: duration)
         let rating = ActivityRating(activityId: draft.id,
-                                    label: draft.label.trimmingCharacters(in: .whitespacesAndNewlines),
+                                    label: ActivityDraft.finalLabel(draft.label),
                                     displayMetrics: draft.metrics,
                                     days: [day])
+        let window = WindowSpec(startHour: draft.startHour, endHour: draft.endHour)
         return ActivityCardView(activity: rating,
                                 day: day,
-                                windowStartHour: nil,
+                                windowStartHour: reviewRangeStartHour?(window),
                                 deriver: TimeDeriver(forecastStart: "2026-06-01T00:00:00Z",
                                                      timezone: "UTC"),
                                 hoursCount: max(24, draft.startHour + duration),
