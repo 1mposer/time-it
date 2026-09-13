@@ -75,14 +75,17 @@ struct TimeDeriver {
         }
     }
 
-    /// "4–7pm" / "10pm–2am" — routes through `RangeText.rangeText`, the single
-    /// client collapse rule (the labels.js mirror, ADR-0007): same meridiem →
-    /// suffix once; crossing → both. `endIndex` is exclusive, so its label is
-    /// the end boundary. Indices aren't bounds-checked — out-of-range
-    /// extrapolates to a still-correct clock time rather than trapping. Shares
-    /// the half-hour-zone limitation with `hourLabel`.
+    /// "4–7pm" / "10pm–2am" — the word-for-word twin of the server push
+    /// copy's `rangeLabel` (`src/jobs/labels.js`): same meridiem → suffix
+    /// once; crossing → both. `endIndex` is exclusive, so its label is the
+    /// end boundary. Indices aren't bounds-checked — out-of-range extrapolates
+    /// to a still-correct clock time rather than trapping. Shares the
+    /// half-hour-zone limitation with `hourLabel`.
     func rangeLabel(startIndex: Int, endIndex: Int) -> String {
-        RangeText.rangeText(hourLabel(at: startIndex), hourLabel(at: endIndex))
+        let start = hourLabel(at: startIndex)
+        let end = hourLabel(at: endIndex)
+        guard start.suffix(2) == end.suffix(2) else { return "\(start)–\(end)" }
+        return "\(start.dropLast(2))–\(end)"
     }
 
     /// The card sublabel: "Today · 6–8pm" / "Tonight · 10pm–2am", matching
