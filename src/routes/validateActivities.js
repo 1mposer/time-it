@@ -4,7 +4,7 @@
 // in either displayMetrics or thresholds — is a hard reject: a threshold on
 // placeholder data would pass trivially (a silent false Perfect).
 
-const { isKnown, isAvailable } = require('../weather/metricCatalog');
+const { isKnown, isAvailable, kindOf } = require('../weather/metricCatalog');
 
 const MAX_ACTIVITIES = 50; // abuse ceiling, not a tier gate (ADR-0005)
 
@@ -22,7 +22,9 @@ function validateMetricKey(metric, path, errors) {
 
 // Thresholded metrics must be a subset of displayMetrics; a numeric threshold
 // needs at least one bound (min <= max); a flag needs forbidTrue: true;
-// required is mandatory on every threshold.
+// required is mandatory on every threshold. The threshold's kind must match
+// the metric's kind (catalog): a min/max on a label or flag metric, or a flag
+// on a numeric one, can never judge the hour — it passes trivially instead.
 function validateThreshold(metric, config, displaySet, path, errors) {
   if (config === null || typeof config !== 'object') {
     errors.push({ path, message: 'threshold must be an object' });
@@ -41,10 +43,24 @@ function validateThreshold(metric, config, displaySet, path, errors) {
     errors.push({ path, message: 'required is mandatory and must be a boolean' });
   }
 
+  const kind = kindOf(metric); // undefined for an unknown metric (already reported)
+  if (kind === 'label') {
+    errors.push({ path, message: `metric "${metric}" is display-only and cannot be thresholded` });
+    return;
+  }
+
   if (config.type === 'flag') {
+    if (kind === 'numeric') {
+      errors.push({ path, message: `metric "${metric}" is numeric; a flag threshold cannot judge it` });
+    }
     if (config.forbidTrue !== true) {
       errors.push({ path, message: 'a flag threshold must set forbidTrue: true' });
     }
+    return;
+  }
+
+  if (kind === 'flag') {
+    errors.push({ path, message: `metric "${metric}" is a flag; use { type: "flag", forbidTrue: true }` });
     return;
   }
 

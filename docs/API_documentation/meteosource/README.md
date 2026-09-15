@@ -8,9 +8,9 @@ Trimmed for agent lookup — read this first. Full raw export: [`openapi.json`](
 - **The path segment is subscription-scoped**: the key only works on its own plan's path — calling another tier's path returns `403 {"detail":"The API key is not allowed to use this tier"}` (live-verified 2026-08-11 against the old `/flexi/point`). A future plan change therefore requires a matching `BASE_URL` edit in `fetch.js`, or every live path 502s.
 - Params sent (`src/weather/index.js`): `lat`, `lon`, `timezone=auto` (the only mode that exposes the location's IANA zone — but it returns *local* wall-time timestamps, reconciled to UTC-`Z` in the adapter), `language=en`, `sections=all`, `units=metric`, `key` (our `API_KEY` env var; the vendor also accepts an `X-API-Key` header — unused here, we send it as a query param)
 
-## Sections (`sections=all` requests every one; only `hourly` is consumed)
+## Sections (`sections=all` requests every one; `hourly` + `daily` are consumed)
 
-`current`, `daily`, `daily-parts` (morning/afternoon/evening — **first 7 days of the forecast only**, a vendor limitation), `hourly`, `minutely` (1-minute precipitation resolution), `alerts`. `parse.js` reads `hourly` exclusively — the rest of the `all` payload is fetched over the wire but discarded today. Live cost lever if payload size or provider billing-by-response-size ever matters: drop to `sections=hourly`; confirm nothing downstream implicitly depends on another section first.
+`current`, `daily`, `daily-parts` (morning/afternoon/evening — **first 7 days of the forecast only**, a vendor limitation), `hourly`, `minutely` (1-minute precipitation resolution), `alerts`. `parse.js` reads `hourly` for every per-hour field and `daily` for the moon phase only (`daily.data[].astro.moon.phase`, keyed by `daily.data[].day` as `YYYY-MM-DD`; the phase is one of four snake_case values — `new_moon`, `first_quarter`, `full_moon`, `last_quarter` — live-verified 2026-09-15; there is **no** top-level `astro` section, see #27). The rest of the `all` payload is fetched over the wire but discarded today. Live cost lever if payload size or provider billing-by-response-size ever matters: drop to `sections=hourly,daily`; confirm nothing downstream implicitly depends on another section first.
 
 ## Known field behavior (from live testing + the schema — not assumption)
 

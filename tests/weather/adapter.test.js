@@ -107,3 +107,40 @@ test('forecastStart throws UpstreamError when the provider date lacks a T separa
 test('forecastStart throws UpstreamError when the provider date is missing (A4)', () => {
   assert.throws(() => meteosourceAdapter.forecastStart({}, 'Asia/Dubai'), UpstreamError);
 });
+
+// ---------- moon (#27 — daily astro, not a top-level section) ----------
+
+// Live shape (verified 2026-09-15 against /standard/point, sections=all): no
+// top-level `astro`; the phase sits at daily.data[].astro.moon.phase keyed by
+// daily.data[].day ('YYYY-MM-DD'), one of four snake_case names.
+test('moonPhaseByDay reads daily.data[].astro.moon.phase keyed on the local day', () => {
+  const res = { daily: { data: [
+    { day: '2026-09-15', astro: { sun: {}, moon: { phase: 'new_moon' } } },
+    { day: '2026-09-16', astro: { sun: {}, moon: { phase: 'first_quarter' } } },
+  ] } };
+  assert.deepStrictEqual(meteosourceAdapter.moonPhaseByDay(res), {
+    '2026-09-15': 'new moon',
+    '2026-09-16': 'first quarter',
+  });
+});
+
+test('moonPhaseByDay skips days without a phase and tolerates a missing daily section', () => {
+  assert.deepStrictEqual(meteosourceAdapter.moonPhaseByDay({}), {});
+  assert.deepStrictEqual(meteosourceAdapter.moonPhaseByDay({ daily: null }), {});
+  const res = { daily: { data: [
+    { day: '2026-09-15' },
+    { day: '2026-09-16', astro: { moon: { phase: null } } },
+    { day: '2026-09-17', astro: { moon: { phase: 'full_moon' } } },
+  ] } };
+  assert.deepStrictEqual(meteosourceAdapter.moonPhaseByDay(res), { '2026-09-17': 'full moon' });
+});
+
+test('moonPhaseByDay never reads the old top-level astro shape (the #27 regression)', () => {
+  const res = { astro: { data: [{ moon_phase: 'waxing crescent' }] } };
+  assert.deepStrictEqual(meteosourceAdapter.moonPhaseByDay(res), {});
+});
+
+test('localDate is the hourly row local calendar date — the join key for the moon map', () => {
+  assert.equal(meteosourceAdapter.localDate({ date: '2026-09-15T18:00:00' }), '2026-09-15');
+  assert.equal(meteosourceAdapter.localDate({}), null);
+});

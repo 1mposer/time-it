@@ -169,3 +169,47 @@ test('errors are structured { path, message } and atomic (all collected)', () =>
     assert.equal(typeof e.message, 'string');
   }
 });
+
+// ---------- threshold kind must match the metric kind (#27 hazard) ----------
+// `moon` is a string[] on the wire: `[] > 8` is false, so a max-only numeric
+// threshold passed every hour (false Perfect) and a min-only one never passed.
+// A flag on a numeric metric, or min/max on a flag, is the same class of trap.
+
+test('a numeric threshold on the display-only moon metric is rejected', () => {
+  const b = validBody();
+  b.activities[0].displayMetrics.push('moon');
+  b.activities[0].thresholds.moon = { max: 8, required: true };
+  const errs = validateRatingRequest(b);
+  assert.deepStrictEqual(paths(errs), ['activities[0].thresholds.moon']);
+  assert.match(errs[0].message, /display-only/);
+});
+
+test('a flag threshold on the display-only moon metric is rejected', () => {
+  const b = validBody();
+  b.activities[0].displayMetrics.push('moon');
+  b.activities[0].thresholds.moon = { type: 'flag', forbidTrue: true, required: true };
+  assert.deepStrictEqual(paths(validateRatingRequest(b)), ['activities[0].thresholds.moon']);
+});
+
+test('a min/max threshold on a flag metric is rejected', () => {
+  const b = validBody();
+  b.activities[0].displayMetrics.push('dustAlert');
+  b.activities[0].thresholds.dustAlert = { max: 0, required: true };
+  const errs = validateRatingRequest(b);
+  assert.deepStrictEqual(paths(errs), ['activities[0].thresholds.dustAlert']);
+  assert.match(errs[0].message, /is a flag/);
+});
+
+test('a flag threshold on a numeric metric is rejected', () => {
+  const b = validBody();
+  b.activities[0].thresholds.temp = { type: 'flag', forbidTrue: true, required: true };
+  const errs = validateRatingRequest(b);
+  assert.deepStrictEqual(paths(errs), ['activities[0].thresholds.temp']);
+  assert.match(errs[0].message, /is numeric/);
+});
+
+test('moon in displayMetrics alone (show-but-don\'t-judge) is still valid', () => {
+  const b = validBody();
+  b.activities[0].displayMetrics.push('moon');
+  assert.deepStrictEqual(validateRatingRequest(b), []);
+});

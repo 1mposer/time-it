@@ -5,7 +5,24 @@ const { zonedWallTimeToUtcIso } = require('../timeBoundary');
 
 const meteosourceAdapter = {
   extractHours:     (res) => res.hourly.data,
-  extractMoonPhase: (res) => res.astro?.data?.[0]?.moon_phase,
+  // Astro lives under daily.data[].astro (there is no top-level astro section).
+  // Returns { 'YYYY-MM-DD': 'new moon', ... } keyed on the location-local day
+  // so parse.js can spread each day's phase across its hours. Meteosource
+  // quantises to four phases (new_moon / first_quarter / full_moon /
+  // last_quarter); the snake_case is rendered as a plain label.
+  moonPhaseByDay:   (res) => {
+    const byDay = {};
+    for (const day of res.daily?.data ?? []) {
+      const phase = day?.astro?.moon?.phase;
+      if (typeof day?.day === 'string' && typeof phase === 'string' && phase.length > 0) {
+        byDay[day.day.slice(0, 10)] = phase.replace(/_/g, ' ');
+      }
+    }
+    return byDay;
+  },
+  // The hourly row's location-local calendar date (timezone=auto serves local
+  // wall-time) — the join key against moonPhaseByDay.
+  localDate:        (h) => (typeof h?.date === 'string' ? h.date.slice(0, 10) : null),
   // Location IANA zone, exposed top-level under timezone=auto.
   timezone:         (res) => res.timezone,
   // The provider serves local wall-time under timezone=auto — convert to the

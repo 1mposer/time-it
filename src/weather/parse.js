@@ -11,8 +11,13 @@ function parseWeather(rawResponse, adapter) {
     throw new UpstreamError('Empty forecast from provider');
   }
 
-  const phase = adapter.extractMoonPhase(rawResponse);
-  const moon = phase ? [phase] : [];
+  // Moon phase is daily data spread across that day's hours; an hour whose
+  // day the provider did not cover carries an empty array (never fabricated).
+  const moonByDay = adapter.moonPhaseByDay(rawResponse);
+  const moonFor = (row) => {
+    const phase = moonByDay[adapter.localDate(row)];
+    return phase ? [phase] : [];
+  };
   const timezone = adapter.timezone(rawResponse);
   const forecastStart = adapter.forecastStart(allHours[0], timezone);
 
@@ -23,7 +28,7 @@ function parseWeather(rawResponse, adapter) {
     rainFall:     adapter.rainFall(row),
     cloudCover:   adapter.cloudCover(row),
     visibility:   adapter.visibility(row),
-    moon:         [...moon],
+    moon:         moonFor(row),
     uV:           adapter.uV(row),
     dustAlert:    adapter.dustAlert(row),
     darkness:     0,

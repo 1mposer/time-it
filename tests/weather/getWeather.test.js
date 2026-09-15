@@ -18,7 +18,7 @@ function captureFetch() {
           { date: '2026-06-10T00:00:00', temperature: 25, humidity: 40, wind: { speed: 10 }, precipitation: { total: 0 }, cloud_cover: { total: 10 }, visibility: 10, uv_index: 3, weather: 'clear' },
           { date: '2026-06-10T01:00:00', temperature: 25, humidity: 40, wind: { speed: 10 }, precipitation: { total: 0 }, cloud_cover: { total: 10 }, visibility: 10, uv_index: 3, weather: 'clear' },
         ] },
-        astro:  { data: [{ moon_phase: 'waxing crescent' }] },
+        daily:  { data: [{ day: '2026-06-10', astro: { sun: {}, moon: { phase: 'full_moon' } } }] },
       }),
     };
   };
@@ -73,4 +73,18 @@ test('getWeather surfaces the location timezone and tags each hour with an inter
   assert.equal(forecastStart, '2026-06-09T20:00:00Z');
   // localDay is the forecast-location calendar day (internal — stripped at the wire).
   assert.equal(hours[0].localDay, '2026-06-10');
+});
+
+// #27 tripwire: `moon` is a LIVE metric in the catalog, so it must actually be
+// populated from a live-shaped payload. This failed for every hour before the
+// adapter read daily astro (it read a top-level `astro` Meteosource never sends).
+test('every hour carries a non-empty moon phase from a live-shaped payload (#27)', async (t) => {
+  t.after(restore);
+  process.env.API_KEY = 'test-key';
+  captureFetch();
+  const { hours } = await getWeather(25.16, 55.20);
+  assert.ok(hours.length > 0);
+  for (const h of hours) {
+    assert.deepStrictEqual(h.moon, ['full moon'], `hour ${h.localDay} ${h.localHour} has no moon phase`);
+  }
 });

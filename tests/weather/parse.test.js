@@ -7,7 +7,8 @@ const { UpstreamError } = require('../../src/weather/UpstreamError');
 function makeStubAdapter(overrides = {}) {
   return {
     extractHours:     (res) => res.hourly.data,
-    extractMoonPhase: (res) => res.astro?.phase,
+    moonPhaseByDay:   (res) => res.moonByDay ?? {},
+    localDate:        (row) => row.date.slice(0, 10),
     timezone:         (res) => res.timezone ?? 'Asia/Dubai',
     forecastStart:    (row) => row.date,
     temp:       (h) => h.temp ?? 25,
@@ -22,10 +23,15 @@ function makeStubAdapter(overrides = {}) {
   };
 }
 
+// Hours run consecutively from 2026-06-10T00:00 local (day rolls at i = 24, 48 …);
+// moonByDay covers only the first two days, so a long horizon has orphan days.
 function makeRaw(hourCount = 24) {
+  const start = Date.UTC(2026, 5, 10);
   return {
-    hourly: { data: Array.from({ length: hourCount }, (_, i) => ({ date: `2026-06-10T${String(i % 24).padStart(2, '0')}:00:00`, hour: i })) },
-    astro:  { phase: 'waxing crescent' },
+    hourly: { data: Array.from({ length: hourCount }, (_, i) => ({
+      date: new Date(start + i * 3600_000).toISOString().slice(0, 19), hour: i,
+    })) },
+    moonByDay: { '2026-06-10': 'waxing crescent', '2026-06-11': 'first quarter' },
   };
 }
 
@@ -61,6 +67,25 @@ test('each hour has its own moon array — pushing to one does not affect others
   hours[0].moon.push('mutated');
   assert.equal(hours[1].moon.includes('mutated'), false, 'mutating hour[0].moon leaked into hour[1]');
   assert.equal(hours[5].moon.includes('mutated'), false, 'mutating hour[0].moon leaked into hour[5]');
+});
+
+// #27: moon is daily data — each hour carries its own day's phase, and a day the
+// provider's daily section did not cover gets [] (never fabricated, never the
+// previous day's phase carried over).
+test('moon phase is spread per local day from the daily astro map (#27)', () => {
+  const { hours } = parseWeather(makeRaw(72), makeStubAdapter());
+  assert.deepStrictEqual(hours[0].moon, ['waxing crescent']);
+  assert.deepStrictEqual(hours[23].moon, ['waxing crescent']);
+  assert.deepStrictEqual(hours[24].moon, ['first quarter']);
+  assert.deepStrictEqual(hours[47].moon, ['first quarter']);
+  assert.deepStrictEqual(hours[48].moon, [], 'a day with no daily astro entry has no phase');
+});
+
+test('moon is [] on every hour when the adapter finds no daily astro data (#27)', () => {
+  const raw = makeRaw();
+  delete raw.moonByDay;
+  const { hours } = parseWeather(raw, makeStubAdapter());
+  assert.ok(hours.every((h) => Array.isArray(h.moon) && h.moon.length === 0));
 });
 
 test('marine placeholder fields are present with 0/false defaults', () => {
