@@ -14,6 +14,8 @@ struct ActivityDetailView: View {
     var isNocturnal: Bool = false
     /// Metric names and chip icons resolve through the catalog seam.
     var catalog: MetricCatalogProviding = StaticMetricCatalog()
+    /// Wind-speed display unit for the hour chips and the editor (#26).
+    var windUnit: WindSpeedUnit = .kmh
 
     /// The one expanded day; nil = all collapsed (the default).
     @State private var expandedDayIndex: Int?
@@ -49,6 +51,7 @@ struct ActivityDetailView: View {
                 ActivityEditorView(existing: request.activity,
                                    isNew: false,
                                    initialStep: request.step,
+                                   windUnit: windUnit,
                                    onSave: { viewModel.store.update($0) })
             }
         }
@@ -201,7 +204,7 @@ struct ActivityDetailView: View {
 
     private func chip(for metric: String, hour: HourlyWeather) -> some View {
         let tier = MetricTier.tier(for: metric, value: hour.numericValue(for: metric))
-        let text = hour.formatted(for: metric)
+        let text = hour.formatted(for: metric, windUnit: windUnit)
         return HStack(spacing: 3) {
             ActivityIconView(identifier: catalog.iconSymbol(for: metric), size: 10)
                 .accessibilityHidden(true)

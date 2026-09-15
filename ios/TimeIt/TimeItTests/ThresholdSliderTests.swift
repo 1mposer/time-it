@@ -128,4 +128,35 @@ final class ThresholdSliderTests: XCTestCase {
         let rain = MetricRange(min: 0, max: 20, step: 0.5)
         XCTAssertEqual(ThresholdSlider.snap(0.3, to: rain), 0.5)
     }
+
+    // MARK: the display-unit conversion (#26) — bounds stay km/h
+
+    func testDisplayTextIsExactWithoutAConversion() {
+        XCTAssertEqual(ThresholdSlider.displayText(25, factor: 1), "25")
+        XCTAssertEqual(ThresholdSlider.displayText(0.25, factor: 1), "0.25", "no rounding when nothing converts")
+    }
+
+    func testDisplayTextRoundsTheConvertedValueToOneDecimal() {
+        let knots = WindSpeedUnit.knots.factorFromKmh
+        XCTAssertEqual(ThresholdSlider.displayText(25, factor: knots), "13.5")
+        XCTAssertEqual(ThresholdSlider.displayText(80, factor: knots), "43.2")
+    }
+
+    func testStorageTextWritesKmhBackFromKnots() {
+        let knots = WindSpeedUnit.knots.factorFromKmh
+        XCTAssertEqual(ThresholdSlider.storageText("10", factor: knots), "18.5")
+        XCTAssertEqual(ThresholdSlider.storageText("10", factor: 1), "10", "identity without a conversion")
+        XCTAssertEqual(ThresholdSlider.storageText("abc", factor: knots), "abc",
+                       "unparsable text passes through so parseBound still reports it")
+        XCTAssertEqual(ThresholdSlider.storageText("", factor: knots), "")
+    }
+
+    func testWholeKnotsRoundTripThroughTheOneDecimalStore() {
+        let knots = WindSpeedUnit.knots.factorFromKmh
+        for typed in ["1", "7", "9", "11", "14", "15", "20", "23", "27", "40"] {
+            let stored = ThresholdSlider.storageText(typed, factor: knots)
+            XCTAssertEqual(ThresholdSlider.displayText(Double(stored)!, factor: knots), typed,
+                           "typing \(typed) kn must read back as \(typed) kn (stored \(stored) km/h)")
+        }
+    }
 }

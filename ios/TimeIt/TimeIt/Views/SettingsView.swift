@@ -28,6 +28,7 @@ struct SettingsView: View {
                 homeLocationSection
                 notificationsSection
                 dashboardSection
+                unitsSection
                 // Blurb pruned entirely — owner edit 2026-09-01.
                 Section("About") {
                     HStack {
@@ -154,6 +155,23 @@ struct SettingsView: View {
                 // Owner copy 2026-09-01 (prune pass).
                 Text("Adds a summary under each card")
             }
+        }
+    }
+
+    // MARK: units — the wind-speed display unit (#26)
+
+    /// Display-only: the wire and every stored threshold stay km/h; chips,
+    /// the header and the threshold editor convert on the way in and out.
+    private var unitsSection: some View {
+        Section {
+            Picker("Wind speed", selection: $preferences.windSpeedUnit) {
+                ForEach(WindSpeedUnit.allCases) { unit in
+                    Text(unit.displayName).tag(unit)
+                }
+            }
+            .accessibilityIdentifier("settings.windSpeedUnit")
+        } header: {
+            Text("Units")
         }
     }
 

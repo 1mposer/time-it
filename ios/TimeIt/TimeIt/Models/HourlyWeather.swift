@@ -42,14 +42,15 @@ struct HourlyWeather: Decodable, Identifiable {
     }
 
     /// Per-metric display string. Returns "—" when the underlying value is
-    /// nil so a chip shows a neutral em-dash, never a misleading 0.
-    func formatted(for metric: String) -> String {
+    /// nil so a chip shows a neutral em-dash, never a misleading 0. Wind
+    /// speed renders in `windUnit` (the wire value is km/h — #26).
+    func formatted(for metric: String, windUnit: WindSpeedUnit = .kmh) -> String {
         switch metric {
         case "temp": return temp.map { "\(Int($0.rounded()))°C" } ?? "—"
         case "humidity": return humidity.map { "\(Int($0.rounded()))%" } ?? "—"
         case "visibility": return visibility.map { "\(Int($0.rounded())) km" } ?? "—"
         case "uV": return uV.map { "UV \(Int($0.rounded()))" } ?? "—"
-        case "windSpeed": return windSpeed.map { "\(Int($0.rounded())) km/h" } ?? "—"
+        case "windSpeed": return windSpeed.map { "\(Int(windUnit.fromKmh($0).rounded())) \(windUnit.label)" } ?? "—"
         case "cloudCover": return cloudCover.map { "\(Int($0.rounded()))%" } ?? "—"
         case "rainFall": return rainFall.map { Self.millimetres($0) } ?? "—"
         case "moon": return moon.first ?? "—"

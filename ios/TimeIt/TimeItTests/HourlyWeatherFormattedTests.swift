@@ -29,6 +29,21 @@ final class HourlyWeatherFormattedTests: XCTestCase {
         XCTAssertEqual(hour.formatted(for: "visibility"), "10 km")
     }
 
+    // #26: wind speed renders in the chosen unit; the value stays km/h.
+    func testWindSpeedFormatsInKnotsWhenAsked() {
+        let hour = Fixtures.makeHour(index: 0, windSpeed: 13)
+        XCTAssertEqual(hour.formatted(for: "windSpeed", windUnit: .knots), "7 kn", "13 km/h ≈ 7.02 kn")
+        XCTAssertEqual(hour.formatted(for: "windSpeed", windUnit: .kmh), "13 km/h")
+        XCTAssertEqual(hour.formatted(for: "windSpeed"), "13 km/h", "km/h stays the default")
+    }
+
+    func testWindUnitLeavesEveryOtherMetricAlone() {
+        let hour = Fixtures.makeHour(index: 0, temp: 22.4, windSpeed: nil, rainFall: 0.2)
+        XCTAssertEqual(hour.formatted(for: "windSpeed", windUnit: .knots), "—")
+        XCTAssertEqual(hour.formatted(for: "temp", windUnit: .knots), "22°C")
+        XCTAssertEqual(hour.formatted(for: "rainFall", windUnit: .knots), "0.2 mm")
+    }
+
     func testWholeNumberRainFallHasNoDecimal() {
         let hour = Fixtures.makeHour(index: 0, rainFall: 0)
         XCTAssertEqual(hour.formatted(for: "rainFall"), "0 mm")

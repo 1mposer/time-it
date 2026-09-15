@@ -52,7 +52,8 @@ struct DashboardView: View {
                 HeaderView(locationName: viewModel.activeLocationName,
                            currentHour: viewModel.forecast?.hours.first,
                            showsWeather: !viewModel.hasNoLocation && viewModel.hasLiveActivities,
-                           timezoneIdentifier: viewModel.forecast?.timezone) { showSettings = true }
+                           timezoneIdentifier: viewModel.forecast?.timezone,
+                           windUnit: preferences.windSpeedUnit) { showSettings = true }
                 Theme.divider
                     .frame(height: 0.5)
                 content
@@ -71,6 +72,7 @@ struct DashboardView: View {
                 NavigationStack {
                     ActivityEditorView(existing: .blank(),
                                        isNew: true,
+                                       windUnit: preferences.windSpeedUnit,
                                        onSave: { activity in
                                            if !store.add(activity) {
                                                showingCapAlert = true
@@ -92,6 +94,7 @@ struct DashboardView: View {
                 NavigationStack {
                     ActivityEditorView(existing: activity,
                                        isNew: false,
+                                       windUnit: preferences.windSpeedUnit,
                                        onSave: { store.update($0) },
                                        onDelete: { store.delete(id: activity.id) },
                                        reviewRangeStartHour: { viewModel.reviewRangeStartHour(for: $0) },
@@ -144,7 +147,8 @@ struct DashboardView: View {
         if let activity = viewModel.rating(forActivityId: activityId) {
             ActivityDetailView(activity: activity,
                                viewModel: viewModel,
-                               isNocturnal: viewModel.isNocturnal(activityId: activityId))
+                               isNocturnal: viewModel.isNocturnal(activityId: activityId),
+                               windUnit: preferences.windSpeedUnit)
         } else {
             Color.clear
                 .onAppear { navigationPath = [] }
@@ -659,7 +663,8 @@ struct DashboardView: View {
                 dayRated: day != nil,
                 tiers: tiers,
                 phrasesEnabled: TrajectoryPhrase.phrasesEnabled(preference: preferences.showPhrases,
-                                                                differentiateWithoutColor: differentiateWithoutColor))
+                                                                differentiateWithoutColor: differentiateWithoutColor)),
+            windUnit: preferences.windSpeedUnit
         )
     }
 }

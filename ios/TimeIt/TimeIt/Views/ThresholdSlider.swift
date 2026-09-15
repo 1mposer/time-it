@@ -9,6 +9,9 @@ struct ThresholdSlider: View {
     let descriptor: MetricDescriptor
     @Binding var minText: String
     @Binding var maxText: String
+    /// Wind-speed display unit (#26). Bounds, presets, the range and the
+    /// snap all stay km/h; only the label and the typing fields convert.
+    var windUnit: WindSpeedUnit = .kmh
 
     @State private var isTyping = false
     @FocusState private var focusedBound: Bound?
@@ -39,6 +42,20 @@ struct ThresholdSlider: View {
         return range.min + steps * range.step
     }
 
+    /// A stored (wire-unit) value as the typed/labelled display text — one
+    /// decimal when a conversion is in play, else the exact stored text.
+    static func displayText(_ value: Double, factor: Double) -> String {
+        factor == 1 ? ThresholdDraft.format(value) : ThresholdDraft.format((value * factor * 10).rounded() / 10)
+    }
+
+    /// Typed display text back to the stored (wire-unit) text. Unparsable
+    /// text passes through untouched so `parseBound` validation still sees
+    /// it. Whole numbers round-trip exactly through the one-decimal store.
+    static func storageText(_ typed: String, factor: Double) -> String {
+        guard factor != 1, let value = parse(typed) else { return typed }
+        return ThresholdDraft.format((value / factor * 10).rounded() / 10)
+    }
+
     private static func parse(_ text: String) -> Double? {
         let trimmed = text.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty,
@@ -62,6 +79,29 @@ struct ThresholdSlider: View {
 
     private var minValue: Double? { Self.parse(minText) }
     private var maxValue: Double? { Self.parse(maxText) }
+
+    /// 1 for every metric except wind speed shown in knots.
+    private var displayFactor: Double {
+        descriptor.key == "windSpeed" ? windUnit.factorFromKmh : 1
+    }
+
+    private var unitLabel: String {
+        descriptor.key == "windSpeed" ? windUnit.label : descriptor.unit
+    }
+
+    /// The typing field's binding: reads/writes the stored km/h text through
+    /// the display unit. Identity when no conversion applies.
+    private func displayBinding(_ storage: Binding<String>) -> Binding<String> {
+        let factor = displayFactor
+        guard factor != 1 else { return storage }
+        return Binding(
+            get: {
+                guard let value = Self.parse(storage.wrappedValue) else { return storage.wrappedValue }
+                return Self.displayText(value, factor: factor)
+            },
+            set: { storage.wrappedValue = Self.storageText($0, factor: factor) }
+        )
+    }
 
     /// Where a thumb sits while its text is empty/unparsable — the preset,
     /// else the range end it edits.
@@ -96,7 +136,7 @@ struct ThresholdSlider: View {
     }
 
     private var labelText: String {
-        let unit = descriptor.unit.isEmpty ? "" : " \(descriptor.unit)"
+        let unit = unitLabel.isEmpty ? "" : " \(unitLabel)"
         switch style {
         case .range:
             return "\(text(minValue))–\(text(maxValue))\(unit)"
@@ -108,17 +148,17 @@ struct ThresholdSlider: View {
     }
 
     private func text(_ value: Double?) -> String {
-        value.map(ThresholdDraft.format) ?? "—"
+        value.map { Self.displayText($0, factor: displayFactor) } ?? "—"
     }
 
     private var typingFields: some View {
         HStack(spacing: 12) {
             if style != .maxOnly {
-                boundField("min", text: $minText, bound: .min,
+                boundField("min", text: displayBinding($minText), bound: .min,
                            identifier: "editor.min.\(descriptor.key)")
             }
             if style != .minOnly {
-                boundField("max", text: $maxText, bound: .max,
+                boundField("max", text: displayBinding($maxText), bound: .max,
                            identifier: "editor.max.\(descriptor.key)")
             }
         }

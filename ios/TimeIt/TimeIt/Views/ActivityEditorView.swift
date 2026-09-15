@@ -22,6 +22,9 @@ struct ActivityEditorView: View {
     /// True when the draft's Range has already fully passed today — Save
     /// surfaces the "showing you tomorrow" alert before committing.
     private let rangeHasPassedToday: ((WindowSpec) -> Bool)?
+    /// Wind-speed display unit for the slider and the review card (#26);
+    /// the draft's bounds stay km/h.
+    private let windUnit: WindSpeedUnit
 
     @State private var draft: ActivityDraft
     @State private var step: Int
@@ -48,12 +51,14 @@ struct ActivityEditorView: View {
          isNew: Bool,
          initialStep: EditorStep = .nameIcon,
          catalog: MetricCatalogProviding = StaticMetricCatalog(),
+         windUnit: WindSpeedUnit = .kmh,
          onSave: @escaping (AuthoredActivity) -> Void,
          onDelete: (() -> Void)? = nil,
          reviewRangeStartHour: ((WindowSpec) -> HourlyWeather?)? = nil,
          rangeHasPassedToday: ((WindowSpec) -> Bool)? = nil) {
         self.isNew = isNew
         self.catalog = catalog
+        self.windUnit = windUnit
         self.onSave = onSave
         self.onDelete = onDelete
         self.reviewRangeStartHour = reviewRangeStartHour
@@ -361,7 +366,8 @@ struct ActivityEditorView: View {
             if descriptor.kind == .numeric, draft.thresholds[descriptor.key] != nil {
                 ThresholdSlider(descriptor: descriptor,
                                 minText: boundText(descriptor.key, \.minText),
-                                maxText: boundText(descriptor.key, \.maxText))
+                                maxText: boundText(descriptor.key, \.maxText),
+                                windUnit: windUnit)
             }
             modeCheckboxes(descriptor)
         }
@@ -528,7 +534,8 @@ struct ActivityEditorView: View {
                                                                               endHour: draft.endHour)),
                                 sliceRange: draft.startHour..<(draft.startHour + duration),
                                 tiers: Array(repeating: .green, count: duration),
-                                catalog: catalog)
+                                catalog: catalog,
+                                windUnit: windUnit)
     }
 
     // MARK: - Delete (edit mode only)

@@ -36,6 +36,8 @@ struct ActivityCardView: View {
     var phrase: String?
     /// Metric names and chip icons resolve through the catalog seam.
     var catalog: MetricCatalogProviding = StaticMetricCatalog()
+    /// Wind-speed display unit for the chips (#26).
+    var windUnit: WindSpeedUnit = .kmh
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -120,7 +122,7 @@ struct ActivityCardView: View {
 
     private func chip(for metric: String) -> some View {
         let tier = windowStartHour.map { MetricTier.tier(for: metric, value: $0.numericValue(for: metric)) } ?? MetricTier.neutral
-        let text = windowStartHour?.formatted(for: metric) ?? catalog.displayName(for: metric)
+        let text = windowStartHour?.formatted(for: metric, windUnit: windUnit) ?? catalog.displayName(for: metric)
         return HStack(spacing: 4) {
             ActivityIconView(identifier: catalog.iconSymbol(for: metric), size: 12)
                 .accessibilityHidden(true)

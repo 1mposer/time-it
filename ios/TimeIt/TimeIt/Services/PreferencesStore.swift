@@ -13,6 +13,44 @@ struct SavedLocation: Codable, Equatable {
     var region: String? = nil
 }
 
+/// The wind-speed display unit (#26). The wire, every stored threshold and
+/// the slider's km/h table never change — conversion happens only where a
+/// value is rendered or typed (`HourlyWeather.formatted`, `HeaderView`,
+/// `ThresholdSlider`).
+enum WindSpeedUnit: String, CaseIterable, Identifiable {
+    case kmh
+    case knots
+
+    var id: String { rawValue }
+
+    /// Chip / label suffix in the app's unit dialect ("13 km/h", "7 kn").
+    var label: String {
+        switch self {
+        case .kmh: return "km/h"
+        case .knots: return "kn"
+        }
+    }
+
+    /// Settings row copy.
+    var displayName: String {
+        switch self {
+        case .kmh: return "km/h"
+        case .knots: return "Knots"
+        }
+    }
+
+    /// Multiply a km/h value by this to get the display value (1 kn = 1.852 km/h exactly).
+    var factorFromKmh: Double {
+        switch self {
+        case .kmh: return 1
+        case .knots: return 1 / 1.852
+        }
+    }
+
+    func fromKmh(_ kmh: Double) -> Double { kmh * factorFromKmh }
+    func toKmh(_ value: Double) -> Double { value / factorFromKmh }
+}
+
 /// User preferences that aren't the activity list: the optional home location
 /// plus the last-resolved cache. Persists locally; no cloud sync.
 @MainActor
@@ -20,6 +58,7 @@ final class PreferencesStore: ObservableObject {
     static let shared = PreferencesStore()
 
     static let homeLocationKey = "homeLocation"
+    static let windSpeedUnitKey = "windSpeedUnit"
     static let lastResolvedLocationKey = "lastResolvedLocation"
     static let showPhrasesKey = "showPhrases"
     static let pushCalloutDismissedKey = "pushCalloutDismissed"
@@ -57,6 +96,11 @@ final class PreferencesStore: ObservableObject {
         didSet { persist(timezoneWarnedHome, key: Self.timezoneWarnedHomeKey) }
     }
 
+    /// Wind-speed display unit (#26) — default km/h, the wire unit.
+    @Published var windSpeedUnit: WindSpeedUnit {
+        didSet { defaults.set(windSpeedUnit.rawValue, forKey: Self.windSpeedUnitKey) }
+    }
+
     private let defaults: UserDefaults
 
     init(defaults: UserDefaults = .standard) {
@@ -66,6 +110,8 @@ final class PreferencesStore: ObservableObject {
         showPhrases = defaults.bool(forKey: Self.showPhrasesKey)
         pushCalloutDismissed = defaults.bool(forKey: Self.pushCalloutDismissedKey)
         timezoneWarnedHome = Self.load(Self.timezoneWarnedHomeKey, from: defaults)
+        windSpeedUnit = defaults.string(forKey: Self.windSpeedUnitKey)
+            .flatMap(WindSpeedUnit.init(rawValue:)) ?? .kmh
     }
 
     private static func load<Value: Decodable>(_ key: String, from defaults: UserDefaults) -> Value? {

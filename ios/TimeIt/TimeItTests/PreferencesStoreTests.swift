@@ -94,6 +94,24 @@ final class PreferencesStoreTests: XCTestCase {
         XCTAssertTrue(PreferencesStore(defaults: defaults).showPhrases)
     }
 
+    // MARK: the wind-speed unit (#26)
+
+    func testWindSpeedUnitDefaultsToKmhAndPersists() {
+        XCTAssertEqual(PreferencesStore(defaults: defaults).windSpeedUnit, .kmh,
+                       "km/h is the wire unit and the default")
+
+        let store = PreferencesStore(defaults: defaults)
+        store.windSpeedUnit = .knots
+
+        XCTAssertEqual(PreferencesStore(defaults: defaults).windSpeedUnit, .knots)
+    }
+
+    func testUnknownPersistedWindSpeedUnitFallsBackToKmh() {
+        defaults.set("furlongs", forKey: PreferencesStore.windSpeedUnitKey)
+
+        XCTAssertEqual(PreferencesStore(defaults: defaults).windSpeedUnit, .kmh)
+    }
+
     func testPreFiveCSavedLocationDecodesWithoutRegion() throws {
         // A SavedLocation persisted without the optional `region` field must
         // still decode.
@@ -104,5 +122,34 @@ final class PreferencesStoreTests: XCTestCase {
 
         XCTAssertEqual(store.homeLocation?.name, "Dubai Marina")
         XCTAssertNil(store.homeLocation?.region)
+    }
+}
+
+/// The unit is display-only (#26): a fixed factor over the km/h wire value,
+/// exact both ways.
+final class WindSpeedUnitTests: XCTestCase {
+
+    func testKmhIsTheIdentity() {
+        XCTAssertEqual(WindSpeedUnit.kmh.fromKmh(25), 25)
+        XCTAssertEqual(WindSpeedUnit.kmh.toKmh(25), 25)
+        XCTAssertEqual(WindSpeedUnit.kmh.label, "km/h")
+    }
+
+    func testKnotsUseTheExactInternationalDefinition() {
+        XCTAssertEqual(WindSpeedUnit.knots.fromKmh(1.852), 1, accuracy: 1e-12, "1 kn = 1.852 km/h")
+        XCTAssertEqual(WindSpeedUnit.knots.toKmh(10), 18.52, accuracy: 1e-12)
+        XCTAssertEqual(WindSpeedUnit.knots.fromKmh(25), 13.499, accuracy: 0.001)
+        XCTAssertEqual(WindSpeedUnit.knots.label, "kn")
+    }
+
+    func testRoundTripIsExact() {
+        for kmh in [0.0, 7.0, 25.0, 80.0] {
+            XCTAssertEqual(WindSpeedUnit.knots.toKmh(WindSpeedUnit.knots.fromKmh(kmh)), kmh, accuracy: 1e-9)
+        }
+    }
+
+    func testRawValuesAreStableForPersistence() {
+        XCTAssertEqual(WindSpeedUnit.kmh.rawValue, "kmh")
+        XCTAssertEqual(WindSpeedUnit.knots.rawValue, "knots")
     }
 }

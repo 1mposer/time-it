@@ -21,6 +21,7 @@ struct TimeItApp: App {
             UserDefaults.standard.removeObject(forKey: PreferencesStore.showPhrasesKey)
             UserDefaults.standard.removeObject(forKey: PreferencesStore.pushCalloutDismissedKey)
             UserDefaults.standard.removeObject(forKey: PreferencesStore.timezoneWarnedHomeKey)
+            UserDefaults.standard.removeObject(forKey: PreferencesStore.windSpeedUnitKey)
             UserDefaults.standard.removeObject(forKey: DeviceRegistration.enabledKey)
             UserDefaults.standard.removeObject(forKey: DeviceRegistration.lastSentTokenKey)
             UserDefaults.standard.removeObject(forKey: DeviceRegistration.lastUpsertAtKey)

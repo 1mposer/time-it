@@ -20,6 +20,8 @@ struct HeaderView: View {
     /// Bangkok home shows Bangkok time from anywhere. nil (no forecast yet)
     /// falls back to the device clock.
     var timezoneIdentifier: String? = nil
+    /// Wind-speed display unit (#26); the hour's value is km/h.
+    var windUnit: WindSpeedUnit = .kmh
     let onGearTap: () -> Void
 
     /// The clock text at `date` in the given zone (device zone when nil or
@@ -38,8 +40,8 @@ struct HeaderView: View {
     }
 
     private var windText: String {
-        guard let w = currentHour?.windSpeed else { return "— km/h" }
-        return "\(Int(w.rounded())) km/h"
+        guard let w = currentHour?.windSpeed else { return "— \(windUnit.label)" }
+        return "\(Int(windUnit.fromKmh(w).rounded())) \(windUnit.label)"
     }
 
     private var humidityText: String {
