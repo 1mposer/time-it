@@ -24,7 +24,7 @@ struct ActivityEditorView: View {
     private let rangeHasPassedToday: ((WindowSpec) -> Bool)?
 
     @State private var draft: ActivityDraft
-    @State private var step: Int = 0
+    @State private var step: Int
     /// §6: an untouched template prefill is NOT a confirmed Range. Seeded
     /// from the incoming activity's window; set by any wheel change and by
     /// the warn-and-proceed path.
@@ -40,8 +40,13 @@ struct ActivityEditorView: View {
 
     // MARK: - Init
 
+    /// `initialStep`: the tab to open on — the detail screen's Edit range /
+    /// Edit metrics doors land on their own tab (#25); everything else starts
+    /// at Name & Icon. Resolved through `EditorStep.landingStep`, so a locked
+    /// request can never open a gated tab.
     init(existing: AuthoredActivity,
          isNew: Bool,
+         initialStep: EditorStep = .nameIcon,
          catalog: MetricCatalogProviding = StaticMetricCatalog(),
          onSave: @escaping (AuthoredActivity) -> Void,
          onDelete: (() -> Void)? = nil,
@@ -56,6 +61,9 @@ struct ActivityEditorView: View {
         let draft = ActivityDraft(from: existing)
         _draft = State(initialValue: draft)
         _rangeConfirmed = State(initialValue: draft.hadWindow)
+        _step = State(initialValue: EditorStep.landingStep(requested: initialStep, draft: draft,
+                                                           catalog: catalog,
+                                                           rangeConfirmed: draft.hadWindow).rawValue)
         // The category holding the current icon starts expanded; the sentinel
         // (from scratch) belongs to no category → all collapsed.
         _expandedCategories = State(initialValue:

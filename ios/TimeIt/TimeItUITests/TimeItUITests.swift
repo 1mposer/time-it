@@ -601,6 +601,31 @@ final class TimeItUITests: XCTestCase {
 
     // MARK: - Detail page
 
+    // #25: the two edit doors open the wizard on their own tab, not on the
+    // Name & Icon tab the "+" path starts at.
+    func testDetailEditDoorsLandOnTheirOwnWizardTab() {
+        let app = launchApp()
+
+        let card = app.buttons["card.cycling"]
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        card.tap()
+        XCTAssertTrue(app.navigationBars["Cycling"].waitForExistence(timeout: 5))
+
+        app.buttons["detail.editRange"].tap()
+        XCTAssertTrue(app.pickers["editor.startHour"].waitForExistence(timeout: 5),
+                      "Edit range opens straight onto the Range tab")
+        XCTAssertFalse(app.textFields["editor.name"].exists, "not the Name & Icon tab")
+        app.buttons["editor.cancel"].tap()
+
+        XCTAssertTrue(app.buttons["detail.editMetrics"].waitForExistence(timeout: 5))
+        app.buttons["detail.editMetrics"].tap()
+        XCTAssertTrue(app.buttons["metric.temp"].waitForExistence(timeout: 5),
+                      "Edit metrics opens straight onto the Metrics tab")
+        XCTAssertFalse(app.pickers["editor.startHour"].exists, "not the Range tab")
+        XCTAssertFalse(app.textFields["editor.name"].exists, "not the Name & Icon tab")
+        app.buttons["editor.cancel"].tap()
+    }
+
     func testDetailShowsRangeOnceSetupOnceAlignedWeekAndTapToExpand() {
         let app = launchApp()
 

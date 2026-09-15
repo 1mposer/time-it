@@ -60,6 +60,22 @@ enum EditorStep: Int, CaseIterable {
             .filter { $0.rawValue < rawValue }
             .allSatisfy { $0.isComplete(draft: draft, catalog: catalog, rangeConfirmed: rangeConfirmed) }
     }
+
+    // MARK: Landing
+
+    /// The tab the editor opens on when a caller asks for `requested` (the
+    /// detail screen's Edit range / Edit metrics doors — #25). A saved Activity
+    /// unlocks every tab, so the request is honoured; a draft that does not
+    /// (defensive — no caller sends one today) lands on the highest unlocked
+    /// tab at or below the request, never on a locked one. Tab 0 is always
+    /// unlocked, so this always resolves.
+    static func landingStep(requested: EditorStep, draft: ActivityDraft,
+                            catalog: MetricCatalogProviding, rangeConfirmed: Bool) -> EditorStep {
+        EditorStep.allCases
+            .filter { $0.rawValue <= requested.rawValue }
+            .last { $0.isUnlocked(draft: draft, catalog: catalog, rangeConfirmed: rangeConfirmed) }
+            ?? .nameIcon
+    }
 }
 
 // MARK: - ThresholdMode — 3-way threshold state

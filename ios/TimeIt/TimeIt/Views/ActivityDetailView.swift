@@ -17,7 +17,15 @@ struct ActivityDetailView: View {
 
     /// The one expanded day; nil = all collapsed (the default).
     @State private var expandedDayIndex: Int?
-    @State private var editing: AuthoredActivity?
+    /// The open edit door: which Activity and which wizard tab it lands on
+    /// (Edit range → Range, Edit metrics → Metrics — #25).
+    @State private var editing: EditRequest?
+
+    private struct EditRequest: Identifiable {
+        let activity: AuthoredActivity
+        let step: EditorStep
+        var id: String { activity.id }
+    }
 
     private var deriver: TimeDeriver? { viewModel.timeDeriver }
     private var current: ActivityRating { viewModel.rating(forActivityId: activity.activityId) ?? activity }
@@ -36,10 +44,11 @@ struct ActivityDetailView: View {
         .background(Theme.appBackground)
         .navigationTitle(current.label)
         .navigationBarTitleDisplayMode(.inline)
-        .sheet(item: $editing) { activity in
+        .sheet(item: $editing) { request in
             NavigationStack {
-                ActivityEditorView(existing: activity,
+                ActivityEditorView(existing: request.activity,
                                    isNew: false,
+                                   initialStep: request.step,
                                    onSave: { viewModel.store.update($0) })
             }
         }
@@ -61,11 +70,11 @@ struct ActivityDetailView: View {
                     .foregroundStyle(Theme.primaryText)
                 Spacer()
             }
-            Button("Edit range") { editing = authored }
+            Button("Edit range") { editing = authored.map { EditRequest(activity: $0, step: .range) } }
                 .font(.system(size: 14))
                 .foregroundStyle(Theme.accentInteractive)
                 .accessibilityIdentifier("detail.editRange")
-            Button("Edit metrics") { editing = authored }
+            Button("Edit metrics") { editing = authored.map { EditRequest(activity: $0, step: .metrics) } }
                 .font(.system(size: 14))
                 .foregroundStyle(Theme.accentInteractive)
                 .accessibilityIdentifier("detail.editMetrics")

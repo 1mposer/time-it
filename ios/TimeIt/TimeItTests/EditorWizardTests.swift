@@ -140,6 +140,30 @@ final class EditorWizardTests: XCTestCase {
         }
     }
 
+    // MARK: - Landing step (#25 — the detail doors open their own tab)
+
+    func testLandingHonoursTheRequestedTabForASavedActivity() {
+        let draft = ActivityDraft(from: Fixtures.cycling)
+        for requested in EditorStep.allCases {
+            XCTAssertEqual(EditorStep.landingStep(requested: requested, draft: draft, catalog: catalog,
+                                                  rangeConfirmed: draft.hadWindow),
+                           requested, "a saved activity unlocks every tab, so Edit range/metrics land where asked")
+        }
+    }
+
+    func testLandingFallsBackToTheHighestUnlockedTabAtOrBelowTheRequest() {
+        var draft = blankDraft()
+        XCTAssertEqual(EditorStep.landingStep(requested: .range, draft: draft, catalog: catalog, rangeConfirmed: false),
+                       .nameIcon, "nothing is complete — only tab 0 is open")
+
+        draft.label = "Padel"
+        draft.iconSymbol = "figure.tennis"
+        XCTAssertEqual(EditorStep.landingStep(requested: .range, draft: draft, catalog: catalog, rangeConfirmed: false),
+                       .metrics, "Range is locked without a metric — land on Metrics, never on a gated tab")
+        XCTAssertEqual(EditorStep.landingStep(requested: .nameIcon, draft: draft, catalog: catalog, rangeConfirmed: false),
+                       .nameIcon, "a request at or below the first locked tab is honoured as-is")
+    }
+
     // MARK: - Preset selection (§4 — one tap = a working Must-have threshold)
 
     func testSelectWithPresetCreatesAPresetThreshold() {
