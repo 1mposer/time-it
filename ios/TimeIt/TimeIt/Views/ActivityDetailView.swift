@@ -73,11 +73,11 @@ struct ActivityDetailView: View {
                     .foregroundStyle(Theme.primaryText)
                 Spacer()
             }
-            Button("Edit range") { editing = authored.map { EditRequest(activity: $0, step: .range) } }
+            Button("Edit range") { editing = EditRequest(activity: authored, step: .range) }
                 .font(.system(size: 14))
                 .foregroundStyle(Theme.accentInteractive)
                 .accessibilityIdentifier("detail.editRange")
-            Button("Edit metrics") { editing = authored.map { EditRequest(activity: $0, step: .metrics) } }
+            Button("Edit metrics") { editing = EditRequest(activity: authored, step: .metrics) }
                 .font(.system(size: 14))
                 .foregroundStyle(Theme.accentInteractive)
                 .accessibilityIdentifier("detail.editMetrics")

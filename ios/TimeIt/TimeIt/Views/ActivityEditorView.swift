@@ -513,7 +513,7 @@ struct ActivityEditorView: View {
         let wrapped = draft.startHour > draft.endHour
         let endExclusive = wrapped ? draft.endHour + 24 : draft.endHour
         let duration = max(endExclusive - draft.startHour, 1)
-        let day = Day(dayIndex: 0, rating: "perfect",
+        let day = Day(dayIndex: 0, rating: .perfect,
                       startIndex: draft.startHour,
                       endIndex: draft.startHour + duration,
                       duration: duration)
