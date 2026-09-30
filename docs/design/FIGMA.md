@@ -10,7 +10,8 @@
 
 ## 1. Access & tool gotchas (hard-won — read before any Figma call)
 
-- **`get_metadata` is broken for this file** — it returns only 1 of ~21 pages, every time. Enumerate pages with `use_figma` (load the `figma-use` skill first): `return figma.root.children.map(p => ({ name: p.name, id: p.id }))`.
+- **This doc is addresses + gate state, never inventory** (retro rule, 2026-10-01): any claim about what the file currently contains comes from a live enumerate — the owner hand-edits the canvas between sessions, and the 2026-09-30 live check found 10 doc drifts. Diff live findings against this doc and record drifts in the same pass.
+- **`get_metadata` is broken for this file** — it returns only 1 of ~29 pages, every time. Enumerate pages with `use_figma` (load the `figma-use` skill first): `return figma.root.children.map(p => ({ name: p.name, id: p.id }))`.
 - Page switch via `figma.setCurrentPageAsync(...)` — **at most once per `use_figma` call**; fan multi-page work out as parallel calls. `figma.currentPage` resets on every call.
 - Tokens are file-global: `figma.variables.getLocalVariableCollectionsAsync()` — no page switch needed.
 - `figma.createAutoLayout()` frames get a **default white fill** — set `fills = []` on every container meant to be transparent.

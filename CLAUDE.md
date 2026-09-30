@@ -384,6 +384,19 @@ Requires `.env` with `API_KEY=<meteosource key>`.
 
 ---
 
+## Agent workflow rules (owner-adopted from the 2026-10-01 session retro)
+
+- **Stale owner gates:** a `SessionStart` hook (`.claude/hooks/owner-gates.sh`) prints every doc line still waiting on an owner action. Read it, compare its dates to today, and surface anything stale to the owner unprompted — approvals sitting silently for days/weeks are the project's proven bottleneck.
+- **Owner decisions ship as one artifact page:** a screenshot per frame/surface, a one-line ask each, priority order. Never ask the owner to rule via node-ids or doc pointers.
+- **Figma inventory is live-only:** any claim about what the Figma file currently contains comes from a live enumerate (pages + row headers), never from `docs/design/FIGMA.md` — that doc carries addresses and gate state, not inventory. Diff what you find against it and record drifts in the same pass. Corollary: never restate countable or positional canvas facts (frame counts, x-positions) in docs — link the page.
+- **Build number is a step, not a hope:** any commit intended for the next TestFlight build bumps `CURRENT_PROJECT_VERSION` in the same commit; after any owner upload, ask what build number App Store Connect assigned and sync `project.pbxproj` the same session.
+- **A status/gate change is never a one-file edit:** the ROADMAP row, the STATUS snapshot, and (for design gates) the FIGMA.md gate state land in the same commit, unprompted.
+- **Doc-only batches auto-commit:** changes under `docs/` are committed and pushed without asking — one batch per owner ruling (durable owner authorization, 2026-10-01).
+- **Check MCP auth before spawning:** before dispatching any agent that needs an MCP surface (Figma etc.), confirm the server is connected in this session; if not, ask the owner to run `/mcp` first — a blind spawn burns the whole agent run.
+- **Owner communication:** lead with the action list — who does what, today — in few words; detail only on request.
+
+---
+
 ## Current status & build order
 
 This file describes the code **as it exists** and carries no per-issue status. Per-item status, the ship order, and deferrals live in [`docs/issues/ROADMAP.md`](docs/issues/ROADMAP.md) (the single home); the now/next/blocked snapshot lives in [`docs/STATUS.md`](docs/STATUS.md).
