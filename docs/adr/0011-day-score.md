@@ -1,6 +1,6 @@
 # Day score — a 1–100 per-day confidence number on each `days[]` bucket
 
-Status: **Proposed** (drafted 2026-09-30 from the owner's Figma formula note — node `457:446`, [FIGMA.md §11](../design/FIGMA.md); §11 frames owner-approved the same day). Owner acceptance closes [ROADMAP item 16](../issues/ROADMAP.md)'s ADR gate and unblocks the engine build.
+Status: **Accepted** (owner, 2026-10-01 — as drafted, including the one-sided-binary, clamp-to-1, and empty-window-null calls). Drafted 2026-09-30 from the owner's Figma formula note (node `457:446`, [FIGMA.md §11](../design/FIGMA.md)); §11 frames owner-approved 2026-09-30. Build orders: `docs/issues/current/implementation_spec_01-day-score-server.md` / `implementation_spec_02-ios-score-ring.md`.
 
 **Decision.** Each entry in an activity's `days[]` gains one **additive, optional** wire field: `score` — an integer `1..100`, or `null`. It is the number the card v2 ring draws and the detail v3 hero reads. Nothing else on the wire changes; the request shape and `validateRatingRequest` are untouched.
 
