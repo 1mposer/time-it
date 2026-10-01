@@ -1,5 +1,7 @@
 # Implementation spec 01 — day score, server side (ROADMAP item 16, backend half)
 
+> **COMPLETED 2026-10-01** — built by an implementing agent, independently verified (249/249) and adversarially reviewed (mutation-tested; all accepted findings fixed), merged to main (`cf51890` via `d503891`). Historical record — do not edit.
+
 > Work order for an implementing agent. Self-contained: read this file, then [ADR-0011](../../adr/0011-day-score.md) (the accepted contract — it wins over this file on any conflict), then `CLAUDE.md` (architecture + wire contract + test map). Do **not** read the Figma file; nothing here is design work. Written 2026-10-01; audited by a separate agent after completion — leave the checkboxes honest.
 
 ## Goal

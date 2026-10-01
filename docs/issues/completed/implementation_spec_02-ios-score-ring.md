@@ -1,5 +1,7 @@
 # Implementation spec 02 — iOS score ring card + Activity Detail v3 (ROADMAP item 16, client half)
 
+> **COMPLETED 2026-10-01** — built by an implementing agent from the live frames, independently verified (440 unit + 33 UI green) and adversarially reviewed (14 findings: ten fixed, four to the owner queue), merged to main (`04f9a31` via `f0f4571`). Historical record — do not edit.
+
 > Work order for an implementing agent. Self-contained: read this file, then [ADR-0011](../../adr/0011-day-score.md) (accepted contract), [ADR-0007](../../adr/0007-client-side-mirrors.md) (mirror rules), [ADR-0008](../../adr/0008-figma-first-ui-gate.md) (frames precede code — **satisfied**: the frames below were owner-approved 2026-09-30), and [FIGMA.md](../../design/FIGMA.md) §1 (tool gotchas) + §11. The iOS app lives under `ios/TimeIt/`; its conventions are in `ios/` docs and the existing views. Written 2026-10-01; an audit agent cross-checks after completion — leave checkboxes honest.
 >
 > **Design truth is the Figma frames, not this file.** Read them live via the Figma MCP tools (file key `t3ZRvcYPnSRPKElSLAFqmG`): Card v2 "Score ring" `458:394`, Detail v3 `456:358` (6am) and `464:2348` (7am). Pull geometry, spacing, type styles, and token bindings from the nodes; this file carries only behavior and contracts.
