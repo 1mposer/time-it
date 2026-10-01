@@ -192,10 +192,12 @@ struct ActivityDetailView: View {
     /// The Range-scoped hour strip: one 24pt pill per Range hour, the
     /// selected one at full opacity and the rest at 35%.
     ///
-    /// Outside the Range (the owner's 2026-09-30 stepper ruling) the pills
-    /// lose their tier colours entirely — nothing is judged out there — and
-    /// the strip becomes the way back: tapping it snaps the selection to the
-    /// nearest Range end, with a click-feedback scale.
+    /// Outside the Range (the owner's 2026-09-30 stepper ruling, refined
+    /// 2026-10-01) the pills keep their weather colours but none is
+    /// highlighted — the hour you were on simply stops shining — and the
+    /// strip becomes the way back: tapping it snaps the selection to the
+    /// nearest Range end, with a click-feedback scale. Values stay uncoloured
+    /// out there (nothing is judged).
     @ViewBuilder
     private var hourStrip: some View {
         if let stepper, let rangeHours, !rangeHours.isEmpty, let authored {
@@ -233,14 +235,14 @@ struct ActivityDetailView: View {
             guard forecast.hours.indices.contains(index) else { return nil }
             return HourQuality.tier(for: forecast.hours[index], thresholds: authored.thresholds)
         }
-        let fill = colored ? (tier.map(Theme.tierColor) ?? Theme.timelineTrack) : Theme.timelineTrack
+        let fill = tier.map(Theme.tierColor) ?? Theme.timelineTrack
         return RoundedRectangle(cornerRadius: 6)
             .fill(fill)
             .frame(maxWidth: .infinity)
             .overlay(
                 Text(RangeStripAxis.numeral(viewModel.localHour(at: index) ?? 0))
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(colored ? Color.white : Theme.secondaryText)
+                    .foregroundStyle(Color.white)
             )
             .opacity(selected && colored ? 1 : 0.35)
     }
