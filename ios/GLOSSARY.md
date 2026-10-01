@@ -26,7 +26,7 @@ The dashboard rendering of a **dormant** Activity (`window == nil` — stored, v
 The "+" card at the end of the dashboard. Opens the wizard directly (the Add sheet / template chooser is gone).
 
 **Live card / Activity card** *(shipped — main look since 2026-09-01; spec 14 anatomy 2026-08-14)*
-The dashboard card of a live authored Activity, the **main look** for ALL states (owner ruling 2026-09-01): blue "Range · 6 – 10am" chip in the header, per-hour gradient slice on the day axis with **two** axis labels (the ends only), metric chips on every state. A rated day carries the "Today · 6–8pm" best-stretch sublabel; a rating-null day carries **no sublabel and no phrase by default** — the solid-red range slice alone is the verdict ("Nothing in your range." appears only with the Show-phrases toggle on, or under Differentiate Without Color). No rating word anywhere — color carries quality.
+The dashboard card of a live authored Activity. **Superseded 2026-10-01 by the v2 Score-ring card** (owner-chosen 2026-09-30, shipped with ROADMAP item 16): 48pt ring whose arc and numeral are the day `score`, tinted by the rating tier; hours-only chip ("6 – 10am"); hour strip scoped to the Range (green/orange/red per the `HourQuality` mirror); wordless beyond the activity name, numerals and colour. A `score: null` day renders the ring empty. The pre-v2 anatomy (day-axis gradient slice, metric chips, best-stretch sublabel) survives only in the wizard's review preview. **Trajectory phrases are retired** (owner ruling 2026-10-01) — the strings, the Settings "Show phrases" toggle and their code are removed.
 
 ---
 
