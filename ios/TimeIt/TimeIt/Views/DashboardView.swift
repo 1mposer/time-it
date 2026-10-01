@@ -147,7 +147,6 @@ struct DashboardView: View {
         if let activity = viewModel.rating(forActivityId: activityId) {
             ActivityDetailView(activity: activity,
                                viewModel: viewModel,
-                               isNocturnal: viewModel.isNocturnal(activityId: activityId),
                                windUnit: preferences.windSpeedUnit)
         } else {
             Color.clear
@@ -456,7 +455,7 @@ struct DashboardView: View {
                             } else if let activity = viewModel.rating(forActivityId: authored.id) {
                                 ZStack(alignment: .topTrailing) {
                                     NavigationLink(value: activity.activityId) {
-                                        card(for: activity, authored: authored, in: forecast)
+                                        card(for: activity, authored: authored)
                                     }
                                     .buttonStyle(.plain)
                                     .accessibilityIdentifier("card.\(activity.activityId)")
@@ -638,33 +637,24 @@ struct DashboardView: View {
         .accessibilityIdentifier("addActivityCard")
     }
 
-    private func card(for activity: ActivityRating, authored: AuthoredActivity, in forecast: ForecastResponse) -> ActivityCardView {
+    /// Card v2 — "Score ring" (approved frame `458:394`). Wordless beyond the
+    /// name, the numerals and the colour: the sublabel, the trajectory phrase
+    /// and the metric chips are not on the v2 frame, so they no longer render
+    /// here; the "why" moved to the detail's metric cards.
+    private func card(for activity: ActivityRating, authored: AuthoredActivity) -> ScoreRingCardView {
         // Day 0, unless today's Range has fully passed — then the card falls
         // forward to tomorrow (owner ruling 2026-09-01).
         let dayIndex = viewModel.cardDayIndex(for: authored)
-        let day = viewModel.cardDay(for: activity, dayIndex: dayIndex)
-        let tiers = viewModel.rangeTiers(for: authored, dayIndex: dayIndex)
-        return ActivityCardView(
+        let sliceRange = viewModel.rangeHourIndices(for: authored, dayIndex: dayIndex)
+        return ScoreRingCardView(
+            // RAW day: a rating-null day still carries its score (ADR-0011),
+            // and the frame draws exactly that (the red 31 ring).
             activity: activity,
-            day: day,
-            // Chips show live values on every verdict (owner ruling 2026-09-01):
-            // a null day reads the Range's first hour instead of going neutral.
-            windowStartHour: day.flatMap { viewModel.windowStartHour(for: $0) }
-                ?? viewModel.rangeHours(for: authored, dayIndex: dayIndex).first,
-            deriver: viewModel.timeDeriver,
-            hoursCount: forecast.hours.count,
-            shownDayIndex: dayIndex,
+            day: viewModel.rawDay(for: activity, dayIndex: dayIndex),
             iconSymbol: authored.iconSymbol,
-            isNocturnal: authored.isNocturnal,
             rangeChipLabel: authored.window.map(RangeText.chipLabel),
-            sliceRange: viewModel.rangeHourIndices(for: authored, dayIndex: dayIndex),
-            tiers: tiers,
-            phrase: TrajectoryPhrase.cardPhrase(
-                dayRated: day != nil,
-                tiers: tiers,
-                phrasesEnabled: TrajectoryPhrase.phrasesEnabled(preference: preferences.showPhrases,
-                                                                differentiateWithoutColor: differentiateWithoutColor)),
-            windUnit: preferences.windSpeedUnit
+            tiers: viewModel.rangeTiers(for: authored, dayIndex: dayIndex),
+            stripStartLocalHour: sliceRange.flatMap { viewModel.localHour(at: $0.lowerBound) }
         )
     }
 }

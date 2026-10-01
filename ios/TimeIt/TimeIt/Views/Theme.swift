@@ -48,6 +48,18 @@ enum Theme {
         }
     }
 
+    /// The day's rating tier as a colour — the score ring's arc and numeral,
+    /// and the detail hero's rating word (card v2 / detail v3 frames). A null
+    /// verdict reads red, and so does an `.unknown` one: a verdict this build
+    /// doesn't understand must never paint favourably (2026-08-29 hardening).
+    static func ratingTint(_ rating: Rating?) -> Color {
+        switch rating {
+        case .perfect: return perfectGreen
+        case .good: return accentOrange
+        default: return badRed
+        }
+    }
+
     /// HourTier → rating color binding for the gradient slice (Semantic
     /// rating/perfect · rating/good · rating/bad).
     static func tierColor(_ tier: HourTier) -> Color {

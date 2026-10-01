@@ -56,8 +56,31 @@ struct Day: Identifiable {
     let startIndex: Int?
     let endIndex: Int?
     let duration: Int?
+    /// ADR-0011 day score — an integer 1...100, or nil when the bucket holds
+    /// no window hours. Additive and OPTIONAL on the wire: absent, null, or
+    /// any non-integer decodes to nil (the 2026-07-12 hardening posture —
+    /// nothing about this field may ever fail the decode). Independent of
+    /// `rating`: a rating-null day still carries a real low score, so never
+    /// gate reading it on `hasWindow`.
+    let score: Int?
 
     var id: Int { dayIndex }
+
+    /// Explicit so the existing `Day(...)` call sites (fixtures, mock
+    /// service, the editor's review preview) keep compiling unchanged.
+    init(dayIndex: Int,
+         rating: Rating?,
+         startIndex: Int? = nil,
+         endIndex: Int? = nil,
+         duration: Int? = nil,
+         score: Int? = nil) {
+        self.dayIndex = dayIndex
+        self.rating = rating
+        self.startIndex = startIndex
+        self.endIndex = endIndex
+        self.duration = duration
+        self.score = score
+    }
 
     /// A qualifying Window exists. `nil` and `.unknown` both render the
     /// no-window state — check this, never `rating != nil`.
@@ -76,7 +99,7 @@ struct Day: Identifiable {
 /// available for tests/fixtures (the HourlyWeather pattern).
 extension Day: Decodable {
     private enum CodingKeys: String, CodingKey {
-        case dayIndex, rating, startIndex, endIndex, duration
+        case dayIndex, rating, startIndex, endIndex, duration, score
     }
 
     init(from decoder: Decoder) throws {
@@ -86,5 +109,14 @@ extension Day: Decodable {
         startIndex = try container.decodeIfPresent(Int.self, forKey: .startIndex)
         endIndex = try container.decodeIfPresent(Int.self, forKey: .endIndex)
         duration = try container.decodeIfPresent(Int.self, forKey: .duration)
+        // `try?` (not `try`) on purpose: a string, a fractional number, an
+        // object — anything that is not an integer — becomes nil instead of
+        // throwing. ADR-0011's client rule: this field can never fail a decode.
+        // An integer OUTSIDE the contract's 1...100 is contract-violating, so
+        // it degrades to nil (the empty ring) rather than drawing a raw 0 or
+        // 999 — the 2026-08-29 `.unknown` precedent: an unrecognized value
+        // renders as the safe state, never as itself.
+        let rawScore = try? container.decodeIfPresent(Int.self, forKey: .score)
+        score = rawScore.flatMap { (1...100).contains($0) ? $0 : nil }
     }
 }

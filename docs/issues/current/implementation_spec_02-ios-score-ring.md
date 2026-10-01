@@ -18,27 +18,27 @@ Spec 01 (server `score` field) merged, including `tests/fixtures/day-score-examp
 
 ## Card v2 — "Score ring" (replaces the card layout on the dashboard)
 
-- [ ] 48pt ring whose arc length = `score`/100; the numeral inside; "Score" caption — geometry/type from frame `458:394`. Numeral (and ring tint) color follows the day's rating tier.
-- [ ] `score == nil` → ring empty (no arc, no numeral fabrication) — match the frame's null state.
-- [ ] Hour strip **scoped to the Range** (one segment per Range hour, green/orange/red by that hour's tier), boundary hour numerals in the frame's label style — replaces the 6am–12am day-axis bar on this card.
-- [ ] Per-hour tiers come from the existing client threshold-evaluation mirror (ADR-0007); per-hour *scores* are not on the wire and are not needed for the card.
-- [ ] Rated + null states both per frame; existing card behaviors that the frame keeps (chips with live values, tap → detail) survive.
+- [x] 48pt ring whose arc length = `score`/100; the numeral inside; "Score" caption — geometry/type from frame `458:394`. Numeral (and ring tint) color follows the day's rating tier.
+- [x] `score == nil` → ring empty (no arc, no numeral fabrication) — match the frame's null state.
+- [x] Hour strip **scoped to the Range** (one segment per Range hour, green/orange/red by that hour's tier), boundary hour numerals in the frame's label style — replaces the 6am–12am day-axis bar on this card.
+- [x] Per-hour tiers come from the existing client threshold-evaluation mirror (ADR-0007); per-hour *scores* are not on the wire and are not needed for the card.
+- [x] Rated + null states both per frame; existing card behaviors that the frame keeps (chips with live values, tap → detail) survive.
 
 ## Activity Detail v3 (today-only rebuild)
 
-- [ ] Hero: ring + rating word + hour stepper (`− 6am +`), per frames `456:358`/`464:2348`. Strip: selected hour at 100% opacity, rest at 35%.
-- [ ] **Stepper ruling (owner, 2026-09-30):** the stepper MAY step past either end of the Range. Outside the Range: the colored hour pills are **not shown** (values still shown per the frames' metric cards, uncolored). Returning to the Range = **tap the pill itself**, with a click-feedback animation on the tap. `−` dims at the absolute lower bound (frame behavior at the Range start now applies at the walkable lower edge).
-- [ ] Three metric cards (two per row, square): glyph, name, the selected hour's value colored by that hour's verdict, threshold gauge (track = metric domain, tinted band = user's band, dot = hour value, band min/max numerals) — all geometry from the frames.
-- [ ] Selected-hour values read straight from the decoded `hours[]` (no new backend — ADR-0011 client rule).
-- [ ] Week rows and the hour-grid are **removed** (today-only ruling); the Edit range / Edit metrics list stays.
-- [ ] Hour stepping animates in the smart-animate spirit of the 6am↔7am prototype link; static under Reduce Motion.
+- [x] Hero: ring + rating word + hour stepper (`− 6am +`), per frames `456:358`/`464:2348`. Strip: selected hour at 100% opacity, rest at 35%.
+- [x] **Stepper ruling (owner, 2026-09-30):** the stepper MAY step past either end of the Range. Outside the Range: the colored hour pills are **not shown** (values still shown per the frames' metric cards, uncolored). Returning to the Range = **tap the pill itself**, with a click-feedback animation on the tap. `−` dims at the absolute lower bound (frame behavior at the Range start now applies at the walkable lower edge).
+- [x] Three metric cards (two per row, square): glyph, name, the selected hour's value colored by that hour's verdict, threshold gauge (track = metric domain, tinted band = user's band, dot = hour value, band min/max numerals) — all geometry from the frames.
+- [x] Selected-hour values read straight from the decoded `hours[]` (no new backend — ADR-0011 client rule).
+- [x] Week rows and the hour-grid are **removed** (today-only ruling); the Edit range / Edit metrics list stays.
+- [x] Hour stepping animates in the smart-animate spirit of the 6am↔7am prototype link; static under Reduce Motion.
 
 ## Tests
 
-- [ ] Decoder tests: `score` present / absent / null / wrong-type → the documented outcomes.
-- [ ] Per-hour tier/score mirror pinned against `tests/fixtures/day-score-examples.json` (the shared table from spec 01 — one file binds both sides, the `clock-labels.json` mold).
-- [ ] Stepper logic unit tests: bounds, out-of-range pill hiding, snap-back target (first/nearest Range hour — match the frames; if ambiguous, nearest Range end).
-- [ ] Existing test suite green in Xcode.
+- [x] Decoder tests: `score` present / absent / null / wrong-type → the documented outcomes.
+- [x] Per-hour tier/score mirror pinned against `tests/fixtures/day-score-examples.json` (the shared table from spec 01 — one file binds both sides, the `clock-labels.json` mold).
+- [x] Stepper logic unit tests: bounds, out-of-range pill hiding, snap-back target (first/nearest Range hour — match the frames; if ambiguous, nearest Range end).
+- [x] Existing test suite green in Xcode.
 
 ## Done means
 

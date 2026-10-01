@@ -91,39 +91,42 @@ final class TimeItUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts["PRO"].exists, "no PRO badge anywhere")
     }
 
-    func testCardShowsSublabelTimelineChipsAndNoRatingWord() {
+    /// Card v2 — "Score ring" (approved frame `458:394`). The card is wordless
+    /// beyond the name, the numerals and the colour: the score ring with its
+    /// "Score" caption, an HOURS-ONLY blue Range chip, and the Range-scoped
+    /// hour strip. The sublabel, the trajectory phrase and the metric chips
+    /// are not on the v2 frame.
+    func testCardV2ShowsScoreRingHoursOnlyChipAndNoWords() {
         let app = launchApp()
 
         XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5))
-        // Mock: Cycling is Perfect today across its 6–10am range — the
-        // sublabel carries the best stretch in the push-copy dialect.
-        XCTAssertTrue(app.staticTexts["Today · 6–10am"].exists)
-        // Fishing Lite has nothing today (all-red range): NO sublabel and NO
-        // phrase by default — the red slice alone is the verdict (owner
-        // ruling 2026-09-01); its tomorrow window must NOT roll forward onto
-        // the card (ADR-0004 amendment).
-        XCTAssertFalse(app.staticTexts["Today"].exists,
-                       "a rating-null card carries no sublabel")
-        XCTAssertFalse(app.staticTexts["Nothing in your range."].exists,
-                       "the null-verdict phrase is opt-in via the Settings toggle")
-        XCTAssertFalse(app.staticTexts["Tomorrow"].exists,
-                       "the dashboard never shows a later day — the week lives in the detail")
-        // The user's range as a blue chip on EVERY card state, and no rating
-        // word anywhere — color carries quality; words are opt-in via §5.
+        XCTAssertTrue(app.staticTexts["Cycling"].exists)
+
+        // Hours-only chip — the "Range · " prefix is dropped on the v2 card.
         XCTAssertTrue(app.staticTexts["rangeChip.cycling"].exists)
-        XCTAssertEqual(app.staticTexts["rangeChip.cycling"].label, "Range 6 – 10am")
+        XCTAssertEqual(app.staticTexts["rangeChip.cycling"].label, "6 – 10am",
+                       "the v2 chip is hours-only — no \u{201C}Range \u{B7} \u{201D} prefix")
         XCTAssertTrue(app.staticTexts["rangeChip.fishing-lite"].exists,
                       "the null-verdict card keeps its range chip")
+
+        // Still no rating word, and no sublabel/phrase/day name anywhere.
         XCTAssertFalse(app.staticTexts["Perfect"].exists)
         XCTAssertFalse(app.staticTexts["Good"].exists)
-        XCTAssertTrue(app.otherElements["timeline.cycling"].exists)
-        XCTAssertTrue(app.staticTexts["chip.cycling.temp"].exists, "at least one metric chip on the card")
-        XCTAssertTrue(app.staticTexts["chip.fishing-lite.temp"].exists,
-                      "metric chips render on all card states")
-        // A null verdict still shows LIVE values, not grayed-out metric
-        // names (owner ruling 2026-09-01) — read from the Range's first hour.
-        XCTAssertTrue(app.staticTexts["chip.fishing-lite.temp"].label.contains("24°C"),
-                      "null-verdict chips carry real values from the Range's first hour")
+        XCTAssertFalse(app.staticTexts["Today \u{B7} 6\u{2013}10am"].exists,
+                       "the v2 card drops the sublabel")
+        XCTAssertFalse(app.staticTexts["Nothing in your range."].exists)
+        XCTAssertFalse(app.staticTexts["Tomorrow"].exists,
+                       "the dashboard never shows a later day — the week lives in the detail")
+
+        // The ring's VoiceOver summary keeps the words the visual dropped,
+        // and the mock's day 0 scores (Perfect 86 / null 31) reach it.
+        XCTAssertEqual(app.otherElements["score.cycling"].label, "Perfect, score 86 out of 100",
+                       "the ring draws the wire's day score")
+        // A rating-null day with hours scores exactly 1 (every hour has a
+        // required miss → 0, clamped to 1), so it still draws a NUMERAL ring,
+        // not an empty one. The ring is empty only when `score` is null.
+        XCTAssertEqual(app.otherElements["score.fishing-lite"].label, "No Window, score 1 out of 100",
+                       "a rating-null day still carries a real score (ADR-0011)")
     }
 
     // MARK: - Navigation
@@ -572,14 +575,24 @@ final class TimeItUITests: XCTestCase {
 
     // MARK: - Phrases toggle
 
-    func testPhrasesToggleDefaultOffAndShowsPhraseWhenEnabled() {
+    /// Card v2 is WORDLESS beyond the name, the numerals and the colour
+    /// (owner brief 2026-09-21; frame `458:394` has no phrase slot), so the
+    /// trajectory phrase no longer renders on the dashboard — on EITHER
+    /// setting of the toggle. The score numeral is the card's new non-colour
+    /// verdict channel.
+    ///
+    /// **Open for the owner:** the Settings "Show phrases" row survives but
+    /// now drives nothing. `TrajectoryPhrase` and its unit tests are
+    /// untouched; re-homing the phrase (detail? a later frame?) or retiring
+    /// the row is an owner call the v2/v3 frames do not cover.
+    func testPhrasesNeverRenderOnTheWordlessV2Card() {
         let app = launchApp()
 
         XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.staticTexts["Perfect throughout"].exists,
-                       "default OFF — a rated card shows no words (§2); color carries quality")
+                       "default OFF — a rated card shows no words")
         XCTAssertFalse(app.staticTexts["Nothing in your range."].exists,
-                       "default OFF — the null-verdict card's red slice carries the verdict alone")
+                       "default OFF — the null-verdict card's red strip carries the verdict alone")
 
         app.buttons["settingsGear"].tap()
         let toggle = app.switches["settings.showPhrases"]
@@ -591,12 +604,13 @@ final class TimeItUITests: XCTestCase {
         XCTAssertEqual(toggle.value as? String, "1")
         app.buttons["Done"].tap()
 
-        // Cycling's 6–10am range is all-green in the mock → (green, green)
-        // with no interior escape reduces to "Perfect throughout".
-        XCTAssertTrue(app.staticTexts["Perfect throughout"].waitForExistence(timeout: 5),
-                      "with the toggle on, the card shows its trajectory phrase")
-        XCTAssertTrue(app.staticTexts["Nothing in your range."].exists,
-                      "…and the null-verdict card shows its phrase too")
+        XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts["Perfect throughout"].exists,
+                       "the v2 card stays wordless even with the toggle on")
+        XCTAssertFalse(app.staticTexts["Nothing in your range."].exists,
+                       "…on the null-verdict card too")
+        // What the card DOES carry instead: the score numeral, spoken in full.
+        XCTAssertEqual(app.otherElements["score.cycling"].label, "Perfect, score 86 out of 100")
     }
 
     // MARK: - Detail page
@@ -626,7 +640,11 @@ final class TimeItUITests: XCTestCase {
         app.buttons["editor.cancel"].tap()
     }
 
-    func testDetailShowsRangeOnceSetupOnceAlignedWeekAndTapToExpand() {
+    /// Activity Detail v3 (approved frames `456:358` / `464:2348`): TODAY
+    /// ONLY — hero (day-score ring + rating word + hour stepper), three
+    /// metric cards reading the selected hour, then the Edit list. The week
+    /// rows and the hour grid are gone.
+    func testDetailV3ShowsHeroStepperMetricCardsAndNoWeek() {
         let app = launchApp()
 
         let card = app.buttons["card.cycling"]
@@ -634,35 +652,47 @@ final class TimeItUITests: XCTestCase {
         card.tap()
         XCTAssertTrue(app.navigationBars["Cycling"].waitForExistence(timeout: 5))
 
-        // One setup card (owner prune 2026-09-01): icon + the prefix-less
-        // Range, then the Edit range / Edit metrics doors — the threshold
-        // summary line and the word "thresholds" are gone.
-        XCTAssertTrue(app.staticTexts["6 – 10am daily"].exists)
+        // Hero: the DAY score + the day's rating word, and the stepper
+        // opening on the Range's first hour (6am).
+        XCTAssertEqual(app.otherElements["detail.score"].label, "Perfect, score 86 out of 100")
+        XCTAssertTrue(app.staticTexts["Perfect"].exists, "the rating word returns on the detail")
+        XCTAssertEqual(app.staticTexts["detail.selectedHour"].label, "6am",
+                       "the stepper opens on the Range's first hour")
+        XCTAssertTrue(app.buttons["detail.stepForward"].exists)
+        XCTAssertTrue(app.buttons["detail.stepBack"].exists)
+
+        // Stepping forward moves the hour; the day score does NOT follow it —
+        // the hero ring is the day's number, not the selected hour's (the two
+        // linked frames hold 86/Perfect fixed across 6am ↔ 7am).
+        app.buttons["detail.stepForward"].tap()
+        XCTAssertEqual(app.staticTexts["detail.selectedHour"].label, "7am")
+        XCTAssertEqual(app.otherElements["detail.score"].label, "Perfect, score 86 out of 100",
+                       "the hero ring shows the DAY score, unchanged by the hour")
+
+        // ONE metric card per displayMetric — the grid is not capped at the
+        // frames' three. Cycling shows temp/wind/rain/uV, so its fourth
+        // thresholded metric must have a card too (the v2 card dropped the
+        // chips, so this is uV's only surface).
+        XCTAssertTrue(app.otherElements["detail.metric.temp"].exists)
+        XCTAssertTrue(app.otherElements["detail.metric.windSpeed"].exists)
+        XCTAssertTrue(app.otherElements["detail.metric.rainFall"].exists)
+        XCTAssertTrue(app.otherElements["detail.metric.uV"].exists,
+                      "a fourth metric gets a fourth card, never truncated away")
+        let cards = app.otherElements.matching(NSPredicate(format: "identifier BEGINSWITH 'detail.metric.'"))
+        XCTAssertEqual(cards.count, 4, "one card per displayMetric, in order")
+
+        // The Edit doors stay (the today-only ruling cut only the week rows
+        // and the hour grid).
         XCTAssertTrue(app.buttons["detail.editRange"].exists)
-        XCTAssertTrue(app.buttons["detail.editMetrics"].exists)
         XCTAssertEqual(app.buttons["detail.editMetrics"].label, "Edit metrics",
                        "no \u{201C}& thresholds\u{201D}")
-        XCTAssertFalse(app.staticTexts["detail.setupSummary"].exists,
-                       "the threshold summary line was pruned")
-        // 7 aligned day rows (diurnal), best-stretch time on rated days.
-        XCTAssertTrue(app.staticTexts["Today"].exists)
-        XCTAssertTrue(app.staticTexts["6–10am"].exists, "Today's best stretch")
 
-        // Hourly numbers only behind a tap, collapsed by default (expanded
-        // while Today is still on screen, before scrolling).
-        XCTAssertFalse(app.otherElements["detail.hours.0"].exists, "collapsed by default")
-        app.buttons["detail.day.0"].tap()
-        XCTAssertTrue(app.otherElements["detail.hours.0"].waitForExistence(timeout: 5),
-                      "the tapped day reveals its range hours")
-
-        // The week runs to Thursday (7 rows) and shares the range-zoomed axis
-        // once under the stack. Rows beyond the first are read via VoiceOver
-        // labels (XCUI flattens button inner texts).
+        // Week rows and the hour grid are gone.
         let dayRows = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'detail.day.'"))
-        XCTAssertEqual(dayRows.count, 7, "7 aligned day rows for a diurnal activity")
-        XCTAssertTrue(app.buttons["detail.day.6"].label.hasPrefix("Thursday"),
-                      "the week runs Today through Thursday")
-        XCTAssertTrue(app.staticTexts["8am"].exists, "the shared range axis midpoint")
+        XCTAssertEqual(dayRows.count, 0, "the week rows were removed (today-only)")
+        XCTAssertFalse(app.otherElements["detail.hours.0"].exists, "the hour grid was removed")
+        XCTAssertFalse(app.staticTexts["6 – 10am daily"].exists,
+                       "the old setup card's range line is gone — the hero owns the hour now")
     }
 
     // MARK: - Push opt-in client
