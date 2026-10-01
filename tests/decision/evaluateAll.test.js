@@ -90,15 +90,20 @@ test("days[] is one dense entry per local calendar day, dayIndex contiguous from
 // per-day offset — day 0's offset is 0 and would pass even if the offset were dropped.
 test("per-day window indices are global, not day-relative (offset applied on day >= 1)", () => {
   const [vb] = evaluateAll(makeHours(48), [VOLLEYBALL]);
-  assert.deepStrictEqual(vb.days[0], { dayIndex: 0, rating: "perfect", startIndex: 0,  endIndex: 24, duration: 24 });
-  assert.deepStrictEqual(vb.days[1], { dayIndex: 1, rating: "perfect", startIndex: 24, endIndex: 48, duration: 24 });
+  // score (ADR-0011): temp 25 is the centre of [15,35] -> 100; windSpeed 10 is
+  // inside one-sided max 15 -> 100; dustAlert false -> 100. Every hour 100.
+  assert.deepStrictEqual(vb.days[0], { dayIndex: 0, rating: "perfect", startIndex: 0,  endIndex: 24, duration: 24, score: 100 });
+  assert.deepStrictEqual(vb.days[1], { dayIndex: 1, rating: "perfect", startIndex: 24, endIndex: 48, duration: 24, score: 100 });
 });
 
-// A non-qualifying day keeps its slot: { dayIndex, rating: null }, window triplet ABSENT.
+// A non-qualifying day keeps its slot: { dayIndex, rating: null }, window triplet
+// ABSENT — but `score` is still there (ADR-0011: score and rating are independent).
 test("null day keeps its slot with the window fields absent", () => {
   const hours = makeHours(48, (i) => (i < 24 ? { dustAlert: true } : {}));
   const [vb] = evaluateAll(hours, [VOLLEYBALL]);
-  assert.deepStrictEqual(vb.days[0], { dayIndex: 0, rating: null });
+  // Every day-0 hour trips the REQUIRED dustAlert flag -> hour score 0 -> day
+  // mean 0 -> clamped up to 1 (never 0, never null: the bucket has hours).
+  assert.deepStrictEqual(vb.days[0], { dayIndex: 0, rating: null, score: 1 });
   assert.equal(vb.days[1].rating, "perfect");
   assert.equal(vb.days[1].startIndex, 24);
 });
@@ -154,8 +159,9 @@ const NIGHT = {
 test('same-day window filters each day to [startHour,endHour) with global indices', () => {
   const [r] = evaluateAll(makeHours(48), [MIDDAY]);
   assert.equal(r.days.length, 2);
-  assert.deepStrictEqual(r.days[0], { dayIndex: 0, rating: 'perfect', startIndex: 9,  endIndex: 17, duration: 8 });
-  assert.deepStrictEqual(r.days[1], { dayIndex: 1, rating: 'perfect', startIndex: 33, endIndex: 41, duration: 8 });
+  // score: temp 25 is the centre of [15,35] in all 8 window hours -> 100.
+  assert.deepStrictEqual(r.days[0], { dayIndex: 0, rating: 'perfect', startIndex: 9,  endIndex: 17, duration: 8, score: 100 });
+  assert.deepStrictEqual(r.days[1], { dayIndex: 1, rating: 'perfect', startIndex: 33, endIndex: 41, duration: 8, score: 100 });
 });
 
 test('same-day window: failures OUTSIDE the window are ignored; INSIDE fail the day', () => {
@@ -164,7 +170,8 @@ test('same-day window: failures OUTSIDE the window are ignored; INSIDE fail the 
   assert.equal(outside.days[0].rating, 'perfect');
   // temp=100 at indices 9-16 IS the day-0 window -> day 0 is null, day 1 unaffected.
   const inside = evaluateAll(makeHours(48, (i) => (i >= 9 && i <= 16 ? { temp: 100 } : {})), [MIDDAY])[0];
-  assert.deepStrictEqual(inside.days[0], { dayIndex: 0, rating: null });
+  // All 8 of day-0's window hours fail the REQUIRED temp -> hour score 0 -> clamp 1.
+  assert.deepStrictEqual(inside.days[0], { dayIndex: 0, rating: null, score: 1 });
   assert.equal(inside.days[1].rating, 'perfect');
 });
 
@@ -173,11 +180,14 @@ test('same-day window: failures OUTSIDE the window are ignored; INSIDE fail the 
 test('wrapped window stitches a night across midnight (clean fixture, global indices)', () => {
   const [r] = evaluateAll(makeHours(72), [NIGHT]);
   assert.equal(r.days.length, 3);
+  // score: temp 25 in [5,35] -> centre 20, half-width 15 -> 100*(1-5/15) = 200/3;
+  // cloudCover 10 inside one-sided max 30 -> 100. Hour mean = (200/3 + 100)/2 =
+  // 250/3 = 83.33...; every hour is identical, so the day mean rounds to 83.
   // night 0 = day0 22:00,23:00 (idx 22,23) + day1 00:00,01:00 (idx 24,25)
-  assert.deepStrictEqual(r.days[0], { dayIndex: 0, rating: 'perfect', startIndex: 22, endIndex: 26, duration: 4 });
-  assert.deepStrictEqual(r.days[1], { dayIndex: 1, rating: 'perfect', startIndex: 46, endIndex: 50, duration: 4 });
+  assert.deepStrictEqual(r.days[0], { dayIndex: 0, rating: 'perfect', startIndex: 22, endIndex: 26, duration: 4, score: 83 });
+  assert.deepStrictEqual(r.days[1], { dayIndex: 1, rating: 'perfect', startIndex: 46, endIndex: 50, duration: 4, score: 83 });
   // tail night: day2 evening only (no day3 morning in the horizon) -> 2 hours
-  assert.deepStrictEqual(r.days[2], { dayIndex: 2, rating: 'perfect', startIndex: 70, endIndex: 72, duration: 2 });
+  assert.deepStrictEqual(r.days[2], { dayIndex: 2, rating: 'perfect', startIndex: 70, endIndex: 72, duration: 2, score: 83 });
 });
 
 // The ADR-0004 amendment core claim: a nocturnal activity buckets by NIGHT while a
@@ -190,7 +200,7 @@ test('days.length is per-activity: nocturnal is one shorter than diurnal on a pa
   assert.equal(nocturnal.days.length, 3, 'nocturnal: 3 nights (0..2) — tail day has no evening');
   nocturnal.days.forEach((d, i) => assert.equal(d.dayIndex, i)); // still dense from 0
   // night 2 = day2 22:00,23:00 (idx 54,55) + day3 00:00,01:00 (idx 56,57)
-  assert.deepStrictEqual(nocturnal.days[2], { dayIndex: 2, rating: 'perfect', startIndex: 54, endIndex: 58, duration: 4 });
+  assert.deepStrictEqual(nocturnal.days[2], { dayIndex: 2, rating: 'perfect', startIndex: 54, endIndex: 58, duration: 4, score: 83 });
 });
 
 // Orphan morning: day-0 early hours whose evening is pre-horizon belong to no night
@@ -200,7 +210,7 @@ test('orphan morning (pre-horizon evening) is dropped, not made its own night', 
   const [r] = evaluateAll(hours, [NIGHT]);
   // idx 0 is 01:00 (< endHour 2) but its evening is before the horizon -> dropped.
   // night 0's evening is day0 22:00,23:00 = idx 21,22; morning day1 00:00,01:00 = idx 23,24.
-  assert.deepStrictEqual(r.days[0], { dayIndex: 0, rating: 'perfect', startIndex: 21, endIndex: 25, duration: 4 });
+  assert.deepStrictEqual(r.days[0], { dayIndex: 0, rating: 'perfect', startIndex: 21, endIndex: 25, duration: 4, score: 83 });
 });
 
 // A night with no qualifying hours keeps its dense slot as a null day.
@@ -208,6 +218,119 @@ test('a non-qualifying night keeps its slot with rating null', () => {
   // Fail cloudCover only during night 0's hours (idx 22-25).
   const hours = makeHours(72, (i) => (i >= 22 && i <= 25 ? { cloudCover: 90 } : {}));
   const [r] = evaluateAll(hours, [NIGHT]);
-  assert.deepStrictEqual(r.days[0], { dayIndex: 0, rating: null });
+  // cloudCover is REQUIRED, so all 4 of night 0's hours score 0 -> clamp 1.
+  assert.deepStrictEqual(r.days[0], { dayIndex: 0, rating: null, score: 1 });
   assert.equal(r.days[1].rating, 'perfect');
+});
+
+// ───────────────────────────── day score (ADR-0011) ─────────────────────────────
+// The score is computed from the SAME bucket slices the rating is: window-filtered
+// for a same-day window, night-stitched for a wrapped one. Expectations below are
+// hand-derived from the ADR formula; the shared worked-example table (and the
+// formula itself) is pinned in tests/decision/score.test.js.
+
+test('score is present on every day of every activity, as null or an integer 1..100', () => {
+  const hours = makeHours(72, (i) => (i % 7 === 0 ? { temp: 100, dustAlert: true } : {}));
+  const results = evaluateAll(hours, [VOLLEYBALL, SHADE, MIDDAY, NIGHT]);
+  for (const r of results) {
+    for (const day of r.days) {
+      assert.ok('score' in day, `${r.activityId} day ${day.dayIndex} must carry score`);
+      assert.ok(day.score === null || (Number.isInteger(day.score) && day.score >= 1 && day.score <= 100),
+        `${r.activityId} day ${day.dayIndex}: expected null or 1..100, got ${day.score}`);
+    }
+  }
+});
+
+// Key order is the wire contract (ADR-0011): score comes LAST, after the window
+// triplet on a rated day and after `rating` on a null one.
+test('score is the last key on both a rated and a rating-null day', () => {
+  const hours = makeHours(48, (i) => (i < 24 ? { dustAlert: true } : {}));
+  const [vb] = evaluateAll(hours, [VOLLEYBALL]);
+  assert.deepStrictEqual(Object.keys(vb.days[0]), ['dayIndex', 'rating', 'score']);
+  assert.deepStrictEqual(Object.keys(vb.days[1]), ['dayIndex', 'rating', 'startIndex', 'endIndex', 'duration', 'score']);
+});
+
+// A "good" day sits between: the optional breach costs its metric's share only.
+test('an optional breach degrades the score smoothly where the rating only snaps to good', () => {
+  const [vb] = evaluateAll(makeHours(48, () => ({ windSpeed: 20 })), [VOLLEYBALL]);
+  // temp 25 -> 100 (centre), windSpeed 20 > max 15 -> 0, dustAlert false -> 100.
+  // Hour mean = (100 + 0 + 100)/3 = 200/3 = 66.66... -> day score 67.
+  assert.equal(vb.days[0].rating, 'good');
+  assert.equal(vb.days[0].score, 67);
+  assert.equal(vb.days[1].score, 67);
+});
+
+// The nocturnal case the spec asks for, with DIFFERENT values either side of
+// midnight: only the stitched 4-hour slice produces 92. The night-stitch
+// tripwire — the two ways of getting the slice wrong both read something else:
+// the whole calendar day 0 (24 hours) would read 85, and the evening pair alone
+// would read 100.
+test('a nocturnal bucket scores its night-stitched hours, not its calendar day', () => {
+  // night 0 = day0 22:00,23:00 (idx 22,23) + day1 00:00,01:00 (idx 24,25).
+  const hours = makeHours(72, (i) => (i === 22 || i === 23 ? { temp: 20 } : {}));
+  const [r] = evaluateAll(hours, [NIGHT]);
+  // evening: temp 20 = centre of [5,35] -> 100, cloudCover 100 -> hour 100 (x2)
+  // morning: temp 25 -> 200/3, cloudCover 100 -> hour 250/3 = 83.33... (x2)
+  // day mean = (100 + 100 + 250/3 + 250/3)/4 = (200 + 500/3)/4 = 91.66... -> 92
+  assert.equal(r.days[0].score, 92);
+  assert.equal(r.days[1].score, 83, 'the next night is untouched');
+});
+
+// The score averages the BUCKET's window hours — NOT the rated window's hours.
+// Mixed day: 16 in-band hours then 8 out-of-band, so the three candidate slices
+// give three different numbers and only the bucket is right. This also pins that
+// hour scores are NOT rounded before the day mean (fractional 200/3 hours).
+const WIDE = {
+  id: 'wide', label: 'Wide Band',
+  displayMetrics: ['temp'],
+  thresholds: { temp: { min: 5, max: 35, required: true } }, // centre 20, half-width 15
+};
+test('the score averages the whole bucket, not just the rated window', () => {
+  const hours = makeHours(24, (i) => (i >= 16 ? { temp: 100 } : {}));
+  const [r] = evaluateAll(hours, [WIDE]);
+  // idx 0-15: temp 25 -> 100*(1-5/15) = 200/3 = 66.66... and the hour is Perfect
+  // idx 16-23: temp 100 fails the REQUIRED band -> hour 0, the hour is Bad
+  assert.deepStrictEqual(r.days[0], { dayIndex: 0, rating: 'perfect', startIndex: 0, endIndex: 16, duration: 16, score: 44 });
+  // Why 44, and what the wrong slices would give:
+  //   bucket (all 24h):        (16 x 200/3 + 8 x 0)/24 = 3200/72 = 44.44... -> 44  <- correct
+  //   rated window (16h only):  200/3 = 66.66...                             -> 67
+  //   hour scores pre-rounded: (16 x 67 + 8 x 0)/24     = 1072/24 = 44.66... -> 45
+});
+
+test('a nocturnal bucket also averages its whole stitched night, not its rated window', () => {
+  // night 0 = idx 22,23 (evening) + 24,25 (morning); fail cloudCover on idx 25 only.
+  const hours = makeHours(72, (i) => (i === 25 ? { cloudCover: 90 } : {}));
+  const [r] = evaluateAll(hours, [NIGHT]);
+  // idx 22,23,24: temp 25 -> 200/3, cloudCover 10 -> 100; hour = 250/3 = 83.33...
+  // idx 25: cloudCover 90 fails the REQUIRED max 30 -> hour 0
+  assert.deepStrictEqual(r.days[0], { dayIndex: 0, rating: 'perfect', startIndex: 22, endIndex: 25, duration: 3, score: 63 });
+  //   bucket (all 4h):         (3 x 250/3 + 0)/4 = 250/4 = 62.5 -> half-up -> 63  <- correct
+  //   rated window (3h only):   250/3 = 83.33...                             -> 83
+  //   hour scores pre-rounded: (3 x 83 + 0)/4     = 249/4 = 62.25            -> 62
+});
+
+// The NULL RULE, and the only way a zero-hour bucket arises in evaluateAll: a
+// same-day window that no hour of a calendar day falls inside. Local start is
+// 18:00, so day 0 holds only 18:00-23:00 and the [9,17) window is already past.
+// (bucketNightWindow's `|| { hours: [] }` gap fallback is defensive — contiguous
+// hours cannot skip a night ordinal — so this filter is the reachable branch.)
+test('score is null IFF the bucket has zero window hours (day-0 window already past)', () => {
+  const hours = makeHoursAt('2026-06-19T14:00:00Z', 30); // 18:00 local start
+  const [r] = evaluateAll(hours, [MIDDAY]);
+  assert.equal(r.days.length, 2);
+  assert.deepStrictEqual(r.days[0], { dayIndex: 0, rating: null, score: null },
+    'no hour of day 0 is in [9,17) -> an empty bucket -> null, NOT the clamped 1');
+  // day 1 is a full calendar day: idx 6 = 00:00, so the window is idx 15..22.
+  assert.deepStrictEqual(r.days[1], { dayIndex: 1, rating: 'perfect', startIndex: 15, endIndex: 23, duration: 8, score: 100 });
+});
+
+// Independence rule (ADR-0011): the score is derived beside the verdict and can
+// never move it. A fixture whose score changes while every rating holds steady.
+test('the score never feeds the rating', () => {
+  const centred = evaluateAll(makeHours(48), [SHADE])[0];           // temp 25, centre of [15,35]
+  const offCentre = evaluateAll(makeHours(48, () => ({ temp: 34 })), [SHADE])[0]; // still inside the band
+  assert.equal(centred.days[0].score, 100);
+  assert.equal(offCentre.days[0].score, 10); // 100*(1-|34-25|/10) = 10
+  assert.equal(centred.days[0].rating, 'perfect');
+  assert.equal(offCentre.days[0].rating, 'perfect', 'a near-edge score must not downgrade the verdict');
 });
