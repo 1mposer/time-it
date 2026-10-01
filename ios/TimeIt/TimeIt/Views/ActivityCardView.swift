@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Dashboard card: summarises day 0 (today/tonight) for one live activity —
 /// icon, label, range chip, sublabel, the day-axis bar with the Range's
-/// gradient slice, an optional phrase, and the first three metric chips.
+/// gradient slice, and the first three metric chips.
 /// No rating word — color carries quality; VoiceOver speaks the full summary.
 struct ActivityCardView: View {
     let activity: ActivityRating
@@ -32,8 +32,6 @@ struct ActivityCardView: View {
     var sliceRange: Range<Int>?
     /// Per-hour tiers over `sliceRange`.
     var tiers: [HourTier] = []
-    /// The phrase slot under the axis; nil hides it.
-    var phrase: String?
     /// Metric names and chip icons resolve through the catalog seam.
     var catalog: MetricCatalogProviding = StaticMetricCatalog()
     /// Wind-speed display unit for the chips (#26).
@@ -56,12 +54,6 @@ struct ActivityCardView: View {
                             fallbackDayIndex: shownDayIndex,
                             sliceRange: sliceRange,
                             tiers: tiers)
-            if let phrase {
-                Text(phrase)
-                    .font(.system(size: 12))
-                    .foregroundStyle(Theme.secondaryText)
-                    .accessibilityIdentifier("phrase.\(activity.activityId)")
-            }
             chipRow
         }
         .padding(EdgeInsets(top: 12, leading: 14, bottom: 12, trailing: 14))
@@ -265,8 +257,7 @@ struct TimelineBarView: View {
                              iconSymbol: "figure.outdoor.cycle",
                              rangeChipLabel: RangeText.chipLabel(WindowSpec(startHour: 6, endHour: 10)),
                              sliceRange: 2..<6,
-                             tiers: [.green, .green, .green, .green],
-                             phrase: "Perfect all morning.")
+                             tiers: [.green, .green, .green, .green])
             ActivityCardView(activity: red,
                              day: nil,
                              windowStartHour: forecast.hours[2],

@@ -71,7 +71,7 @@ final class PreferencesStoreTests: XCTestCase {
                        "the cache is the safety net for exactly this case — clearing home must not empty it")
     }
 
-    // MARK: the phrases toggle
+    // MARK: the push callout
 
     func testPushCalloutDismissedDefaultsFalseAndPersists() {
         XCTAssertFalse(PreferencesStore(defaults: defaults).pushCalloutDismissed,
@@ -82,16 +82,6 @@ final class PreferencesStoreTests: XCTestCase {
 
         XCTAssertTrue(PreferencesStore(defaults: defaults).pushCalloutDismissed,
                       "one-time: a dismissal survives relaunch")
-    }
-
-    func testShowPhrasesDefaultsOffAndPersists() {
-        XCTAssertFalse(PreferencesStore(defaults: defaults).showPhrases,
-                       "spec 14 §5: phrases default OFF — the card shows no words")
-
-        let store = PreferencesStore(defaults: defaults)
-        store.showPhrases = true
-
-        XCTAssertTrue(PreferencesStore(defaults: defaults).showPhrases)
     }
 
     // MARK: the wind-speed unit (#26)

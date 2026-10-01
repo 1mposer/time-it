@@ -4,10 +4,10 @@ import CoreLocation
 
 /// Which global hours[] indices an Activity's Range covers within a day
 /// bucket (the client twin of the server's window filter and night-stitch
-/// selection), the per-hour tiers over them (HourQuality), and the card
-/// phrase rule. Fixture zone: forecastStart 2026-06-19T12:00:00Z in
-/// Asia/Dubai (+04) → hours[0] is 4pm local; day 0 spans indices 0..<8,
-/// day 1 spans 8..<32, day 2 spans 32..<56.
+/// selection), and the per-hour tiers over them (HourQuality). Fixture
+/// zone: forecastStart 2026-06-19T12:00:00Z in Asia/Dubai (+04) → hours[0]
+/// is 4pm local; day 0 spans indices 0..<8, day 1 spans 8..<32, day 2 spans
+/// 32..<56.
 @MainActor
 final class RangeWindowTests: XCTestCase {
 
@@ -131,24 +131,5 @@ final class RangeWindowTests: XCTestCase {
         let vm = await makeLoadedVM()
         let activity = makeActivity(window: WindowSpec(startHour: 6, endHour: 10))
         XCTAssertTrue(vm.rangeTiers(for: activity, dayIndex: 0).isEmpty)
-    }
-
-    // MARK: cardPhrase — the toggle gates EVERY phrase (owner ruling 2026-09-01)
-
-    func testUnratedDayPhraseIsGatedByTheToggle() {
-        XCTAssertNil(TrajectoryPhrase.cardPhrase(dayRated: false, tiers: [], phrasesEnabled: false),
-                     "default off — the red range slice alone carries the verdict")
-        XCTAssertEqual(TrajectoryPhrase.cardPhrase(dayRated: false, tiers: [], phrasesEnabled: true),
-                       "Nothing in your range.")
-        XCTAssertEqual(TrajectoryPhrase.cardPhrase(dayRated: false, tiers: [.green], phrasesEnabled: true),
-                       "Nothing in your range.",
-                       "server rating is truth — a mirror disagreement never rewrites the all-bad copy")
-    }
-
-    func testRatedDayPhraseIsGatedByTheToggle() {
-        XCTAssertNil(TrajectoryPhrase.cardPhrase(dayRated: true, tiers: [.green, .green], phrasesEnabled: false),
-                     "default off — the card carries quality in color alone")
-        XCTAssertEqual(TrajectoryPhrase.cardPhrase(dayRated: true, tiers: [.orange, .green], phrasesEnabled: true),
-                       "Good, turning perfect")
     }
 }

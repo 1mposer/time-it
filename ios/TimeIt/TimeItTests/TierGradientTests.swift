@@ -93,7 +93,7 @@ final class TierGradientTests: XCTestCase {
 
     func testBlendIsAWaypointNotAFourthTier() {
         // Exactly three tiers — yellow lives only in the stop model;
-        // `HourTier` cannot represent it, so chips, phrases, and solid
+        // `HourTier` cannot represent it, so chips and solid
         // fills (all typed on HourTier) can never paint it.
         XCTAssertEqual(HourTier.allCases, [.red, .orange, .green])
 

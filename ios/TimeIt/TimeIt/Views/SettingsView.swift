@@ -1,12 +1,11 @@
 import SwiftUI
 
 /// Settings sheet: home location (as-you-type city picker), the push opt-in
-/// Notifications toggle, the dashboard phrases toggle, About, and a location
+/// Notifications toggle, the wind-speed unit, About, and a location
 /// note. Ships only live controls — no subscription/Pro row, no account
 /// (cut, ADR-0001).
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
     @ObservedObject private var preferences: PreferencesStore
     @ObservedObject private var registration: DeviceRegistration
     private let geocoder: GeocodingProviding?
@@ -27,7 +26,6 @@ struct SettingsView: View {
             List {
                 homeLocationSection
                 notificationsSection
-                dashboardSection
                 unitsSection
                 // Blurb pruned entirely — owner edit 2026-09-01.
                 Section("About") {
@@ -122,38 +120,6 @@ struct SettingsView: View {
                 // resolves first, GPS or a picked city, continues.
                 registration.warmLocationFixIfAuthorized()
                 showCityPicker = true
-            }
-        }
-    }
-
-    // MARK: dashboard — the phrases toggle
-
-    /// Default OFF — cards carry quality in color alone. When Differentiate
-    /// Without Color is on, phrases force-enable and the row reads on +
-    /// locked (color is never the only carrier).
-    private var dashboardSection: some View {
-        Section {
-            Toggle(isOn: differentiateWithoutColor ? .constant(true) : $preferences.showPhrases) {
-                HStack(spacing: 6) {
-                    Text("Show phrases")
-                    if differentiateWithoutColor {
-                        Image(systemName: "lock.fill")
-                            .font(.system(size: 13))
-                            .foregroundStyle(.secondary)
-                            .accessibilityLabel("Locked on")
-                    }
-                }
-            }
-            .disabled(differentiateWithoutColor)
-            .accessibilityIdentifier("settings.showPhrases")
-        } header: {
-            Text("Dashboard")
-        } footer: {
-            if differentiateWithoutColor {
-                Text("On — required while Differentiate Without Color is active.")
-            } else {
-                // Owner copy 2026-09-01 (prune pass).
-                Text("Adds a summary under each card")
             }
         }
     }
