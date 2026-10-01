@@ -7,7 +7,7 @@ import XCTest
 ///   today, second windowed tomorrow, the rest null).
 /// - `UITEST_MOCK_FAILURE`: the API throws providerUnavailable (server down / 502).
 /// - `UITEST_RESET`: wipes persisted activities + preferences (incl. the
-///   last-resolved cache and the dismissals/phrases keys) so each test starts
+///   last-resolved cache and the dismissals keys) so each test starts
 ///   from first-launch state (omit to test persistence).
 /// - `UITEST_SEED_LIVE`: pre-persists the two fixture activities as LIVE
 ///   (ranges confirmed) — the real first launch is an empty store (no
@@ -94,8 +94,7 @@ final class TimeItUITests: XCTestCase {
     /// Card v2 — "Score ring" (approved frame `458:394`). The card is wordless
     /// beyond the name, the numerals and the colour: the score ring with its
     /// "Score" caption, an HOURS-ONLY blue Range chip, and the Range-scoped
-    /// hour strip. The sublabel, the trajectory phrase and the metric chips
-    /// are not on the v2 frame.
+    /// hour strip. The sublabel and the metric chips are not on the v2 frame.
     func testCardV2ShowsScoreRingHoursOnlyChipAndNoWords() {
         let app = launchApp()
 
@@ -109,7 +108,7 @@ final class TimeItUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["rangeChip.fishing-lite"].exists,
                       "the null-verdict card keeps its range chip")
 
-        // Still no rating word, and no sublabel/phrase/day name anywhere.
+        // Still no rating word, and no sublabel/day name anywhere.
         XCTAssertFalse(app.staticTexts["Perfect"].exists)
         XCTAssertFalse(app.staticTexts["Good"].exists)
         XCTAssertFalse(app.staticTexts["Today \u{B7} 6\u{2013}10am"].exists,
@@ -571,46 +570,6 @@ final class TimeItUITests: XCTestCase {
         XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5),
                       "picking a city rates immediately — the home-change sink refetches")
         XCTAssertTrue(app.staticTexts["DUBAI MARINA"].exists, "the picked city names the header")
-    }
-
-    // MARK: - Phrases toggle
-
-    /// Card v2 is WORDLESS beyond the name, the numerals and the colour
-    /// (owner brief 2026-09-21; frame `458:394` has no phrase slot), so the
-    /// trajectory phrase no longer renders on the dashboard — on EITHER
-    /// setting of the toggle. The score numeral is the card's new non-colour
-    /// verdict channel.
-    ///
-    /// **Open for the owner:** the Settings "Show phrases" row survives but
-    /// now drives nothing. `TrajectoryPhrase` and its unit tests are
-    /// untouched; re-homing the phrase (detail? a later frame?) or retiring
-    /// the row is an owner call the v2/v3 frames do not cover.
-    func testPhrasesNeverRenderOnTheWordlessV2Card() {
-        let app = launchApp()
-
-        XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5))
-        XCTAssertFalse(app.staticTexts["Perfect throughout"].exists,
-                       "default OFF — a rated card shows no words")
-        XCTAssertFalse(app.staticTexts["Nothing in your range."].exists,
-                       "default OFF — the null-verdict card's red strip carries the verdict alone")
-
-        app.buttons["settingsGear"].tap()
-        let toggle = app.switches["settings.showPhrases"]
-        XCTAssertTrue(toggle.waitForExistence(timeout: 5), "the DASHBOARD row exists")
-        XCTAssertEqual(toggle.value as? String, "0", "the phrases row defaults off")
-        // The identifier sits on the whole Toggle row — tap the nested switch.
-        let control = toggle.switches.firstMatch
-        (control.exists ? control : toggle).tap()
-        XCTAssertEqual(toggle.value as? String, "1")
-        app.buttons["Done"].tap()
-
-        XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5))
-        XCTAssertFalse(app.staticTexts["Perfect throughout"].exists,
-                       "the v2 card stays wordless even with the toggle on")
-        XCTAssertFalse(app.staticTexts["Nothing in your range."].exists,
-                       "…on the null-verdict card too")
-        // What the card DOES carry instead: the score numeral, spoken in full.
-        XCTAssertEqual(app.otherElements["score.cycling"].label, "Perfect, score 86 out of 100")
     }
 
     // MARK: - Detail page

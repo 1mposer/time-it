@@ -3,7 +3,7 @@ import Foundation
 /// What a gradient stop paints: one of the three tiers, or the yellow BLEND
 /// WAYPOINT (Semantic `rating/blend`) inserted only at green↔orange hour
 /// boundaries. Yellow is not a fourth tier — `HourTier` stays three cases,
-/// and every solid-fill/chip/phrase surface types on `HourTier`, so yellow is
+/// and every solid-fill/chip surface types on `HourTier`, so yellow is
 /// unreachable outside this stop model by construction.
 enum SliceStopColor: Equatable, Hashable {
     case tier(HourTier)

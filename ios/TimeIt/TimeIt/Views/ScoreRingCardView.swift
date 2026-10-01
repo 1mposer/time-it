@@ -7,7 +7,7 @@ import SwiftUI
 /// tinted by that hour's tier) under boundary numerals.
 ///
 /// What changed from `ActivityCardView` (the main-look card, still used by the
-/// wizard's review preview): the ring replaces the sublabel/phrase, the strip
+/// wizard's review preview): the ring replaces the sublabel, the strip
 /// replaces the 6am–12am day-axis bar, the metric chips move to the detail's
 /// metric cards, and the chip is hours-only — "6 – 10am", no "Range · "
 /// prefix. The prefix survives on every surface the v2 frames don't cover.

@@ -13,7 +13,6 @@ struct DashboardView: View {
     /// handed to the Settings sheet (one instance app-wide).
     @StateObject private var registration: DeviceRegistration
     @ObservedObject private var router: PushRouter
-    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
     @State private var showSettings = false
@@ -638,8 +637,8 @@ struct DashboardView: View {
     }
 
     /// Card v2 — "Score ring" (approved frame `458:394`). Wordless beyond the
-    /// name, the numerals and the colour: the sublabel, the trajectory phrase
-    /// and the metric chips are not on the v2 frame, so they no longer render
+    /// name, the numerals and the colour: the sublabel and the metric chips
+    /// are not on the v2 frame, so they no longer render
     /// here; the "why" moved to the detail's metric cards.
     private func card(for activity: ActivityRating, authored: AuthoredActivity) -> ScoreRingCardView {
         // Day 0, unless today's Range has fully passed — then the card falls

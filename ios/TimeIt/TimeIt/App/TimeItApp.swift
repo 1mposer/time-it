@@ -18,7 +18,6 @@ struct TimeItApp: App {
             // dismissedTemplates: legacy showcase-ledger key, cleared by raw
             // string — the property died with the template removal.
             UserDefaults.standard.removeObject(forKey: "dismissedTemplates")
-            UserDefaults.standard.removeObject(forKey: PreferencesStore.showPhrasesKey)
             UserDefaults.standard.removeObject(forKey: PreferencesStore.pushCalloutDismissedKey)
             UserDefaults.standard.removeObject(forKey: PreferencesStore.timezoneWarnedHomeKey)
             UserDefaults.standard.removeObject(forKey: PreferencesStore.windSpeedUnitKey)
