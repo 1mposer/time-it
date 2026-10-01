@@ -53,15 +53,19 @@ extension ForecastResponse {
             let nocturnal = input.window?.isWrapped == true
             let days = (0..<(nocturnal ? 6 : 7)).map { dayIndex -> Day in
                 if nocturnal, dayIndex == 0 {
-                    return Day(dayIndex: 0, rating: .perfect, startIndex: 18, endIndex: 22, duration: 4)
+                    return Day(dayIndex: 0, rating: .perfect, startIndex: 18, endIndex: 22, duration: 4, score: 86)
                 }
                 if !nocturnal, offset == 0, dayIndex == 0 {
-                    return Day(dayIndex: 0, rating: .perfect, startIndex: 2, endIndex: 6, duration: 4)
+                    return Day(dayIndex: 0, rating: .perfect, startIndex: 2, endIndex: 6, duration: 4, score: 86)
                 }
                 if !nocturnal, offset == 1, dayIndex == 1 {
-                    return Day(dayIndex: 1, rating: .good, startIndex: 35, endIndex: 39, duration: 4)
+                    return Day(dayIndex: 1, rating: .good, startIndex: 35, endIndex: 39, duration: 4, score: 62)
                 }
-                return Day(dayIndex: dayIndex, rating: nil, startIndex: nil, endIndex: nil, duration: nil)
+                // A rating-null day with hours ALWAYS scores exactly 1: every
+                // hour carries a required miss (that is what makes the day
+                // null), so every hour scores 0 and the day mean clamps to 1
+                // (ADR-0011). Any other number here would be wire-impossible.
+                return Day(dayIndex: dayIndex, rating: nil, startIndex: nil, endIndex: nil, duration: nil, score: 1)
             }
             return ActivityRating(activityId: input.id,
                                   label: input.label,

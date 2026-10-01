@@ -37,6 +37,16 @@ enum HourQuality {
         return .red
     }
 
+    /// One metric's own verdict at one hour — what the detail v3 metric card
+    /// colours its value and gauge dot by. Nil when the metric carries no
+    /// threshold (a show-but-don't-judge display metric): nothing was asked
+    /// of it, so it renders uncoloured rather than being judged green.
+    static func metricTier(for hour: HourlyWeather, metric: String, threshold: Threshold?) -> HourTier? {
+        guard let threshold else { return nil }
+        if passes(hour, metric: metric, threshold: threshold) { return .green }
+        return threshold.required ? .red : .orange
+    }
+
     /// Mirror of the server's `checkThreshold`: an absent value FAILS (absent
     /// data is never silently fine); a `forbidTrue` flag fails when raised;
     /// numeric bounds are inclusive (strict `< min` / `> max` fail).

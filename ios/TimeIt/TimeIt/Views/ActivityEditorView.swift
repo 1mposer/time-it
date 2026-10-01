@@ -326,7 +326,7 @@ struct ActivityEditorView: View {
                     metricRow(descriptor)
                 }
             } footer: {
-                Text("First three metrics show as chips on the card.")
+                Text("Each metric gets a card on the activity's detail.")
             }
         }
         .scrollContentBackground(.hidden)

@@ -330,11 +330,45 @@ final class DashboardViewModel: ObservableObject {
         return day.rating != nil ? day : nil
     }
 
+    /// The RAW day bucket at `dayIndex` — unlike `cardDay(for:)` this does
+    /// NOT drop a rating-null day. ADR-0011's `score` is computed
+    /// independently of the verdict, so a null day still carries a real (low)
+    /// score and the v2 ring must draw it (the frame's red 31). Read the
+    /// score through here; read the window through `cardDay`.
+    func rawDay(for activity: ActivityRating, dayIndex: Int = 0) -> Day? {
+        guard activity.days.indices.contains(dayIndex) else { return nil }
+        return activity.days[dayIndex]
+    }
+
     /// The current response's rating for an authored id — keeps a pushed
     /// detail view live across a refetch.
     func rating(forActivityId activityId: String) -> ActivityRating? {
         forecast?.activities.first { $0.activityId == activityId }
     }
+
+    /// Every forecast hour the detail v3 stepper may walk in a day bucket:
+    /// the bucket's own local-day span, widened to cover its Range hours (a
+    /// nocturnal Range runs past midnight). Its lower bound is where `−`
+    /// dims (owner ruling 2026-09-30 — the walkable edge, not the Range
+    /// start). Nil without a forecast.
+    func walkableHourRange(for authored: AuthoredActivity, dayIndex: Int = 0) -> Range<Int>? {
+        guard let deriver = timeDeriver,
+              let hourCount = forecast?.hours.count, hourCount > 0 else { return nil }
+        let rangeHours = rangeHourIndices(for: authored, dayIndex: dayIndex)
+        guard let daySpan = deriver.hourRange(forDayIndex: dayIndex, hourCount: hourCount) else {
+            return rangeHours
+        }
+        guard let rangeHours, !rangeHours.isEmpty else {
+            return daySpan.isEmpty ? nil : daySpan
+        }
+        let span = Swift.min(daySpan.lowerBound, rangeHours.lowerBound)
+            ..< Swift.max(daySpan.upperBound, rangeHours.upperBound)
+        return span.isEmpty ? nil : span
+    }
+
+    /// The forecast location's local hour at a global `hours[]` index — the
+    /// strip's boundary numerals and the stepper's clock label read it.
+    func localHour(at index: Int) -> Int? { timeDeriver?.localHour(at: index) }
 
     // MARK: Range hours — the client twin of the server's window filter
 
