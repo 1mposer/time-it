@@ -13,6 +13,7 @@
     "cli": "node cli.js"
   },
   "dependencies": {
+    "@typesafe-ai/sdk": "0.6.0",
     "apns2": "^12.2.0",
     "cors": "^2.8.6",
     "dotenv": "^16.4.5",
