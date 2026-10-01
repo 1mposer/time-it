@@ -4,16 +4,17 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { metricScore, hourScore, dayScore } = require("../../src/decision/score");
 
-// The ADR-0011 worked examples live in tests/fixtures/day-score-examples.json —
-// the SHARED table the iOS mirror transcribes (ADR-0007, the clock-labels.json
-// mold). Every expectation below comes from that file's hand-derived `expected`
-// values; nothing here recomputes them, so a formula drift on either side shows
-// up as a failure rather than two coincidentally-agreeing tables.
+// The ADR-0011 worked examples live in tests/fixtures/day-score-examples.json
+// (the clock-labels.json mold, ADR-0007). The iOS score mirror that once
+// transcribed the same table was deleted 2026-10-01 (ADR-0007 mirror #4), so
+// this suite alone reads it now. Every expectation below comes from that file's
+// hand-derived `expected` values; nothing here recomputes them, so a formula
+// drift shows up as a failure rather than as a self-agreeing table.
 const dayScoreExamples = JSON.parse(
   fs.readFileSync(path.join(__dirname, "../fixtures/day-score-examples.json"), "utf8"),
 );
 
-test("fixture table is the one the iOS mirror reads (shape pin)", () => {
+test("fixture table shape pin (every case named, expected, derived)", () => {
   for (const group of ["metricCases", "hourCases", "dayCases"]) {
     assert.ok(Array.isArray(dayScoreExamples[group]) && dayScoreExamples[group].length > 0);
     for (const c of dayScoreExamples[group]) {
@@ -52,6 +53,21 @@ test("hourScore ignores display-only metrics entirely (no judging what isn't thr
   assert.ok(c.displayMetrics.includes("humidity") && !("humidity" in c.thresholds));
   // A wildly out-of-range humidity cannot move the score: it is display-only.
   assert.equal(hourScore({ ...c.hourValues, humidity: -999 }, c.thresholds), c.expected);
+});
+
+// ADR-0011 amendment (2026-10-01): a required miss scores 0 for THAT metric
+// only — the hour is not zeroed. Pinned outside the fixture too, so a revert to
+// the original "required miss zeroes the hour" rule fails with a named test.
+test("hourScore: a required miss plus a passing optional metric scores the mean, not 0", () => {
+  const thresholds = {
+    temp: { min: 10, max: 30, required: true },       // 40 > max 30 -> 0 (required miss)
+    dustAlert: { type: "flag", forbidTrue: true, required: false }, // false -> 100
+  };
+  // mean(0, 100) = 50 — the pre-amendment rule would have returned 0.
+  assert.strictEqual(hourScore({ temp: 40, dustAlert: false }, thresholds), 50);
+  // A Bad hour still carries a gradient at the day level: two such hours ->
+  // mean(50, 50) = 50 -> 50, never the floor 1.
+  assert.strictEqual(dayScore([{ temp: 40, dustAlert: false }, { temp: 40, dustAlert: false }], thresholds), 50);
 });
 
 // --- per-day mean -> round -> clamp 1..100, null on an empty window ---
@@ -113,7 +129,10 @@ test("a NaN metric value scores the floor, never a NaN that serializes as null",
   assert.ok(Number.isNaN(hourScore({ temp: NaN }, required)));
 });
 
-test("a zero-hour bucket is the ONLY null — a zeroed day clamps to 1 instead", () => {
+test("a zero-hour bucket is the ONLY null — an all-zero day clamps to 1 instead", () => {
+  // Single required metric failing every hour: each hour is mean(0) = 0, so the
+  // day mean is 0 -> clamped to 1. (With a second, passing metric the day would
+  // NOT be 1 — see the amended required-miss pin above.)
   const required = { temp: { min: 10, max: 30, required: true } };
   assert.strictEqual(dayScore([], required), null);
   assert.strictEqual(dayScore([{ temp: 99 }, { temp: 99 }], required), 1);

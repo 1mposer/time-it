@@ -179,11 +179,18 @@ test('a null-rated day keeps its slot with the window fields absent (ADR-0004 su
   const nullDays = allDays.filter((d) => d.rating === null);
   assert.ok(nullDays.length > 0);
   for (const d of nullDays) {
-    // `score` is present even here (ADR-0011): temp 100 fails the required band
-    // every hour -> hour score 0 -> day mean 0 -> clamped to 1, never null.
+    // `score` is present even here (ADR-0011) — never null: the bucket has hours.
     assert.deepStrictEqual(Object.keys(d), ['dayIndex', 'rating', 'score']);
-    assert.equal(d.score, 1);
   }
+  // temp 100 fails the REQUIRED temp band [15,35] every hour -> 0 for temp. Under
+  // the amended ADR-0011 rule (2026-10-01) the required miss scores that metric
+  // 0 only, and the hour still averages over the thresholded metrics:
+  //   boat-fishing-pro thresholds temp alone -> hour mean(0) = 0 -> day 0 -> clamp 1
+  //   volleyball adds windSpeed 10 <= max 15 -> 100 -> hour mean(0,100) = 50 -> 50
+  //   (was 1 under the retired zero-the-hour rule)
+  const scoresOf = (id) => res.body.activities.find((a) => a.activityId === id).days.map((d) => d.score);
+  assert.deepStrictEqual(scoresOf('boat-fishing-pro'), [1, 1]);
+  assert.deepStrictEqual(scoresOf('volleyball'), [50, 50]);
 });
 
 // --- partial day-0 + non-uniform offset ---
@@ -273,14 +280,17 @@ test('golden: full response shape, key order, and global window indices', async 
 
   // The same golden contract on a RATING-NULL day: identical fixture shape, a
   // temp no band accepts. The window triplet is absent but `score` is not —
-  // it is the last key on both day shapes (ADR-0011).
+  // it is the last key on both day shapes (ADR-0011). Score (amended ADR-0011,
+  // 2026-10-01): temp 100 misses the REQUIRED band -> 0 for temp only;
+  // windSpeed 10 <= max 15 -> 100; hour mean(0,100) = 50 on every hour -> 50
+  // (was 1 under the retired zero-the-hour rule).
   const nullApp = makeApp({
     getWeather: async () => ({ forecastStart: FORECAST_START, timezone: TIMEZONE, hours: makeTaggedHours(48, { temp: 100 }) }),
   });
   const nullRes = await post(nullApp, validBody());
   const nullVb = nullRes.body.activities.find((a) => a.activityId === 'volleyball');
   assert.deepStrictEqual(Object.keys(nullVb.days[0]), ['dayIndex', 'rating', 'score']);
-  assert.deepStrictEqual(nullVb.days[0], { dayIndex: 0, rating: null, score: 1 });
+  assert.deepStrictEqual(nullVb.days[0], { dayIndex: 0, rating: null, score: 50 });
 
   // hours[] — per-hour wire key order: index first, `hour` dropped, internal tags stripped
   assert.equal(res.body.hours.length, 48);

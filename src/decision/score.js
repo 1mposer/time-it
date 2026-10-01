@@ -26,17 +26,20 @@ function metricScore(value, config) {
 }
 
 // Mean over the activity's THRESHOLDED metrics only — display-only metrics
-// never contribute. A failing required threshold zeroes the whole hour,
-// mirroring the hour turning Bad in evaluateHour. An empty threshold map scores
-// 100: there is nothing to judge and evaluateHour rates such an hour "perfect",
-// so the score must agree rather than divide by zero.
+// never contribute. A failing required threshold scores 0 for that metric only
+// (metricScore already returns 0 on any miss); the hour stays the mean over all
+// thresholded metrics, so it keeps degrading smoothly even on a Bad hour
+// (ADR-0011 amendment, 2026-10-01). The hour-turns-Bad snap belongs to the
+// rating (evaluateHour) alone — `required` is deliberately not read here.
+// An empty threshold map scores 100: there is nothing to judge and evaluateHour
+// rates such an hour "perfect", so the score must agree rather than divide by
+// zero.
 function hourScore(hour, thresholds) {
   const entries = Object.entries(thresholds);
   if (entries.length === 0) return 100;
 
   let total = 0;
   for (const [metric, config] of entries) {
-    if (config.required && !checkThreshold(hour[metric], config)) return 0;
     total += metricScore(hour[metric], config);
   }
   return total / entries.length;

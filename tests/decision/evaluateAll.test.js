@@ -101,9 +101,13 @@ test("per-day window indices are global, not day-relative (offset applied on day
 test("null day keeps its slot with the window fields absent", () => {
   const hours = makeHours(48, (i) => (i < 24 ? { dustAlert: true } : {}));
   const [vb] = evaluateAll(hours, [VOLLEYBALL]);
-  // Every day-0 hour trips the REQUIRED dustAlert flag -> hour score 0 -> day
-  // mean 0 -> clamped up to 1 (never 0, never null: the bucket has hours).
-  assert.deepStrictEqual(vb.days[0], { dayIndex: 0, rating: null, score: 1 });
+  // Every day-0 hour trips the REQUIRED dustAlert flag -> the rating is null.
+  // Score (amended ADR-0011, 2026-10-01: a required miss scores 0 for that
+  // metric only, the hour still averages): temp 25 = centre of [15,35] -> 100;
+  // windSpeed 10 <= max 15 -> 100; dustAlert true -> 0. Hour = (100+100+0)/3 =
+  // 200/3 = 66.66...; every hour identical -> day 66.66... -> 67 (was 1 under
+  // the retired zero-the-hour rule). Never null: the bucket has hours.
+  assert.deepStrictEqual(vb.days[0], { dayIndex: 0, rating: null, score: 67 });
   assert.equal(vb.days[1].rating, "perfect");
   assert.equal(vb.days[1].startIndex, 24);
 });
@@ -170,7 +174,9 @@ test('same-day window: failures OUTSIDE the window are ignored; INSIDE fail the 
   assert.equal(outside.days[0].rating, 'perfect');
   // temp=100 at indices 9-16 IS the day-0 window -> day 0 is null, day 1 unaffected.
   const inside = evaluateAll(makeHours(48, (i) => (i >= 9 && i <= 16 ? { temp: 100 } : {})), [MIDDAY])[0];
-  // All 8 of day-0's window hours fail the REQUIRED temp -> hour score 0 -> clamp 1.
+  // All 8 of day-0's window hours fail the REQUIRED temp. MIDDAY thresholds a
+  // single metric, so the hour is mean(0) = 0 under the amended rule too ->
+  // day mean 0 -> clamp 1 (unchanged by the ADR-0011 amendment).
   assert.deepStrictEqual(inside.days[0], { dayIndex: 0, rating: null, score: 1 });
   assert.equal(inside.days[1].rating, 'perfect');
 });
@@ -218,8 +224,11 @@ test('a non-qualifying night keeps its slot with rating null', () => {
   // Fail cloudCover only during night 0's hours (idx 22-25).
   const hours = makeHours(72, (i) => (i >= 22 && i <= 25 ? { cloudCover: 90 } : {}));
   const [r] = evaluateAll(hours, [NIGHT]);
-  // cloudCover is REQUIRED, so all 4 of night 0's hours score 0 -> clamp 1.
-  assert.deepStrictEqual(r.days[0], { dayIndex: 0, rating: null, score: 1 });
+  // cloudCover is REQUIRED, so all 4 of night 0's hours are Bad -> rating null.
+  // Score (amended ADR-0011: the required miss scores 0 for cloudCover only):
+  // temp 25 in [5,35] -> 100*(1-5/15) = 200/3; cloudCover 90 -> 0. Hour =
+  // (200/3 + 0)/2 = 100/3 = 33.33...; all 4 identical -> 33 (was 1).
+  assert.deepStrictEqual(r.days[0], { dayIndex: 0, rating: null, score: 33 });
   assert.equal(r.days[1].rating, 'perfect');
 });
 
@@ -289,7 +298,9 @@ test('the score averages the whole bucket, not just the rated window', () => {
   const hours = makeHours(24, (i) => (i >= 16 ? { temp: 100 } : {}));
   const [r] = evaluateAll(hours, [WIDE]);
   // idx 0-15: temp 25 -> 100*(1-5/15) = 200/3 = 66.66... and the hour is Perfect
-  // idx 16-23: temp 100 fails the REQUIRED band -> hour 0, the hour is Bad
+  // idx 16-23: temp 100 fails the REQUIRED band -> metric 0; WIDE thresholds a
+  // single metric, so the hour is mean(0) = 0 (same under the amended ADR-0011
+  // rule) and the hour is Bad
   assert.deepStrictEqual(r.days[0], { dayIndex: 0, rating: 'perfect', startIndex: 0, endIndex: 16, duration: 16, score: 44 });
   // Why 44, and what the wrong slices would give:
   //   bucket (all 24h):        (16 x 200/3 + 8 x 0)/24 = 3200/72 = 44.44... -> 44  <- correct
@@ -299,14 +310,23 @@ test('the score averages the whole bucket, not just the rated window', () => {
 
 test('a nocturnal bucket also averages its whole stitched night, not its rated window', () => {
   // night 0 = idx 22,23 (evening) + 24,25 (morning); fail cloudCover on idx 25 only.
-  const hours = makeHours(72, (i) => (i === 25 ? { cloudCover: 90 } : {}));
+  // FIXTURE CHANGED for the ADR-0011 amendment (2026-10-01): idx 25 now also
+  // carries temp 17. With the old temp 25 the amended hour would be
+  // (200/3 + 0)/2 = 33.33..., making the bucket (250 + 100/3)/4 = 70.83... -> 71
+  // and the pre-rounded slice (249 + 33)/4 = 70.5 -> 71 — the pre-rounding
+  // tripwire would collapse onto the right answer. temp 17 keeps all three
+  // candidates distinct (and keeps a genuine half-up tie).
+  const hours = makeHours(72, (i) => (i === 25 ? { cloudCover: 90, temp: 17 } : {}));
   const [r] = evaluateAll(hours, [NIGHT]);
   // idx 22,23,24: temp 25 -> 200/3, cloudCover 10 -> 100; hour = 250/3 = 83.33...
-  // idx 25: cloudCover 90 fails the REQUIRED max 30 -> hour 0
-  assert.deepStrictEqual(r.days[0], { dayIndex: 0, rating: 'perfect', startIndex: 22, endIndex: 25, duration: 3, score: 63 });
-  //   bucket (all 4h):         (3 x 250/3 + 0)/4 = 250/4 = 62.5 -> half-up -> 63  <- correct
-  //   rated window (3h only):   250/3 = 83.33...                             -> 83
-  //   hour scores pre-rounded: (3 x 83 + 0)/4     = 249/4 = 62.25            -> 62
+  // idx 25: cloudCover 90 fails the REQUIRED max 30 -> 0 for cloudCover only (the
+  //   hour is Bad, but under the amended rule it still averages); temp 17 ->
+  //   100*(1-|17-20|/15) = 100*(1-3/15) = 80; hour = (80 + 0)/2 = 40
+  assert.deepStrictEqual(r.days[0], { dayIndex: 0, rating: 'perfect', startIndex: 22, endIndex: 25, duration: 3, score: 73 });
+  //   bucket (all 4h):         (3 x 250/3 + 40)/4 = 290/4 = 72.5 -> half-up -> 73  <- correct
+  //   rated window (3h only):   250/3 = 83.33...                              -> 83
+  //   hour scores pre-rounded: (3 x 83 + 40)/4     = 289/4 = 72.25            -> 72
+  //   (was 63 / 83 / 62 under the retired zero-the-hour rule with temp 25)
 });
 
 // The NULL RULE, and the only way a zero-hour bucket arises in evaluateAll: a
