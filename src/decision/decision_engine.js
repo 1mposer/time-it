@@ -69,4 +69,7 @@ function evaluate(hours, userPrefs) {
   return { rating: null, activityId: userPrefs.activityId };
 }
 
-module.exports = { evaluate };
+// checkThreshold is exported for score.js only (same module): the day score's
+// "inside the band" test must be this exact inclusive comparison, never a
+// re-derived one. Nothing outside src/decision/ imports from here.
+module.exports = { evaluate, checkThreshold };

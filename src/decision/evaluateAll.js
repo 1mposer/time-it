@@ -1,4 +1,5 @@
 const { evaluate } = require('./decision_engine');
+const { dayScore } = require('./score');
 
 // Per-day bucketing over caller-supplied activities (ADR-0003). A bucket is
 // { offset, hours }: a slice of the global hours[] plus its global start
@@ -73,7 +74,10 @@ function bucketsForActivity(hours, window) {
 }
 
 // Map a bucket to the wire day shape, offsetting slice-relative window
-// indices back to global hours[] positions.
+// indices back to global hours[] positions. `score` (ADR-0011) is assigned
+// LAST so the wire key order is dayIndex, rating, (startIndex, endIndex,
+// duration), score — and it is present on every day object, including a
+// rating-null one (score and rating are computed independently).
 function toDay(dayIndex, bucket, prefs) {
   const window = evaluate(bucket.hours, prefs);
   const day = { dayIndex, rating: window.rating };
@@ -82,6 +86,7 @@ function toDay(dayIndex, bucket, prefs) {
     day.endIndex   = window.endIndex + bucket.offset;
     day.duration   = window.duration;
   }
+  day.score = dayScore(bucket.hours, prefs.thresholds);
   return day;
 }
 

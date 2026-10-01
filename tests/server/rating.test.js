@@ -179,7 +179,10 @@ test('a null-rated day keeps its slot with the window fields absent (ADR-0004 su
   const nullDays = allDays.filter((d) => d.rating === null);
   assert.ok(nullDays.length > 0);
   for (const d of nullDays) {
-    assert.deepStrictEqual(Object.keys(d), ['dayIndex', 'rating']);
+    // `score` is present even here (ADR-0011): temp 100 fails the required band
+    // every hour -> hour score 0 -> day mean 0 -> clamped to 1, never null.
+    assert.deepStrictEqual(Object.keys(d), ['dayIndex', 'rating', 'score']);
+    assert.equal(d.score, 1);
   }
 });
 
@@ -202,8 +205,9 @@ test('partial day-0: variable-length buckets with a non-24 global offset (ADR-00
   const vb = res.body.activities.find((a) => a.activityId === 'volleyball');
   assert.equal(vb.days.length, 2);
   vb.days.forEach((d, i) => assert.equal(d.dayIndex, i));
-  assert.deepStrictEqual(vb.days[0], { dayIndex: 0, rating: 'perfect', startIndex: 0,  endIndex: 13, duration: 13 });
-  assert.deepStrictEqual(vb.days[1], { dayIndex: 1, rating: 'perfect', startIndex: 13, endIndex: 37, duration: 24 });
+  // score: temp 25 is the centre of [15,35] -> 100; windSpeed 10 inside max 15 -> 100.
+  assert.deepStrictEqual(vb.days[0], { dayIndex: 0, rating: 'perfect', startIndex: 0,  endIndex: 13, duration: 13, score: 100 });
+  assert.deepStrictEqual(vb.days[1], { dayIndex: 1, rating: 'perfect', startIndex: 13, endIndex: 37, duration: 24, score: 100 });
 });
 
 // --- night-stitch at the wire: per-activity days.length, dayIndex contiguous (ADR-0004 amendment) ---
@@ -235,7 +239,9 @@ test('a nocturnal (wrapped-window) activity buckets by night; days.length is per
   assert.equal(star.days.length, 3, 'nocturnal: 3 nights (per-activity days.length)');
   star.days.forEach((d, i) => assert.equal(d.dayIndex, i)); // dense from 0 within the activity
   // night 2 spans the local midnight: day2 22:00,23:00 (idx 54,55) + day3 00:00,01:00 (idx 56,57)
-  assert.deepStrictEqual(star.days[2], { dayIndex: 2, rating: 'perfect', startIndex: 54, endIndex: 58, duration: 4 });
+  // score: temp 25 in [5,35] -> 100*(1-5/15) = 200/3; cloudCover 10 inside max 30
+  // -> 100; hour mean 250/3 = 83.33... on every stitched hour -> 83.
+  assert.deepStrictEqual(star.days[2], { dayIndex: 2, rating: 'perfect', startIndex: 54, endIndex: 58, duration: 4, score: 83 });
 });
 
 // --- golden snapshot — the executable spec (hand-verified against ADR-0004/0005) ---
@@ -258,11 +264,23 @@ test('golden: full response shape, key order, and global window indices', async 
     assert.equal(a.days.length, 2);
   }
 
-  // Per-day key order + GLOBAL indices; day 1's offset (24/48) is the silent-offset tripwire.
+  // Per-day key order + GLOBAL indices; day 1's offset (24/48) is the silent-offset
+  // tripwire. `score` is last (ADR-0011) and present on every day object.
   const vb = res.body.activities.find((a) => a.activityId === 'volleyball');
-  assert.deepStrictEqual(Object.keys(vb.days[0]), ['dayIndex', 'rating', 'startIndex', 'endIndex', 'duration']);
-  assert.deepStrictEqual(vb.days[0], { dayIndex: 0, rating: 'perfect', startIndex: 0,  endIndex: 24, duration: 24 });
-  assert.deepStrictEqual(vb.days[1], { dayIndex: 1, rating: 'perfect', startIndex: 24, endIndex: 48, duration: 24 });
+  assert.deepStrictEqual(Object.keys(vb.days[0]), ['dayIndex', 'rating', 'startIndex', 'endIndex', 'duration', 'score']);
+  assert.deepStrictEqual(vb.days[0], { dayIndex: 0, rating: 'perfect', startIndex: 0,  endIndex: 24, duration: 24, score: 100 });
+  assert.deepStrictEqual(vb.days[1], { dayIndex: 1, rating: 'perfect', startIndex: 24, endIndex: 48, duration: 24, score: 100 });
+
+  // The same golden contract on a RATING-NULL day: identical fixture shape, a
+  // temp no band accepts. The window triplet is absent but `score` is not —
+  // it is the last key on both day shapes (ADR-0011).
+  const nullApp = makeApp({
+    getWeather: async () => ({ forecastStart: FORECAST_START, timezone: TIMEZONE, hours: makeTaggedHours(48, { temp: 100 }) }),
+  });
+  const nullRes = await post(nullApp, validBody());
+  const nullVb = nullRes.body.activities.find((a) => a.activityId === 'volleyball');
+  assert.deepStrictEqual(Object.keys(nullVb.days[0]), ['dayIndex', 'rating', 'score']);
+  assert.deepStrictEqual(nullVb.days[0], { dayIndex: 0, rating: null, score: 1 });
 
   // hours[] — per-hour wire key order: index first, `hour` dropped, internal tags stripped
   assert.equal(res.body.hours.length, 48);
