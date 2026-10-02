@@ -102,6 +102,42 @@ final class PreferencesStoreTests: XCTestCase {
         XCTAssertEqual(PreferencesStore(defaults: defaults).windSpeedUnit, .kmh)
     }
 
+    // MARK: the card chevron (spec 05) — remembered per card
+
+    func testCollapsedCardIdsDefaultEmpty() {
+        XCTAssertEqual(PreferencesStore(defaults: defaults).collapsedCardIds, [],
+                       "every card starts expanded — dots shown is the natural state")
+    }
+
+    func testToggleCardCollapsedPersistsAcrossAFreshStore() {
+        let store = PreferencesStore(defaults: defaults)
+        store.toggleCardCollapsed("cycling")
+
+        XCTAssertEqual(store.collapsedCardIds, ["cycling"])
+        XCTAssertEqual(PreferencesStore(defaults: defaults).collapsedCardIds, ["cycling"],
+                       "the choice survives relaunch")
+    }
+
+    func testToggleTwiceRestoresExpanded() {
+        let store = PreferencesStore(defaults: defaults)
+        store.toggleCardCollapsed("cycling")
+        store.toggleCardCollapsed("fishing-lite")
+        store.toggleCardCollapsed("cycling")
+
+        XCTAssertEqual(PreferencesStore(defaults: defaults).collapsedCardIds, ["fishing-lite"],
+                       "per card — toggling one never touches another")
+    }
+
+    func testPruneDropsIdsOfDeletedActivities() {
+        let store = PreferencesStore(defaults: defaults)
+        store.toggleCardCollapsed("cycling")
+        store.toggleCardCollapsed("deleted-one")
+
+        store.pruneCollapsedCards(keeping: ["cycling", "fishing-lite"])
+
+        XCTAssertEqual(PreferencesStore(defaults: defaults).collapsedCardIds, ["cycling"])
+    }
+
     func testPreFiveCSavedLocationDecodesWithoutRegion() throws {
         // A SavedLocation persisted without the optional `region` field must
         // still decode.

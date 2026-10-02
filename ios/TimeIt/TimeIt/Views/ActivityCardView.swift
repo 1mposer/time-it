@@ -16,9 +16,10 @@ struct ActivityCardView: View {
     let windowStartHour: HourlyWeather?
     let deriver: TimeDeriver?
     let hoursCount: Int
-    /// The day bucket the card shows: 0 today, 1 when today's Range has
-    /// fully passed (the passed-range fallback) — drives the sublabel's
-    /// "Today"/"Tomorrow" and the axis when `day` is nil.
+    /// The day bucket the card shows — always 0 today (the only caller, the
+    /// wizard's review preview, takes the default; the dashboard card is the
+    /// v2 ring card and is today-only). Drives the sublabel's day name and
+    /// the axis when `day` is nil.
     var shownDayIndex: Int = 0
     /// Explicit icon from the authored Activity; nil falls back to the legacy
     /// id heuristic below.
@@ -93,8 +94,7 @@ struct ActivityCardView: View {
     }
 
     /// "Today · 6–8pm" / "Tonight · 10pm–2am" — same dialect as the push
-    /// copy; the passed-range fallback reads "Tomorrow · …". A red day is
-    /// the plain day name.
+    /// copy. A red day is the plain day name.
     private var sublabel: String {
         guard let deriver else { return isNocturnal ? "Tonight" : "Today" }
         return deriver.sublabel(forDayIndex: day?.dayIndex ?? shownDayIndex,
@@ -148,8 +148,8 @@ struct TimelineBarView: View {
     let deriver: TimeDeriver?
     let hoursCount: Int
     let activityId: String
-    /// The day the axis spans when `day` is nil (the passed-range fallback
-    /// shows tomorrow's axis even for a red day).
+    /// The day the axis spans when `day` is nil — the card's
+    /// `shownDayIndex`, which is always 0 (today) now.
     var fallbackDayIndex: Int = 0
     /// Global hours[] indices the Range covers in the shown day bucket.
     var sliceRange: Range<Int>?

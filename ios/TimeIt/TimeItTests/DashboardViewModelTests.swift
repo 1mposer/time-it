@@ -722,17 +722,31 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertTrue(vm.windowHours(for: outOfRange).isEmpty)
     }
 
-    // MARK: passed-range fallback — the ONLY forward jump (owner ruling
-    // 2026-09-01); bad weather today still shows today (ADR-0004 amendment
-    // stays cancelled for that case).
+    // MARK: today-only card (owner ruling 2026-10-02 — reverses the
+    // 2026-09-01 passed-range fall-forward; the week lives in the dot row).
 
     // The fixture forecast starts 16:00 Dubai — the 6–10am seed's Range has
-    // fully passed, the TestFlight build-3 finding.
-    func testCardDayIndexFallsToTomorrowWhenRangePassedToday() async {
+    // fully passed today. It used to fall forward to tomorrow (day 1); the
+    // card is now today-only, so it stays on day 0.
+    func testCardIsTodayOnlyEvenWhenTheRangePassedToday() async {
         let (vm, _, _, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])))
         await vm.loadForecast()
 
-        XCTAssertEqual(vm.cardDayIndex(for: Fixtures.cycling), 1)
+        XCTAssertTrue(vm.rangeHasPassedToday(WindowSpec(startHour: 6, endHour: 10)),
+                      "precondition: this is the old fall-forward case")
+        XCTAssertEqual(vm.cardDayIndex(for: Fixtures.cycling), 0)
+    }
+
+    // MARK: collapsed-card pruning — deleting an Activity forgets its chevron
+
+    func testDeletingAnActivityPrunesItsCollapsedCardId() async {
+        let (vm, _, _, store, preferences) = makeVM(result: .success(Fixtures.makeForecast(activities: [])))
+        preferences.toggleCardCollapsed(Fixtures.cycling.id)
+        preferences.toggleCardCollapsed(Fixtures.fishingLite.id)
+
+        store.delete(id: Fixtures.cycling.id)
+
+        XCTAssertEqual(vm.preferences.collapsedCardIds, [Fixtures.fishingLite.id])
     }
 
     func testCardDayIndexStaysTodayWhileRangeAhead() async {

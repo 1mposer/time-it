@@ -93,7 +93,11 @@ final class DashboardViewModel: ObservableObject {
         self.store.$activities
             .dropFirst()
             .removeDuplicates()
-            .sink { [weak self] _ in
+            .sink { [weak self] activities in
+                // A deleted Activity's chevron state goes with it (spec 05).
+                // Driven by store changes only — never on launch — so the
+                // persisted set is not pruned against a not-yet-loaded store.
+                self?.preferences.pruneCollapsedCards(keeping: Set(activities.map(\.id)))
                 self?.scheduleReload()
             }
             .store(in: &cancellables)
@@ -307,23 +311,17 @@ final class DashboardViewModel: ObservableObject {
         authoredActivity(forActivityId: activityId)?.isNocturnal ?? false
     }
 
-    /// The day bucket the card shows: 0 (today/tonight) — except when the
-    /// activity's Range has already fully passed today (no forecast hour left
-    /// inside it), where the card falls forward to tomorrow (owner ruling
-    /// 2026-09-01). This is deliberately narrower than the cancelled
-    /// roll-forward (ADR-0004 amendment): a bad-weather today stays red.
+    /// The day bucket the card shows: always 0 (today/tonight). The card is
+    /// TODAY-ONLY (owner ruling 2026-10-02, spec 05) — the 2026-09-01
+    /// passed-Range fall-forward is retired; the week is visible in the
+    /// card's dot row instead.
     func cardDayIndex(for authored: AuthoredActivity) -> Int {
-        guard let window = authored.window,
-              rangeHasPassedToday(window),
-              rangeHourIndices(window: window, dayIndex: 1) != nil else {
-            return 0
-        }
-        return 1
+        0
     }
 
-    /// The card's day at `dayIndex` (0 today, 1 the passed-range fallback).
+    /// The card's day at `dayIndex`.
     /// Nil when that day has no window — the card renders its none-state; the
-    /// week lives in the detail.
+    /// week lives in the dot row.
     func cardDay(for activity: ActivityRating, dayIndex: Int = 0) -> Day? {
         guard activity.days.indices.contains(dayIndex) else { return nil }
         let day = activity.days[dayIndex]
@@ -382,8 +380,9 @@ final class DashboardViewModel: ObservableObject {
 
     /// True when a same-day Range has no forecast hour left today — the
     /// forecast starts at the current hour, so an empty day-0 slice means the
-    /// Range has fully passed. Drives the card's tomorrow-fallback and the
-    /// editor's "already passed" save alert. A wrapped Range never "passes"
+    /// Range has fully passed. Drives the editor's "already passed" save
+    /// alert and its review pills (the card no longer falls forward — it is
+    /// today-only since 2026-10-02). A wrapped Range never "passes"
     /// (tonight is always ahead of, or inside, the forecast).
     func rangeHasPassedToday(_ window: WindowSpec) -> Bool {
         guard !window.isWrapped, forecast != nil else { return false }
@@ -438,8 +437,8 @@ final class DashboardViewModel: ObservableObject {
         return Array(hours[range])
     }
 
-    /// Per-hour quality tiers over the Range hours — feeds the card slice's
-    /// gradient and the detail's week bars. Empty when none.
+    /// Per-hour quality tiers over the Range hours — feeds the v2 card's
+    /// hour strip. Empty when none.
     func rangeTiers(for authored: AuthoredActivity, dayIndex: Int) -> [HourTier] {
         rangeHours(for: authored, dayIndex: dayIndex)
             .map { HourQuality.tier(for: $0, thresholds: authored.thresholds) }

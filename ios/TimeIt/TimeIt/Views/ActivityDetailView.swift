@@ -1,18 +1,19 @@
 import SwiftUI
 
-/// Activity Detail v3 — TODAY ONLY (Figma `456:358` / `464:2348`, owner-
-/// approved 2026-09-30). Top to bottom: the hero (day-score ring + rating
-/// word + hour stepper over a Range-scoped hour strip), three square metric
-/// cards two per row reading the SELECTED hour, then the Edit range / Edit
-/// metrics list.
+/// Activity Detail v3 (Figma `456:358` / `464:2348`, owner-approved
+/// 2026-09-30; day-jump `508:417`, owner-approved 2026-10-02). Opens on
+/// TODAY. Top to bottom: the week-dot row (the day-jump control — ring on the
+/// selected day), the hero (day-score ring + rating word + hour stepper over
+/// a Range-scoped hour strip), square metric cards two per row reading the
+/// SELECTED hour, then the Edit range / Edit metrics list.
 ///
-/// The week rows and the hour × metric grid are **gone** (today-only ruling);
-/// `DayBarPaint` / `RangeAxis` survive as pure types with their own tests —
-/// this view simply no longer draws week bars.
+/// The old week rows and the hour × metric grid stay **gone**; the dots are
+/// the one way to show days. `DayBarPaint` / `RangeAxis` survive as pure
+/// types with their own tests.
 ///
-/// The hero ring shows the DAY score (`days[0].score` from the wire), not a
-/// per-hour score: the two linked frames hold 86/Perfect fixed while the
-/// stepper moves 6am → 7am and the metric values change.
+/// The hero ring shows the selected DAY's score (`days[selectedDayIndex]
+/// .score` from the wire), not a per-hour score: the two linked frames hold
+/// 86/Perfect fixed while the stepper moves 6am → 7am.
 struct ActivityDetailView: View {
     /// The rating captured at navigation time — a fallback; the body
     /// re-resolves from the live forecast so a refetch updates in place.
@@ -23,7 +24,12 @@ struct ActivityDetailView: View {
     /// Wind-speed display unit (#26).
     var windUnit: WindSpeedUnit = .kmh
 
-    /// The selected global `hours[]` index; nil until the forecast resolves.
+    /// The day the detail shows — opens on today; the week-dot row jumps it
+    /// (spec 05 day-jump, frame `508:417`).
+    @State private var selectedDayIndex = 0
+    /// The selected global `hours[]` index; nil until the forecast resolves
+    /// (and after a day-jump, so the stepper re-opens on that day's first
+    /// Range hour).
     @State private var selectedIndex: Int?
     /// Drives the snap-back tap's click feedback.
     @State private var stripPressed = false
@@ -41,17 +47,17 @@ struct ActivityDetailView: View {
     private var deriver: TimeDeriver? { viewModel.timeDeriver }
     private var current: ActivityRating { viewModel.rating(forActivityId: activity.activityId) ?? activity }
     private var authored: AuthoredActivity? { viewModel.authoredActivity(forActivityId: activity.activityId) }
-    /// Day 0 read RAW — a rating-null day still carries its score.
-    private var today: Day? { viewModel.rawDay(for: current, dayIndex: 0) }
+    /// The shown day read RAW — a rating-null day still carries its score.
+    private var selectedDay: Day? { viewModel.rawDay(for: current, dayIndex: selectedDayIndex) }
 
-    /// Today's Range hours as global indices.
+    /// The shown day's Range hours as global indices.
     private var rangeHours: Range<Int>? {
-        authored.flatMap { viewModel.rangeHourIndices(for: $0, dayIndex: 0) }
+        authored.flatMap { viewModel.rangeHourIndices(for: $0, dayIndex: selectedDayIndex) }
     }
 
-    /// Every hour the stepper may walk today.
+    /// Every hour the stepper may walk on the shown day.
     private var walkable: Range<Int>? {
-        authored.flatMap { viewModel.walkableHourRange(for: $0, dayIndex: 0) }
+        authored.flatMap { viewModel.walkableHourRange(for: $0, dayIndex: selectedDayIndex) }
     }
 
     /// The pure selection model; nil until a forecast exists.
@@ -70,14 +76,35 @@ struct ActivityDetailView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
-                heroCard
-                metricGrid
-                editCard
+            // Frame `508:417`: the dot row under the nav at full content
+            // width, a 10pt gap to the hero (matched exactly — the rest of the
+            // stack keeps its 12pt rhythm).
+            VStack(alignment: .leading, spacing: 10) {
+                if !weekDots.isEmpty {
+                    WeekDotsView(dots: weekDots,
+                                 ringedDayIndex: selectedDayIndex,
+                                 onTap: jump(to:),
+                                 identifierPrefix: "detail.weekDot")
+                }
+                VStack(alignment: .leading, spacing: 12) {
+                    heroCard
+                    metricGrid
+                    editCard
+                }
             }
-            .padding(14)
+            // Frame `508:417`: the dots sit 12pt under the nav bar.
+            .padding(.horizontal, 14)
+            .padding(.top, 12)
+            .padding(.bottom, 14)
         }
         .background(Theme.appBackground)
+        // Re-base guard: a refetch across a day rollover shifts what each
+        // dayIndex / hours[] index means, so a stale selection would point at
+        // a shifted or absent day — reset to today, stepper to its default.
+        .onChange(of: viewModel.forecast?.forecastStart) { _, _ in
+            selectedDayIndex = 0
+            selectedIndex = nil
+        }
         .navigationTitle(current.label)
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $editing) { request in
@@ -91,17 +118,40 @@ struct ActivityDetailView: View {
         }
     }
 
+    // MARK: Week dots — the day-jump control
+
+    private var weekDots: [WeekDot] {
+        deriver.map {
+            WeekDots.dots(for: current, deriver: $0,
+                          nocturnal: viewModel.isNocturnal(activityId: activity.activityId))
+        } ?? []
+    }
+
+    /// Shows another day: the ring moves, the hero + stepper + metric cards
+    /// re-read for it, and the stepper re-opens on its first Range hour.
+    /// A day absent from `days[]` or with no data is not a target, and
+    /// tapping the already-ringed dot is a no-op (it must not reset the
+    /// stepper).
+    private func jump(to day: Int) {
+        guard day != selectedDayIndex,
+              let dot = weekDots.first(where: { $0.dayIndex == day }), dot.isJumpable else { return }
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
+            selectedDayIndex = day
+            selectedIndex = nil
+        }
+    }
+
     // MARK: Hero — ring + rating word + hour stepper over the Range strip
 
     private var heroCard: some View {
         HStack(alignment: .top, spacing: 12) {
             VStack(spacing: 4) {
-                ScoreRingView(score: today?.score,
-                              tint: Theme.ratingTint(today?.rating),
+                ScoreRingView(score: selectedDay?.score,
+                              tint: Theme.ratingTint(selectedDay?.rating),
                               style: .hero)
-                Text(today?.ratingDisplay ?? "No Window")
+                Text(selectedDay?.ratingDisplay ?? "No Window")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Theme.ratingTint(today?.rating))
+                    .foregroundStyle(Theme.ratingTint(selectedDay?.rating))
                     .fixedSize()
             }
             .frame(width: 64)
@@ -127,8 +177,8 @@ struct ActivityDetailView: View {
     }
 
     private var scoreAccessibilityLabel: String {
-        let verdict = today?.ratingDisplay ?? "No Window"
-        guard let score = today?.score else { return "\(verdict), no score" }
+        let verdict = selectedDay?.ratingDisplay ?? "No Window"
+        guard let score = selectedDay?.score else { return "\(verdict), no score" }
         return "\(verdict), score \(score) out of 100"
     }
 

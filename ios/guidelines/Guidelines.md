@@ -63,6 +63,13 @@ Behavioral rules kept here:
 - Chips: `displayMetrics` first 3, values from best-window start hour (neutral catalog names on a red day); nullable metrics (`windSpeed`/`rainFall`/`cloudCover`) render `—`
 - ~~The optional phrase row~~ **Retired 2026-10-01 (owner):** trajectory phrases are removed from the app entirely (code, strings, and the Settings "Show phrases" toggle). *Note (2026-10-01): the card bullets above describe the pre-v2 anatomy — the shipped dashboard card is now the v2 Score ring (see `ios/GLOSSARY.md` → Live card); this section's anatomy survives only in the wizard's review preview.*
 
+### Live dashboard card (v2 Score ring) + detail — week dots (owner rulings 2026-10-02)
+
+- **The week-dot row is the one way to show days**, on every surface: seven dots in **forecast order from today** (dayIndex 0..6, never Monday-first), the weekday initial over each in the forecast location's zone, each dot coloured by that day's verdict — Perfect / Good / Bad (a `rating`-null or unknown verdict with a score) / **no data** (the day is absent from `days[]` — a nocturnal Activity's 7th night — or its `score` is null). A real Perfect/Good verdict wins over a missing score. An 8th diurnal bucket is not shown. Drawn truth: Figma component "Week Dots" ([FIGMA.md §11](../../docs/design/FIGMA.md)).
+- **The card is today-only** — it always reads `days[0]`; the 2026-09-01 passed-Range fall-forward is **retired**, restoring the standing rule of the [ADR-0004 amendment (2026-07-20)](../../docs/adr/0004-day-bucketed-rating-wire-shape.md). The week is visible in the card's dot row (under the strip's numerals, ring on today). Once today's Range has passed, the card shows an empty ring, a bare track (the numerals' slot is kept, so the dots don't move) and a grey no-data dot ringed for today — tomorrow lives in the dots.
+- **Chevron, top-right of every card:** `chevron.down` while the dots are shown (the natural state), `chevron.right` while hidden; tap toggles; **remembered per card across launches** (forgotten when the Activity is deleted). A collapsed card is exactly the card without the row. The gear stays, just left of the chevron (the frames omit the gear; code keeps it).
+- **Detail opens on today** and jumps by the dots: the row sits under the nav bar, ring on the selected day; tapping a dot re-reads the hero, stepper, pills and metric cards for that day, and the stepper re-opens on that day's first Range hour. No-data dots are not tappable; each tappable dot keeps a ≥44pt target.
+
 ### Header
 
 ```
@@ -81,7 +88,7 @@ Header weather values (temp, wind, humidity) are the forecast location's **curre
 ## Interaction rules
 
 - App opens directly to the dashboard — no launch gate, no accounts (ADR-0001), no bottom bar (grill Q8).
-- Tapping a card body pushes the detail (range once · setup once · range-zoomed week); header gear → Settings sheet; card gear → editor sheet; ghost add-card → activity creation; showcase "Set your range →" → editor with the prefill loaded; detail day row → expands its range hours (one day at a time, collapsed by default).
+- Tapping a card body pushes the detail (opens on today); header gear → Settings sheet; card gear → editor sheet; card chevron → hides/shows that card's week dots (remembered); ghost add-card → activity creation; showcase "Set your range →" → editor with the prefill loaded; detail week dot → jumps the detail to that day.
 - All interactive elements have a minimum 44×44pt touch target.
 - Cards use `.plain` button style — no system highlight ring on tap.
 
@@ -129,6 +136,7 @@ Coming-soon metrics (`darkness`/`douglasScale`/`swellHeight`/`swellLength`/`tide
 | Purpose | SF Symbol |
 |---|---|
 | Settings gear (header) + card authoring gear | `gearshape` |
+| Card week-dots chevron (shown / hidden) | `chevron.down` / `chevron.right` |
 | Error state (`ContentUnavailableView`) | `wifi.slash` |
 | Location permission / no-location | `location.fill` / `location.slash` |
 | Ghost add-card / from-scratch / empty state | `plus.circle` |

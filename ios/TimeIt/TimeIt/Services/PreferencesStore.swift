@@ -62,6 +62,7 @@ final class PreferencesStore: ObservableObject {
     static let lastResolvedLocationKey = "lastResolvedLocation"
     static let pushCalloutDismissedKey = "pushCalloutDismissed"
     static let timezoneWarnedHomeKey = "timezoneWarnedHome"
+    static let collapsedCardsKey = "collapsedCards"
 
     /// nil = follow the device location (then the last-resolved cache).
     @Published var homeLocation: SavedLocation? {
@@ -93,6 +94,13 @@ final class PreferencesStore: ObservableObject {
         didSet { defaults.set(windSpeedUnit.rawValue, forKey: Self.windSpeedUnitKey) }
     }
 
+    /// Dashboard cards whose week-dot row the chevron hid (spec 05, owner
+    /// ruling 2026-10-02 — remembered per card across launches). Empty =
+    /// every card expanded, the natural state.
+    @Published var collapsedCardIds: Set<String> {
+        didSet { persist(collapsedCardIds, key: Self.collapsedCardsKey) }
+    }
+
     private let defaults: UserDefaults
 
     init(defaults: UserDefaults = .standard) {
@@ -103,6 +111,23 @@ final class PreferencesStore: ObservableObject {
         timezoneWarnedHome = Self.load(Self.timezoneWarnedHomeKey, from: defaults)
         windSpeedUnit = defaults.string(forKey: Self.windSpeedUnitKey)
             .flatMap(WindSpeedUnit.init(rawValue:)) ?? .kmh
+        collapsedCardIds = Self.load(Self.collapsedCardsKey, from: defaults) ?? []
+    }
+
+    /// The card chevron: hide ↔ show this card's week-dot row.
+    func toggleCardCollapsed(_ id: String) {
+        if collapsedCardIds.contains(id) {
+            collapsedCardIds.remove(id)
+        } else {
+            collapsedCardIds.insert(id)
+        }
+    }
+
+    /// Forgets the chevron state of deleted Activities — called with the
+    /// store's live ids whenever the activity list changes.
+    func pruneCollapsedCards(keeping ids: Set<String>) {
+        let kept = collapsedCardIds.intersection(ids)
+        if kept != collapsedCardIds { collapsedCardIds = kept }
     }
 
     private static func load<Value: Decodable>(_ key: String, from defaults: UserDefaults) -> Value? {

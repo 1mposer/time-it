@@ -458,7 +458,18 @@ struct DashboardView: View {
                                     }
                                     .buttonStyle(.plain)
                                     .accessibilityIdentifier("card.\(activity.activityId)")
-                                    gearButton(for: activity)
+                                    // Outside the NavigationLink, so neither
+                                    // button pushes the detail. The chevron is
+                                    // the right-most element (spec 05).
+                                    HStack(spacing: 0) {
+                                        gearButton(for: activity)
+                                        chevronButton(for: authored)
+                                    }
+                                    // Centres the 34pt chevron on the frame's
+                                    // glyph (`458:394` Chevron x336–351,
+                                    // y13–29 → centre 343.5, 21 on a 365 card).
+                                    .padding(.top, 4)
+                                    .padding(.trailing, 4.5)
                                 }
                             }
                         }
@@ -604,8 +615,25 @@ struct DashboardView: View {
         .buttonStyle(.borderless)
         .accessibilityLabel("Edit \(activity.label)")
         .accessibilityIdentifier("gear.\(activity.activityId)")
-        .padding(.top, 6)
-        .padding(.trailing, 8)
+    }
+
+    /// The card chevron (owner ruling 2026-10-02): reveals/hides the
+    /// week-dot row — `chevron.down` while shown (the natural state),
+    /// `chevron.right` while hidden; remembered per card across launches.
+    private func chevronButton(for authored: AuthoredActivity) -> some View {
+        let expanded = !preferences.collapsedCardIds.contains(authored.id)
+        return Button {
+            preferences.toggleCardCollapsed(authored.id)
+        } label: {
+            Image(systemName: expanded ? "chevron.down" : "chevron.right")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Theme.secondaryText)
+                .frame(width: 34, height: 34)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.borderless)
+        .accessibilityLabel(expanded ? "Hide week" : "Show week")
+        .accessibilityIdentifier("cardChevron.\(authored.id)")
     }
 
     /// The ghost add-card: dashed border, after the card list. At the soft
@@ -641,8 +669,8 @@ struct DashboardView: View {
     /// are not on the v2 frame, so they no longer render
     /// here; the "why" moved to the detail's metric cards.
     private func card(for activity: ActivityRating, authored: AuthoredActivity) -> ScoreRingCardView {
-        // Day 0, unless today's Range has fully passed — then the card falls
-        // forward to tomorrow (owner ruling 2026-09-01).
+        // Today-only (owner ruling 2026-10-02): always day 0; the week is
+        // visible in the card's dot row.
         let dayIndex = viewModel.cardDayIndex(for: authored)
         let sliceRange = viewModel.rangeHourIndices(for: authored, dayIndex: dayIndex)
         return ScoreRingCardView(
@@ -653,7 +681,12 @@ struct DashboardView: View {
             iconSymbol: authored.iconSymbol,
             rangeChipLabel: authored.window.map(RangeText.chipLabel),
             tiers: viewModel.rangeTiers(for: authored, dayIndex: dayIndex),
-            stripStartLocalHour: sliceRange.flatMap { viewModel.localHour(at: $0.lowerBound) }
+            stripStartLocalHour: sliceRange.flatMap { viewModel.localHour(at: $0.lowerBound) },
+            weekDots: viewModel.timeDeriver.map {
+                WeekDots.dots(for: activity, deriver: $0,
+                              nocturnal: viewModel.isNocturnal(activityId: activity.activityId))
+            } ?? [],
+            showsWeekDots: !preferences.collapsedCardIds.contains(authored.id)
         )
     }
 }

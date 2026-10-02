@@ -126,6 +126,46 @@ final class TimeItUITests: XCTestCase {
         // not an empty one. The ring is empty only when `score` is null.
         XCTAssertEqual(app.otherElements["score.fishing-lite"].label, "No Window, score 1 out of 100",
                        "a rating-null day still carries a real score (ADR-0011)")
+
+        // Spec 05: the week-dot row (shown by default) + the chevron.
+        XCTAssertTrue(app.descendants(matching: .any)["weekDots.cycling"].exists,
+                      "the card carries the week-dot row — shown is the natural state")
+        XCTAssertTrue(app.buttons["cardChevron.cycling"].exists)
+        XCTAssertEqual(app.buttons["cardChevron.cycling"].label, "Hide week")
+        XCTAssertTrue(app.buttons["gear.cycling"].exists, "the gear stays, left of the chevron")
+        XCTAssertLessThan(app.buttons["gear.cycling"].frame.midX,
+                          app.buttons["cardChevron.cycling"].frame.midX,
+                          "the chevron is the right-most element (top-right)")
+    }
+
+    /// Spec 05 chevron ruling: tap hides the dot row, the choice is
+    /// remembered per card across launches, tap again shows it.
+    func testCardChevronHidesTheWeekAndIsRememberedAcrossRelaunch() {
+        var app = launchApp()
+
+        let chevron = app.buttons["cardChevron.cycling"]
+        XCTAssertTrue(chevron.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["weekDots.cycling"].exists)
+        let expandedHeight = app.buttons["card.cycling"].frame.height
+        chevron.tap()
+        XCTAssertFalse(app.descendants(matching: .any)["weekDots.cycling"].waitForExistence(timeout: 1),
+                       "the chevron hides the dot row")
+        XCTAssertEqual(app.buttons["cardChevron.cycling"].label, "Show week")
+        XCTAssertLessThan(app.buttons["card.cycling"].frame.height, expandedHeight,
+                          "a collapsed card is shorter — no empty space left behind")
+        XCTAssertTrue(app.descendants(matching: .any)["weekDots.fishing-lite"].exists,
+                      "per card — the other card keeps its dots")
+
+        // Relaunch WITHOUT UITEST_RESET — remembered.
+        app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_SEED_LIVE", "UITEST_LOCATION"])
+        XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.descendants(matching: .any)["weekDots.cycling"].exists,
+                       "the collapse survives relaunch")
+        XCTAssertTrue(app.descendants(matching: .any)["weekDots.fishing-lite"].exists)
+
+        app.buttons["cardChevron.cycling"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["weekDots.cycling"].waitForExistence(timeout: 2),
+                      "tap again → the dots are back")
     }
 
     // MARK: - Navigation
@@ -599,11 +639,12 @@ final class TimeItUITests: XCTestCase {
         app.buttons["editor.cancel"].tap()
     }
 
-    /// Activity Detail v3 (approved frames `456:358` / `464:2348`): TODAY
-    /// ONLY — hero (day-score ring + rating word + hour stepper), three
-    /// metric cards reading the selected hour, then the Edit list. The week
-    /// rows and the hour grid are gone.
-    func testDetailV3ShowsHeroStepperMetricCardsAndNoWeek() {
+    /// Activity Detail v3 (approved frames `456:358` / `464:2348`, + the
+    /// 2026-10-02 day-jump frame `508:417`): opens on TODAY — the week-dot
+    /// row under the nav, hero (day-score ring + rating word + hour stepper),
+    /// metric cards reading the selected hour, then the Edit list. The old
+    /// week rows and the hour grid stay gone; the dots are the jump control.
+    func testDetailV3ShowsDotRowHeroStepperMetricCardsAndJumpsDays() {
         let app = launchApp()
 
         let card = app.buttons["card.cycling"]
@@ -652,6 +693,26 @@ final class TimeItUITests: XCTestCase {
         XCTAssertFalse(app.otherElements["detail.hours.0"].exists, "the hour grid was removed")
         XCTAssertFalse(app.staticTexts["6 – 10am daily"].exists,
                        "the old setup card's range line is gone — the hero owns the hour now")
+
+        // Day-jump (spec 05). Mock fixture: forecast 2026-06-19T00:00Z = 4am
+        // Fri in Dubai, 56 hours → day 0 = idx 0..<20, day 1 = 20..<44,
+        // day 2 = 44..<56 (Sun 21 Jun 00:00–12:00). Cycling (6–10am) day 2
+        // Range = idx 50..<54 → the stepper re-opens on 6am. Mock cycling
+        // day 2 is rating-null with score 1; day 0 is Perfect 86.
+        XCTAssertTrue(app.descendants(matching: .any)["detail.weekDot"].exists,
+                      "the week-dot row sits under the nav")
+        let dayTwo = app.buttons["detail.weekDot.2"]
+        XCTAssertTrue(dayTwo.exists)
+        dayTwo.tap()
+        XCTAssertEqual(app.otherElements["detail.score"].label, "No Window, score 1 out of 100",
+                       "the hero re-reads for the jumped day")
+        XCTAssertEqual(app.staticTexts["detail.selectedHour"].label, "6am",
+                       "a jump re-opens on that day's first Range hour (was 7am before the jump)")
+
+        app.buttons["detail.weekDot.0"].tap()
+        XCTAssertEqual(app.otherElements["detail.score"].label, "Perfect, score 86 out of 100",
+                       "back to today")
+        XCTAssertEqual(app.staticTexts["detail.selectedHour"].label, "6am")
     }
 
     // MARK: - Push opt-in client

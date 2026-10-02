@@ -1,6 +1,6 @@
 # Implementation spec 05 — iOS: week dots everywhere, today-only card, chevron collapse, detail day-jump
 
-> **Status 2026-10-02: build order written; implementer dispatched.** Owner rulings 2026-10-02 (record: [FIGMA.md §11](../../design/FIGMA.md)); frames are the design truth, this spec is the build order. Mirrors the 2026-10-02 frames on both Screens pages: ring card `458:394` / `487:400`, dashboards `111:2` / `121:2` / `266:5` / `266:1562`, Activity Detail `456:358` … + `508:417` "Day jump — Thursday" (dark twins `491:*` / `509:836`). One `feat(ios):` commit, TestFlight-bound → bump `CURRENT_PROJECT_VERSION` 6 → 7 in the same commit.
+> **Status 2026-10-02: built 2026-10-02 (build 7) — one `feat(ios):` commit on the implementer's worktree branch; the commit hash is in the implementer's handback (a commit cannot name its own hash).** As built: tier rules per Guidelines (verdict wins over nil score; unknown+nil → no data); nocturnal dots say Tonight; tapping the ringed dot is a no-op; a forecast re-base resets to today. Owner rulings 2026-10-02 (record: [FIGMA.md §11](../../design/FIGMA.md)); frames are the design truth, this spec is the build order. Mirrors the 2026-10-02 frames on both Screens pages: ring card `458:394` / `487:400`, dashboards `111:2` / `121:2` / `266:5` / `266:1562`, Activity Detail `456:358` … + `508:417` "Day jump — Thursday" (dark twins `491:*` / `509:836`). One `feat(ios):` commit, TestFlight-bound → bump `CURRENT_PROJECT_VERSION` 6 → 7 in the same commit.
 
 ## Rulings being built (owner, 2026-10-02)
 

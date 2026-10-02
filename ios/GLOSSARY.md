@@ -26,7 +26,10 @@ The dashboard rendering of a **dormant** Activity (`window == nil` — stored, v
 The "+" card at the end of the dashboard. Opens the wizard directly (the Add sheet / template chooser is gone).
 
 **Live card / Activity card** *(shipped — main look since 2026-09-01; spec 14 anatomy 2026-08-14)*
-The dashboard card of a live authored Activity. **Superseded 2026-10-01 by the v2 Score-ring card** (owner-chosen 2026-09-30, shipped with ROADMAP item 16): 48pt ring whose arc and numeral are the day `score`, tinted by the rating tier; hours-only chip ("6 – 10am"); hour strip scoped to the Range (green/orange/red per the `HourQuality` mirror); wordless beyond the activity name, numerals and colour. A `score: null` day renders the ring empty. The pre-v2 anatomy (day-axis gradient slice, metric chips, best-stretch sublabel) survives only in the wizard's review preview. **Trajectory phrases are retired** (owner ruling 2026-10-01) — the strings, the Settings "Show phrases" toggle and their code are removed.
+The dashboard card of a live authored Activity. **Superseded 2026-10-01 by the v2 Score-ring card** (owner-chosen 2026-09-30, shipped with ROADMAP item 16): 48pt ring whose arc and numeral are the day `score`, tinted by the rating tier; hours-only chip ("6 – 10am"); hour strip scoped to the Range (green/orange/red per the `HourQuality` mirror); wordless beyond the activity name, numerals and colour. A `score: null` day renders the ring empty. The pre-v2 anatomy (day-axis gradient slice, metric chips, best-stretch sublabel) survives only in the wizard's review preview. **Trajectory phrases are retired** (owner ruling 2026-10-01) — the strings, the Settings "Show phrases" toggle and their code are removed. **Since 2026-10-02 (build 7):** the card is today-only and carries the **week-dot row** (seven days from today, verdict-coloured, ring on today) under the strip, plus a top-right **chevron** that hides/shows the row, remembered per card.
+
+**Activity Detail** *(shipped — v3, day-jump 2026-10-02)*
+Pushed by tapping a card. Opens on **today**; the week-dot row under the nav is the day-jump control (tap a dot → hero, stepper and metric cards show that day). Rules: [Guidelines](guidelines/Guidelines.md).
 
 ---
 

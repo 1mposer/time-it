@@ -48,6 +48,26 @@ final class TimeDerivationTests: XCTestCase {
         XCTAssertNil(deriver.hourRange(forDayIndex: 8, hourCount: 164))
     }
 
+    /// The week-dot initials (spec 05). Fixture deriver: Fri 19 Jun 2026
+    /// (Dubai) → day 0 "F", day 6 = Thu 25 Jun "T".
+    func testWeekdayLetterInTheFixtureWeek() {
+        XCTAssertEqual(deriver.weekdayLetter(forDayIndex: 0), "F")
+        XCTAssertEqual(deriver.weekdayLetter(forDayIndex: 1), "S")
+        XCTAssertEqual(deriver.weekdayLetter(forDayIndex: 6), "T")
+    }
+
+    /// Month rollover + zone pin: 2026-06-29T21:00:00Z is MONDAY 29 June in
+    /// UTC but 01:00 TUESDAY 30 June in Asia/Dubai (UTC+4). Day 0 must be the
+    /// Dubai day → "T"; day 6 = 30 Jun + 6 = Mon 6 Jul → "M" (a UTC reading
+    /// would give "M" and Sun 5 Jul "S").
+    func testWeekdayLetterCrossesAMonthInTheForecastZone() throws {
+        let rollover = try XCTUnwrap(TimeDeriver(forecastStart: "2026-06-29T21:00:00Z", timezone: "Asia/Dubai"))
+
+        XCTAssertEqual(rollover.weekdayLetter(forDayIndex: 0), "T")
+        XCTAssertEqual(rollover.weekdayLetter(forDayIndex: 1), "W", "Wed 1 Jul — across the month boundary")
+        XCTAssertEqual(rollover.weekdayLetter(forDayIndex: 6), "M")
+    }
+
     func testInvalidInputsReturnNil() {
         XCTAssertNil(TimeDeriver(forecastStart: "not-a-date", timezone: "Asia/Dubai"))
         XCTAssertNil(TimeDeriver(forecastStart: "2026-06-19T12:00:00Z", timezone: "Not/AZone"))

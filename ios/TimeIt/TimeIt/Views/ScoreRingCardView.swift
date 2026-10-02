@@ -28,6 +28,15 @@ struct ScoreRingCardView: View {
     /// Local hour of the strip's first segment — the boundary numerals count
     /// up from here.
     var stripStartLocalHour: Int?
+    /// The week-dot row (spec 05, Figma `517:73` on the ring card `458:394`):
+    /// seven days in forecast order, ring on today.
+    var weekDots: [WeekDot] = []
+    /// The card chevron's state — false = exactly the pre-dots card.
+    var showsWeekDots: Bool = false
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var dotsVisible: Bool { showsWeekDots && !weekDots.isEmpty }
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -77,8 +86,22 @@ struct ScoreRingCardView: View {
                 .frame(height: 10)
             axisNumerals
                 .padding(.top, 4)
+            if dotsVisible {
+                // Frame `458:394`: axis bottom → dots top = 8pt; the row
+                // spans the strip's x and width; 34pt tall (12 label + 4 +
+                // 18 slot). Removed — not hidden — when collapsed, so the
+                // collapsed card is exactly the pre-dots card.
+                WeekDotsView(dots: weekDots,
+                             ringedDayIndex: 0,
+                             identifierPrefix: "weekDots.\(activity.activityId)")
+                    .padding(.top, 8)
+                    .transition(.opacity)
+            }
         }
-        .frame(height: 65, alignment: .top)
+        // 65 = name row → strip → numerals; +42 (8 gap + 34 row) with dots —
+        // the frame's 132 vs 90 expanded/collapsed delta.
+        .frame(height: dotsVisible ? 107 : 65, alignment: .top)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: dotsVisible)
     }
 
     private var topRow: some View {
@@ -105,8 +128,9 @@ struct ScoreRingCardView: View {
             }
             Spacer(minLength: 0)
         }
-        // Clears the gear button the dashboard overlays on the card.
-        .padding(.trailing, 28)
+        // Clears the gear + chevron pair the dashboard overlays on the card
+        // (two 34pt buttons ending 4.5pt in from the card edge).
+        .padding(.trailing, 58)
     }
 
     /// One rounded segment per Range hour, 2pt apart — the frame's strip.
@@ -146,6 +170,11 @@ struct ScoreRingCardView: View {
                 }
             }
             .frame(height: 14)
+        } else {
+            // Reserve the axis slot with no numerals (e.g. a passed-Range
+            // today: bare track) so the strip's y and the 8pt axis → dots
+            // relation hold either way.
+            Color.clear.frame(height: 14)
         }
     }
 

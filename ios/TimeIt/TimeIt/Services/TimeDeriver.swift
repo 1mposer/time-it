@@ -8,6 +8,7 @@ struct TimeDeriver {
     private let calendar: Calendar
     private let hourFormatter: DateFormatter
     private let weekdayFormatter: DateFormatter
+    private let weekdayLetterFormatter: DateFormatter
 
     init?(forecastStart: String, timezone: String) {
         guard let date = ISO8601DateFormatter().date(from: forecastStart),
@@ -31,6 +32,11 @@ struct TimeDeriver {
         weekdayFormatter.locale = Locale(identifier: "en_US_POSIX")
         weekdayFormatter.timeZone = zone
         weekdayFormatter.dateFormat = "EEEE"
+
+        weekdayLetterFormatter = DateFormatter()
+        weekdayLetterFormatter.locale = Locale(identifier: "en_US_POSIX")
+        weekdayLetterFormatter.timeZone = zone
+        weekdayLetterFormatter.dateFormat = "EEEEE"
     }
 
     /// The UTC instant of `hours[index]`.
@@ -73,6 +79,16 @@ struct TimeDeriver {
             let weekday = weekdayFormatter.string(from: day)
             return nocturnal ? "\(weekday) night" : weekday
         }
+    }
+
+    /// The weekday initial ("S", "M", …) of a day bucket in the location
+    /// zone — the week-dot row's letters (spec 05). Day 0's date + dayIndex
+    /// days, the same derivation as `dayName(forDayIndex:)`.
+    func weekdayLetter(forDayIndex dayIndex: Int) -> String {
+        guard let day = calendar.date(byAdding: .day, value: dayIndex, to: calendar.startOfDay(for: start)) else {
+            return ""
+        }
+        return weekdayLetterFormatter.string(from: day)
     }
 
     /// "4–7pm" / "10pm–2am" — the word-for-word twin of the server push

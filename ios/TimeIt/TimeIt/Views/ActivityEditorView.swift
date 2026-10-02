@@ -20,7 +20,8 @@ struct ActivityEditorView: View {
     /// nil result → neutral name-only pills (no forecast to read).
     private let reviewRangeStartHour: ((WindowSpec) -> HourlyWeather?)?
     /// True when the draft's Range has already fully passed today — Save
-    /// surfaces the "showing you tomorrow" alert before committing.
+    /// surfaces the "those hours have passed" alert before committing (the
+    /// card is today-only since 2026-10-02; tomorrow lives in the week dots).
     private let rangeHasPassedToday: ((WindowSpec) -> Bool)?
     /// Wind-speed display unit for the slider and the review card (#26);
     /// the draft's bounds stay km/h.
@@ -172,7 +173,8 @@ struct ActivityEditorView: View {
                 Button("Save Activity") {
                     guard let activity = buildResult.activity else { return }
                     // A Range that already passed today still saves — but the
-                    // user is told the card will show tomorrow's conditions.
+                    // user is told the card stays on today and tomorrow is in
+                    // the week dots (today-only card, 2026-10-02).
                     if let window = activity.window,
                        rangeHasPassedToday?(window) == true {
                         pendingPassedRangeSave = activity
@@ -187,7 +189,7 @@ struct ActivityEditorView: View {
                 .frame(maxWidth: .infinity)
                 .disabled(buildResult.activity == nil)
                 .accessibilityIdentifier("editor.save")
-                .alert("The time you set has already passed today",
+                .alert("Those hours have passed for today",
                        isPresented: Binding(get: { pendingPassedRangeSave != nil },
                                             set: { if !$0 { pendingPassedRangeSave = nil } })) {
                     Button("OK") {
@@ -198,7 +200,7 @@ struct ActivityEditorView: View {
                     }
                     .accessibilityIdentifier("editor.passedRangeOK")
                 } message: {
-                    Text("We're going to show you tomorrow's conditions.")
+                    Text("Your card stays on today until midnight. Tomorrow is in the week dots.")
                 }
             } else {
                 Button("Next Step") { nextStep() }
