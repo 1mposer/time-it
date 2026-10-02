@@ -116,7 +116,20 @@ A local page + the dev-only proxy (key stays server-side) that: picks a concern 
 
 ## 9. Preconditions (all before any code on the live path)
 
-1. **ADR-0012 (working title: concern catalog + Jev seam)** — squares the server-side catalog with ADR-0002, amends ADR-0005 (`concernSet`), rules the ADR-0010 third-party point (§5), fixes the wire shape (§6), rules display-only vs score-feeding (§1) and the workbench order (§2/§8). Already ruled by the owner 2026-10-02 and only to be recorded: head/crosswind ship as the proxy (§4); all 168 hours judged, no daylight-only cut (§1).
+1. **ADR-0012 (working title: concern catalog + Jev seam).** Written by the implementing agent, accepted by the owner, before any code on the live path. It records the rulings below; the open ones need an owner answer first — put them to the owner as one list, each with the recommendation, and record the answers in the ADR.
+
+   **Open — owner rules (agent recommendation in brackets):**
+   1. Is the pilot **display-only** — judgments never feed `rating`, `score`, the digest or the detector? [yes; folding them into the score would amend ADR-0011 and wants real usage first]
+   2. Is the **wire shape** in §6 accepted as drawn (location-level `concernSets` block + per-Activity `concerns[].days[]` aggregates, both absent when unreferenced, `null` on judge failure)? [accept]
+   3. **ADR-0010 third-party ruling:** may the enriched weather for a 2-dp cell plus its IANA zone — no coordinates, device id or Activity labels — be sent to TypeSafe, given ADR-0010's "shared with third parties: never"? [accept — coarse-cell weather is not user data; record it as an ADR-0010 note]
+   4. **Workbench order:** built in step with the judge (§2 glossary) or after layer 3 (§8)? [in step — the golf wording cannot be finished without it, and per-hour output cannot be eyeballed]
+
+   **Already ruled by the owner 2026-10-02 — record only:**
+   - Concerns are a server-side catalog outside the Activity object; ADR-0002 holds; ADR-0005 gains the optional `concernSet` field (§1, §5).
+   - Enrichment computes each Concern's facts deterministically; Jev judges the situation those facts describe (§1, §4).
+   - One Jev request per hour per set; all 168 hours judged, no daylight-only cut (§1).
+   - Head/crosswind ship as the gust-ratio proxy until a heading input exists (§4).
+   - Promote condition: build starts after the code-dev side of the ship path completes; the item stays in the ROADMAP Deferred table until then.
 2. Figma frames for the detail-page concerns tab ([ADR-0008](../../adr/0008-figma-first-ui-gate.md)) — the widget form the owner parked 2026-10-02.
 3. `TYPESAFE_API_KEY` in Railway; SDK actually installed (it is pinned in `package.json` but not yet a runtime import anywhere).
 
