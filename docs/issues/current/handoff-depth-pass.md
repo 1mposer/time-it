@@ -8,8 +8,8 @@
 - Build 7 was walked live on the iPhone 17 simulator against a stand-in backend (real `createRatingRouter` fed fake weather; no API key, no Postgres) — walkthrough page https://claude.ai/artifact/Qrc9CgEvWX8F3e6vCUfDSQ. The owner's audit followed; an Opus design lead produced the report above; the owner ruled **"all a"** on https://claude.ai/artifact/69h798izJuJ4hLE8bBcdCP with ruling 2 amended (**no long press — tap opens the detail; editing only from the detail's rows**). Rulings of record: FIGMA.md §12.
 - **Nothing is drawn or coded yet.** ADR-0008 applies: frames precede code.
 - Still open from the build 7 review (not in item 17): the editor's review pills preview tomorrow under a "Today" label (FIGMA.md §11, question (b)).
-- Order assumption recorded in ROADMAP/STATUS: item 17 before item 13 (the card and detail it changes sit on onboarding 06/07). **Owner to confirm** at the start of the next session.
-- Housekeeping not yet asked: `docs/issues/current/implementation_spec_03-figma-dark-screens.md` is built (2026-10-01) and is an archive candidate.
+- Order **owner-confirmed 2026-10-06**: item 17 before item 13 (the card and detail it changes sit on onboarding 06/07).
+- Housekeeping done 2026-10-06: spec 03 archived to `docs/issues/completed/` (owner-authorized).
 
 ## The agent flow ahead (in order)
 
