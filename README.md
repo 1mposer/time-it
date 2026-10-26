@@ -1,6 +1,6 @@
 # Time-it
 
-A backend engine that tells outdoor hobbyists whether their chosen hours are worth going outside — a worldwide product, UAE-first in marketing only.
+A backend engine that tells outdoor hobbyists whether their chosen hours are worth going outside.
 
 ## What it does
 
