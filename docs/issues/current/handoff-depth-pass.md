@@ -30,6 +30,8 @@
 - No code push unless the owner says so; docs-only batches under `docs/` auto-commit + push. Commits end with `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
 - Status/gate changes sweep ROADMAP + STATUS (+ FIGMA.md) in one commit. Figma inventory claims only from a live enumerate. Never perform a subagent's denied action in its place. Destructive actions get owner confirmation.
 - Implementers: `model: "opus"`, worktree isolation for code; design/draw agents may spawn at most one Sonnet research helper (owner grant 2026-10-06).
+- **Orchestrator stays hands-off (owner rule 2026-10-30):** never run `use_figma` / screenshots / `xcodebuild` yourself — spawn a Sonnet verifier for every audit (enumerate, screenshot, suites) and judge its report. Mirrored in CLAUDE.md agent workflow rules.
+- **Mobbin MCP** added by the owner 2026-10-30 (`claude mcp add mobbin --transport http https://api.mobbin.com/mcp`); needs `/mcp` connect + sign-in in a session before the fade research (ruling 5b) can use it — the 2026-10-30 Sonnet research got 403 from mobbin.com without it (findings: scratchpad `fade-research.md` of that session; technique summary in FIGMA.md §12 once the fade is drawn).
 
 ## Suggested skills
 
