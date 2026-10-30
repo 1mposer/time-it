@@ -400,7 +400,7 @@ Requires `.env` with `API_KEY=<meteosource key>`.
 - **Doc-only batches auto-commit:** changes under `docs/` are committed and pushed without asking — one batch per owner ruling (durable owner authorization, 2026-10-01).
 - **Check MCP auth before spawning:** before dispatching any agent that needs an MCP surface (Figma etc.), confirm the server is connected in this session; if not, ask the owner to run `/mcp` first — a blind spawn burns the whole agent run.
 - **Owner communication:** lead with the action list — who does what, today — in few words; detail only on request.
-- **The orchestrator never runs the hands-on checks itself (owner rule, 2026-10-30):** Figma enumerates, screenshots, access probes, and test-suite runs are delegated — Opus implements, a Sonnet verifier re-enumerates/screenshots/runs suites and reports node IDs + evidence, the orchestrator judges the reports and builds the owner page. Spawn the verifier; do not call `use_figma` or `xcodebuild` from the orchestrating session.
+- **The orchestrator never runs the hands-on checks itself (owner rule, 2026-10-30):** Figma enumerates, screenshots, access probes, and test-suite runs are delegated — Opus implements, a Sonnet verifier re-enumerates/screenshots/runs suites and reports node IDs + evidence, the orchestrator judges the reports and builds the owner page. Spawn the verifier; do not call `use_figma` or `xcodebuild` from the orchestrating session. Delegation ladder (owner, 2026-10-30): small bounded tasks → Sonnet (including small Figma fixes with exact node IDs); diligence-heavy judgement → the orchestrator; decisions needing advice → a brief Opus consult.
 
 ---
 
