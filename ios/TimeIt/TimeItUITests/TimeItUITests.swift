@@ -644,8 +644,9 @@ final class TimeItUITests: XCTestCase {
     /// owner rulings 2026-10-31 / 2026-11-01): opens on TODAY — the week-dot
     /// row under the nav, hero (day-score ring + rating word + `−` · Range
     /// pill row · `+`), metric cards averaging the chosen hours, then the
-    /// Edit list. The whole Range-length span slides one hour per press; an
-    /// icon-only return control appears once the span leaves the Range.
+    /// Edit list. The pill row is a native scroll; the whole Range-length
+    /// span slides one hour per press, and once it leaves the Range the score
+    /// ring becomes the return affordance (no capsule, no Calculate button).
     func testDetailV3ShowsDotRowHeroCarouselMetricCardsAndJumpsDays() {
         let app = launchApp()
 
@@ -686,35 +687,41 @@ final class TimeItUITests: XCTestCase {
         // + slides the WHOLE span one hour (7–11am); the cards re-average live
         // ((3 + 3 + 3 + 7) / 4 = 4); the day score does NOT follow the span.
         forward.tap()
-        XCTAssertEqual(row.label, "Hours 7am to 11am")
-        XCTAssertTrue(uv.label.hasSuffix("UV 4"), "the cards average the chosen hours — got \(uv.label)")
+        XCTAssertTrue(waitForLabel(row, "Hours 7am to 11am"), "got \(row.label)")
+        XCTAssertTrue(waitForLabel(uv, suffix: "UV 4"), "the cards average the chosen hours — got \(uv.label)")
         XCTAssertEqual(app.otherElements["detail.score"].label, "Perfect, score 86 out of 100",
                        "the hero ring shows the DAY score, unchanged by the span")
 
-        // The return control appears off the Range and puts the span back.
+        // Off the Range the ring becomes the return affordance; tapping it
+        // springs the span home.
+        XCTAssertFalse(app.buttons.matching(NSPredicate(format: "label == 'Calculate'")).firstMatch.exists,
+                       "no Calculate button — the cards are live")
         let returnControl = app.buttons["detail.returnToRange"]
         XCTAssertTrue(returnControl.waitForExistence(timeout: 2))
         XCTAssertEqual(returnControl.label, "Return to your range")
+        XCTAssertTrue(returnControl.frame.intersects(app.otherElements["detail.score"].frame),
+                      "the return affordance IS the score ring")
         returnControl.tap()
-        XCTAssertEqual(row.label, "Hours 6am to 10am")
-        XCTAssertTrue(uv.label.hasSuffix("UV 3"))
+        XCTAssertTrue(waitForLabel(row, "Hours 6am to 10am"), "got \(row.label)")
+        XCTAssertTrue(waitForLabel(uv, suffix: "UV 3"), "got \(uv.label)")
         XCTAssertFalse(returnControl.waitForExistence(timeout: 1), "gone once back on the Range")
 
         // − walks back to the walk start (today's first forecast hour, 4am =
         // idx 0) and dims there: two presses from the 6am Range start.
         XCTAssertTrue(back.isEnabled)
         back.tap()
+        XCTAssertTrue(waitForLabel(row, "Hours 5am to 9am"), "got \(row.label)")
         XCTAssertTrue(back.isEnabled)
         back.tap()
-        XCTAssertEqual(row.label, "Hours 4am to 8am")
+        XCTAssertTrue(waitForLabel(row, "Hours 4am to 8am"), "got \(row.label)")
         XCTAssertFalse(back.isEnabled, "− dims when the span starts at the first walkable hour")
 
-        // A horizontal drag on the row slides the span too (finger-left =
-        // later hours, one hour per pill pitch).
+        // A horizontal drag scrolls the row natively and the span follows
+        // (finger-left = later hours, snapping by pill pitch).
         row.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.5))
             .press(forDuration: 0.1,
                    thenDragTo: row.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.5)))
-        XCTAssertNotEqual(row.label, "Hours 4am to 8am", "the drag moved the span later")
+        XCTAssertTrue(waitForLabel(row, notEqual: "Hours 4am to 8am"), "the drag moved the span later")
         XCTAssertTrue(back.isEnabled)
 
         // The Edit doors stay.
@@ -741,14 +748,33 @@ final class TimeItUITests: XCTestCase {
         dayTwo.tap()
         XCTAssertEqual(app.otherElements["detail.score"].label, "No Window, score 1 out of 100",
                        "the hero re-reads for the jumped day")
-        XCTAssertEqual(row.label, "Hours 6am to 10am",
-                       "a jump re-opens the span on that day's Range (was 4–8am before the jump)")
+        XCTAssertTrue(waitForLabel(row, "Hours 6am to 10am"),
+                      "a jump re-opens the span on that day's Range — got \(row.label)")
         XCTAssertFalse(app.buttons["detail.returnToRange"].exists)
 
         app.buttons["detail.weekDot.0"].tap()
         XCTAssertEqual(app.otherElements["detail.score"].label, "Perfect, score 86 out of 100",
                        "back to today")
-        XCTAssertEqual(row.label, "Hours 6am to 10am")
+        XCTAssertTrue(waitForLabel(row, "Hours 6am to 10am"), "got \(row.label)")
+    }
+
+    /// Polls an element's accessibility label — the row's span follows a
+    /// native scroll, so a read straight after a tap can race the settle.
+    private func waitForLabel(_ element: XCUIElement,
+                              _ label: String? = nil,
+                              suffix: String? = nil,
+                              notEqual: String? = nil,
+                              timeout: TimeInterval = 3) -> Bool {
+        let predicate: NSPredicate
+        if let label {
+            predicate = NSPredicate(format: "label == %@", label)
+        } else if let suffix {
+            predicate = NSPredicate(format: "label ENDSWITH %@", suffix)
+        } else {
+            predicate = NSPredicate(format: "label != %@", notEqual ?? "")
+        }
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
+        return XCTWaiter().wait(for: [expectation], timeout: timeout) == .completed
     }
 
     // MARK: - Push opt-in client

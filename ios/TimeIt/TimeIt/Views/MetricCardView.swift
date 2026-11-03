@@ -46,34 +46,45 @@ struct MetricCardView: View {
         hour?.formatted(for: metric, windUnit: windUnit) ?? "—"
     }
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// Figma detail frame card (176 square, inset 20): glyph 22 at y25, name
+    /// 12 at y55, value Semibold 22 at y79, track at y128, band labels 10pt
+    /// at y140 — the gauge block is bottom-anchored 24 from the edge.
     var body: some View {
         VStack(spacing: 0) {
-            ActivityIconView(identifier: catalog.iconSymbol(for: metric), size: 26)
+            ActivityIconView(identifier: catalog.iconSymbol(for: metric), size: 22)
                 .foregroundStyle(Theme.primaryText.opacity(0.75))
-                .frame(height: 30)
-                .padding(.top, 17)
+                .frame(height: 22)
+                .padding(.top, 25)
                 .accessibilityHidden(true)
             Text(catalog.displayName(for: metric))
                 .font(.system(size: 12))
                 .foregroundStyle(Theme.secondaryText)
-                .padding(.top, 7)
+                .padding(.top, Theme.Spacing.sm)
             Text(valueText)
                 .font(.system(size: 22, weight: .semibold))
                 .tracking(-0.4)
                 .foregroundStyle(valueColor)
                 .minimumScaleFactor(0.6)
                 .lineLimit(1)
-                .padding(.top, 8)
-            Spacer(minLength: 8)
+                // The value rolls as the carousel's span settles — the
+                // animation rides on the value itself, since a user scroll
+                // carries no animation transaction.
+                .contentTransition(.numericText())
+                .animation(reduceMotion ? nil : Theme.Motion.value, value: valueText)
+                .padding(.top, Theme.Spacing.md)
+            Spacer(minLength: Theme.Spacing.sm)
             gauge
                 .padding(.bottom, 24)
         }
+        .padding(.horizontal, Theme.Detail.metricInset)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.cardBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .shadow(color: .black.opacity(0.08), radius: 3, x: 0, y: 1)
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.lg))
+        .cardFloat()
         .overlay(
-            RoundedRectangle(cornerRadius: 16)
+            RoundedRectangle(cornerRadius: Theme.Radius.lg)
                 .stroke(Color.black.opacity(0.06), lineWidth: 0.5)
         )
         .accessibilityElement(children: .ignore)

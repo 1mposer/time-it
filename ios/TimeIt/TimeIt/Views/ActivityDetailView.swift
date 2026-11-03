@@ -2,12 +2,16 @@ import SwiftUI
 
 /// Activity Detail v3 (Figma `456:358` / `464:2348`, owner-approved
 /// 2026-09-30; day-jump `508:417`, owner-approved 2026-10-02; hero carousel —
-/// depth & polish pass build 8, owner rulings 2026-10-31 / 2026-11-01). Opens
-/// on TODAY. Top to bottom: the week-dot row (the day-jump control — ring on
-/// the selected day), the hero (day-score ring + rating word + the hour
-/// carousel: `−` · a row of tier-coloured hour pills · `+`, with an icon-only
-/// return-to-range control under it), square metric cards two per row
+/// depth & polish pass build 8, owner rulings 2026-10-31 / 2026-11-01 /
+/// 2026-11-03). Opens on TODAY. Top to bottom: the week-dot row (the day-jump
+/// control — ring on the selected day), the hero (the 80pt day-score ring +
+/// rating word, and beside it the hour row: `−` · a natively scrolling strip
+/// of tier-coloured hour pills · `+`), square metric cards two per row
 /// AVERAGING the chosen hours, then the Edit range / Edit metrics list.
+///
+/// No buttons for "calculate" or "return": the cards recompute live as the
+/// row settles, the Range's home slots keep a faint ghost outline while the
+/// span drifts, and tapping the ring springs the row home.
 ///
 /// The hero ring shows the selected DAY's score (`days[selectedDayIndex]
 /// .score` from the wire), never the chosen hours' — the ring, the rating
@@ -27,20 +31,20 @@ struct ActivityDetailView: View {
     /// The day the detail shows — opens on today; the week-dot row jumps it
     /// (spec 05 day-jump, frame `508:417`).
     @State private var selectedDayIndex = 0
-    /// The carousel once the user has moved it; nil = the opening state
-    /// (span on the Range). Reset on a day-jump and a re-based refetch.
-    @State private var carouselState: HourCarousel?
-    /// The measured width of the pill track between `−` and `+`.
+    /// The pill row's scroll position — the leading visible slot's id. The
+    /// ONE piece of carousel state: the span derives from it
+    /// (`HourCarousel.span(forScrollAnchor:)`). nil = the opening state.
+    @State private var scrolledSlot: Int?
+    /// The measured width of the pill viewport between `−` and `+`.
     @State private var trackWidth: CGFloat = 0
-    /// Whole-hour steps already applied by the drag in flight.
-    @State private var dragSteps = 0
+    /// Bumped when the ring springs the row home — the impact haptic.
+    @State private var homeTick = 0
     /// The open edit door: which Activity and which wizard tab it lands on.
     @State private var editing: EditRequest?
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private static let pillGap: CGFloat = 3
-    private static let rowHeight: CGFloat = 26
+    private typealias Layout = Theme.Detail
 
     private struct EditRequest: Identifiable {
         let activity: AuthoredActivity
@@ -64,24 +68,25 @@ struct ActivityDetailView: View {
         authored.flatMap { viewModel.walkableHourRange(for: $0, dayIndex: selectedDayIndex) }
     }
 
-    /// The pure carousel model; nil until a forecast exists. A stored state
-    /// survives only while it still describes the same day and row width.
-    private var carousel: HourCarousel? {
+    /// The carousel as it opens for the shown day and row width (span on the
+    /// Range); nil until a forecast exists. A change re-seeds the row.
+    private var openingCarousel: HourCarousel? {
         guard let walkable, !walkable.isEmpty else { return nil }
         let slots = HourCarousel.visibleSlotCount(rangeLength: rangeHours?.count ?? 1,
-                                                  availableWidth: Double(trackWidth))
-        let fresh = HourCarousel(walkable: walkable, rangeHours: rangeHours, visibleSlots: slots)
-        if let carouselState,
-           carouselState.walkable == fresh.walkable,
-           carouselState.rangeHours == fresh.rangeHours,
-           carouselState.visibleSlots == fresh.visibleSlots {
-            return carouselState
-        }
-        return fresh
+                                                  availableWidth: Double(trackWidth),
+                                                  gap: Double(Layout.pillGap))
+        return HourCarousel(walkable: walkable, rangeHours: rangeHours, visibleSlots: slots)
     }
 
-    /// The hours the metric cards read — the carousel's chosen span. A later
-    /// Calculate button would freeze this until pressed; today it is live.
+    /// The live carousel: the opening one settled on the row's scroll
+    /// position.
+    private var carousel: HourCarousel? {
+        guard var carousel = openingCarousel else { return nil }
+        if let scrolledSlot { carousel.settle(onScrollAnchor: scrolledSlot) }
+        return carousel
+    }
+
+    /// The hours the metric cards read — the carousel's chosen span, live.
     private var displayedHours: [HourlyWeather] {
         guard let carousel, let hours = viewModel.forecast?.hours else { return [] }
         return carousel.span.filter(hours.indices.contains).map { hours[$0] }
@@ -92,26 +97,22 @@ struct ActivityDetailView: View {
 
     var body: some View {
         ScrollView {
-            // Frame `508:417`: the dot row under the nav at full content
-            // width, a 10pt gap to the hero (matched exactly — the rest of the
-            // stack keeps its 12pt rhythm).
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: Layout.dotsToHero) {
                 if !weekDots.isEmpty {
                     WeekDotsView(dots: weekDots,
                                  ringedDayIndex: selectedDayIndex,
                                  onTap: jump(to:),
                                  identifierPrefix: "detail.weekDot")
                 }
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: Layout.sectionGap) {
                     heroCard
                     metricGrid
                     editCard
                 }
             }
-            // Frame `508:417`: the dots sit 12pt under the nav bar.
-            .padding(.horizontal, 14)
-            .padding(.top, 12)
-            .padding(.bottom, 14)
+            .padding(.horizontal, Layout.sideMargin)
+            .padding(.top, Layout.topPadding)
+            .padding(.bottom, Layout.sideMargin)
         }
         .background(Theme.appBackground)
         // Re-base guard: a refetch across a day rollover shifts what each
@@ -119,8 +120,14 @@ struct ActivityDetailView: View {
         // a shifted or absent day — reset to today, carousel back on the Range.
         .onChange(of: viewModel.forecast?.forecastStart) { _, _ in
             selectedDayIndex = 0
-            carouselState = nil
+            scrolledSlot = openingCarousel?.scrollAnchor
         }
+        // A new day or row width re-opens the row on that day's Range.
+        .onChange(of: openingCarousel) { _, opening in
+            scrolledSlot = opening?.scrollAnchor
+        }
+        .sensoryFeedback(.selection, trigger: carousel?.span.lowerBound)
+        .sensoryFeedback(.impact(weight: .light), trigger: homeTick)
         .navigationTitle(current.label)
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $editing) { request in
@@ -144,7 +151,8 @@ struct ActivityDetailView: View {
     }
 
     /// Shows another day: the ring moves, the hero + carousel + metric cards
-    /// re-read for it, and the carousel re-opens on its Range.
+    /// re-read for it, and the carousel re-opens on its Range (the
+    /// `openingCarousel` change re-seeds the row).
     /// A day absent from `days[]` or with no data is not a target, and
     /// tapping the already-ringed dot is a no-op (it must not reset the
     /// carousel).
@@ -153,40 +161,77 @@ struct ActivityDetailView: View {
               let dot = weekDots.first(where: { $0.dayIndex == day }), dot.isJumpable else { return }
         withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
             selectedDayIndex = day
-            carouselState = nil
         }
     }
 
+    // MARK: Hero — ring + rating word, the hour row beside it
 
-    // MARK: Hero — ring + rating word + the hour carousel
-
+    /// Figma detail frame: 365 wide, ring 80 inset 16 from the top and
+    /// left, the word 12 under it, 28 of air to the bottom. The row column
+    /// runs from the ring's right edge + 16 to the right inset; with no
+    /// "time passed" line to stack under it, the row centres on the ring's
+    /// centre line so there is no dead gap.
     private var heroCard: some View {
-        HStack(alignment: .center, spacing: 12) {
-            VStack(spacing: 4) {
+        HStack(alignment: .top, spacing: Layout.ringToRow) {
+            ringButton
+            carouselRow
+                .frame(height: Layout.ringDiameter)
+        }
+        .padding(EdgeInsets(top: Layout.heroInset, leading: Layout.heroInset,
+                            bottom: Layout.heroBottom, trailing: Layout.heroInset))
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.cardBackground)
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.lg))
+        .cardFloat()
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.Radius.lg)
+                .stroke(Color.black.opacity(0.06), lineWidth: 0.5)
+        )
+    }
+
+    private var canReturn: Bool { carousel?.canReturnToRange ?? false }
+
+    /// The ring belongs to the Range: tapping it springs the row home. Press
+    /// feedback lands on touch-down; the button is inert on the Range.
+    /// Accessibility is carried by two overlay elements rather than the
+    /// button, so the day score (`detail.score`) stays its own element and
+    /// the return affordance (`detail.returnToRange`) exists only off the
+    /// Range.
+    private var ringButton: some View {
+        VStack(spacing: Layout.ringToWord) {
+            Button(action: returnToRange) {
                 ScoreRingView(score: selectedDay?.score,
                               tint: Theme.ratingTint(selectedDay?.rating),
                               style: .hero)
-                Text(selectedDay?.ratingDisplay ?? "No Window")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Theme.ratingTint(selectedDay?.rating))
-                    .fixedSize()
+                    .contentShape(Circle())
             }
-            .frame(width: 64)
-            .accessibilityElement(children: .ignore)
-            .accessibilityIdentifier("detail.score")
-            .accessibilityLabel(scoreAccessibilityLabel)
-
-            carouselBlock
+            .buttonStyle(PressStyle())
+            .disabled(!canReturn)
+            .accessibilityHidden(true)
+            Text(selectedDay?.ratingDisplay ?? "No Window")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(Theme.ratingTint(selectedDay?.rating))
+                .fixedSize()
         }
-        .padding(EdgeInsets(top: 11.5, leading: 13.5, bottom: 11.5, trailing: 14.5))
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.cardBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .shadow(color: .black.opacity(0.08), radius: 3, x: 0, y: 1)
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.black.opacity(0.06), lineWidth: 0.5)
-        )
+        .frame(width: Layout.ringDiameter)
+        .overlay {
+            Color.clear
+                .accessibilityElement()
+                .accessibilityIdentifier("detail.score")
+                .accessibilityLabel(scoreAccessibilityLabel)
+                .allowsHitTesting(false)
+        }
+        .overlay {
+            if canReturn {
+                Color.clear
+                    .accessibilityElement()
+                    .accessibilityAddTraits(.isButton)
+                    .accessibilityIdentifier("detail.returnToRange")
+                    .accessibilityLabel("Return to your range")
+                    .accessibilityAction { returnToRange() }
+                    .allowsHitTesting(false)
+            }
+        }
     }
 
     private var scoreAccessibilityLabel: String {
@@ -195,34 +240,24 @@ struct ActivityDetailView: View {
         return "\(verdict), score \(score) out of 100"
     }
 
-    /// `−` · pill row · `+` on one line, the return-to-range control centred
-    /// under it. The return slot keeps its height while hidden so the row
-    /// never jumps when it appears.
-    private var carouselBlock: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 4) {
+    /// `−` · pill viewport · `+` filling the column, 4pt apart. Under
+    /// iOS 26 the two pieces are Liquid Glass in one container.
+    private var carouselRow: some View {
+        GlassGroup(spacing: Layout.stepToViewport) {
+            HStack(spacing: Layout.stepToViewport) {
                 stepButton(systemName: "minus",
                            enabled: carousel?.canStepBack ?? false,
                            identifier: "detail.stepBack") { move(by: -1) }
-                pillTrack
+                pillViewport
                 stepButton(systemName: "plus",
                            enabled: carousel?.canStepForward ?? false,
                            identifier: "detail.stepForward") { move(by: 1) }
             }
-            ZStack {
-                if carousel?.canReturnToRange == true {
-                    returnButton
-                        .transition(.opacity)
-                }
-            }
-            .frame(height: Self.rowHeight)
         }
-        .frame(maxWidth: .infinity)
     }
 
-    /// 20×20 r5 pill, 10pt glyph; the LAYOUT stays 20pt while the ±12pt
-    /// padding pair grows the hit area to the HIG 44pt (the beta pill's
-    /// pattern).
+    /// A 24×24 r6 piece (a pill's size), 10pt glyph; the layout stays 24pt
+    /// while a ±10pt padding pair grows the hit area to the HIG 44pt.
     private func stepButton(systemName: String,
                             enabled: Bool,
                             identifier: String,
@@ -231,81 +266,55 @@ struct ActivityDetailView: View {
             Image(systemName: systemName)
                 .font(.system(size: 10, weight: .semibold))
                 .foregroundStyle(Theme.accentInteractive)
-                .frame(width: 20, height: 20)
-                .background(Theme.timelineTrack, in: RoundedRectangle(cornerRadius: 5))
                 .opacity(enabled ? 1 : 0.35)
-                .padding(12)
+                .frame(width: Layout.stepPiece, height: Layout.stepPiece)
+                .stepPieceSurface(enabled: enabled)
+                .padding(Layout.hitPad)
                 .contentShape(Rectangle())
-                .padding(-12)
+                .padding(-Layout.hitPad)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressStyle())
         .disabled(!enabled)
         .accessibilityIdentifier(identifier)
         .accessibilityLabel(systemName == "minus" ? "Earlier hours" : "Later hours")
     }
 
-    /// Icon-only, 40×26 capsule; a ±9pt padding pair makes the 44pt target.
-    private var returnButton: some View {
-        Button(action: returnToRange) {
-            Image(systemName: "arrow.uturn.backward")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Theme.accentInteractive)
-                .frame(width: 40, height: Self.rowHeight)
-                .background(Theme.accentInteractive.opacity(0.12), in: Capsule())
-                .padding(9)
-                .contentShape(Rectangle())
-                .padding(-9)
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("detail.returnToRange")
-        .accessibilityLabel("Return to your range")
-    }
-
-    /// Every walkable hour of the shown day is a slot; `visibleSlots` of them
-    /// show, equal widths with 3pt gaps filling the track. The whole row
-    /// slides (offset by `firstVisible`) and is clipped to the track. A
-    /// horizontal drag steps the span one hour per pill pitch, finger-left =
-    /// later hours. Tapping a pill does nothing.
+    /// The pill viewport: a native horizontal scroll of every walkable hour
+    /// (plus blank pads at the walk ends), snapping by pill pitch, so a drag
+    /// gets UIKit's tracking, deceleration and rubber band. The span is the
+    /// run of pills under the fixed highlight window; it derives from the
+    /// scroll position. Tapping a pill does nothing.
     @ViewBuilder
-    private var pillTrack: some View {
-        if let carousel, let authored {
+    private var pillViewport: some View {
+        // The clear base sizes the viewport (full width × 24); the scroll row
+        // rides in an overlay so it never feeds back into the measurement.
+        let base = Color.clear
+            .frame(maxWidth: .infinity)
+            .frame(height: Layout.pillHeight)
+            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { trackWidth = $0 }
+        if let carousel, let authored, trackWidth > 0 {
             let slots = CGFloat(carousel.visibleSlots)
-            let pillWidth = max((trackWidth - (slots - 1) * Self.pillGap) / slots, 1)
-            let pitch = pillWidth + Self.pillGap
-            // The track's size is the clear base (full width × 26); the pill
-            // row rides in an overlay so its overflow never feeds back into
-            // the measured width.
-            Color.clear
-                .frame(maxWidth: .infinity)
-                .frame(height: Self.rowHeight)
+            let pillWidth = max((trackWidth - (slots - 1) * Layout.pillGap) / slots, 1)
+            base
                 .overlay(alignment: .leading) {
-                    HStack(spacing: Self.pillGap) {
-                        ForEach(Array(carousel.walkable), id: \.self) { index in
-                            pill(at: index,
-                                 authored: authored,
-                                 chosen: carousel.span.contains(index))
-                                .frame(width: pillWidth, height: Self.rowHeight)
+                    ScrollView(.horizontal) {
+                        HStack(spacing: Layout.pillGap) {
+                            ForEach(Array(carousel.slotIDs), id: \.self) { id in
+                                slot(id, carousel: carousel, authored: authored)
+                                    .frame(width: pillWidth, height: Layout.pillHeight)
+                                    .id(id)
+                            }
                         }
+                        .scrollTargetLayout()
                     }
-                    .fixedSize()
-                    .offset(x: -CGFloat(carousel.firstVisible - carousel.walkable.lowerBound) * pitch)
+                    .frame(width: trackWidth, height: Layout.pillHeight)
+                    .scrollIndicators(.hidden)
+                    .scrollTargetBehavior(.viewAligned)
+                    .scrollPosition(id: $scrolledSlot, anchor: .leading)
+                    .onAppear {
+                        if scrolledSlot == nil { scrolledSlot = carousel.scrollAnchor }
+                    }
                 }
-                .clipped()
-                .contentShape(Rectangle())
-                // Simultaneous so a vertical scroll starting on the row still
-                // scrolls the page; the span steps as the drag crosses each
-                // pill pitch, and any steps a fast flick skipped land on end.
-                .simultaneousGesture(
-                    DragGesture(minimumDistance: 10)
-                        .onChanged { value in
-                            dragStep(to: value.translation, pitch: pitch)
-                        }
-                        .onEnded { value in
-                            dragStep(to: value.translation, pitch: pitch)
-                            dragSteps = 0
-                        }
-                )
-                .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { trackWidth = $0 }
                 .accessibilityElement(children: .ignore)
                 .accessibilityIdentifier("detail.hourStrip")
                 .accessibilityLabel(spanAccessibilityLabel(carousel))
@@ -316,10 +325,13 @@ struct ActivityDetailView: View {
                     @unknown default: break
                     }
                 }
+                .accessibilityActions {
+                    if carousel.canReturnToRange {
+                        Button("Return to your range", action: returnToRange)
+                    }
+                }
         } else {
-            Color.clear
-                .frame(maxWidth: .infinity)
-                .frame(height: Self.rowHeight)
+            base
         }
     }
 
@@ -330,11 +342,34 @@ struct ActivityDetailView: View {
         return "Hours \(deriver.hourLabel(at: carousel.span.lowerBound)) to \(deriver.hourLabel(at: carousel.span.upperBound))"
     }
 
-    /// The old pill look: r6, tier colour, white 11pt numeral (Semibold when
+    /// One slot: a blank pad outside the walk, else an hour pill. Pills off
+    /// the viewport's edges fade and shrink slightly as they scroll out, so
+    /// the row reads as a continuous strip.
+    @ViewBuilder
+    private func slot(_ id: Int, carousel: HourCarousel, authored: AuthoredActivity) -> some View {
+        if carousel.walkable.contains(id) {
+            pill(at: id,
+                 authored: authored,
+                 chosen: carousel.span.contains(id),
+                 home: !carousel.isAtRange && (carousel.rangeHours?.contains(id) ?? false))
+                .scrollTransition(.interactive, axis: .horizontal) { content, phase in
+                    let edge = reduceMotion ? 0 : min(abs(phase.value), 1)
+                    return content
+                        .opacity(1 - 0.5 * edge)
+                        .scaleEffect(1 - 0.12 * edge)
+                }
+        } else {
+            Color.clear
+        }
+    }
+
+    /// The round-2 pill: r6, tier colour, white 11pt numeral (Semibold when
     /// chosen). Chosen hours 100%, the rest 35%. A PASSED hour is grey but
     /// readable — its fill drops to 15% and its numeral turns secondary; the
     /// 35% dim then applies to its fill only, so the numeral stays legible.
-    private func pill(at index: Int, authored: AuthoredActivity, chosen: Bool) -> some View {
+    /// A Range ("home") hour keeps a 1pt ghost outline inside its rect while
+    /// the span is away.
+    private func pill(at index: Int, authored: AuthoredActivity, chosen: Bool, home: Bool) -> some View {
         let tier = viewModel.forecast.flatMap { forecast -> HourTier? in
             guard forecast.hours.indices.contains(index) else { return nil }
             return HourQuality.tier(for: forecast.hours[index], thresholds: authored.thresholds)
@@ -342,7 +377,8 @@ struct ActivityDetailView: View {
         let fill = tier.map(Theme.tierColor) ?? Theme.timelineTrack
         let passed = deriver?.hasPassed(index, now: now()) ?? false
         let dim: Double = chosen ? 1 : 0.35
-        return RoundedRectangle(cornerRadius: 6)
+        let shape = RoundedRectangle(cornerRadius: Theme.Radius.sm)
+        return shape
             .fill(fill.opacity(passed ? 0.15 * dim : 1))
             .overlay(
                 Text(RangeStripAxis.numeral(viewModel.localHour(at: index) ?? 0))
@@ -350,31 +386,32 @@ struct ActivityDetailView: View {
                     .foregroundStyle(passed ? Theme.secondaryText : Color.white)
             )
             .opacity(passed ? 1 : dim)
+            .overlay(
+                shape
+                    .strokeBorder(Theme.homeOutline, lineWidth: Theme.homeOutlineWidth)
+                    .opacity(home ? 1 : 0)
+            )
+            .animation(reduceMotion ? nil : Theme.Motion.value, value: chosen)
+            .animation(reduceMotion ? nil : Theme.Motion.value, value: home)
     }
 
-    private var animation: Animation? { reduceMotion ? nil : .easeOut(duration: 0.2) }
-
+    /// − / + slide the row one pill; the span follows the scroll position.
     private func move(by delta: Int) {
         guard var next = carousel else { return }
         next.step(by: delta)
-        withAnimation(animation) { carouselState = next }
+        withAnimation(reduceMotion ? nil : Theme.Motion.step) {
+            scrolledSlot = next.scrollAnchor
+        }
     }
 
-    /// Finger-left = later hours. Horizontal-dominant drags only, so a
-    /// vertical page scroll never slides the span.
-    private func dragStep(to translation: CGSize, pitch: CGFloat) {
-        guard abs(translation.width) > abs(translation.height), pitch > 0 else { return }
-        let target = Int((-translation.width / pitch).rounded(.towardZero))
-        let delta = target - dragSteps
-        guard delta != 0 else { return }
-        dragSteps = target
-        move(by: delta)
-    }
-
+    /// The ring's action: spring the row back onto the Range.
     private func returnToRange() {
-        guard var next = carousel else { return }
+        guard var next = carousel, next.canReturnToRange else { return }
         next.returnToRange()
-        withAnimation(animation) { carouselState = next }
+        homeTick += 1
+        withAnimation(reduceMotion ? nil : Theme.Motion.home) {
+            scrolledSlot = next.scrollAnchor
+        }
     }
 
     // MARK: The metric cards — two per row, the chosen hours' average
@@ -387,9 +424,9 @@ struct ActivityDetailView: View {
         let metrics = current.displayMetrics
         let inRange = carousel?.overlapsRange ?? false
         let hour = displayedHour
-        return LazyVGrid(columns: [GridItem(.flexible(), spacing: 13),
-                                   GridItem(.flexible(), spacing: 13)],
-                         spacing: 12) {
+        return LazyVGrid(columns: [GridItem(.flexible(), spacing: Layout.gridColumnGap),
+                                   GridItem(.flexible(), spacing: Layout.gridColumnGap)],
+                         spacing: Layout.gridRowGap) {
             ForEach(metrics, id: \.self) { metric in
                 MetricCardView(metric: metric,
                                hour: hour,
@@ -421,16 +458,16 @@ struct ActivityDetailView: View {
             }
             Theme.divider
                 .frame(height: 0.5)
-                .padding(.leading, 13.5)
+                .padding(.leading, Layout.sideMargin)
             editRow("Edit metrics", identifier: "detail.editMetrics") {
                 if let authored { editing = EditRequest(activity: authored, step: .metrics) }
             }
         }
         .background(Theme.cardBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 10))
-        .shadow(color: .black.opacity(0.08), radius: 3, x: 0, y: 1)
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.md))
+        .cardFloat()
         .overlay(
-            RoundedRectangle(cornerRadius: 10)
+            RoundedRectangle(cornerRadius: Theme.Radius.md)
                 .stroke(Color.black.opacity(0.06), lineWidth: 0.5)
         )
         .disabled(authored == nil)
@@ -447,12 +484,43 @@ struct ActivityDetailView: View {
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(Theme.secondaryText)
             }
-            .padding(.horizontal, 13.5)
-            .frame(height: 44)
+            .padding(.horizontal, Layout.sideMargin)
+            .frame(minHeight: 44)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier(identifier)
+    }
+}
+
+// MARK: Liquid Glass (experimental, iOS 26+)
+
+/// Groups the hero row's glass pieces so they blend as one material under
+/// iOS 26; a plain pass-through below it.
+private struct GlassGroup<Content: View>: View {
+    let spacing: CGFloat
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        if #available(iOS 26, *) {
+            GlassEffectContainer(spacing: spacing) { content }
+        } else {
+            content
+        }
+    }
+}
+
+private extension View {
+    /// The − / + piece's surface: interactive Liquid Glass on iOS 26, the
+    /// flat recess-track fill below it.
+    @ViewBuilder
+    func stepPieceSurface(enabled: Bool) -> some View {
+        let shape = RoundedRectangle(cornerRadius: Theme.Radius.sm)
+        if #available(iOS 26, *) {
+            self.glassEffect(enabled ? .regular.interactive() : .regular, in: shape)
+        } else {
+            self.background(Theme.timelineTrack, in: shape)
+        }
     }
 }
 
@@ -484,6 +552,17 @@ struct ActivityDetailView: View {
         ActivityDetailView(activity: PreviewFixtures.forecast.activities[2],
                            viewModel: viewModel)
     }
+    .task { await viewModel.loadForecast() }
+}
+
+/// HIG check: the hero and cards at the accessibility XL text size.
+#Preview("Cycling (Accessibility XL)") {
+    let viewModel = PreviewFixtures.dashboardViewModel()
+    NavigationStack {
+        ActivityDetailView(activity: PreviewFixtures.forecast.activities[0],
+                           viewModel: viewModel)
+    }
+    .environment(\.dynamicTypeSize, .accessibility3)
     .task { await viewModel.loadForecast() }
 }
 #endif

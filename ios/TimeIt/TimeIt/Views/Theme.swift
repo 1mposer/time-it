@@ -26,6 +26,88 @@ enum Theme {
     static let accentInteractive = Color(hex: 0x007aff) // Semantic accent/interactive
     static let divider = Color(hex: 0x3c3c43, opacity: 0.18)
 
+    /// The Figma Layout collection's spacing scale (`space/*`) — the
+    /// shipped-truth home for these values (ADR-0009).
+    enum Spacing {
+        static let xs: CGFloat = 4
+        static let sm: CGFloat = 8
+        static let md: CGFloat = 10
+        static let lg: CGFloat = 14
+        static let xl: CGFloat = 16
+        /// The card padding token.
+        static let card: CGFloat = 16
+    }
+
+    /// The Figma corner radii.
+    enum Radius {
+        static let sm: CGFloat = 6
+        static let md: CGFloat = 10
+        /// Cards and the detail hero.
+        static let lg: CGFloat = 16
+        static let full: CGFloat = 999
+    }
+
+    /// Activity Detail geometry from the Figma detail frame (393pt screen).
+    /// Values off the scale above are the frame's own measured gaps.
+    enum Detail {
+        /// Side margin for the hero and the cards.
+        static let sideMargin: CGFloat = Spacing.lg
+        /// Nav bar → week-dot row.
+        static let topPadding: CGFloat = 12
+        /// Week-dot row → hero.
+        static let dotsToHero: CGFloat = Spacing.md
+        /// Hero → metric grid, and the grid's own row gap.
+        static let sectionGap: CGFloat = 12
+        static let gridRowGap: CGFloat = 12
+        static let gridColumnGap: CGFloat = 13
+
+        // The hero: ring 80 inset 16 from top/left, the rating word 12
+        // under it, 28 of air to the bottom (16 + 80 + 12 + 14 + 28 = 150).
+        static let heroInset: CGFloat = Spacing.card
+        static let heroBottom: CGFloat = 28
+        static let ringDiameter: CGFloat = 80
+        static let ringNumeral: CGFloat = 28
+        static let ringToWord: CGFloat = 12
+        /// Ring right edge → the pill column.
+        static let ringToRow: CGFloat = Spacing.xl
+
+        // The pill row: − · viewport · + across the column.
+        static let pillHeight: CGFloat = 24
+        static let pillGap: CGFloat = 3
+        static let stepPiece: CGFloat = 24
+        static let stepToViewport: CGFloat = Spacing.xs
+        /// Pads the 24pt pieces to the HIG 44pt target.
+        static let hitPad: CGFloat = 10
+
+        /// The metric card's inner inset.
+        static let metricInset: CGFloat = 20
+    }
+
+    /// The detail's motion springs (fluid-interfaces spring table: response
+    /// = pace, damping = character; no mass/stiffness).
+    enum Motion {
+        /// − / + slide the row one pill: tap-triggered, no bounce.
+        static let step = Animation.spring(response: 0.35, dampingFraction: 1)
+        /// The ring springs the row home — a longer throw, a little life.
+        static let home = Animation.spring(response: 0.35, dampingFraction: 0.8)
+        /// The metric values' numeric roll and the pills' chosen/dim swap.
+        static let value = Animation.spring(response: 0.3, dampingFraction: 1)
+        /// A press releasing: instant on, slower off.
+        static let pressRelease = Animation.spring(duration: 0.3)
+        static let pressScale: CGFloat = 0.97
+    }
+
+    /// Light-mode card elevation — Figma "Card Float" (y4, blur 16, black
+    /// 6%; SwiftUI's shadow radius is about half a Figma blur).
+    static let cardFloatColor = Color.black.opacity(0.06)
+    static let cardFloatRadius: CGFloat = 8
+    static let cardFloatY: CGFloat = 4
+
+    /// The Range's "home" ghost outline on the detail pill row: 1pt
+    /// interactive accent at 35%, inside the pill rect.
+    static let homeOutline = accentInteractive.opacity(0.35)
+    static let homeOutlineWidth: CGFloat = 1
+
     /// Metric-chip tier colors — text uses darker high-contrast variants so
     /// the label passes contrast on the 12% tint; backgrounds tint the
     /// semantic rating tokens. The ONLY home for these values (ADR-0009
@@ -120,5 +202,12 @@ enum Theme {
         return LinearGradient(colors: colors,
                               startPoint: UnitPoint(x: 0.33, y: 0),
                               endPoint: UnitPoint(x: 0.67, y: 1))
+    }
+}
+
+extension View {
+    /// Figma "Card Float" elevation.
+    func cardFloat() -> some View {
+        shadow(color: Theme.cardFloatColor, radius: Theme.cardFloatRadius, x: 0, y: Theme.cardFloatY)
     }
 }
