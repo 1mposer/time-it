@@ -257,13 +257,13 @@ struct ActivityDetailView: View {
                     pill(at: index, authored: authored, selected: index == stepper.selected, colored: inRange)
                 }
             }
-            .frame(height: 24)
+            .frame(height: 26)
             .scaleEffect(stripPressed && !reduceMotion ? 0.97 : 1)
             .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: stripPressed)
             // The strip is the way back into the Range, so it needs a 44pt
             // target around its 24pt visual — the ±padding pair is the beta
             // pill's pattern: it grows the hit area without growing the card.
-            .padding(.vertical, 10)
+            .padding(.vertical, 15)
             .contentShape(Rectangle())
             .onTapGesture { snapBack() }
             .padding(.vertical, -10)
