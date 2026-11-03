@@ -86,14 +86,17 @@ final class TimeDerivationTests: XCTestCase {
         XCTAssertEqual(shifted.hourRange(forDayIndex: 0, hourCount: 164), 0..<8)
     }
 
-    /// The detail carousel's passed-hour grey: an hour whose instant is before
-    /// `now` (injected) has passed; `now` itself and later have not.
-    func testHasPassedComparesTheHoursInstantWithNow() throws {
+    /// The detail carousel's passed-hour grey: an hour has passed only once
+    /// its slot has ENDED (now ≥ start + 1h, `now` injected). The hour under
+    /// way is "now", not passed.
+    func testHasPassedOnlyOnceTheHoursSlotHasEnded() throws {
         let now = try XCTUnwrap(ISO8601DateFormatter().date(from: "2026-06-19T14:30:00Z"))
-        XCTAssertTrue(deriver.hasPassed(0, now: now), "12:00Z is before 14:30Z")
-        XCTAssertTrue(deriver.hasPassed(2, now: now), "14:00Z — the hour under way has started")
+        XCTAssertTrue(deriver.hasPassed(0, now: now), "12:00–13:00Z has ended")
+        XCTAssertTrue(deriver.hasPassed(1, now: now), "13:00–14:00Z has ended")
+        XCTAssertFalse(deriver.hasPassed(2, now: now), "14:00Z is under way — now, not passed")
         XCTAssertFalse(deriver.hasPassed(3, now: now), "15:00Z is still ahead")
         let onTheHour = try XCTUnwrap(ISO8601DateFormatter().date(from: "2026-06-19T15:00:00Z"))
-        XCTAssertFalse(deriver.hasPassed(3, now: onTheHour), "strictly before — not equal")
+        XCTAssertTrue(deriver.hasPassed(2, now: onTheHour), "the slot ends exactly at 15:00Z")
+        XCTAssertFalse(deriver.hasPassed(3, now: onTheHour), "15:00Z has just started")
     }
 }

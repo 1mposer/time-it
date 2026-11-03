@@ -15,15 +15,18 @@ import Foundation
 ///   lookahead beyond the span, and stops once the day's last (or first)
 ///   walkable hour is in view.
 ///
-/// Corners the brief left open, pinned in `HourCarouselTests`:
-/// - When `visibleSlots == span + 1` there is one spare slot, so the window
-///   opens with the Range at its LEFT (lookahead on the right, the natural
-///   walk direction). The first step back therefore shifts the window two
-///   slots to restore the one-slot lookback. `visibleSlots` is tunable.
-/// - When the span is as long as the window or longer (`span >= visibleSlots`,
-///   only reachable when the 22pt pill floor caps the slot count), one-slot
-///   lookahead cannot hold, so the window anchors on the span's first hour
-///   (clamped to the day).
+/// The window opens with ONE earlier slot visible left of the Range when
+/// one exists (`visibleSlots` = Range + 2: one slot of lookback, one of
+/// lookahead); a Range starting at the day's first walkable hour pins the
+/// window to slot 0 with the spare slots ahead. The window never moves more
+/// than one slot per step ("always 1 away").
+///
+/// Corners pinned in `HourCarouselTests`:
+/// - When the 22pt pill floor caps `visibleSlots` below Range + 2, both
+///   lookaheads cannot hold at once; the one-slot-per-step limit wins, so the
+///   window trails by a slot rather than jumping.
+/// - When the span is as long as the window or longer (`span >= visibleSlots`)
+///   the window anchors on the span's first hour (clamped to the day).
 /// - With no Range hours on the shown day the span is ONE hour at the first
 ///   walkable hour, and there is no Range to return to.
 struct HourCarousel: Equatable {
@@ -48,19 +51,19 @@ struct HourCarousel: Equatable {
         let opening = range ?? (walkable.lowerBound ..< walkable.lowerBound + 1)
         span = opening
         firstVisible = walkable.lowerBound
-        firstVisible = clampedFirst(opening.lowerBound)
+        firstVisible = openingFirst
     }
 
     // MARK: The tunable slot count
 
-    /// How many pills the row shows: one more than the Range (a slot of
-    /// lookahead), at least 4, and never so many that a pill would be
-    /// narrower than `minPill`. Owner-tunable on the simulator.
+    /// How many pills the row shows: the Range plus two (one slot of
+    /// lookback, one of lookahead), at least 4, and never so many that a pill
+    /// would be narrower than `minPill`. Owner-tunable on the simulator.
     static func visibleSlotCount(rangeLength: Int,
                                  availableWidth: Double,
                                  minPill: Double = 22,
                                  gap: Double = 3) -> Int {
-        let wanted = Swift.max(rangeLength + 1, 4)
+        let wanted = Swift.max(rangeLength + 2, 4)
         guard availableWidth > 0 else { return wanted }
         let fitting = Int(((availableWidth + gap) / (minPill + gap)).rounded(.down))
         return Swift.max(1, Swift.min(wanted, fitting))
@@ -93,8 +96,10 @@ struct HourCarousel: Equatable {
             firstVisible = clampedFirst(span.lowerBound)
         } else {
             // The span's last hour (upperBound − 1) stays on the
-            // second-to-last slot (firstVisible + visibleSlots − 2) or earlier.
-            firstVisible = clampedFirst(Swift.max(firstVisible, span.upperBound + 1 - visibleSlots))
+            // second-to-last slot (firstVisible + visibleSlots − 2) or
+            // earlier — moving at most one slot per step.
+            let wanted = Swift.max(firstVisible, span.upperBound + 1 - visibleSlots)
+            firstVisible = clampedFirst(Swift.min(wanted, firstVisible + 1))
         }
     }
 
@@ -104,8 +109,10 @@ struct HourCarousel: Equatable {
         if anchorsOnSpan {
             firstVisible = clampedFirst(span.lowerBound)
         } else {
-            // The span's first hour stays on the second slot or later.
-            firstVisible = clampedFirst(Swift.min(firstVisible, span.lowerBound - 1))
+            // The span's first hour stays on the second slot or later —
+            // moving at most one slot per step.
+            let wanted = Swift.min(firstVisible, span.lowerBound - 1)
+            firstVisible = clampedFirst(Swift.max(wanted, firstVisible - 1))
         }
     }
 
@@ -120,12 +127,18 @@ struct HourCarousel: Equatable {
     mutating func returnToRange() {
         guard let rangeHours else { return }
         span = rangeHours
-        firstVisible = clampedFirst(rangeHours.lowerBound)
+        firstVisible = openingFirst
     }
 
     // MARK: Private
 
     private var anchorsOnSpan: Bool { span.count >= visibleSlots }
+
+    /// At rest: one earlier slot left of the span (clamped to the day); an
+    /// anchored (over-long) span opens on its own first hour.
+    private var openingFirst: Int {
+        clampedFirst(anchorsOnSpan ? span.lowerBound : span.lowerBound - 1)
+    }
 
     private func clampedFirst(_ proposed: Int) -> Int {
         let upper = Swift.max(walkable.lowerBound, walkable.upperBound - visibleSlots)
