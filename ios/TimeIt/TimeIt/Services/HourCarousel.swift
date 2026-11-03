@@ -14,7 +14,8 @@ import Foundation
 ///                             walkable.upperBound − L)
 ///
 /// - `visibleSlots` = Range + 2 (one slot of lookback, one of lookahead),
-///   floor 4, capped so no pill is narrower than 22pt (`visibleSlotCount`).
+///   floor 4, capped by the pill floor but never below the Range length
+///   (`visibleSlotCount`), so the span always fits inside the viewport.
 /// - The leading pad: ONE blank slot before the day's first walkable hour,
 ///   so the span can reach the walk start while keeping its one-slot
 ///   lookback position (it shows as an empty slot there). Zero pads when the
@@ -22,10 +23,10 @@ import Foundation
 /// - The trailing pad: `max(0, V − lead − L)` blank slots after the last
 ///   walkable hour, so the furthest snap is exactly the span-at-walk-end
 ///   position (the highlight never rests misaligned).
-/// - When `V ≤ L` (a long Range under the pill floor) the span is wider
-///   than the viewport: the anchor is the span's first hour, the span runs
-///   off the trailing edge, and the last `L − V` scroll positions all clamp
-///   to the span at the walk end.
+/// - When `V == L` (a Range of 9+ hours in the hero) the span fills the
+///   viewport exactly: no pads, the anchor is the span's first hour. (`V < L`
+///   is not produced by `visibleSlotCount`; if passed in directly, the last
+///   `L − V` scroll positions clamp to the span at the walk end.)
 /// - With no Range hours on the shown day the span is ONE hour, opening at
 ///   the first walkable hour, and there is no Range to return to.
 struct HourCarousel: Equatable {
@@ -52,15 +53,34 @@ struct HourCarousel: Equatable {
 
     /// How many pills the row shows: the Range plus two (one slot of
     /// lookback, one of lookahead), at least 4, and never so many that a pill
-    /// would be narrower than `minPill`. Owner-tunable on the simulator.
+    /// would be narrower than `minPill` — EXCEPT that the count never drops
+    /// below the Range length: a long Range shrinks its pills to fit rather
+    /// than overflow the viewport (owner ruling 2026-11-03 — a 9–17 workday
+    /// must sit entirely inside the row). With the hero's 181pt viewport and
+    /// the 15pt floor, Range + 2 fits up to an 8-hour Range; from 9 hours the
+    /// spare slots give way first. Owner-tunable on the simulator.
     static func visibleSlotCount(rangeLength: Int,
                                  availableWidth: Double,
-                                 minPill: Double = 22,
+                                 minPill: Double = minPillWidth,
                                  gap: Double = 3) -> Int {
         let wanted = Swift.max(rangeLength + 2, 4)
         guard availableWidth > 0 else { return wanted }
         let fitting = Int(((availableWidth + gap) / (minPill + gap)).rounded(.down))
-        return Swift.max(1, Swift.min(wanted, fitting))
+        return Swift.max(1, rangeLength, Swift.min(wanted, fitting))
+    }
+
+    /// The pill floor. 15, not the 16 first asked for: ten slots (an 8-hour
+    /// Range + 2) in 181pt need (181 − 9·3) / 10 = 15.4pt pills, and a 16pt
+    /// floor fits only floor(184 / 19) = 9.
+    static let minPillWidth: Double = 15
+
+    /// Below this width a pill's numeral drops to 9pt Semibold.
+    static let compactPillWidth: Double = 22
+
+    /// Each pill's width when `slots` share `availableWidth` with `gap`s.
+    static func pillWidth(slots: Int, availableWidth: Double, gap: Double = 3) -> Double {
+        let count = Double(Swift.max(slots, 1))
+        return Swift.max((availableWidth - (count - 1) * gap) / count, 1)
     }
 
     // MARK: Slots ↔ scroll position

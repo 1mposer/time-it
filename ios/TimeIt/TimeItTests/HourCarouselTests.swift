@@ -118,7 +118,7 @@ final class HourCarouselTests: XCTestCase {
         }
     }
 
-    // MARK: A long Range under the pill floor (V ≤ L)
+    // MARK: Direct V ≤ L input (visibleSlotCount never produces V < L; the clamp stays safe)
 
     func testASpanWiderThanTheViewportAnchorsOnItsFirstHour() {
         // L 8, V 7: lead 0, trail max(0, 7 − 0 − 8) = 0 → slots 0..<16,
@@ -136,7 +136,7 @@ final class HourCarouselTests: XCTestCase {
     }
 
     func testOneSlotShortOfRangePlusTwoKeepsTheLookbackAndDropsTheLookahead() {
-        // L 6, V 7 (a 181pt viewport floor-caps at 7): lead 1, trail 0 →
+        // L 6, V 7 (V = L + 1, as for a 9-hour Range at 10 slots): lead 1, trail 0 →
         // slots −1..<16; max anchor 16 − 7 = 9 → span 10..<16 exactly.
         let c = HourCarousel(walkable: 0..<16, rangeHours: 4..<10, visibleSlots: 7)
         XCTAssertEqual(c.leadSlots, 1)
@@ -221,20 +221,68 @@ final class HourCarouselTests: XCTestCase {
 
     // MARK: Visible-slot count (owner-tunable)
 
+    /// The hero's pill viewport: 237 column − 2·24 pieces − 2·4 gaps.
+    private let viewport = 181.0
+
     func testVisibleSlotCountIsRangePlusTwoWithAFloorOfFour() {
-        XCTAssertEqual(HourCarousel.visibleSlotCount(rangeLength: 4, availableWidth: 181), 6)
-        XCTAssertEqual(HourCarousel.visibleSlotCount(rangeLength: 2, availableWidth: 181), 4)
-        XCTAssertEqual(HourCarousel.visibleSlotCount(rangeLength: 1, availableWidth: 181), 4)
+        XCTAssertEqual(HourCarousel.visibleSlotCount(rangeLength: 4, availableWidth: viewport), 6)
+        XCTAssertEqual(HourCarousel.visibleSlotCount(rangeLength: 2, availableWidth: viewport), 4)
+        XCTAssertEqual(HourCarousel.visibleSlotCount(rangeLength: 1, availableWidth: viewport), 4)
     }
 
-    func testVisibleSlotCountNeverMakesAPillNarrowerThan22pt() {
-        // The hero's 181pt viewport: floor((181 + 3) / (22 + 3)) = 7 fit.
-        XCTAssertEqual(HourCarousel.visibleSlotCount(rangeLength: 5, availableWidth: 181), 7)
-        XCTAssertEqual(HourCarousel.visibleSlotCount(rangeLength: 6, availableWidth: 181), 7)
-        XCTAssertEqual(HourCarousel.visibleSlotCount(rangeLength: 12, availableWidth: 181), 7)
-        // floor((222 + 3) / 25) = 9; floor((120 + 3) / 25) = 4.
-        XCTAssertEqual(HourCarousel.visibleSlotCount(rangeLength: 8, availableWidth: 222), 9)
-        XCTAssertEqual(HourCarousel.visibleSlotCount(rangeLength: 4, availableWidth: 120), 4)
+    func testTheFifteenPointFloorFitsAnEightHourRangePlusTwo() {
+        // floor((181 + 3) / (15 + 3)) = floor(10.22) = 10 slots fit.
+        XCTAssertEqual(HourCarousel.visibleSlotCount(rangeLength: 8, availableWidth: viewport), 10)
+        // (181 − 9·3) / 10 = 15.4pt pills.
+        XCTAssertEqual(HourCarousel.pillWidth(slots: 10, availableWidth: viewport), 15.4, accuracy: 0.0001)
+        // A wider row is still capped at the wanted Range + 2:
+        // floor(225 / 18) = 12 fit, wanted 10.
+        XCTAssertEqual(HourCarousel.visibleSlotCount(rangeLength: 8, availableWidth: 222), 10)
+    }
+
+    func testALongRangeShrinksItsPillsRatherThanOverflow() {
+        // L 9: wanted 11, 10 fit → 10 (the lookahead slot gives way).
+        XCTAssertEqual(HourCarousel.visibleSlotCount(rangeLength: 9, availableWidth: viewport), 10)
+        // L 12: wanted 14, 10 fit → clamped UP to the Range length, 12:
+        // (181 − 11·3) / 12 = 12.333pt pills.
+        XCTAssertEqual(HourCarousel.visibleSlotCount(rangeLength: 12, availableWidth: viewport), 12)
+        XCTAssertEqual(HourCarousel.pillWidth(slots: 12, availableWidth: viewport), 12.333, accuracy: 0.001)
+    }
+
+    func testTheSpanAlwaysFitsInsideTheViewport() {
+        // For every Range length 1…12 in the hero viewport: the span's pills
+        // plus their inner gaps never exceed the viewport width, and the
+        // opening highlight's slots all lie inside the visible window.
+        for length in 1...12 {
+            let slots = HourCarousel.visibleSlotCount(rangeLength: length, availableWidth: viewport)
+            let pill = HourCarousel.pillWidth(slots: slots, availableWidth: viewport)
+            let spanWidth = Double(length) * pill + Double(length - 1) * 3
+            XCTAssertLessThanOrEqual(spanWidth, viewport + 0.0001, "L \(length)")
+            let c = HourCarousel(walkable: 0..<24, rangeHours: 6 ..< 6 + length, visibleSlots: slots)
+            XCTAssertTrue(c.visible.contains(c.span.lowerBound), "L \(length)")
+            XCTAssertTrue(c.visible.contains(c.span.upperBound - 1), "L \(length)")
+        }
+    }
+
+    func testUpToEightHoursThereIsOneSpareSlotEachSide() {
+        // A mid-day Range (walk 0..<24, Range from 6): the slot before and
+        // the slot after the span are both visible at rest.
+        for length in 1...8 {
+            let slots = HourCarousel.visibleSlotCount(rangeLength: length, availableWidth: viewport)
+            XCTAssertGreaterThanOrEqual(slots, length + 2, "L \(length)")
+            let c = HourCarousel(walkable: 0..<24, rangeHours: 6 ..< 6 + length, visibleSlots: slots)
+            XCTAssertTrue(c.visible.contains(c.span.lowerBound - 1), "lookback, L \(length)")
+            XCTAssertTrue(c.visible.contains(c.span.upperBound), "lookahead, L \(length)")
+        }
+    }
+
+    func testPillsNarrowerThan22ptAreCompact() {
+        // 4-hour Range: (181 − 15) / 6 = 27.67 → regular numeral; 8-hour:
+        // 15.4 → compact 9pt.
+        XCTAssertGreaterThanOrEqual(HourCarousel.pillWidth(slots: 6, availableWidth: viewport),
+                                    HourCarousel.compactPillWidth)
+        XCTAssertLessThan(HourCarousel.pillWidth(slots: 10, availableWidth: viewport),
+                          HourCarousel.compactPillWidth)
     }
 
     func testVisibleSlotCountBeforeLayoutUsesTheWantedCount() {

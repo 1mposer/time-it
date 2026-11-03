@@ -39,6 +39,12 @@ struct ActivityDetailView: View {
     @State private var trackWidth: CGFloat = 0
     /// Bumped when the ring springs the row home — the impact haptic.
     @State private var homeTick = 0
+    /// Bumped when the span moves to a new hour by − / + or the user's own
+    /// scroll — the selection haptic. Returning home and day jumps don't.
+    @State private var selectionTick = 0
+    /// The slot a programmatic scroll (− / +, home, re-seed) is heading for:
+    /// its arrival in `scrolledSlot` is not a user scroll, so no tick.
+    @State private var programmaticSlot: Int?
     /// The open edit door: which Activity and which wizard tab it lands on.
     @State private var editing: EditRequest?
 
@@ -120,13 +126,24 @@ struct ActivityDetailView: View {
         // a shifted or absent day — reset to today, carousel back on the Range.
         .onChange(of: viewModel.forecast?.forecastStart) { _, _ in
             selectedDayIndex = 0
-            scrolledSlot = openingCarousel?.scrollAnchor
+            seed(openingCarousel?.scrollAnchor)
         }
         // A new day or row width re-opens the row on that day's Range.
         .onChange(of: openingCarousel) { _, opening in
-            scrolledSlot = opening?.scrollAnchor
+            seed(opening?.scrollAnchor)
         }
-        .sensoryFeedback(.selection, trigger: carousel?.span.lowerBound)
+        // A user scroll that lands the span on a new hour ticks; a
+        // programmatic scroll's arrival does not.
+        .onChange(of: scrolledSlot) { old, new in
+            if let target = programmaticSlot, new == target {
+                programmaticSlot = nil
+                return
+            }
+            guard let opening = openingCarousel, let old, let new,
+                  opening.span(forScrollAnchor: old) != opening.span(forScrollAnchor: new) else { return }
+            selectionTick += 1
+        }
+        .sensoryFeedback(.selection, trigger: selectionTick)
         .sensoryFeedback(.impact(weight: .light), trigger: homeTick)
         .navigationTitle(current.label)
         .navigationBarTitleDisplayMode(.inline)
@@ -293,14 +310,16 @@ struct ActivityDetailView: View {
             .frame(height: Layout.pillHeight)
             .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { trackWidth = $0 }
         if let carousel, let authored, trackWidth > 0 {
-            let slots = CGFloat(carousel.visibleSlots)
-            let pillWidth = max((trackWidth - (slots - 1) * Layout.pillGap) / slots, 1)
+            let pillWidth = CGFloat(HourCarousel.pillWidth(slots: carousel.visibleSlots,
+                                                           availableWidth: Double(trackWidth),
+                                                           gap: Double(Layout.pillGap)))
+            let compact = Double(pillWidth) < HourCarousel.compactPillWidth
             base
                 .overlay(alignment: .leading) {
                     ScrollView(.horizontal) {
                         HStack(spacing: Layout.pillGap) {
                             ForEach(Array(carousel.slotIDs), id: \.self) { id in
-                                slot(id, carousel: carousel, authored: authored)
+                                slot(id, carousel: carousel, authored: authored, compact: compact)
                                     .frame(width: pillWidth, height: Layout.pillHeight)
                                     .id(id)
                             }
@@ -312,7 +331,7 @@ struct ActivityDetailView: View {
                     .scrollTargetBehavior(.viewAligned)
                     .scrollPosition(id: $scrolledSlot, anchor: .leading)
                     .onAppear {
-                        if scrolledSlot == nil { scrolledSlot = carousel.scrollAnchor }
+                        if scrolledSlot == nil { seed(carousel.scrollAnchor) }
                     }
                 }
                 .accessibilityElement(children: .ignore)
@@ -346,10 +365,11 @@ struct ActivityDetailView: View {
     /// the viewport's edges fade and shrink slightly as they scroll out, so
     /// the row reads as a continuous strip.
     @ViewBuilder
-    private func slot(_ id: Int, carousel: HourCarousel, authored: AuthoredActivity) -> some View {
+    private func slot(_ id: Int, carousel: HourCarousel, authored: AuthoredActivity, compact: Bool) -> some View {
         if carousel.walkable.contains(id) {
             pill(at: id,
                  authored: authored,
+                 compact: compact,
                  chosen: carousel.span.contains(id),
                  home: !carousel.isAtRange && (carousel.rangeHours?.contains(id) ?? false))
                 .scrollTransition(.interactive, axis: .horizontal) { content, phase in
@@ -364,12 +384,12 @@ struct ActivityDetailView: View {
     }
 
     /// The round-2 pill: r6, tier colour, white 11pt numeral (Semibold when
-    /// chosen). Chosen hours 100%, the rest 35%. A PASSED hour is grey but
+    /// chosen; 9pt Semibold on a pill narrower than 22pt — a long Range). Chosen hours 100%, the rest 35%. A PASSED hour is grey but
     /// readable — its fill drops to 15% and its numeral turns secondary; the
     /// 35% dim then applies to its fill only, so the numeral stays legible.
     /// A Range ("home") hour keeps a 1pt ghost outline inside its rect while
     /// the span is away.
-    private func pill(at index: Int, authored: AuthoredActivity, chosen: Bool, home: Bool) -> some View {
+    private func pill(at index: Int, authored: AuthoredActivity, compact: Bool, chosen: Bool, home: Bool) -> some View {
         let tier = viewModel.forecast.flatMap { forecast -> HourTier? in
             guard forecast.hours.indices.contains(index) else { return nil }
             return HourQuality.tier(for: forecast.hours[index], thresholds: authored.thresholds)
@@ -382,7 +402,8 @@ struct ActivityDetailView: View {
             .fill(fill.opacity(passed ? 0.15 * dim : 1))
             .overlay(
                 Text(RangeStripAxis.numeral(viewModel.localHour(at: index) ?? 0))
-                    .font(.system(size: 11, weight: chosen ? .semibold : .medium))
+                    .font(compact ? .system(size: 9, weight: .semibold)
+                                  : .system(size: 11, weight: chosen ? .semibold : .medium))
                     .foregroundStyle(passed ? Theme.secondaryText : Color.white)
             )
             .opacity(passed ? 1 : dim)
@@ -397,11 +418,28 @@ struct ActivityDetailView: View {
 
     /// − / + slide the row one pill; the span follows the scroll position.
     private func move(by delta: Int) {
-        guard var next = carousel else { return }
+        guard let start = carousel else { return }
+        var next = start
         next.step(by: delta)
-        withAnimation(reduceMotion ? nil : Theme.Motion.step) {
-            scrolledSlot = next.scrollAnchor
+        guard next.span != start.span else { return }
+        selectionTick += 1
+        scroll(to: next.scrollAnchor, animation: Theme.Motion.step)
+    }
+
+    /// Scrolls the row to `slot`, marking it programmatic.
+    private func scroll(to slot: Int, animation: Animation?) {
+        guard slot != scrolledSlot else { return }
+        programmaticSlot = slot
+        withAnimation(reduceMotion ? nil : animation) {
+            scrolledSlot = slot
         }
+    }
+
+    /// Puts the row on `slot` with no animation and no haptic — the opening
+    /// position for a day, a width, or a re-based forecast.
+    private func seed(_ slot: Int?) {
+        guard let slot else { scrolledSlot = nil; return }
+        scroll(to: slot, animation: nil)
     }
 
     /// The ring's action: spring the row back onto the Range.
@@ -409,9 +447,7 @@ struct ActivityDetailView: View {
         guard var next = carousel, next.canReturnToRange else { return }
         next.returnToRange()
         homeTick += 1
-        withAnimation(reduceMotion ? nil : Theme.Motion.home) {
-            scrolledSlot = next.scrollAnchor
-        }
+        scroll(to: next.scrollAnchor, animation: Theme.Motion.home)
     }
 
     // MARK: The metric cards — two per row, the chosen hours' average
