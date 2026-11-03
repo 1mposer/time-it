@@ -29,6 +29,10 @@ struct DashboardView: View {
     /// The card a tapped Perfect-window alert should bring into view —
     /// consumed by the card list's ScrollViewReader once it renders.
     @State private var pendingFocusId: String?
+    /// The card list's live top overscroll (pull-down stagger) and its
+    /// viewport height (the rubber band's ceiling).
+    @State private var pullOverscroll: CGFloat = 0
+    @State private var listViewport: CGFloat = 700
 
     /// Observes the view model's own store/preferences — separately-defaulted
     /// copies would silently diverge from the ones requests are built from.
@@ -438,16 +442,22 @@ struct DashboardView: View {
     /// renders its rated card from the echoed response; a dormant one renders
     /// its showcase card inline. The one-time push callout tops the list.
     private func cardList(_ forecast: ForecastResponse) -> some View {
-        ScrollViewReader { proxy in
+        let showsCallout = !preferences.pushCalloutDismissed && !registration.isEnabled
+        // Visual order for the pull-down stagger: callout, banner, cards,
+        // add card — every child moves, so no child slides over the next.
+        let leading = (showsCallout ? 1 : 0) + (isBetaBuild ? 1 : 0)
+        return ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 10) {
-                    if !preferences.pushCalloutDismissed && !registration.isEnabled {
+                    if showsCallout {
                         pushCallout
+                            .offset(y: staggerOffset(at: 0))
                     }
                     if isBetaBuild {
                         betaBanner
+                            .offset(y: staggerOffset(at: showsCallout ? 1 : 0))
                     }
-                    ForEach(store.activities) { authored in
+                    ForEach(Array(store.activities.enumerated()), id: \.element.id) { position, authored in
                         Group {
                             if authored.isDormant {
                                 dormantCard(for: authored)
@@ -473,15 +483,27 @@ struct DashboardView: View {
                                 }
                             }
                         }
+                        .offset(y: staggerOffset(at: leading + position))
                         .id(authored.id)
                     }
                     addCard
+                        .offset(y: staggerOffset(at: leading + store.activities.count))
                     Spacer()
                         .frame(height: 12)
                 }
                 .padding(.top, 14)
                 .padding(.horizontal, 14)
+                // The top overscroll: the padded content's top in the scroll
+                // view's space rests at 0 and goes positive when pulled past
+                // the top. Clamped and deduplicated, so normal scrolling never
+                // writes state (iOS 17 + 18 — one reader for both).
+                .onGeometryChange(for: CGFloat.self) { geometry in
+                    max(0, geometry.frame(in: .scrollView).minY)
+                } action: { value in
+                    if value != pullOverscroll { pullOverscroll = value }
+                }
             }
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { listViewport = $0 }
             .onChange(of: pendingFocusId) { _, activityId in
                 scrollToPendingFocus(activityId, proxy: proxy)
             }
@@ -489,6 +511,14 @@ struct DashboardView: View {
                 scrollToPendingFocus(pendingFocusId, proxy: proxy)
             }
         }
+    }
+
+    /// The pull-down stagger's extra offset for the child at visual position
+    /// `index` — tracks the overscroll 1:1 (no animation); off under Reduce
+    /// Motion. The math lives in `PullStagger`.
+    private func staggerOffset(at index: Int) -> CGFloat {
+        guard !reduceMotion else { return 0 }
+        return PullStagger.offset(overscroll: pullOverscroll, index: index, viewport: listViewport)
     }
 
     /// Scrolls the focused card into view; also runs onAppear for a cold
