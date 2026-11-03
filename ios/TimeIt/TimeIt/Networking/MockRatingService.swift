@@ -35,7 +35,10 @@ extension ForecastResponse {
                           temp: 24,
                           humidity: 40,
                           visibility: 10,
-                          uV: 3,
+                          // One step outside Cycling's day-0 Range (idx 2..<6)
+                          // reads UV 7, so sliding the carousel's span one
+                          // hour moves the averaged UV card 3 → 4.
+                          uV: index == 6 ? 7 : 3,
                           windSpeed: 10,
                           rainFall: 0,
                           cloudCover: 15,

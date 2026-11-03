@@ -85,4 +85,15 @@ final class TimeDerivationTests: XCTestCase {
         XCTAssertEqual(shifted.dayName(forDayIndex: 2, nocturnal: true), "Sunday night")
         XCTAssertEqual(shifted.hourRange(forDayIndex: 0, hourCount: 164), 0..<8)
     }
+
+    /// The detail carousel's passed-hour grey: an hour whose instant is before
+    /// `now` (injected) has passed; `now` itself and later have not.
+    func testHasPassedComparesTheHoursInstantWithNow() throws {
+        let now = try XCTUnwrap(ISO8601DateFormatter().date(from: "2026-06-19T14:30:00Z"))
+        XCTAssertTrue(deriver.hasPassed(0, now: now), "12:00Z is before 14:30Z")
+        XCTAssertTrue(deriver.hasPassed(2, now: now), "14:00Z — the hour under way has started")
+        XCTAssertFalse(deriver.hasPassed(3, now: now), "15:00Z is still ahead")
+        let onTheHour = try XCTUnwrap(ISO8601DateFormatter().date(from: "2026-06-19T15:00:00Z"))
+        XCTAssertFalse(deriver.hasPassed(3, now: onTheHour), "strictly before — not equal")
+    }
 }

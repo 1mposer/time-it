@@ -1,19 +1,17 @@
 import SwiftUI
 
 /// Activity Detail v3 (Figma `456:358` / `464:2348`, owner-approved
-/// 2026-09-30; day-jump `508:417`, owner-approved 2026-10-02). Opens on
-/// TODAY. Top to bottom: the week-dot row (the day-jump control — ring on the
-/// selected day), the hero (day-score ring + rating word + hour stepper over
-/// a Range-scoped hour strip), square metric cards two per row reading the
-/// SELECTED hour, then the Edit range / Edit metrics list.
-///
-/// The old week rows and the hour × metric grid stay **gone**; the dots are
-/// the one way to show days. `DayBarPaint` / `RangeAxis` survive as pure
-/// types with their own tests.
+/// 2026-09-30; day-jump `508:417`, owner-approved 2026-10-02; hero carousel —
+/// depth & polish pass build 8, owner rulings 2026-10-31 / 2026-11-01). Opens
+/// on TODAY. Top to bottom: the week-dot row (the day-jump control — ring on
+/// the selected day), the hero (day-score ring + rating word + the hour
+/// carousel: `−` · a row of tier-coloured hour pills · `+`, with an icon-only
+/// return-to-range control under it), square metric cards two per row
+/// AVERAGING the chosen hours, then the Edit range / Edit metrics list.
 ///
 /// The hero ring shows the selected DAY's score (`days[selectedDayIndex]
-/// .score` from the wire), not a per-hour score: the two linked frames hold
-/// 86/Perfect fixed while the stepper moves 6am → 7am.
+/// .score` from the wire), never the chosen hours' — the ring, the rating
+/// word and the day selection do not move with the carousel.
 struct ActivityDetailView: View {
     /// The rating captured at navigation time — a fallback; the body
     /// re-resolves from the live forecast so a refetch updates in place.
@@ -23,20 +21,26 @@ struct ActivityDetailView: View {
     var catalog: MetricCatalogProviding = StaticMetricCatalog()
     /// Wind-speed display unit (#26).
     var windUnit: WindSpeedUnit = .kmh
+    /// The clock the passed-hour grey reads — injectable for previews/tests.
+    var now: () -> Date = Date.init
 
     /// The day the detail shows — opens on today; the week-dot row jumps it
     /// (spec 05 day-jump, frame `508:417`).
     @State private var selectedDayIndex = 0
-    /// The selected global `hours[]` index; nil until the forecast resolves
-    /// (and after a day-jump, so the stepper re-opens on that day's first
-    /// Range hour).
-    @State private var selectedIndex: Int?
-    /// Drives the snap-back tap's click feedback.
-    @State private var stripPressed = false
+    /// The carousel once the user has moved it; nil = the opening state
+    /// (span on the Range). Reset on a day-jump and a re-based refetch.
+    @State private var carouselState: HourCarousel?
+    /// The measured width of the pill track between `−` and `+`.
+    @State private var trackWidth: CGFloat = 0
+    /// Whole-hour steps already applied by the drag in flight.
+    @State private var dragSteps = 0
     /// The open edit door: which Activity and which wizard tab it lands on.
     @State private var editing: EditRequest?
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private static let pillGap: CGFloat = 3
+    private static let rowHeight: CGFloat = 26
 
     private struct EditRequest: Identifiable {
         let activity: AuthoredActivity
@@ -55,24 +59,36 @@ struct ActivityDetailView: View {
         authored.flatMap { viewModel.rangeHourIndices(for: $0, dayIndex: selectedDayIndex) }
     }
 
-    /// Every hour the stepper may walk on the shown day.
+    /// Every hour the carousel may show on the shown day.
     private var walkable: Range<Int>? {
         authored.flatMap { viewModel.walkableHourRange(for: $0, dayIndex: selectedDayIndex) }
     }
 
-    /// The pure selection model; nil until a forecast exists.
-    private var stepper: HourStepper? {
+    /// The pure carousel model; nil until a forecast exists. A stored state
+    /// survives only while it still describes the same day and row width.
+    private var carousel: HourCarousel? {
         guard let walkable, !walkable.isEmpty else { return nil }
-        let selected = selectedIndex
-            ?? HourStepper.initialSelection(walkable: walkable, rangeHours: rangeHours)
-        return HourStepper(walkable: walkable, rangeHours: rangeHours, selected: selected)
+        let slots = HourCarousel.visibleSlotCount(rangeLength: rangeHours?.count ?? 1,
+                                                  availableWidth: Double(trackWidth))
+        let fresh = HourCarousel(walkable: walkable, rangeHours: rangeHours, visibleSlots: slots)
+        if let carouselState,
+           carouselState.walkable == fresh.walkable,
+           carouselState.rangeHours == fresh.rangeHours,
+           carouselState.visibleSlots == fresh.visibleSlots {
+            return carouselState
+        }
+        return fresh
     }
 
-    private var selectedHour: HourlyWeather? {
-        guard let stepper, let hours = viewModel.forecast?.hours,
-              hours.indices.contains(stepper.selected) else { return nil }
-        return hours[stepper.selected]
+    /// The hours the metric cards read — the carousel's chosen span. A later
+    /// Calculate button would freeze this until pressed; today it is live.
+    private var displayedHours: [HourlyWeather] {
+        guard let carousel, let hours = viewModel.forecast?.hours else { return [] }
+        return carousel.span.filter(hours.indices.contains).map { hours[$0] }
     }
+
+    /// The chosen hours folded into one reading (`HourAggregate`).
+    private var displayedHour: HourlyWeather? { HourAggregate.aggregate(displayedHours) }
 
     var body: some View {
         ScrollView {
@@ -100,10 +116,10 @@ struct ActivityDetailView: View {
         .background(Theme.appBackground)
         // Re-base guard: a refetch across a day rollover shifts what each
         // dayIndex / hours[] index means, so a stale selection would point at
-        // a shifted or absent day — reset to today, stepper to its default.
+        // a shifted or absent day — reset to today, carousel back on the Range.
         .onChange(of: viewModel.forecast?.forecastStart) { _, _ in
             selectedDayIndex = 0
-            selectedIndex = nil
+            carouselState = nil
         }
         .navigationTitle(current.label)
         .navigationBarTitleDisplayMode(.inline)
@@ -127,24 +143,25 @@ struct ActivityDetailView: View {
         } ?? []
     }
 
-    /// Shows another day: the ring moves, the hero + stepper + metric cards
-    /// re-read for it, and the stepper re-opens on its first Range hour.
+    /// Shows another day: the ring moves, the hero + carousel + metric cards
+    /// re-read for it, and the carousel re-opens on its Range.
     /// A day absent from `days[]` or with no data is not a target, and
     /// tapping the already-ringed dot is a no-op (it must not reset the
-    /// stepper).
+    /// carousel).
     private func jump(to day: Int) {
         guard day != selectedDayIndex,
               let dot = weekDots.first(where: { $0.dayIndex == day }), dot.isJumpable else { return }
         withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
             selectedDayIndex = day
-            selectedIndex = nil
+            carouselState = nil
         }
     }
 
-    // MARK: Hero — ring + rating word + hour stepper over the Range strip
+
+    // MARK: Hero — ring + rating word + the hour carousel
 
     private var heroCard: some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .center, spacing: 12) {
             VStack(spacing: 4) {
                 ScoreRingView(score: selectedDay?.score,
                               tint: Theme.ratingTint(selectedDay?.rating),
@@ -159,11 +176,7 @@ struct ActivityDetailView: View {
             .accessibilityIdentifier("detail.score")
             .accessibilityLabel(scoreAccessibilityLabel)
 
-            VStack(spacing: 0) {
-                stepperRow
-                Spacer(minLength: 12)
-                hourStrip
-            }
+            carouselBlock
         }
         .padding(EdgeInsets(top: 11.5, leading: 13.5, bottom: 11.5, trailing: 14.5))
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -182,132 +195,189 @@ struct ActivityDetailView: View {
         return "\(verdict), score \(score) out of 100"
     }
 
-    /// `− 6am +`. Both buttons carry a 44pt tap target around a 32pt visual
-    /// (the beta pill's `contentShape` pattern); `−` dims at the walkable
-    /// lower bound, `+` at the upper.
-    private var stepperRow: some View {
-        HStack(spacing: 0) {
-            stepButton(systemName: "minus",
-                       enabled: stepper?.canStepBack ?? false,
-                       identifier: "detail.stepBack") { step(by: -1) }
-            Spacer(minLength: 0)
-            Text(selectedHourLabel)
-                .font(.system(size: 22, weight: .semibold))
-                .tracking(-0.4)
-                .foregroundStyle(Theme.primaryText)
-                .accessibilityIdentifier("detail.selectedHour")
-            Spacer(minLength: 0)
-            stepButton(systemName: "plus",
-                       enabled: stepper?.canStepForward ?? false,
-                       identifier: "detail.stepForward") { step(by: 1) }
+    /// `−` · pill row · `+` on one line, the return-to-range control centred
+    /// under it. The return slot keeps its height while hidden so the row
+    /// never jumps when it appears.
+    private var carouselBlock: some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 4) {
+                stepButton(systemName: "minus",
+                           enabled: carousel?.canStepBack ?? false,
+                           identifier: "detail.stepBack") { move(by: -1) }
+                pillTrack
+                stepButton(systemName: "plus",
+                           enabled: carousel?.canStepForward ?? false,
+                           identifier: "detail.stepForward") { move(by: 1) }
+            }
+            ZStack {
+                if carousel?.canReturnToRange == true {
+                    returnButton
+                        .transition(.opacity)
+                }
+            }
+            .frame(height: Self.rowHeight)
         }
-        .frame(height: 44)
+        .frame(maxWidth: .infinity)
     }
 
-    private var selectedHourLabel: String {
-        guard let stepper, let deriver else { return "—" }
-        return deriver.hourLabel(at: stepper.selected)
-    }
-
+    /// 20×20 r5 pill, 10pt glyph; the LAYOUT stays 20pt while the ±12pt
+    /// padding pair grows the hit area to the HIG 44pt (the beta pill's
+    /// pattern).
     private func stepButton(systemName: String,
                             enabled: Bool,
                             identifier: String,
                             action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: systemName)
-                .font(.system(size: 15, weight: .semibold))
+                .font(.system(size: 10, weight: .semibold))
                 .foregroundStyle(Theme.accentInteractive)
-                .frame(width: 32, height: 32)
-                .background(Theme.appBackground, in: Circle())
+                .frame(width: 20, height: 20)
+                .background(Theme.timelineTrack, in: RoundedRectangle(cornerRadius: 5))
                 .opacity(enabled ? 1 : 0.35)
-                // The LAYOUT frame stays ≥44pt (HIG tap target) around the
-                // 32pt visual circle — the beta pill's pattern.
-                .frame(minWidth: 44, minHeight: 44)
+                .padding(12)
                 .contentShape(Rectangle())
+                .padding(-12)
         }
         .buttonStyle(.plain)
         .disabled(!enabled)
         .accessibilityIdentifier(identifier)
-        .accessibilityLabel(systemName == "minus" ? "Previous hour" : "Next hour")
+        .accessibilityLabel(systemName == "minus" ? "Earlier hours" : "Later hours")
     }
 
-    private func step(by delta: Int) {
-        guard var stepper else { return }
-        if delta < 0 { stepper.stepBack() } else { stepper.stepForward() }
-        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
-            selectedIndex = stepper.selected
+    /// Icon-only, 40×26 capsule; a ±9pt padding pair makes the 44pt target.
+    private var returnButton: some View {
+        Button(action: returnToRange) {
+            Image(systemName: "arrow.uturn.backward")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(Theme.accentInteractive)
+                .frame(width: 40, height: Self.rowHeight)
+                .background(Theme.accentInteractive.opacity(0.12), in: Capsule())
+                .padding(9)
+                .contentShape(Rectangle())
+                .padding(-9)
         }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("detail.returnToRange")
+        .accessibilityLabel("Return to your range")
     }
 
-    /// The Range-scoped hour strip: one 24pt pill per Range hour, the
-    /// selected one at full opacity and the rest at 35%.
-    ///
-    /// Outside the Range (the owner's 2026-09-30 stepper ruling, refined
-    /// 2026-10-01) the pills keep their weather colours but none is
-    /// highlighted — the hour you were on simply stops shining — and the
-    /// strip becomes the way back: tapping it snaps the selection to the
-    /// nearest Range end, with a click-feedback scale. Values stay uncoloured
-    /// out there (nothing is judged).
+    /// Every walkable hour of the shown day is a slot; `visibleSlots` of them
+    /// show, equal widths with 3pt gaps filling the track. The whole row
+    /// slides (offset by `firstVisible`) and is clipped to the track. A
+    /// horizontal drag steps the span one hour per pill pitch, finger-left =
+    /// later hours. Tapping a pill does nothing.
     @ViewBuilder
-    private var hourStrip: some View {
-        if let stepper, let rangeHours, !rangeHours.isEmpty, let authored {
-            let inRange = stepper.isInRange
-            HStack(spacing: 3) {
-                ForEach(Array(rangeHours), id: \.self) { index in
-                    pill(at: index, authored: authored, selected: index == stepper.selected, colored: inRange)
+    private var pillTrack: some View {
+        if let carousel, let authored {
+            let slots = CGFloat(carousel.visibleSlots)
+            let pillWidth = max((trackWidth - (slots - 1) * Self.pillGap) / slots, 1)
+            let pitch = pillWidth + Self.pillGap
+            // The track's size is the clear base (full width × 26); the pill
+            // row rides in an overlay so its overflow never feeds back into
+            // the measured width.
+            Color.clear
+                .frame(maxWidth: .infinity)
+                .frame(height: Self.rowHeight)
+                .overlay(alignment: .leading) {
+                    HStack(spacing: Self.pillGap) {
+                        ForEach(Array(carousel.walkable), id: \.self) { index in
+                            pill(at: index,
+                                 authored: authored,
+                                 chosen: carousel.span.contains(index))
+                                .frame(width: pillWidth, height: Self.rowHeight)
+                        }
+                    }
+                    .fixedSize()
+                    .offset(x: -CGFloat(carousel.firstVisible - carousel.walkable.lowerBound) * pitch)
                 }
-            }
-            .frame(height: 26)
-            .scaleEffect(stripPressed && !reduceMotion ? 0.97 : 1)
-            .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: stripPressed)
-            // The strip is the way back into the Range, so it needs a 44pt
-            // target around its 24pt visual — the ±padding pair is the beta
-            // pill's pattern: it grows the hit area without growing the card.
-            .padding(.vertical, 15)
-            .contentShape(Rectangle())
-            .onTapGesture { snapBack() }
-            .padding(.vertical, -10)
-            .accessibilityElement(children: .ignore)
-            .accessibilityIdentifier("detail.hourStrip")
-            .accessibilityLabel(inRange ? "Hours in your range"
-                                        : "Outside your range. Activate to return to the range.")
-            .accessibilityAddTraits(inRange ? [] : .isButton)
+                .clipped()
+                .contentShape(Rectangle())
+                // Simultaneous so a vertical scroll starting on the row still
+                // scrolls the page; the span steps as the drag crosses each
+                // pill pitch, and any steps a fast flick skipped land on end.
+                .simultaneousGesture(
+                    DragGesture(minimumDistance: 10)
+                        .onChanged { value in
+                            dragStep(to: value.translation, pitch: pitch)
+                        }
+                        .onEnded { value in
+                            dragStep(to: value.translation, pitch: pitch)
+                            dragSteps = 0
+                        }
+                )
+                .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { trackWidth = $0 }
+                .accessibilityElement(children: .ignore)
+                .accessibilityIdentifier("detail.hourStrip")
+                .accessibilityLabel(spanAccessibilityLabel(carousel))
+                .accessibilityAdjustableAction { direction in
+                    switch direction {
+                    case .increment: move(by: 1)
+                    case .decrement: move(by: -1)
+                    @unknown default: break
+                    }
+                }
         } else {
-            Color.clear.frame(height: 24)
+            Color.clear
+                .frame(maxWidth: .infinity)
+                .frame(height: Self.rowHeight)
         }
     }
 
-    private func pill(at index: Int,
-                      authored: AuthoredActivity,
-                      selected: Bool,
-                      colored: Bool) -> some View {
+    /// "Hours 6am to 10am" — the span's first hour to its exclusive end, the
+    /// way the Range itself is phrased.
+    private func spanAccessibilityLabel(_ carousel: HourCarousel) -> String {
+        guard let deriver else { return "Hours" }
+        return "Hours \(deriver.hourLabel(at: carousel.span.lowerBound)) to \(deriver.hourLabel(at: carousel.span.upperBound))"
+    }
+
+    /// The old pill look: r6, tier colour, white 11pt numeral (Semibold when
+    /// chosen). Chosen hours 100%, the rest 35%. A PASSED hour is grey but
+    /// readable — its fill drops to 15% and its numeral turns secondary; the
+    /// 35% dim then applies to its fill only, so the numeral stays legible.
+    private func pill(at index: Int, authored: AuthoredActivity, chosen: Bool) -> some View {
         let tier = viewModel.forecast.flatMap { forecast -> HourTier? in
             guard forecast.hours.indices.contains(index) else { return nil }
             return HourQuality.tier(for: forecast.hours[index], thresholds: authored.thresholds)
         }
         let fill = tier.map(Theme.tierColor) ?? Theme.timelineTrack
+        let passed = deriver?.hasPassed(index, now: now()) ?? false
+        let dim: Double = chosen ? 1 : 0.35
         return RoundedRectangle(cornerRadius: 6)
-            .fill(fill)
-            .frame(maxWidth: .infinity)
+            .fill(fill.opacity(passed ? 0.15 * dim : 1))
             .overlay(
                 Text(RangeStripAxis.numeral(viewModel.localHour(at: index) ?? 0))
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(Color.white)
+                    .font(.system(size: 11, weight: chosen ? .semibold : .medium))
+                    .foregroundStyle(passed ? Theme.secondaryText : Color.white)
             )
-            .opacity(selected && colored ? 1 : 0.35)
+            .opacity(passed ? 1 : dim)
     }
 
-    private func snapBack() {
-        guard var stepper, stepper.snapBackTarget != nil else { return }
-        stripPressed = true
-        stepper.snapBack()
-        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
-            selectedIndex = stepper.selected
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { stripPressed = false }
+    private var animation: Animation? { reduceMotion ? nil : .easeOut(duration: 0.2) }
+
+    private func move(by delta: Int) {
+        guard var next = carousel else { return }
+        next.step(by: delta)
+        withAnimation(animation) { carouselState = next }
     }
 
-    // MARK: The three metric cards — two per row, the selected hour's values
+    /// Finger-left = later hours. Horizontal-dominant drags only, so a
+    /// vertical page scroll never slides the span.
+    private func dragStep(to translation: CGSize, pitch: CGFloat) {
+        guard abs(translation.width) > abs(translation.height), pitch > 0 else { return }
+        let target = Int((-translation.width / pitch).rounded(.towardZero))
+        let delta = target - dragSteps
+        guard delta != 0 else { return }
+        dragSteps = target
+        move(by: delta)
+    }
+
+    private func returnToRange() {
+        guard var next = carousel else { return }
+        next.returnToRange()
+        withAnimation(animation) { carouselState = next }
+    }
+
+    // MARK: The metric cards — two per row, the chosen hours' average
 
     /// ONE card per display metric, in the Activity's own order. The frames
     /// drew a three-metric Activity and never ruled on more — and every
@@ -315,15 +385,16 @@ struct ActivityDetailView: View {
     /// chips), so a fourth metric gets a fourth card rather than vanishing.
     private var metricGrid: some View {
         let metrics = current.displayMetrics
-        let inRange = stepper?.isInRange ?? false
+        let inRange = carousel?.overlapsRange ?? false
+        let hour = displayedHour
         return LazyVGrid(columns: [GridItem(.flexible(), spacing: 13),
                                    GridItem(.flexible(), spacing: 13)],
                          spacing: 12) {
             ForEach(metrics, id: \.self) { metric in
                 MetricCardView(metric: metric,
-                               hour: selectedHour,
+                               hour: hour,
                                threshold: authored?.thresholds[metric],
-                               verdict: verdict(for: metric, inRange: inRange),
+                               verdict: verdict(for: metric, hour: hour, inRange: inRange),
                                catalog: catalog,
                                windUnit: windUnit)
                     .aspectRatio(1, contentMode: .fit)
@@ -331,9 +402,10 @@ struct ActivityDetailView: View {
         }
     }
 
-    /// Out of Range nothing is judged, so the value renders uncoloured.
-    private func verdict(for metric: String, inRange: Bool) -> HourTier? {
-        guard inRange, let hour = selectedHour else { return nil }
+    /// A span entirely outside the Range is not judged, so the value renders
+    /// uncoloured; overlapping it, the averaged reading is coloured.
+    private func verdict(for metric: String, hour: HourlyWeather?, inRange: Bool) -> HourTier? {
+        guard inRange, let hour else { return nil }
         return HourQuality.metricTier(for: hour,
                                       metric: metric,
                                       threshold: authored?.thresholds[metric])

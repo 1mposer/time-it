@@ -44,6 +44,13 @@ struct TimeDeriver {
         start.addingTimeInterval(TimeInterval(index) * 3600)
     }
 
+    /// True when `hours[index]`'s instant is before `now` — the detail
+    /// carousel greys such a pill (owner ruling 2026-11-01). Literal: the
+    /// hour currently under way has started, so it reads as passed too.
+    func hasPassed(_ index: Int, now: Date) -> Bool {
+        date(at: index) < now
+    }
+
     /// Compact clock label in the location zone, e.g. "4pm", "12am".
     func hourLabel(at index: Int) -> String {
         hourFormatter.string(from: date(at: index)).lowercased()

@@ -640,11 +640,13 @@ final class TimeItUITests: XCTestCase {
     }
 
     /// Activity Detail v3 (approved frames `456:358` / `464:2348`, + the
-    /// 2026-10-02 day-jump frame `508:417`): opens on TODAY — the week-dot
-    /// row under the nav, hero (day-score ring + rating word + hour stepper),
-    /// metric cards reading the selected hour, then the Edit list. The old
-    /// week rows and the hour grid stay gone; the dots are the jump control.
-    func testDetailV3ShowsDotRowHeroStepperMetricCardsAndJumpsDays() {
+    /// 2026-10-02 day-jump frame `508:417`, + the build-8 hero carousel —
+    /// owner rulings 2026-10-31 / 2026-11-01): opens on TODAY — the week-dot
+    /// row under the nav, hero (day-score ring + rating word + `−` · Range
+    /// pill row · `+`), metric cards averaging the chosen hours, then the
+    /// Edit list. The whole Range-length span slides one hour per press; an
+    /// icon-only return control appears once the span leaves the Range.
+    func testDetailV3ShowsDotRowHeroCarouselMetricCardsAndJumpsDays() {
         let app = launchApp()
 
         let card = app.buttons["card.cycling"]
@@ -652,37 +654,70 @@ final class TimeItUITests: XCTestCase {
         card.tap()
         XCTAssertTrue(app.navigationBars["Cycling"].waitForExistence(timeout: 5))
 
-        // Hero: the DAY score + the day's rating word, and the stepper
-        // opening on the Range's first hour (6am).
+        // Hero: the DAY score + the day's rating word, and the carousel's
+        // span opening ON the Range (Cycling 6–10am = idx 2..<6 today).
         XCTAssertEqual(app.otherElements["detail.score"].label, "Perfect, score 86 out of 100")
         XCTAssertTrue(app.staticTexts["Perfect"].exists, "the rating word returns on the detail")
-        XCTAssertEqual(app.staticTexts["detail.selectedHour"].label, "6am",
-                       "the stepper opens on the Range's first hour")
-        XCTAssertTrue(app.buttons["detail.stepForward"].exists)
-        XCTAssertTrue(app.buttons["detail.stepBack"].exists)
-
-        // Stepping forward moves the hour; the day score does NOT follow it —
-        // the hero ring is the day's number, not the selected hour's (the two
-        // linked frames hold 86/Perfect fixed across 6am ↔ 7am).
-        app.buttons["detail.stepForward"].tap()
-        XCTAssertEqual(app.staticTexts["detail.selectedHour"].label, "7am")
-        XCTAssertEqual(app.otherElements["detail.score"].label, "Perfect, score 86 out of 100",
-                       "the hero ring shows the DAY score, unchanged by the hour")
+        let row = app.descendants(matching: .any)["detail.hourStrip"]
+        XCTAssertTrue(row.exists)
+        XCTAssertEqual(row.label, "Hours 6am to 10am", "the span opens on the Range")
+        XCTAssertFalse(app.staticTexts["detail.selectedHour"].exists,
+                       "the old big hour label is gone — the hero is ring + word + pill row")
+        let back = app.buttons["detail.stepBack"]
+        let forward = app.buttons["detail.stepForward"]
+        XCTAssertTrue(back.exists)
+        XCTAssertTrue(forward.exists)
+        XCTAssertFalse(app.buttons["detail.returnToRange"].exists,
+                       "no return control while the span sits on the Range")
 
         // ONE metric card per displayMetric — the grid is not capped at the
-        // frames' three. Cycling shows temp/wind/rain/uV, so its fourth
-        // thresholded metric must have a card too (the v2 card dropped the
-        // chips, so this is uV's only surface).
+        // frames' three. Cycling shows temp/wind/rain/uV.
         XCTAssertTrue(app.otherElements["detail.metric.temp"].exists)
         XCTAssertTrue(app.otherElements["detail.metric.windSpeed"].exists)
         XCTAssertTrue(app.otherElements["detail.metric.rainFall"].exists)
-        XCTAssertTrue(app.otherElements["detail.metric.uV"].exists,
-                      "a fourth metric gets a fourth card, never truncated away")
+        let uv = app.otherElements["detail.metric.uV"]
+        XCTAssertTrue(uv.exists, "a fourth metric gets a fourth card, never truncated away")
         let cards = app.otherElements.matching(NSPredicate(format: "identifier BEGINSWITH 'detail.metric.'"))
         XCTAssertEqual(cards.count, 4, "one card per displayMetric, in order")
+        // The mock reads UV 3 on every hour except idx 6 (UV 7): the Range's
+        // average is 3.
+        XCTAssertTrue(uv.label.hasSuffix("UV 3"), "got \(uv.label)")
 
-        // The Edit doors stay (the today-only ruling cut only the week rows
-        // and the hour grid).
+        // + slides the WHOLE span one hour (7–11am); the cards re-average live
+        // ((3 + 3 + 3 + 7) / 4 = 4); the day score does NOT follow the span.
+        forward.tap()
+        XCTAssertEqual(row.label, "Hours 7am to 11am")
+        XCTAssertTrue(uv.label.hasSuffix("UV 4"), "the cards average the chosen hours — got \(uv.label)")
+        XCTAssertEqual(app.otherElements["detail.score"].label, "Perfect, score 86 out of 100",
+                       "the hero ring shows the DAY score, unchanged by the span")
+
+        // The return control appears off the Range and puts the span back.
+        let returnControl = app.buttons["detail.returnToRange"]
+        XCTAssertTrue(returnControl.waitForExistence(timeout: 2))
+        XCTAssertEqual(returnControl.label, "Return to your range")
+        returnControl.tap()
+        XCTAssertEqual(row.label, "Hours 6am to 10am")
+        XCTAssertTrue(uv.label.hasSuffix("UV 3"))
+        XCTAssertFalse(returnControl.waitForExistence(timeout: 1), "gone once back on the Range")
+
+        // − walks back to the walk start (today's first forecast hour, 4am =
+        // idx 0) and dims there: two presses from the 6am Range start.
+        XCTAssertTrue(back.isEnabled)
+        back.tap()
+        XCTAssertTrue(back.isEnabled)
+        back.tap()
+        XCTAssertEqual(row.label, "Hours 4am to 8am")
+        XCTAssertFalse(back.isEnabled, "− dims when the span starts at the first walkable hour")
+
+        // A horizontal drag on the row slides the span too (finger-left =
+        // later hours, one hour per pill pitch).
+        row.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.5))
+            .press(forDuration: 0.1,
+                   thenDragTo: row.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.5)))
+        XCTAssertNotEqual(row.label, "Hours 4am to 8am", "the drag moved the span later")
+        XCTAssertTrue(back.isEnabled)
+
+        // The Edit doors stay.
         XCTAssertTrue(app.buttons["detail.editRange"].exists)
         XCTAssertEqual(app.buttons["detail.editMetrics"].label, "Edit metrics",
                        "no \u{201C}& thresholds\u{201D}")
@@ -692,12 +727,12 @@ final class TimeItUITests: XCTestCase {
         XCTAssertEqual(dayRows.count, 0, "the week rows were removed (today-only)")
         XCTAssertFalse(app.otherElements["detail.hours.0"].exists, "the hour grid was removed")
         XCTAssertFalse(app.staticTexts["6 – 10am daily"].exists,
-                       "the old setup card's range line is gone — the hero owns the hour now")
+                       "the old setup card's range line is gone — the hero owns the hours now")
 
         // Day-jump (spec 05). Mock fixture: forecast 2026-06-19T00:00Z = 4am
         // Fri in Dubai, 56 hours → day 0 = idx 0..<20, day 1 = 20..<44,
         // day 2 = 44..<56 (Sun 21 Jun 00:00–12:00). Cycling (6–10am) day 2
-        // Range = idx 50..<54 → the stepper re-opens on 6am. Mock cycling
+        // Range = idx 50..<54 → the carousel re-opens on it. Mock cycling
         // day 2 is rating-null with score 1; day 0 is Perfect 86.
         XCTAssertTrue(app.descendants(matching: .any)["detail.weekDot"].exists,
                       "the week-dot row sits under the nav")
@@ -706,13 +741,14 @@ final class TimeItUITests: XCTestCase {
         dayTwo.tap()
         XCTAssertEqual(app.otherElements["detail.score"].label, "No Window, score 1 out of 100",
                        "the hero re-reads for the jumped day")
-        XCTAssertEqual(app.staticTexts["detail.selectedHour"].label, "6am",
-                       "a jump re-opens on that day's first Range hour (was 7am before the jump)")
+        XCTAssertEqual(row.label, "Hours 6am to 10am",
+                       "a jump re-opens the span on that day's Range (was 4–8am before the jump)")
+        XCTAssertFalse(app.buttons["detail.returnToRange"].exists)
 
         app.buttons["detail.weekDot.0"].tap()
         XCTAssertEqual(app.otherElements["detail.score"].label, "Perfect, score 86 out of 100",
                        "back to today")
-        XCTAssertEqual(app.staticTexts["detail.selectedHour"].label, "6am")
+        XCTAssertEqual(row.label, "Hours 6am to 10am")
     }
 
     // MARK: - Push opt-in client
