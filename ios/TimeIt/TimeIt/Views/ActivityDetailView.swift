@@ -23,8 +23,15 @@ import SwiftUI
 /// tap on the ring) springs the row home.
 ///
 /// The hero ring shows the selected DAY's score (`days[selectedDayIndex]
-/// .score` from the wire), never the chosen hours' — the ring, the rating
-/// word and the day selection do not move with the carousel.
+/// .score` from the wire) — the ring, the rating word and the day selection
+/// never move with the carousel, EXCEPT for a scored span (owner rulings
+/// 2026-11-04): away from the Range, "Score 4 – 8pm" under the Showing line
+/// asks the SERVER to score the shown hours (`DashboardViewModel.scoreSpan`
+/// — no client formula); the ring then counts to that score, the word takes
+/// the span's verdict and a "4 – 8pm" caption names it. The span score is
+/// detail-only and cleared the moment the span, the day or the forecast
+/// changes, so the ring shows the day score or the CURRENT span's, never a
+/// stale span's.
 struct ActivityDetailView: View {
     /// The rating captured at navigation time — a fallback; the body
     /// re-resolves from the live forecast so a refetch updates in place.
@@ -56,6 +63,18 @@ struct ActivityDetailView: View {
     @State private var programmaticSlot: Int?
     /// The open edit door: which Activity and which wizard tab it lands on.
     @State private var editing: EditRequest?
+    /// The server's score for a span, keyed on exactly what it scored — the
+    /// ring reads it only while that key is the one on screen.
+    @State private var scoredSpan: ScoredSpan?
+    /// The span whose score is in flight (its button is disabled, dimmed).
+    @State private var scoringKey: SpanKey?
+    /// The span whose score just failed — its row reads the failure note.
+    @State private var failedKey: SpanKey?
+    @State private var failureTask: Task<Void, Never>?
+    /// Bumped on the score button's release: the lift animation (skipped
+    /// under Reduce Motion) and the impact haptic (always).
+    @State private var liftTick = 0
+    @State private var scoreTick = 0
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -65,6 +84,31 @@ struct ActivityDetailView: View {
         let activity: AuthoredActivity
         let step: EditorStep
         var id: String { activity.id }
+    }
+
+    /// What a span score belongs to: the span, the day and the forecast.
+    private struct SpanKey: Equatable {
+        let span: Range<Int>
+        let dayIndex: Int
+        let forecastStart: String
+    }
+
+    private struct ScoredSpan: Equatable {
+        let key: SpanKey
+        let result: SpanScore
+    }
+
+    /// The row under the Showing line: the score button, or for ~2 s after a
+    /// failed call the note that takes its place.
+    private enum SpanRow: Equatable {
+        case button(WindowSpec)
+        case failure
+    }
+
+    /// The press lift's animated values.
+    private struct Lift {
+        var scale: CGFloat = 1
+        var rise: CGFloat = 0
     }
 
     private var deriver: TimeDeriver? { viewModel.timeDeriver }
@@ -128,6 +172,38 @@ struct ActivityDetailView: View {
                          rangeHasPassed: deriver.rangeHasPassed(range, now: now()))
     }
 
+    // MARK: Span scoring state (owner rulings 2026-11-04)
+
+    /// The span on screen as a span-score key; nil without a carousel.
+    private var spanKey: SpanKey? {
+        guard let carousel, let start = viewModel.forecast?.forecastStart else { return nil }
+        return SpanKey(span: carousel.span, dayIndex: selectedDayIndex, forecastStart: start)
+    }
+
+    /// The span score the ring shows — only the CURRENT span's.
+    private var shownSpanScore: SpanScore? {
+        guard let scoredSpan, scoredSpan.key == spanKey else { return nil }
+        return scoredSpan.result
+    }
+
+    /// The button shows away from the Range on a span with a data hour,
+    /// until that span has a score; a failed call shows its note instead.
+    private var spanRow: SpanRow? {
+        guard let carousel, let deriver, let key = spanKey, shownSpanScore == nil,
+              SpanScoring.showsButton(isAtRange: carousel.isAtRange, slots: displayedSlots),
+              let window = SpanScoring.window(for: carousel.span, deriver: deriver) else { return nil }
+        return failedKey == key ? .failure : .button(window)
+    }
+
+    /// The ring's score and verdict: the scored span's, else the day's.
+    private var ringScore: Int? { shownSpanScore.map(\.score) ?? selectedDay?.score }
+    private var ringRating: Rating? { shownSpanScore.map(\.rating) ?? selectedDay?.rating }
+
+    /// The span row's and caption's fade — a crossfade under Reduce Motion.
+    private var fade: Animation {
+        reduceMotion ? .easeInOut(duration: 0.2) : Theme.Motion.value
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Layout.dotsToHero) {
@@ -170,8 +246,15 @@ struct ActivityDetailView: View {
                   opening.span(forScrollAnchor: old) != opening.span(forScrollAnchor: new) else { return }
             selectionTick += 1
         }
+        // The clearing rule: a new span (a settle, − / +, a return), a day
+        // jump or a refetch drops the span score and its failure note, and
+        // the ring falls back to the day score.
+        .onChange(of: spanKey) { _, _ in
+            clearSpanScore()
+        }
         .sensoryFeedback(.selection, trigger: selectionTick)
         .sensoryFeedback(.impact(weight: .light), trigger: homeTick)
+        .sensoryFeedback(.impact(weight: .light), trigger: scoreTick)
         .navigationTitle(current.label)
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $editing) { request in
@@ -216,23 +299,41 @@ struct ActivityDetailView: View {
     /// it the line. Alone, the row sits on the ring's centre line; with the
     /// line, the row + line block centres on the ring column. The hero is
     /// the taller column plus the insets (`Theme.Detail.heroHeight`).
+    ///
+    /// Span scoring (owner rulings 2026-11-04) adds a third row under the
+    /// line — the "Score 4 – 8pm" button — and, once scored, a caption row
+    /// under the word. Neither moves the pill row (the finger is on it); the
+    /// hero grows to the taller column instead.
     private var heroCard: some View {
         let line = rangeLine
         let hasLine = line != nil
+        let row = hasLine ? spanRow : nil
+        let hasButton = row != nil
+        let hasCaption = shownSpanScore != nil
         return HStack(alignment: .top, spacing: Layout.ringToRow) {
             ringButton
             VStack(alignment: .leading, spacing: Layout.rowToLine) {
                 carouselRow
                     .frame(height: Layout.pillHeight)
                 if let line {
-                    rangeLineView(line)
-                        .frame(height: Layout.lineHeight)
+                    VStack(alignment: .leading, spacing: Layout.lineToSpanButton) {
+                        rangeLineView(line)
+                            .frame(height: Layout.lineHeight)
+                        if let row {
+                            spanRowView(row)
+                                .frame(height: Layout.spanButtonHeight)
+                                .transition(.opacity)
+                        }
+                    }
                 }
             }
-            .padding(.top, Layout.rowColumnTop(hasLine: hasLine))
+            .padding(.top, Layout.rowColumnTop(hasLine: hasLine, hasButton: hasButton, hasCaption: hasCaption))
         }
-        .frame(height: Layout.heroHeight(hasLine: hasLine) - Layout.heroInset - Layout.heroBottom,
+        .frame(height: Layout.heroHeight(hasLine: hasLine, hasButton: hasButton, hasCaption: hasCaption)
+                   - Layout.heroInset - Layout.heroBottom,
                alignment: .top)
+        .animation(fade, value: row)
+        .animation(fade, value: hasCaption)
         .padding(EdgeInsets(top: Layout.heroInset, leading: Layout.heroInset,
                             bottom: Layout.heroBottom, trailing: Layout.heroInset))
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -255,19 +356,32 @@ struct ActivityDetailView: View {
     private var ringButton: some View {
         VStack(spacing: Layout.ringToWord) {
             Button(action: returnToRange) {
-                ScoreRingView(score: selectedDay?.score,
-                              tint: Theme.ratingTint(selectedDay?.rating),
+                ScoreRingView(score: ringScore,
+                              tint: Theme.ratingTint(ringRating),
                               style: .hero)
                     .contentShape(Circle())
             }
             .buttonStyle(PressStyle())
             .disabled(!canReturn)
             .accessibilityHidden(true)
-            ratingWord
-                .fixedSize()
-                .frame(height: Layout.wordHeight)
+            VStack(spacing: Layout.wordToCaption) {
+                ratingWord
+                    .fixedSize()
+                    .frame(height: Layout.wordHeight)
+                if let shown = shownSpanScore {
+                    Text(SpanScoring.caption(shown.window))
+                        .font(.system(size: Layout.captionFont))
+                        .foregroundStyle(Theme.secondaryText)
+                        .fixedSize()
+                        .frame(height: Layout.captionHeight)
+                        .accessibilityIdentifier("detail.spanCaption")
+                        .transition(.opacity)
+                }
+            }
         }
-        .frame(width: Layout.ringDiameter, height: Layout.ringColumnHeight, alignment: .top)
+        .frame(width: Layout.ringDiameter,
+               height: Layout.ringColumnHeight(hasCaption: shownSpanScore != nil),
+               alignment: .top)
         .overlay {
             Color.clear
                 .accessibilityElement()
@@ -280,12 +394,18 @@ struct ActivityDetailView: View {
     /// The word under the ring: Perfect / Good Semibold 12 in their tint;
     /// no rating (nil or unknown) → "No Window" Regular 12 light red (owner
     /// ruling 2026-11-04). Same slot either way, so the hero height holds.
+    /// A scored span's verdict takes the day's place.
     private var ratingWord: some View {
-        let rating = selectedDay?.rating
+        let rating = ringRating
         let isRated = rating == .perfect || rating == .good
-        return Text(selectedDay?.ratingDisplay ?? "No Window")
+        return Text(Self.verdictText(rating))
             .font(.system(size: 12, weight: isRated ? .semibold : .regular))
             .foregroundStyle(isRated ? Theme.ratingTint(rating) : Theme.noWindowTint)
+    }
+
+    /// `Day.ratingDisplay`'s words for any verdict (the day's or a span's).
+    private static func verdictText(_ rating: Rating?) -> String {
+        Day(dayIndex: 0, rating: rating).ratingDisplay
     }
 
     /// "Your range 6 – 10am" / "Showing 7 – 11am" + return — 13pt secondary
@@ -328,10 +448,113 @@ struct ActivityDetailView: View {
         .accessibilityLabel("Return to your range")
     }
 
+    /// "Perfect, score 86 out of 100" — "… for 4 to 8pm" on a scored span.
     private var scoreAccessibilityLabel: String {
-        let verdict = selectedDay?.ratingDisplay ?? "No Window"
-        guard let score = selectedDay?.score else { return "\(verdict), no score" }
-        return "\(verdict), score \(score) out of 100"
+        SpanScoring.scoreAccessibilityLabel(verdict: Self.verdictText(ringRating),
+                                            score: ringScore,
+                                            span: shownSpanScore?.window)
+    }
+
+    // MARK: Span scoring — the third row (owner rulings 2026-11-04)
+
+    @ViewBuilder
+    private func spanRowView(_ row: SpanRow) -> some View {
+        switch row {
+        case .button(let window):
+            spanScoreButton(window)
+        case .failure:
+            Text("Couldn\u{2019}t score \u{2014} try again")
+                .font(.system(size: Layout.spanButtonFont))
+                .foregroundStyle(Theme.secondaryText)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                .accessibilityIdentifier("detail.scoreError")
+        }
+    }
+
+    /// "Score 4 – 8pm": a tinted 13pt Semibold text button, padded to the
+    /// HIG 44pt target. Touch-down = `PressStyle`; release = the lift (a rise
+    /// past rest that falls back on a bouncy spring) + the impact haptic +
+    /// the request. No spinner: in flight it is disabled at 60%.
+    private func spanScoreButton(_ window: WindowSpec) -> some View {
+        let inFlight = scoringKey != nil && scoringKey == spanKey
+        let verticalPad = (Layout.minHitTarget - Layout.spanButtonHeight) / 2
+        return Button(action: scoreSpan) {
+            Text(SpanScoring.buttonLabel(window))
+                .font(.system(size: Layout.spanButtonFont, weight: .semibold))
+                .foregroundStyle(Theme.accentInteractive)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                .opacity(inFlight ? Layout.inFlightOpacity : 1)
+                .frame(height: Layout.spanButtonHeight)
+                .padding(.vertical, verticalPad)
+                .padding(.horizontal, Layout.hitPad)
+                .contentShape(Rectangle())
+                .padding(.vertical, -verticalPad)
+                .padding(.horizontal, -Layout.hitPad)
+        }
+        .buttonStyle(PressStyle())
+        .disabled(inFlight)
+        .keyframeAnimator(initialValue: Lift(), trigger: liftTick) { content, lift in
+            content
+                .scaleEffect(lift.scale)
+                .offset(y: lift.rise)
+        } keyframes: { _ in
+            KeyframeTrack(\.scale) {
+                SpringKeyframe(Layout.liftScale, duration: Self.liftRiseDuration, spring: Theme.Motion.liftRiseSpring)
+                SpringKeyframe(1, spring: Theme.Motion.liftSpring)
+            }
+            KeyframeTrack(\.rise) {
+                SpringKeyframe(Layout.liftRise, duration: Self.liftRiseDuration, spring: Theme.Motion.liftRiseSpring)
+                SpringKeyframe(0, spring: Theme.Motion.liftSpring)
+            }
+        }
+        .accessibilityIdentifier("detail.scoreSpan")
+        .accessibilityLabel(SpanScoring.buttonAccessibilityLabel(window))
+    }
+
+    /// The lift's rise leg; the fall is the bouncy `Theme.Motion.liftSpring`.
+    private static let liftRiseDuration: TimeInterval = 0.12
+    /// How long the failure note holds the button's place.
+    private static let failureNoteSeconds: Double = 2
+
+    /// The button's action: lift + haptic, then one server call for the span
+    /// on screen. The reply lands only if that span is still the one shown.
+    private func scoreSpan() {
+        guard let key = spanKey, scoringKey != key, let authored else { return }
+        scoreTick += 1
+        if !reduceMotion { liftTick += 1 }
+        scoringKey = key
+        failedKey = nil
+        Task { @MainActor in
+            let result = await viewModel.scoreSpan(for: authored, span: key.span)
+            if scoringKey == key { scoringKey = nil }
+            guard key == spanKey else { return }
+            if let result {
+                withAnimation(fade) { scoredSpan = ScoredSpan(key: key, result: result) }
+            } else {
+                showFailure(for: key)
+            }
+        }
+    }
+
+    /// "Couldn't score — try again" in the button's place for ~2 s.
+    private func showFailure(for key: SpanKey) {
+        failureTask?.cancel()
+        withAnimation(fade) { failedKey = key }
+        failureTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(Self.failureNoteSeconds))
+            guard !Task.isCancelled, failedKey == key else { return }
+            withAnimation(fade) { failedKey = nil }
+        }
+    }
+
+    /// The clearing rule's one place.
+    private func clearSpanScore() {
+        failureTask?.cancel()
+        failureTask = nil
+        scoredSpan = nil
+        failedKey = nil
     }
 
     /// `−` · pill viewport · `+` filling the column, 4pt apart. Under
@@ -643,11 +866,15 @@ private extension View {
 }
 
 #if DEBUG
+// The fixture forecast is 2026-06-19: the previews pin `now` to 4:30am Dubai that day (before every Range) so the pills draw their tier colours instead of passed-grey.
+private let previewNow: @Sendable () -> Date = { ISO8601DateFormatter().date(from: "2026-06-19T00:30:00Z")! }
+
 #Preview("Cycling (Perfect today)") {
     let viewModel = PreviewFixtures.dashboardViewModel()
     NavigationStack {
         ActivityDetailView(activity: PreviewFixtures.forecast.activities[0],
-                           viewModel: viewModel)
+                           viewModel: viewModel,
+                           now: previewNow)
     }
     .task { await viewModel.loadForecast() }
 }
@@ -658,7 +885,8 @@ private extension View {
     let viewModel = PreviewFixtures.dashboardViewModel()
     NavigationStack {
         ActivityDetailView(activity: PreviewFixtures.forecast.activities[0],
-                           viewModel: viewModel)
+                           viewModel: viewModel,
+                           now: previewNow)
     }
     .task { await viewModel.loadForecast() }
 }
@@ -668,7 +896,8 @@ private extension View {
     NavigationStack {
         // activities[2] — the fixture list is cycling / fishingLite / running.
         ActivityDetailView(activity: PreviewFixtures.forecast.activities[2],
-                           viewModel: viewModel)
+                           viewModel: viewModel,
+                           now: previewNow)
     }
     .task { await viewModel.loadForecast() }
 }
@@ -691,7 +920,8 @@ private extension View {
     let viewModel = PreviewFixtures.dashboardViewModel()
     NavigationStack {
         ActivityDetailView(activity: PreviewFixtures.forecast.activities[1],
-                           viewModel: viewModel)
+                           viewModel: viewModel,
+                           now: previewNow)
     }
     .task { await viewModel.loadForecast() }
 }
@@ -701,7 +931,8 @@ private extension View {
     let viewModel = PreviewFixtures.dashboardViewModel()
     NavigationStack {
         ActivityDetailView(activity: PreviewFixtures.forecast.activities[0],
-                           viewModel: viewModel)
+                           viewModel: viewModel,
+                           now: previewNow)
     }
     .environment(\.dynamicTypeSize, .accessibility3)
     .task { await viewModel.loadForecast() }

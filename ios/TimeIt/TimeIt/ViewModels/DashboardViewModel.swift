@@ -267,6 +267,32 @@ final class DashboardViewModel: ObservableObject {
         isLoading = false
     }
 
+    /// Scores the detail carousel's span on the SERVER (owner rulings
+    /// 2026-11-04): one `/rating` call to the last-fetched coordinate with
+    /// the authored Activity re-sent with `window` = the span, reading the
+    /// span day's bucket. Detail-only — never touches `forecast`, the load
+    /// generation, or the error/loading state. Nil on any failure (no
+    /// forecast or coordinate yet, an unsendable span, a thrown error, a
+    /// reply past local midnight, or a missing bucket). No client formula.
+    func scoreSpan(for authored: AuthoredActivity, span: Range<Int>) async -> SpanScore? {
+        guard let deriver = timeDeriver,
+              let coordinate = lastFetchedCoordinate,
+              let window = SpanScoring.window(for: span, deriver: deriver),
+              let bucket = SpanScoring.bucketIndex(for: span, deriver: deriver) else { return nil }
+        let input = SpanScoring.request(from: authored.activityInput, window: window)
+        do {
+            let reply = try await api.fetchRatings(lat: coordinate.latitude,
+                                                   lon: coordinate.longitude,
+                                                   activities: [input])
+            guard SpanScoring.replyDayZeroMatches(current: deriver, replyStart: reply.forecastStart) else {
+                return nil
+            }
+            return SpanScoring.result(from: reply, bucketIndex: bucket, window: window)
+        } catch {
+            return nil
+        }
+    }
+
     /// OK on the alert — remember the home so it never re-warns for it.
     func acknowledgeTimezoneWarning() {
         if let home = preferences.homeLocation {
