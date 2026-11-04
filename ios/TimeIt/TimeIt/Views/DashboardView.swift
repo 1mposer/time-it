@@ -1,7 +1,7 @@
 import SwiftUI
 import UIKit
 
-/// Root surface: gradient header → divider → scrollable card list. One
+/// Root surface: pinned header over the band melt → scrollable card list. One
 /// NavigationStack, no tab bar, no sign-in gate (ADR-0001). Cards come from
 /// the user's authored store; every dashboard state (first-launch hero,
 /// no-location, error, dormant) always offers a next action — never a dead end.
@@ -33,6 +33,26 @@ struct DashboardView: View {
     /// viewport height (the rubber band's ceiling).
     @State private var pullOverscroll: CGFloat = 0
     @State private var listViewport: CGFloat = 700
+    /// The pinned header's bottom edge in full-screen space — the melt's
+    /// anchor (the first list item rests `Spacing.lg` below it).
+    @State private var headerBottom: CGFloat = 215
+
+    /// The first list item's resting top below the header, per state: every
+    /// list pads `Spacing.lg`; the first-launch hero (no banner above it)
+    /// sits a further `firstLaunchHeroTop` down.
+    private var firstItemInset: CGFloat {
+        if !viewModel.hasActivities && !isBetaBuild {
+            return Theme.Spacing.lg + Self.firstLaunchHeroTop
+        }
+        return Theme.Spacing.lg
+    }
+
+    /// The Add-Activity hero's extra top padding (approved First Launch frame).
+    private static let firstLaunchHeroTop: CGFloat = 84
+
+    private var showsHeaderWeather: Bool {
+        !viewModel.hasNoLocation && viewModel.hasLiveActivities
+    }
 
     /// Observes the view model's own store/preferences — separately-defaulted
     /// copies would silently diverge from the ones requests are built from.
@@ -54,14 +74,29 @@ struct DashboardView: View {
                 // weather rows hide (matches the approved First Launch frame).
                 HeaderView(locationName: viewModel.activeLocationName,
                            currentHour: viewModel.forecast?.hours.first,
-                           showsWeather: !viewModel.hasNoLocation && viewModel.hasLiveActivities,
+                           showsWeather: showsHeaderWeather,
                            timezoneIdentifier: viewModel.forecast?.timezone,
                            windUnit: preferences.windSpeedUnit) { showSettings = true }
-                Theme.divider
-                    .frame(height: 0.5)
+                // The header is pinned (outside every ScrollView) — its
+                // bottom edge is where each state's list begins.
+                .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).maxY } action: {
+                    if $0 != headerBottom { headerBottom = $0 }
+                }
                 content
             }
-            .background(Theme.appBackground)
+            // The band + melt + glow blob, full-screen behind the header
+            // text and the list (Final – Opus v1). A background of the whole
+            // dashboard, not of the ScrollView content, so the list scrolls
+            // over it and pull-to-refresh / the stagger are untouched. The
+            // melt starts at the first list item's resting top
+            // (`firstItemInset` below the header — a resting value, never a
+            // live frame, so the melt holds still under a pull).
+            .background {
+                BandMeltView(firstCardTop: headerBottom + firstItemInset,
+                             temp: HeaderView.bandTemp(currentHour: viewModel.forecast?.hours.first,
+                                                       showsWeather: showsHeaderWeather))
+                    .ignoresSafeArea()
+            }
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: String.self) { activityId in
                 detailDestination(for: activityId)
@@ -211,7 +246,7 @@ struct DashboardView: View {
                     .contentShape(RoundedRectangle(cornerRadius: 16))
                 }
                 .buttonStyle(HeroAddButtonStyle())
-                .padding(.top, 84)
+                .padding(.top, Self.firstLaunchHeroTop)
                 .accessibilityIdentifier("addActivitiesButton")
             }
             .padding(14)
