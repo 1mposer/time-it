@@ -60,11 +60,7 @@ struct ActivityCardView: View {
         .padding(EdgeInsets(top: 12, leading: 14, bottom: 12, trailing: 14))
         .background(Theme.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 16))
-        .shadow(color: .black.opacity(0.08), radius: 3, x: 0, y: 1)
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.black.opacity(0.06), lineWidth: 0.5)
-        )
+        .cardLift(cornerRadius: 16, light: .rest)
     }
 
     /// The gear is overlaid by DashboardView (above the NavigationLink) so it

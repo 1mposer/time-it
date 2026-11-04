@@ -48,11 +48,7 @@ struct ScoreRingCardView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Theme.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 16))
-        .shadow(color: .black.opacity(0.08), radius: 3, x: 0, y: 1)
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.black.opacity(0.06), lineWidth: 0.5)
-        )
+        .cardLift(cornerRadius: 16, light: .rest)
         // .contain keeps the name/chip addressable (the dormant-card
         // pattern); the ring owns its own spoken summary below.
         .accessibilityElement(children: .contain)
@@ -221,5 +217,27 @@ struct ScoreRingCardView: View {
     }
     .padding(14)
     .background(Theme.appBackground)
+}
+
+#Preview("Card v2 — dark") {
+    let forecast = PreviewFixtures.forecast
+    VStack(spacing: 10) {
+        ScoreRingCardView(activity: forecast.activities[0],
+                          day: Day(dayIndex: 0, rating: .perfect,
+                                   startIndex: 2, endIndex: 6, duration: 4, score: 86),
+                          iconSymbol: "figure.outdoor.cycle",
+                          rangeChipLabel: RangeText.chipLabel(WindowSpec(startHour: 6, endHour: 10)),
+                          tiers: [nil, .green, .green, .green],
+                          stripStartLocalHour: 6)
+        ScoreRingCardView(activity: forecast.activities[2],
+                          day: Day(dayIndex: 0, rating: nil, score: 31),
+                          iconSymbol: "figure.run",
+                          rangeChipLabel: RangeText.chipLabel(WindowSpec(startHour: 6, endHour: 9)),
+                          tiers: [.red, .red, .red],
+                          stripStartLocalHour: 6)
+    }
+    .padding(14)
+    .background(Theme.appBackground)
+    .preferredColorScheme(.dark)
 }
 #endif

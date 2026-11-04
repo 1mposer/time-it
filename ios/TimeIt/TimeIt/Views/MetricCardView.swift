@@ -82,11 +82,7 @@ struct MetricCardView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.lg))
-        .cardFloat()
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.lg)
-                .stroke(Color.black.opacity(0.06), lineWidth: 0.5)
-        )
+        .cardLift(cornerRadius: Theme.Radius.lg)
         .accessibilityElement(children: .ignore)
         .accessibilityIdentifier("detail.metric.\(metric)")
         .accessibilityLabel("\(catalog.displayName(for: metric)): \(valueText)")

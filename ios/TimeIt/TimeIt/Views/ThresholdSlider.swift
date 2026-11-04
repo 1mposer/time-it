@@ -223,7 +223,7 @@ struct ThresholdSlider: View {
             for index in 0...steps {
                 let x = Self.thumbSize / 2 + usable * CGFloat(index) / CGFloat(steps)
                 let rect = CGRect(x: x - 0.5, y: midY - 3, width: 1, height: 6)
-                context.fill(Path(rect), with: .color(.white.opacity(0.35)))
+                context.fill(Path(rect), with: .color(Theme.onGradient.opacity(0.35)))
             }
         }
         .allowsHitTesting(false)
@@ -233,10 +233,10 @@ struct ThresholdSlider: View {
                        bound: Bound, identifier: String) -> some View {
         let fraction = (value - range.min) / max(range.max - range.min, .ulpOfOne)
         return Circle()
-            .fill(.white)
+            .fill(Theme.sliderThumb)
             .frame(width: Self.thumbSize, height: Self.thumbSize)
-            .shadow(color: .black.opacity(0.25), radius: 3, y: 1)
-            .overlay(Circle().strokeBorder(Color.black.opacity(0.08)))
+            .shadow(color: Theme.shadowInk.opacity(0.25), radius: 3, y: 1)
+            .overlay(Circle().strokeBorder(Theme.shadowInk.opacity(0.08)))
             .position(x: Self.thumbSize / 2 + usable * CGFloat(fraction), y: midY)
             .gesture(
                 DragGesture(minimumDistance: 0)

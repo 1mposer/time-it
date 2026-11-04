@@ -349,11 +349,7 @@ struct ActivityDetailView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Theme.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.lg))
-        .cardFloat()
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.lg)
-                .stroke(Color.black.opacity(0.06), lineWidth: 0.5)
-        )
+        .cardLift(cornerRadius: Theme.Radius.lg)
     }
 
     private var canReturn: Bool { carousel?.canReturnToRange ?? false }
@@ -717,7 +713,7 @@ struct ActivityDetailView: View {
                 Text(RangeStripAxis.numeral(viewModel.localHour(at: index) ?? 0))
                     .font(compact ? .system(size: 9, weight: .semibold)
                                   : .system(size: 11, weight: chosen ? .semibold : .medium))
-                    .foregroundStyle(passed ? Theme.secondaryText : Color.white)
+                    .foregroundStyle(passed ? Theme.secondaryText : Theme.onGradient)
             )
             .opacity(passed ? 1 : dim)
             .overlay(
@@ -905,7 +901,7 @@ private extension View {
                 self.background(Theme.timelineTrack, in: shape)
             case .material:
                 self.background(.ultraThinMaterial, in: shape)
-                    .overlay(shape.stroke(Color.black.opacity(0.06), lineWidth: 0.5))
+                    .overlay(shape.stroke(Theme.cardHairline, lineWidth: Theme.cardHairlineWidth))
             }
         }
     }
@@ -930,6 +926,17 @@ private let previewNow: @Sendable () -> Date = { ISO8601DateFormatter().date(fro
                            now: previewNow)
     }
     .task { await viewModel.loadForecast() }
+}
+
+#Preview("Cycling (Perfect today) — dark") {
+    let viewModel = PreviewFixtures.dashboardViewModel()
+    NavigationStack {
+        ActivityDetailView(activity: PreviewFixtures.forecast.activities[0],
+                           viewModel: viewModel,
+                           now: previewNow)
+    }
+    .task { await viewModel.loadForecast() }
+    .preferredColorScheme(.dark)
 }
 
 /// Four thresholded metrics → four cards (the grid is not capped at the

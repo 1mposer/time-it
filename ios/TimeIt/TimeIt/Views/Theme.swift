@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 extension Color {
     /// e.g. Color(hex: 0x1253a4)
@@ -9,25 +10,132 @@ extension Color {
                   blue: Double(hex & 0xff) / 255,
                   opacity: opacity)
     }
+
+    /// A light/dark-aware token (Figma Semantic collection, Light → Dark
+    /// modes): resolves per trait collection, so every call site follows the
+    /// system appearance with no branching of its own.
+    init(light: UInt32, dark: UInt32, lightAlpha: Double = 1, darkAlpha: Double = 1) {
+        self.init(uiColor: UIColor.dynamic(light: light, dark: dark,
+                                           lightAlpha: lightAlpha, darkAlpha: darkAlpha))
+    }
+}
+
+extension UIColor {
+    /// e.g. UIColor(hex: 0x1253a4, alpha: 0.5) — sRGB, the `Color(hex:)` twin.
+    convenience init(hex: UInt32, alpha: Double = 1) {
+        self.init(red: CGFloat((hex >> 16) & 0xff) / 255,
+                  green: CGFloat((hex >> 8) & 0xff) / 255,
+                  blue: CGFloat(hex & 0xff) / 255,
+                  alpha: CGFloat(alpha))
+    }
+
+    /// The trait-resolving colour behind `Color(light:dark:)` — the ONE
+    /// light/dark helper every token is built on.
+    static func dynamic(light: UInt32, dark: UInt32,
+                        lightAlpha: Double = 1, darkAlpha: Double = 1) -> UIColor {
+        UIColor { traits in
+            traits.userInterfaceStyle == .dark
+                ? UIColor(hex: dark, alpha: darkAlpha)
+                : UIColor(hex: light, alpha: lightAlpha)
+        }
+    }
 }
 
 /// Shipped colour tokens — the shipped-truth home (ADR-0009 two-home rule);
-/// Figma holds design truth, docs carry no values.
+/// Figma holds design truth, docs carry no values. Every colour token is
+/// light/dark-aware (Figma Semantic, Light → Dark); `Theme.UIColors` holds
+/// the same tokens as `UIColor` so tests can resolve them per trait.
 enum Theme {
-    static let appBackground = Color(hex: 0xf2f2f7)
-    static let cardBackground = Color.white
-    static let primaryText = Color(hex: 0x1c1c1e)
-    static let secondaryText = Color(hex: 0x8e8e93)
-    static let accentOrange = Color(hex: 0xff9500)   // Semantic rating/good
-    static let perfectGreen = Color(hex: 0x34c759)   // Semantic rating/perfect
-    static let badRed = Color(hex: 0xff3b30)         // Semantic rating/bad — gradient red; gray track = no data only
+    /// The tokens as resolvable `UIColor`s — the one table both modes read.
+    enum UIColors {
+        static let appBackground = UIColor.dynamic(light: 0xf2f2f7, dark: 0x000000)        // surface/background
+        /// Cards: surface/card light, surface/card-elevated dark (owner ruling
+        /// 2026-10-06 #6 — in dark the lighter surface gives the lift).
+        static let cardBackground = UIColor.dynamic(light: 0xffffff, dark: 0x2c2c2e)
+        static let primaryText = UIColor.dynamic(light: 0x1c1c1e, dark: 0xf2f2f7)          // text/primary
+        static let secondaryText = UIColor.dynamic(light: 0x8e8e93, dark: 0x98989f)        // text/secondary
+        static let onGradient = UIColor.dynamic(light: 0xffffff, dark: 0xffffff)           // text/on-gradient
+        static let accentOrange = UIColor.dynamic(light: 0xff9500, dark: 0xff9f0a)         // rating/good
+        static let perfectGreen = UIColor.dynamic(light: 0x34c759, dark: 0x30d158)         // rating/perfect
+        static let badRed = UIColor.dynamic(light: 0xff3b30, dark: 0xff453a)               // rating/bad
+        static let blendYellow = UIColor.dynamic(light: 0xffbe0a, dark: 0xffbe0a)          // rating/blend (same, intended)
+        static let accentInteractive = UIColor.dynamic(light: 0x007aff, dark: 0x0a84ff)    // accent/interactive
+        static let accentDestructive = UIColor.dynamic(light: 0xff3b30, dark: 0xff453a)    // accent/destructive
+        static let timelineTrack = UIColor.dynamic(light: 0xf2f2f7, dark: 0x3a3a3c)        // timeline/track
+        static let divider = UIColor.dynamic(light: 0x3c3c43, dark: 0x545458,
+                                             lightAlpha: 0.18, darkAlpha: 0.60)             // separator
+        /// The cards' 0.5pt hairline — light only; in dark the Card Lift Dark
+        /// top highlight replaces it.
+        static let cardHairline = UIColor.dynamic(light: 0x000000, dark: 0x000000,
+                                                  lightAlpha: 0.06, darkAlpha: 0)
+        /// No Figma token: the hero add-card's pressed blue. Light is the
+        /// approved #66B2FF; dark is the dark accent at 60% (the light value is
+        /// the light accent at ~60% over white — the same reading).
+        static let accentInteractivePressed = UIColor.dynamic(light: 0x66b2ff, dark: 0x0a84ff,
+                                                              darkAlpha: 0.6)
+
+        /// chip/<tier>/text — light: a darker high-contrast variant; dark:
+        /// the rating colour itself.
+        static func chipText(_ tier: MetricTier) -> UIColor {
+            switch tier {
+            case .green: return chipGreenText
+            case .orange: return chipOrangeText
+            case .red: return chipRedText
+            case .neutral: return chipNeutralText
+            }
+        }
+
+        /// chip/<tier>/bg — the rating colour at 12% light, 20% dark.
+        static func chipBackground(_ tier: MetricTier) -> UIColor {
+            switch tier {
+            case .green: return chipGreenBackground
+            case .orange: return chipOrangeBackground
+            case .red: return chipRedBackground
+            case .neutral: return chipNeutralBackground
+            }
+        }
+
+        private static let chipGreenText = UIColor.dynamic(light: 0x1a7a35, dark: 0x30d158)
+        private static let chipOrangeText = UIColor.dynamic(light: 0xb85c00, dark: 0xff9f0a)
+        private static let chipRedText = UIColor.dynamic(light: 0xc0392b, dark: 0xff453a)
+        private static let chipNeutralText = UIColor.dynamic(light: 0x636366, dark: 0x98989f)
+        private static let chipGreenBackground = UIColor.dynamic(light: 0x34c759, dark: 0x30d158,
+                                                                 lightAlpha: 0.12, darkAlpha: 0.20)
+        private static let chipOrangeBackground = UIColor.dynamic(light: 0xff9500, dark: 0xff9f0a,
+                                                                  lightAlpha: 0.12, darkAlpha: 0.20)
+        private static let chipRedBackground = UIColor.dynamic(light: 0xff3b30, dark: 0xff453a,
+                                                               lightAlpha: 0.12, darkAlpha: 0.20)
+        private static let chipNeutralBackground = UIColor.dynamic(light: 0x8e8e93, dark: 0x98989f,
+                                                                   lightAlpha: 0.12, darkAlpha: 0.20)
+    }
+
+    static let appBackground = Color(uiColor: UIColors.appBackground)
+    static let cardBackground = Color(uiColor: UIColors.cardBackground)
+    static let primaryText = Color(uiColor: UIColors.primaryText)
+    static let secondaryText = Color(uiColor: UIColors.secondaryText)
+    /// Text and glyphs on a gradient, tier or accent fill — white in both modes.
+    static let onGradient = Color(uiColor: UIColors.onGradient)
+    static let accentOrange = Color(uiColor: UIColors.accentOrange)   // Semantic rating/good
+    static let perfectGreen = Color(uiColor: UIColors.perfectGreen)   // Semantic rating/perfect
+    static let badRed = Color(uiColor: UIColors.badRed)               // Semantic rating/bad — gradient red; gray track = no data only
     /// The detail hero's "No Window" word — light red, Regular 12 (owner
     /// ruling 2026-11-04); rated words keep their full `ratingTint`.
     static let noWindowTint = badRed.opacity(0.7)
-    static let blendYellow = Color(hex: 0xffbe0a)    // Semantic rating/blend — G↔O waypoint only, never a tier fill (light value; dark wave deferred)
-    static let timelineTrack = Color(hex: 0xf2f2f7)
-    static let accentInteractive = Color(hex: 0x007aff) // Semantic accent/interactive
-    static let divider = Color(hex: 0x3c3c43, opacity: 0.18)
+    static let blendYellow = Color(uiColor: UIColors.blendYellow)     // Semantic rating/blend — G↔O waypoint only, never a tier fill
+    static let timelineTrack = Color(uiColor: UIColors.timelineTrack)
+    static let accentInteractive = Color(uiColor: UIColors.accentInteractive) // Semantic accent/interactive
+    static let accentInteractivePressed = Color(uiColor: UIColors.accentInteractivePressed)
+    static let accentDestructive = Color(uiColor: UIColors.accentDestructive) // Semantic accent/destructive
+    static let divider = Color(uiColor: UIColors.divider)
+    /// The cards' 0.5pt hairline (light only — clear in dark).
+    static let cardHairline = Color(uiColor: UIColors.cardHairline)
+    static let cardHairlineWidth: CGFloat = 0.5
+    /// Shadows, scrims and drops — black in both modes (they darken; they
+    /// are not surfaces).
+    static let shadowInk = Color.black
+    /// The threshold slider's thumb — white in both modes (the system
+    /// slider convention).
+    static let sliderThumb = onGradient
 
     /// The Figma Layout collection's spacing scale (`space/*`) — the
     /// shipped-truth home for these values (ADR-0009).
@@ -185,9 +293,24 @@ enum Theme {
 
     /// Light-mode card elevation — Figma "Card Float" (y4, blur 16, black
     /// 6%; SwiftUI's shadow radius is about half a Figma blur).
-    static let cardFloatColor = Color.black.opacity(0.06)
+    static let cardFloatColor = shadowInk.opacity(0.06)
     static let cardFloatRadius: CGFloat = 8
     static let cardFloatY: CGFloat = 4
+
+    /// Light-mode resting card shadow — the dashboard cards' own (black 8%,
+    /// r3, y1), lighter than Card Float.
+    static let cardRestColor = shadowInk.opacity(0.08)
+    static let cardRestRadius: CGFloat = 3
+    static let cardRestY: CGFloat = 1
+
+    /// Dark-mode card elevation — Figma "Card Lift Dark": an inner top
+    /// highlight (white 6%, y1, blur 0) plus a drop shadow (black 40%, y4,
+    /// Figma blur 12 → SwiftUI radius 6). No hairline in dark.
+    static let cardLiftHighlight = Color.white.opacity(0.06)
+    static let cardLiftHighlightY: CGFloat = 1
+    static let cardLiftShadowColor = shadowInk.opacity(0.40)
+    static let cardLiftShadowRadius: CGFloat = 6
+    static let cardLiftShadowY: CGFloat = 4
 
     /// The Range's "home" ghost outline on the detail pill row: 1pt
     /// interactive accent at 35%, inside the pill rect.
@@ -200,21 +323,30 @@ enum Theme {
     /// shipped-truth rule) — never respell a chip hex in a view.
     static func chipTextColor(_ tier: MetricTier) -> Color {
         switch tier {
-        case .green: return Color(hex: 0x1a7a35)
-        case .orange: return Color(hex: 0xb85c00)
-        case .red: return Color(hex: 0xc0392b)
-        case .neutral: return Color(hex: 0x636366)
+        case .green: return chipGreenText
+        case .orange: return chipOrangeText
+        case .red: return chipRedText
+        case .neutral: return chipNeutralText
         }
     }
 
     static func chipBackgroundColor(_ tier: MetricTier) -> Color {
         switch tier {
-        case .green: return perfectGreen.opacity(0.12)
-        case .orange: return accentOrange.opacity(0.12)
-        case .red: return badRed.opacity(0.12)
-        case .neutral: return secondaryText.opacity(0.12)
+        case .green: return chipGreenBackground
+        case .orange: return chipOrangeBackground
+        case .red: return chipRedBackground
+        case .neutral: return chipNeutralBackground
         }
     }
+
+    private static let chipGreenText = Color(uiColor: UIColors.chipText(.green))
+    private static let chipOrangeText = Color(uiColor: UIColors.chipText(.orange))
+    private static let chipRedText = Color(uiColor: UIColors.chipText(.red))
+    private static let chipNeutralText = Color(uiColor: UIColors.chipText(.neutral))
+    private static let chipGreenBackground = Color(uiColor: UIColors.chipBackground(.green))
+    private static let chipOrangeBackground = Color(uiColor: UIColors.chipBackground(.orange))
+    private static let chipRedBackground = Color(uiColor: UIColors.chipBackground(.red))
+    private static let chipNeutralBackground = Color(uiColor: UIColors.chipBackground(.neutral))
 
     /// The day's rating tier as a colour — the score ring's arc and numeral,
     /// and the detail hero's rating word (card v2 / detail v3 frames). A null
@@ -347,18 +479,71 @@ enum Theme {
         static let numeralShadowOpacity: Double = 0.30
         static let numeralShadowRadius: CGFloat = 3
 
-        /// The ground under the melt. Dark is black; light is the existing
-        /// grey (`appBackground`). The app is light-only today
-        /// (`UIUserInterfaceStyle = Light`), so the dark values are staged.
+        /// The ground under the melt — `surface/background` resolved for the
+        /// mode (black in dark, the grey `appBackground` in light).
         static func ground(dark: Bool) -> Color {
-            dark ? .black : Theme.appBackground
+            Color(uiColor: Theme.UIColors.appBackground.resolvedColor(
+                with: UITraitCollection(userInterfaceStyle: dark ? .dark : .light)))
+        }
+    }
+}
+
+/// Which light-mode shadow a card keeps under `cardLift` — dark is always
+/// Card Lift Dark.
+enum CardLightElevation {
+    /// Figma "Card Float" (the detail hero, the metric cards).
+    case float
+    /// The dashboard cards' lighter resting shadow.
+    case rest
+}
+
+/// Card elevation for both modes: light = the chosen light shadow + the
+/// 0.5pt hairline; dark = Card Lift Dark (1pt inner top highlight + black
+/// 40% drop), no hairline (owner ruling 2026-10-06 #6).
+private struct CardLift: ViewModifier {
+    let cornerRadius: CGFloat
+    let light: CardLightElevation
+    @Environment(\.colorScheme) private var colorScheme
+
+    func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius)
+        if colorScheme == .dark {
+            content
+                .overlay {
+                    // The inner shadow, literally: the card's shape minus
+                    // itself moved down 1pt leaves a 1pt crescent along the
+                    // top edge that tapers into the corners.
+                    shape.subtracting(shape.offset(y: Theme.cardLiftHighlightY))
+                        .fill(Theme.cardLiftHighlight)
+                        .allowsHitTesting(false)
+                }
+                .shadow(color: Theme.cardLiftShadowColor, radius: Theme.cardLiftShadowRadius,
+                        x: 0, y: Theme.cardLiftShadowY)
+        } else {
+            switch light {
+            case .float:
+                content
+                    .cardFloat()
+                    .overlay(shape.stroke(Theme.cardHairline, lineWidth: Theme.cardHairlineWidth))
+            case .rest:
+                content
+                    .shadow(color: Theme.cardRestColor, radius: Theme.cardRestRadius,
+                            x: 0, y: Theme.cardRestY)
+                    .overlay(shape.stroke(Theme.cardHairline, lineWidth: Theme.cardHairlineWidth))
+            }
         }
     }
 }
 
 extension View {
-    /// Figma "Card Float" elevation.
+    /// Figma "Card Float" elevation (light mode only — cards use `cardLift`).
     func cardFloat() -> some View {
         shadow(color: Theme.cardFloatColor, radius: Theme.cardFloatRadius, x: 0, y: Theme.cardFloatY)
+    }
+
+    /// A card's elevation in either mode — after the card's background and
+    /// clip, in place of a shadow + hairline pair.
+    func cardLift(cornerRadius: CGFloat, light: CardLightElevation = .float) -> some View {
+        modifier(CardLift(cornerRadius: cornerRadius, light: light))
     }
 }

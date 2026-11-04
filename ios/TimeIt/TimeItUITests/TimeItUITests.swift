@@ -28,6 +28,8 @@ import XCTest
 ///   `UITEST_NOW=2026-06-19T00:30:00Z` (4:30am Dubai, before every seeded
 ///   Range) unless the caller passes its own, so the pills and strips show
 ///   their live colours on the simulator instead of passed-grey.
+/// - `UITEST_APPEARANCE=dark|light`: pins the colour scheme; absent = the
+///   simulator's system appearance (the app no longer pins Light).
 final class TimeItUITests: XCTestCase {
 
     // MARK: - Launch helpers
@@ -946,6 +948,39 @@ final class TimeItUITests: XCTestCase {
         card.coordinate(withNormalizedOffset: CGVector(dx: 0.3, dy: 0.1)).tap()
         XCTAssertTrue(app.navigationBars["Cycling"].waitForExistence(timeout: 5),
                       "the tap reached the card, not the backdrop")
+    }
+
+    /// Build 8 dark mode: `UITEST_APPEARANCE=dark` pins the scheme (the app
+    /// itself follows the system). Walks dashboard → detail → one + (the
+    /// Score capsule shows) → back, keeping a screenshot of each for the
+    /// owner's by-eye check against the approved dark frames — no
+    /// accessibility surface exposes a colour.
+    func testDarkAppearanceWalksDashboardAndDetail() {
+        let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_SEED_LIVE", "UITEST_LOCATION",
+                                        "UITEST_APPEARANCE=dark"])
+        let card = app.buttons["card.cycling"]
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["headerTime"].exists)
+        XCTAssertTrue(app.buttons["card.fishing-lite"].exists)
+        attachScreenshot(app, named: "dashboard-dark")
+
+        card.tap()
+        XCTAssertTrue(app.navigationBars["Cycling"].waitForExistence(timeout: 5))
+        let row = app.descendants(matching: .any)["detail.hourStrip"]
+        XCTAssertTrue(app.staticTexts["detail.rangeLine"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.otherElements["detail.score"].exists)
+        XCTAssertTrue(app.otherElements["detail.metric.temp"].exists)
+        Thread.sleep(forTimeInterval: 0.6)
+        attachScreenshot(app, named: "detail-dark")
+
+        app.buttons["detail.stepForward"].tap()
+        XCTAssertTrue(waitForLabel(row, "Hours 7am to 11am"), "got \(row.label)")
+        XCTAssertTrue(app.buttons["detail.scoreSpan"].waitForExistence(timeout: 2))
+        Thread.sleep(forTimeInterval: 0.6)
+        attachScreenshot(app, named: "detail-dark-span")
+
+        app.navigationBars["Cycling"].buttons.firstMatch.tap()
+        XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5), "back returns to the dashboard")
     }
 
     private func attachScreenshot(_ app: XCUIApplication, named name: String) {

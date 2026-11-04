@@ -303,7 +303,7 @@ struct ActivityEditorView: View {
             draft.iconSymbol = symbol
         } label: {
             ActivityIconView(identifier: symbol, size: 18)
-                .foregroundStyle(draft.iconSymbol == symbol ? Color.white : Theme.primaryText.opacity(0.75))
+                .foregroundStyle(draft.iconSymbol == symbol ? Theme.onGradient : Theme.primaryText.opacity(0.75))
                 .frame(width: 40, height: 40)
                 .background(draft.iconSymbol == symbol ? Theme.accentOrange : Theme.appBackground,
                             in: Circle())
@@ -449,7 +449,7 @@ struct ActivityEditorView: View {
                 Section {
                     Text("Start and end can't be the same.")
                         .font(.system(size: 13))
-                        .foregroundStyle(.red)
+                        .foregroundStyle(Theme.accentDestructive)
                 }
                 .listRowBackground(Color.clear)
             }
@@ -490,7 +490,7 @@ struct ActivityEditorView: View {
                     ForEach(buildResult.issues, id: \.self) { issue in
                         Text(issue)
                             .font(.system(size: 13))
-                            .foregroundStyle(.red)
+                            .foregroundStyle(Theme.accentDestructive)
                     }
                 }
             }
@@ -623,7 +623,7 @@ private struct EditorTabBar: View {
     }
 
     private func foreground(isCurrent: Bool, complete: Bool) -> Color {
-        if isCurrent { return .white }
+        if isCurrent { return Theme.onGradient }
         return complete ? Theme.perfectGreen : Theme.secondaryText
     }
 
