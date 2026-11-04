@@ -27,6 +27,10 @@ final class DashboardViewModel: ObservableObject {
     /// The device's own zone (injected for tests) — the warning and the
     /// header clock compare against it; CoreLocation is never involved.
     private let deviceTimeZone: TimeZone
+    /// The one clock the dashboard / detail / card path reads to decide
+    /// which hours have passed. `Date.init` in the app; a UI-test mock run
+    /// pins it with `UITEST_NOW=<ISO8601>` (see `TimeItApp.makeViewModel`).
+    let now: () -> Date
     /// Shared with views so they mutate the same store requests are built from.
     let store: ActivityStore
     /// Shared with the city-picker sheet for the same reason as `store`.
@@ -83,9 +87,11 @@ final class DashboardViewModel: ObservableObject {
          locationProvider: LocationProviding? = nil,
          store: ActivityStore? = nil,
          preferences: PreferencesStore? = nil,
-         deviceTimeZone: TimeZone = .current) {
+         deviceTimeZone: TimeZone = .current,
+         now: @escaping () -> Date = Date.init) {
         self.api = api
         self.deviceTimeZone = deviceTimeZone
+        self.now = now
         self.locationProvider = locationProvider ?? LocationManager.shared
         self.store = store ?? ActivityStore.shared
         self.preferences = preferences ?? PreferencesStore.shared
@@ -494,8 +500,9 @@ final class DashboardViewModel: ObservableObject {
     /// The card strip's segments over the full Range: a tier per hour with
     /// data still ahead (or under way), nil for a passed hour or one with no
     /// data — drawn as the grey track, never tier-coloured.
-    func rangeStripTiers(for authored: AuthoredActivity, dayIndex: Int, now: Date = Date()) -> [HourTier?] {
+    func rangeStripTiers(for authored: AuthoredActivity, dayIndex: Int, now: Date? = nil) -> [HourTier?] {
         guard let deriver = timeDeriver, let hours = forecast?.hours else { return [] }
+        let now = now ?? self.now()
         return rangeSlots(for: authored, dayIndex: dayIndex).map { slot in
             guard let index = slot.index, !deriver.hasPassed(slot.position, now: now) else { return nil }
             return HourQuality.tier(for: hours[index], thresholds: authored.thresholds)

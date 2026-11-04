@@ -24,6 +24,10 @@ import XCTest
 ///   omitting it pins the gate OFF (the App Store face of the same archive).
 /// - `UITEST_FEEDBACK_FAIL`: the mock feedback route throws a 500 — the
 ///   non-204 path must keep the typed text and offer retry.
+/// - `UITEST_NOW=<ISO8601>`: pins the passed-hour clock. `launchApp` adds
+///   `UITEST_NOW=2026-06-19T00:30:00Z` (4:30am Dubai, before every seeded
+///   Range) unless the caller passes its own, so the pills and strips show
+///   their live colours on the simulator instead of passed-grey.
 final class TimeItUITests: XCTestCase {
 
     // MARK: - Launch helpers
@@ -32,9 +36,15 @@ final class TimeItUITests: XCTestCase {
         continueAfterFailure = false
     }
 
+    /// 4:30am Dubai on the fixture's day 0 — before every seeded Range, so
+    /// every run (whatever its other arguments) shows the live look.
+    private static let pinnedNow = "UITEST_NOW=2026-06-19T00:30:00Z"
+
     private func launchApp(arguments: [String] = ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_SEED_LIVE", "UITEST_LOCATION"]) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = arguments
+        // The clock pin rides along unless the caller pins its own instant.
+        let pinsOwnClock = arguments.contains { $0.hasPrefix("UITEST_NOW=") }
+        app.launchArguments = pinsOwnClock ? arguments : arguments + [Self.pinnedNow]
         app.launch()
         return app
     }
@@ -671,11 +681,14 @@ final class TimeItUITests: XCTestCase {
         XCTAssertFalse(app.buttons["detail.returnToRange"].exists,
                        "no return control while the span sits on the Range")
         // The line under the row names the hours the cards show (owner
-        // ruling 2026-11-04): on the Range it reads the Range itself — and,
-        // the June-2026 mock being behind the real clock, "· Time passed".
+        // ruling 2026-11-04): on the Range it reads the Range itself. The
+        // launch helper pins the clock (`UITEST_NOW`) to 4:30am on the June-
+        // 2026 mock's day, before the Range — without the pin the real clock
+        // is past it and the line would read "· Time passed" (that wording
+        // is covered by `testDetailLineReadsTimePassedOnceTheRangeHasEnded`).
         let line = app.staticTexts["detail.rangeLine"]
         XCTAssertTrue(line.exists)
-        XCTAssertEqual(line.label, "Your range 6 – 10am · Time passed")
+        XCTAssertEqual(line.label, "Your range 6 – 10am")
 
         // ONE metric card per displayMetric — the grid is not capped at the
         // frames' three. Cycling shows temp/wind/rain/uV.
@@ -714,7 +727,7 @@ final class TimeItUITests: XCTestCase {
         returnControl.tap()
         XCTAssertTrue(waitForLabel(row, "Hours 6am to 10am"), "got \(row.label)")
         XCTAssertTrue(waitForLabel(uv, suffix: "UV 3"), "got \(uv.label)")
-        XCTAssertTrue(waitForLabel(line, "Your range 6 – 10am · Time passed"), "got \(line.label)")
+        XCTAssertTrue(waitForLabel(line, "Your range 6 – 10am"), "got \(line.label)")
         XCTAssertFalse(returnControl.waitForExistence(timeout: 1), "gone once back on the Range")
 
         // − walks back to the walk start (today's first forecast hour, 4am =
@@ -772,8 +785,9 @@ final class TimeItUITests: XCTestCase {
     /// Owner ruling 2026-11-04 (items 1, 3, 4): the detail opens with the
     /// full Range on the row and "Your range …" under it; two + presses move
     /// the line to "Showing …" with the return button. Attaches the two
-    /// screenshots the owner reviews (the June-2026 mock reads every hour as
-    /// passed against today's clock, so every pill is grey).
+    /// screenshots the owner reviews (the launch helper's `UITEST_NOW` pin
+    /// puts the clock at 4:30am on the fixture's day, so the pills show their
+    /// live tier colours rather than passed-grey).
     func testDetailLineFollowsTheSpanAndScreenshotsTheHero() {
         let app = launchApp()
         let card = app.buttons["card.cycling"]
@@ -785,7 +799,7 @@ final class TimeItUITests: XCTestCase {
         let line = app.staticTexts["detail.rangeLine"]
         XCTAssertTrue(line.waitForExistence(timeout: 3))
         XCTAssertEqual(row.label, "Hours 6am to 10am", "the full Range is on the row")
-        XCTAssertEqual(line.label, "Your range 6 – 10am · Time passed")
+        XCTAssertEqual(line.label, "Your range 6 – 10am")
         attachScreenshot(app, named: "detail-at-rest")
 
         let forward = app.buttons["detail.stepForward"]
@@ -800,8 +814,28 @@ final class TimeItUITests: XCTestCase {
         attachScreenshot(app, named: "detail-after-two-plus")
 
         app.buttons["detail.returnToRange"].tap()
-        XCTAssertTrue(waitForLabel(line, "Your range 6 – 10am · Time passed"), "got \(line.label)")
+        XCTAssertTrue(waitForLabel(line, "Your range 6 – 10am"), "got \(line.label)")
         XCTAssertTrue(waitForLabel(row, "Hours 6am to 10am"), "got \(row.label)")
+    }
+
+    /// "· Time passed" (owner ruling 2026-11-04): pinned to noon Dubai on the
+    /// fixture's day 0, after Cycling's 6–10am, the line names the Range as
+    /// ended. Wording only — no accessibility surface exposes the pills' or
+    /// the card strip's tier colour, so the grey is checked by eye in the
+    /// attached screenshot.
+    func testDetailLineReadsTimePassedOnceTheRangeHasEnded() {
+        let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_SEED_LIVE", "UITEST_LOCATION",
+                                        "UITEST_NOW=2026-06-19T08:00:00Z"])
+        let card = app.buttons["card.cycling"]
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        card.tap()
+        XCTAssertTrue(app.navigationBars["Cycling"].waitForExistence(timeout: 5))
+
+        let line = app.staticTexts["detail.rangeLine"]
+        XCTAssertTrue(line.waitForExistence(timeout: 3))
+        XCTAssertEqual(app.descendants(matching: .any)["detail.hourStrip"].label, "Hours 6am to 10am")
+        XCTAssertEqual(line.label, "Your range 6 – 10am · Time passed")
+        attachScreenshot(app, named: "detail-time-passed")
     }
 
     /// Span scoring (owner rulings 2026-11-04): away from the Range, "Score

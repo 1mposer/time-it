@@ -50,9 +50,13 @@ struct TimeItApp: App {
                 ProcessInfo.processInfo.arguments.contains("UITEST_MOCK_FAILURE") ? .failure : .success
             // Device zone pinned to the fixture's zone so mock runs stay
             // hermetic: no timezone-mismatch alert, sim-zone-independent clock.
+            // UITEST_NOW=<ISO8601> pins the passed-hour clock so the 2026-06-19
+            // fixture draws its live tier colours instead of passed-grey.
+            let pinnedNow = ProcessInfo.uiTestNow(from: ProcessInfo.processInfo.arguments)
             return DashboardViewModel(api: MockRatingService(mode: mode),
                                       locationProvider: uiTestLocationProvider(),
-                                      deviceTimeZone: TimeZone(identifier: "Asia/Dubai")!)
+                                      deviceTimeZone: TimeZone(identifier: "Asia/Dubai")!,
+                                      now: pinnedNow.map { pinned in { pinned } } ?? Date.init)
         }
         #endif
         return DashboardViewModel()

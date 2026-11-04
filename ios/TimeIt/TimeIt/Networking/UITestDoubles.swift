@@ -62,6 +62,17 @@ struct UITestFeedbackAPI: SuggestionSending {
     }
 }
 
+extension ProcessInfo {
+    /// The UI-test clock pin: the instant in a `UITEST_NOW=<ISO8601>` launch
+    /// argument (e.g. `UITEST_NOW=2026-06-19T00:30:00Z`); nil when absent or
+    /// malformed. Read only in a UI-test mock run.
+    static func uiTestNow(from arguments: [String]) -> Date? {
+        let prefix = "UITEST_NOW="
+        guard let argument = arguments.first(where: { $0.hasPrefix(prefix) }) else { return nil }
+        return ISO8601DateFormatter().date(from: String(argument.dropFirst(prefix.count)))
+    }
+}
+
 /// Deterministic permission prompt: grants unless UITEST_PUSH_DENY.
 struct UITestPushAuthorizer: NotificationAuthorizing {
     let grants: Bool

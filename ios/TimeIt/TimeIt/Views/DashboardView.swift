@@ -185,7 +185,8 @@ struct DashboardView: View {
         if let activity = viewModel.rating(forActivityId: activityId) {
             ActivityDetailView(activity: activity,
                                viewModel: viewModel,
-                               windUnit: preferences.windSpeedUnit)
+                               windUnit: preferences.windSpeedUnit,
+                               now: viewModel.now)
         } else {
             Color.clear
                 .onAppear { navigationPath = [] }
