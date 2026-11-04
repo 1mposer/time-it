@@ -20,7 +20,7 @@ enum PullStagger {
     /// Owner-tunable. At k = 0.8 the fifth card's TOTAL travel (scroll
     /// overscroll + its extra) is ~2.1–2.2× the first's across typical pulls
     /// (pinned in `PullStaggerTests`).
-    static let k: CGFloat = 0.8
+    static let k: CGFloat = 0.6
     /// UIKit's touch rubber-band coefficient.
     static let touchCoefficient: CGFloat = 0.55
 
