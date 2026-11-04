@@ -671,10 +671,11 @@ final class TimeItUITests: XCTestCase {
         XCTAssertFalse(app.buttons["detail.returnToRange"].exists,
                        "no return control while the span sits on the Range")
         // The line under the row names the hours the cards show (owner
-        // ruling 2026-11-04): on the Range it reads the Range itself.
+        // ruling 2026-11-04): on the Range it reads the Range itself — and,
+        // the June-2026 mock being behind the real clock, "· Time passed".
         let line = app.staticTexts["detail.rangeLine"]
         XCTAssertTrue(line.exists)
-        XCTAssertEqual(line.label, "Your range 6 – 10am")
+        XCTAssertEqual(line.label, "Your range 6 – 10am · Time passed")
 
         // ONE metric card per displayMetric — the grid is not capped at the
         // frames' three. Cycling shows temp/wind/rain/uV.
@@ -713,7 +714,7 @@ final class TimeItUITests: XCTestCase {
         returnControl.tap()
         XCTAssertTrue(waitForLabel(row, "Hours 6am to 10am"), "got \(row.label)")
         XCTAssertTrue(waitForLabel(uv, suffix: "UV 3"), "got \(uv.label)")
-        XCTAssertTrue(waitForLabel(line, "Your range 6 – 10am"), "got \(line.label)")
+        XCTAssertTrue(waitForLabel(line, "Your range 6 – 10am · Time passed"), "got \(line.label)")
         XCTAssertFalse(returnControl.waitForExistence(timeout: 1), "gone once back on the Range")
 
         // − walks back to the walk start (today's first forecast hour, 4am =
@@ -784,7 +785,7 @@ final class TimeItUITests: XCTestCase {
         let line = app.staticTexts["detail.rangeLine"]
         XCTAssertTrue(line.waitForExistence(timeout: 3))
         XCTAssertEqual(row.label, "Hours 6am to 10am", "the full Range is on the row")
-        XCTAssertEqual(line.label, "Your range 6 – 10am")
+        XCTAssertEqual(line.label, "Your range 6 – 10am · Time passed")
         attachScreenshot(app, named: "detail-at-rest")
 
         let forward = app.buttons["detail.stepForward"]
@@ -799,7 +800,7 @@ final class TimeItUITests: XCTestCase {
         attachScreenshot(app, named: "detail-after-two-plus")
 
         app.buttons["detail.returnToRange"].tap()
-        XCTAssertTrue(waitForLabel(line, "Your range 6 – 10am"), "got \(line.label)")
+        XCTAssertTrue(waitForLabel(line, "Your range 6 – 10am · Time passed"), "got \(line.label)")
         XCTAssertTrue(waitForLabel(row, "Hours 6am to 10am"), "got \(row.label)")
     }
 

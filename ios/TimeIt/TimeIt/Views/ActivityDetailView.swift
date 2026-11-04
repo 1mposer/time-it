@@ -10,6 +10,12 @@ import SwiftUI
 /// under it naming the hours the cards show), square metric cards two per
 /// row AVERAGING the chosen hours, then the Edit range / Edit metrics list.
 ///
+/// Hero wording (owner rulings 2026-11-04): a day with no rating reads
+/// "No Window" under the ring in Regular 12 light red (`Theme.noWindowTint`)
+/// — Perfect / Good stay Semibold in their tint; once the shown day's whole
+/// Range has ended, the line on the Range reads "Your range 6 – 10am · Time
+/// passed" (same line, same height).
+///
 /// The row always shows the FULL Range: hours of it before the forecast
 /// start are drawn grey with no data. No Calculate button: the cards
 /// recompute live as the row settles, the Range's home slots keep a faint
@@ -108,16 +114,18 @@ struct ActivityDetailView: View {
         HourAggregate.aggregate(slots: displayedSlots, hours: viewModel.forecast?.hours ?? [])
     }
 
-    /// The line under the row: "Your range …" on the Range, "Showing …" plus
+    /// The line under the row: "Your range …" on the Range (with "· Time
+    /// passed" once the whole Range has ended), "Showing …" plus
     /// the return button away from it. Derived from the same `carousel` as
     /// the cards, so both change on the same settle. Nil without a Range.
     private var rangeLine: RangeLine? {
-        guard let carousel, carousel.rangeHours != nil,
+        guard let carousel, let range = carousel.rangeHours,
               let window = authored?.window, let deriver else { return nil }
         return RangeLine(window: window,
                          isAtRange: carousel.isAtRange,
                          spanStartHour: deriver.localHour(at: carousel.span.lowerBound),
-                         spanEndHour: deriver.localHour(at: carousel.span.upperBound))
+                         spanEndHour: deriver.localHour(at: carousel.span.upperBound),
+                         rangeHasPassed: deriver.rangeHasPassed(range, now: now()))
     }
 
     var body: some View {
@@ -255,9 +263,7 @@ struct ActivityDetailView: View {
             .buttonStyle(PressStyle())
             .disabled(!canReturn)
             .accessibilityHidden(true)
-            Text(selectedDay?.ratingDisplay ?? "No Window")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Theme.ratingTint(selectedDay?.rating))
+            ratingWord
                 .fixedSize()
                 .frame(height: Layout.wordHeight)
         }
@@ -269,6 +275,17 @@ struct ActivityDetailView: View {
                 .accessibilityLabel(scoreAccessibilityLabel)
                 .allowsHitTesting(false)
         }
+    }
+
+    /// The word under the ring: Perfect / Good Semibold 12 in their tint;
+    /// no rating (nil or unknown) → "No Window" Regular 12 light red (owner
+    /// ruling 2026-11-04). Same slot either way, so the hero height holds.
+    private var ratingWord: some View {
+        let rating = selectedDay?.rating
+        let isRated = rating == .perfect || rating == .good
+        return Text(selectedDay?.ratingDisplay ?? "No Window")
+            .font(.system(size: 12, weight: isRated ? .semibold : .regular))
+            .foregroundStyle(isRated ? Theme.ratingTint(rating) : Theme.noWindowTint)
     }
 
     /// "Your range 6 – 10am" / "Showing 7 – 11am" + return — 13pt secondary
@@ -651,6 +668,29 @@ private extension View {
     NavigationStack {
         // activities[2] — the fixture list is cycling / fishingLite / running.
         ActivityDetailView(activity: PreviewFixtures.forecast.activities[2],
+                           viewModel: viewModel)
+    }
+    .task { await viewModel.loadForecast() }
+}
+
+/// "Your range 6 – 9am · Time passed" (owner ruling 2026-11-04): `now` is
+/// 10am Dubai on the fixture's day 0 (forecast 4am), after Running's 6–9am.
+#Preview("Running (Time passed)") {
+    let viewModel = PreviewFixtures.dashboardViewModel()
+    NavigationStack {
+        ActivityDetailView(activity: PreviewFixtures.forecast.activities[2],
+                           viewModel: viewModel,
+                           now: { ISO8601DateFormatter().date(from: "2026-06-19T06:00:00Z")! })
+    }
+    .task { await viewModel.loadForecast() }
+}
+
+/// The "No Window" word, Regular 12 light red (owner ruling 2026-11-04):
+/// the fixture rates Fishing Lite rating-null on day 0.
+#Preview("Fishing Lite (No Window)") {
+    let viewModel = PreviewFixtures.dashboardViewModel()
+    NavigationStack {
+        ActivityDetailView(activity: PreviewFixtures.forecast.activities[1],
                            viewModel: viewModel)
     }
     .task { await viewModel.loadForecast() }

@@ -21,6 +21,9 @@ enum Theme {
     static let accentOrange = Color(hex: 0xff9500)   // Semantic rating/good
     static let perfectGreen = Color(hex: 0x34c759)   // Semantic rating/perfect
     static let badRed = Color(hex: 0xff3b30)         // Semantic rating/bad — gradient red; gray track = no data only
+    /// The detail hero's "No Window" word — light red, Regular 12 (owner
+    /// ruling 2026-11-04); rated words keep their full `ratingTint`.
+    static let noWindowTint = badRed.opacity(0.7)
     static let blendYellow = Color(hex: 0xffbe0a)    // Semantic rating/blend — G↔O waypoint only, never a tier fill (light value; dark wave deferred)
     static let timelineTrack = Color(hex: 0xf2f2f7)
     static let accentInteractive = Color(hex: 0x007aff) // Semantic accent/interactive
