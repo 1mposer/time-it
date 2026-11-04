@@ -148,6 +148,20 @@ enum Theme {
         /// The HIG minimum hit target.
         static let minHitTarget: CGFloat = 44
 
+        // The edit circles (owner rulings 2026-11-04): two 44pt circles on
+        // the ground under the metric grid — a 17pt Semibold glyph, an 11pt
+        // secondary caption 6pt below, the pair 32pt apart and centred,
+        // 24pt above the pair.
+        static let editCircleDiameter: CGFloat = minHitTarget
+        static let editCircleGlyph: CGFloat = 17
+        static let editCircleToCaption: CGFloat = 6
+        static let editCaptionFont: CGFloat = 11
+        static let editCircleGap: CGFloat = 32
+        static let editCirclesTop: CGFloat = 24
+        /// The circles' glass container blend distance — under the gap, so
+        /// the two stay two circles rather than melting into one shape.
+        static let editCircleBlend: CGFloat = 8
+
         /// The metric card's inner inset.
         static let metricInset: CGFloat = 20
     }

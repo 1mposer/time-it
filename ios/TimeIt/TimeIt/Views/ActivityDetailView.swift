@@ -8,7 +8,8 @@ import SwiftUI
 /// day-score ring + rating word, and beside it the hour row: `−` · a
 /// natively scrolling strip of tier-coloured hour pills · `+`, with one line
 /// under it naming the hours the cards show), square metric cards two per
-/// row AVERAGING the chosen hours, then the Edit range / Edit metrics list.
+/// row AVERAGING the chosen hours, then the two captioned edit circles —
+/// Range / Metrics (owner rulings 2026-11-04; they replaced the list card).
 ///
 /// Hero wording (owner rulings 2026-11-04): a day with no rating reads
 /// "No Window" under the ring in Regular 12 light red (`Theme.noWindowTint`)
@@ -75,6 +76,11 @@ struct ActivityDetailView: View {
     /// under Reduce Motion) and the impact haptic (always).
     @State private var liftTick = 0
     @State private var scoreTick = 0
+    /// The edit circles' own lift ticks (one each, so only the tapped circle
+    /// lifts) and their shared impact haptic.
+    @State private var rangeLiftTick = 0
+    @State private var metricsLiftTick = 0
+    @State private var editTick = 0
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -103,12 +109,6 @@ struct ActivityDetailView: View {
     private enum SpanRow: Equatable {
         case button(WindowSpec)
         case failure
-    }
-
-    /// The press lift's animated values.
-    private struct Lift {
-        var scale: CGFloat = 1
-        var rise: CGFloat = 0
     }
 
     private var deriver: TimeDeriver? { viewModel.timeDeriver }
@@ -216,8 +216,9 @@ struct ActivityDetailView: View {
                 VStack(alignment: .leading, spacing: Layout.sectionGap) {
                     heroCard
                     metricGrid
-                    editCard
                 }
+                editCircles
+                    .padding(.top, Layout.editCirclesTop - Layout.dotsToHero)
             }
             .padding(.horizontal, Layout.sideMargin)
             .padding(.top, Layout.topPadding)
@@ -255,6 +256,7 @@ struct ActivityDetailView: View {
         .sensoryFeedback(.selection, trigger: selectionTick)
         .sensoryFeedback(.impact(weight: .light), trigger: homeTick)
         .sensoryFeedback(.impact(weight: .light), trigger: scoreTick)
+        .sensoryFeedback(.impact(weight: .light), trigger: editTick)
         .navigationTitle(current.label)
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $editing) { request in
@@ -495,26 +497,11 @@ struct ActivityDetailView: View {
         }
         .buttonStyle(PressStyle())
         .disabled(inFlight)
-        .keyframeAnimator(initialValue: Lift(), trigger: liftTick) { content, lift in
-            content
-                .scaleEffect(lift.scale)
-                .offset(y: lift.rise)
-        } keyframes: { _ in
-            KeyframeTrack(\.scale) {
-                SpringKeyframe(Layout.liftScale, duration: Self.liftRiseDuration, spring: Theme.Motion.liftRiseSpring)
-                SpringKeyframe(1, spring: Theme.Motion.liftSpring)
-            }
-            KeyframeTrack(\.rise) {
-                SpringKeyframe(Layout.liftRise, duration: Self.liftRiseDuration, spring: Theme.Motion.liftRiseSpring)
-                SpringKeyframe(0, spring: Theme.Motion.liftSpring)
-            }
-        }
+        .liftOnRelease(trigger: liftTick)
         .accessibilityIdentifier("detail.scoreSpan")
         .accessibilityLabel(SpanScoring.buttonAccessibilityLabel(window))
     }
 
-    /// The lift's rise leg; the fall is the bouncy `Theme.Motion.liftSpring`.
-    private static let liftRiseDuration: TimeInterval = 0.12
     /// How long the failure note holds the button's place.
     private static let failureNoteSeconds: Double = 2
 
@@ -523,7 +510,7 @@ struct ActivityDetailView: View {
     private func scoreSpan() {
         guard let key = spanKey, scoringKey != key, let authored else { return }
         scoreTick += 1
-        if !reduceMotion { liftTick += 1 }
+        liftTick += 1 // `liftOnRelease` skips the motion under Reduce Motion
         scoringKey = key
         failedKey = nil
         Task { @MainActor in
@@ -789,55 +776,78 @@ struct ActivityDetailView: View {
                                       threshold: authored?.thresholds[metric])
     }
 
-    // MARK: Edit range / Edit metrics (kept — the today-only ruling cut only
-    // the week rows and the hour grid)
+    // MARK: The edit circles — Edit range / Edit metrics (owner rulings
+    // 2026-11-04: the list card became two captioned circles on the ground)
 
-    private var editCard: some View {
-        VStack(spacing: 0) {
-            editRow("Edit range", identifier: "detail.editRange") {
-                if let authored { editing = EditRequest(activity: authored, step: .range) }
-            }
-            Theme.divider
-                .frame(height: 0.5)
-                .padding(.leading, Layout.sideMargin)
-            editRow("Edit metrics", identifier: "detail.editMetrics") {
-                if let authored { editing = EditRequest(activity: authored, step: .metrics) }
+    /// Two 44pt circles centred under the metric grid, 32pt apart, each with
+    /// its caption 6pt below. Liquid Glass under iOS 26 (one container, like
+    /// the − / + pieces), thin material + hairline below it.
+    private var editCircles: some View {
+        GlassGroup(spacing: Layout.editCircleBlend) {
+            HStack(alignment: .top, spacing: Layout.editCircleGap) {
+                editCircle(systemName: "clock",
+                           caption: "Range",
+                           label: "Edit range",
+                           identifier: "detail.editRange",
+                           liftTick: rangeLiftTick) {
+                    rangeLiftTick += 1
+                    openEditor(at: .range)
+                }
+                editCircle(systemName: "slider.horizontal.3",
+                           caption: "Metrics",
+                           label: "Edit metrics",
+                           identifier: "detail.editMetrics",
+                           liftTick: metricsLiftTick) {
+                    metricsLiftTick += 1
+                    openEditor(at: .metrics)
+                }
             }
         }
-        .background(Theme.cardBackground)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.md))
-        .cardFloat()
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.md)
-                .stroke(Color.black.opacity(0.06), lineWidth: 0.5)
-        )
+        .frame(maxWidth: .infinity)
         .disabled(authored == nil)
     }
 
-    private func editRow(_ title: String, identifier: String, action: @escaping () -> Void) -> some View {
+    /// One circle + its caption as one button (the caption is part of the
+    /// target and of the press). Touch-down = `PressStyle`; release = the
+    /// shared lift (`liftOnRelease`) + the light impact, then the sheet.
+    private func editCircle(systemName: String,
+                            caption: String,
+                            label: String,
+                            identifier: String,
+                            liftTick: Int,
+                            action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            HStack {
-                Text(title)
-                    .font(.system(size: 14))
+            VStack(spacing: Layout.editCircleToCaption) {
+                Image(systemName: systemName)
+                    .font(.system(size: Layout.editCircleGlyph, weight: .semibold))
                     .foregroundStyle(Theme.accentInteractive)
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
+                    .frame(width: Layout.editCircleDiameter, height: Layout.editCircleDiameter)
+                    .glassPieceSurface(in: Circle(), enabled: true, fallback: .material)
+                Text(caption)
+                    .font(.system(size: Layout.editCaptionFont))
                     .foregroundStyle(Theme.secondaryText)
+                    .fixedSize()
             }
-            .padding(.horizontal, Layout.sideMargin)
-            .frame(minHeight: 44)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressStyle())
+        .liftOnRelease(trigger: liftTick)
         .accessibilityIdentifier(identifier)
+        .accessibilityLabel(label)
+    }
+
+    /// The light impact fires first, then the editor sheet opens on `step`.
+    private func openEditor(at step: EditorStep) {
+        guard let authored else { return }
+        editTick += 1
+        editing = EditRequest(activity: authored, step: step)
     }
 }
 
 // MARK: Liquid Glass (experimental, iOS 26+)
 
-/// Groups the hero row's glass pieces so they blend as one material under
-/// iOS 26; a plain pass-through below it.
+/// Groups the detail's glass pieces (the hero row's − / +, the edit circles)
+/// so they share one material under iOS 26; a plain pass-through below it.
 private struct GlassGroup<Content: View>: View {
     let spacing: CGFloat
     @ViewBuilder let content: Content
@@ -851,17 +861,37 @@ private struct GlassGroup<Content: View>: View {
     }
 }
 
+/// What a glass piece draws below iOS 26.
+private enum GlassFallback {
+    /// The flat recess-track fill (the − / + pieces).
+    case track
+    /// Thin material with the cards' 0.5pt hairline (the edit circles).
+    case material
+}
+
 private extension View {
-    /// The − / + piece's surface: interactive Liquid Glass on iOS 26, the
-    /// flat recess-track fill below it.
+    /// A detail glass piece's surface: interactive Liquid Glass on iOS 26
+    /// (plain glass while disabled), `fallback` below it.
     @ViewBuilder
-    func stepPieceSurface(enabled: Bool) -> some View {
-        let shape = RoundedRectangle(cornerRadius: Theme.Radius.sm)
+    func glassPieceSurface<S: Shape>(in shape: S, enabled: Bool, fallback: GlassFallback) -> some View {
         if #available(iOS 26, *) {
             self.glassEffect(enabled ? .regular.interactive() : .regular, in: shape)
         } else {
-            self.background(Theme.timelineTrack, in: shape)
+            switch fallback {
+            case .track:
+                self.background(Theme.timelineTrack, in: shape)
+            case .material:
+                self.background(.ultraThinMaterial, in: shape)
+                    .overlay(shape.stroke(Color.black.opacity(0.06), lineWidth: 0.5))
+            }
         }
+    }
+
+    /// The − / + piece's surface: an r6 glass piece on the recess track.
+    func stepPieceSurface(enabled: Bool) -> some View {
+        glassPieceSurface(in: RoundedRectangle(cornerRadius: Theme.Radius.sm),
+                          enabled: enabled,
+                          fallback: .track)
     }
 }
 
