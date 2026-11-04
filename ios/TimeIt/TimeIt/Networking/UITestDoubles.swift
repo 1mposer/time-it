@@ -2,6 +2,7 @@
 import Combine
 import CoreLocation
 import Foundation
+import SwiftUI
 
 // The XCUI stand-ins for every seam the UI-test launch path swaps (wired in
 // TimeItApp under UITEST_* launch arguments). DEBUG-only; never ships. The
@@ -70,6 +71,19 @@ extension ProcessInfo {
         let prefix = "UITEST_NOW="
         guard let argument = arguments.first(where: { $0.hasPrefix(prefix) }) else { return nil }
         return ISO8601DateFormatter().date(from: String(argument.dropFirst(prefix.count)))
+    }
+
+    /// The UI-test appearance pin: `UITEST_APPEARANCE=dark` / `=light` → that
+    /// scheme; nil (follow the system) when absent or any other value. Read
+    /// only in a UI-test mock run.
+    static func uiTestAppearance(from arguments: [String]) -> ColorScheme? {
+        let prefix = "UITEST_APPEARANCE="
+        guard let argument = arguments.first(where: { $0.hasPrefix(prefix) }) else { return nil }
+        switch argument.dropFirst(prefix.count) {
+        case "dark": return .dark
+        case "light": return .light
+        default: return nil
+        }
     }
 }
 

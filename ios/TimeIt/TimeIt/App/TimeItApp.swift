@@ -39,7 +39,19 @@ struct TimeItApp: App {
             DashboardView(viewModel: Self.makeViewModel(),
                           registration: Self.makeRegistration())
                 .fontDesign(.rounded)
+                .preferredColorScheme(Self.uiTestAppearance)
         }
+    }
+
+    /// `UITEST_APPEARANCE=dark|light` in a UI-test mock run; nil (the system
+    /// appearance) everywhere else, and always in release builds.
+    private static var uiTestAppearance: ColorScheme? {
+        #if DEBUG
+        if ProcessInfo.processInfo.isUITestMockRun {
+            return ProcessInfo.uiTestAppearance(from: ProcessInfo.processInfo.arguments)
+        }
+        #endif
+        return nil
     }
 
     @MainActor

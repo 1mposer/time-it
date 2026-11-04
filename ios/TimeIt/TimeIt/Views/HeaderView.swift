@@ -55,14 +55,14 @@ struct HeaderView: View {
                 Text((locationName ?? "No location").uppercased())
                     .font(.system(size: 11, weight: .medium))
                     .tracking(1.4)
-                    .foregroundStyle(.white.opacity(0.85))
+                    .foregroundStyle(Theme.onGradient.opacity(0.85))
                     .accessibilityIdentifier("headerLocation")
 
                 TimelineView(.everyMinute) { context in
                     Text(Self.clockText(for: context.date, timezoneIdentifier: timezoneIdentifier))
                         .font(.system(size: 60, weight: .bold, design: .default))
                         .tracking(-2.5)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.onGradient)
                         .numeralLegibility()
                         .accessibilityIdentifier("headerTime")
                 }
@@ -70,7 +70,7 @@ struct HeaderView: View {
                 // under the big numeral so it reads over the lighter melt.
                 .background {
                     Ellipse()
-                        .fill(Color.black.opacity(Theme.Fade.scrimOpacity))
+                        .fill(Theme.shadowInk.opacity(Theme.Fade.scrimOpacity))
                         .frame(width: Theme.Fade.scrimSize.width,
                                height: Theme.Fade.scrimSize.height)
                         .blur(radius: Theme.Fade.scrimBlur)
@@ -82,7 +82,7 @@ struct HeaderView: View {
                     Text(tempText)
                         .font(.system(size: 28, weight: .light))
                         .tracking(-0.5)
-                        .foregroundStyle(.white.opacity(0.92))
+                        .foregroundStyle(Theme.onGradient.opacity(0.92))
                         .numeralLegibility()
                         .accessibilityIdentifier("headerTemp")
 
@@ -101,7 +101,7 @@ struct HeaderView: View {
                     }
                     .font(.system(size: 13))
                     .tracking(0.1)
-                    .foregroundStyle(.white.opacity(0.8))
+                    .foregroundStyle(Theme.onGradient.opacity(0.8))
                     .padding(.top, 6)
                 }
             }
@@ -113,9 +113,9 @@ struct HeaderView: View {
             Button(action: onGearTap) {
                 Image(systemName: "gearshape")
                     .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.onGradient)
                     .frame(width: 34, height: 34)
-                    .background(Color.white.opacity(0.18), in: Circle())
+                    .background(Theme.onGradient.opacity(0.18), in: Circle())
             }
             .padding(.top, 8)
             .padding(.trailing, 18)
@@ -140,7 +140,7 @@ struct HeaderView: View {
 private extension View {
     /// Figma drop shadow on the header numerals (radius 6, black 30%).
     func numeralLegibility() -> some View {
-        shadow(color: .black.opacity(Theme.Fade.numeralShadowOpacity),
+        shadow(color: Theme.shadowInk.opacity(Theme.Fade.numeralShadowOpacity),
                radius: Theme.Fade.numeralShadowRadius)
     }
 }

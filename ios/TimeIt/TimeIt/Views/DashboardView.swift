@@ -311,11 +311,7 @@ struct DashboardView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Theme.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 16))
-        .shadow(color: .black.opacity(0.08), radius: 3, x: 0, y: 1)
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.black.opacity(0.06), lineWidth: 0.5)
-        )
+        .cardLift(cornerRadius: 16, light: .rest)
         // .contain creates a named CONTAINER — a bare identifier on the
         // stack would clobber the button's own XCUI identifier.
         .accessibilityElement(children: .contain)
@@ -360,7 +356,7 @@ struct DashboardView: View {
                     Button(action: enableLocation) {
                         Text("Enable Location")
                             .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Theme.onGradient)
                             .padding(.horizontal, 20)
                             .padding(.vertical, 9)
                             .background(Capsule().fill(Theme.accentInteractive))
@@ -459,7 +455,7 @@ struct DashboardView: View {
                 } label: {
                     Text("Try Again")
                         .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.onGradient)
                         .padding(.horizontal, 20)
                         .padding(.vertical, 9)
                         .background(Capsule().fill(Theme.accentInteractive))
@@ -584,7 +580,7 @@ struct DashboardView: View {
             } label: {
                 Text("Send a suggestion")
                     .font(.system(size: 15))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.onGradient)
                     .frame(width: 165, height: 26)
                     .background(Capsule().fill(Theme.accentInteractive))
                     .padding(.vertical, 9)
@@ -765,7 +761,7 @@ struct DashboardView: View {
 /// eases dark → light (#007AFF → #66B2FF) over ~0.15s while pressed.
 private struct HeroAddButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
-        let blue = configuration.isPressed ? Color(hex: 0x66b2ff) : Theme.accentInteractive
+        let blue = configuration.isPressed ? Theme.accentInteractivePressed : Theme.accentInteractive
         configuration.label
             .foregroundStyle(blue)
             .background(RoundedRectangle(cornerRadius: 16).fill(Theme.cardBackground))
@@ -782,6 +778,13 @@ private struct HeroAddButtonStyle: ButtonStyle {
     DashboardView(viewModel: PreviewFixtures.dashboardViewModel(),
                   registration: PreviewFixtures.registration(),
                   router: PushRouter())
+}
+
+#Preview("Live cards — dark") {
+    DashboardView(viewModel: PreviewFixtures.dashboardViewModel(),
+                  registration: PreviewFixtures.registration(),
+                  router: PushRouter())
+        .preferredColorScheme(.dark)
 }
 
 #Preview("Weather error") {
