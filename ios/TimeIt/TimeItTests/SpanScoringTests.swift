@@ -3,7 +3,8 @@ import CoreLocation
 @testable import TimeIt
 
 /// Span scoring (owner rulings 2026-11-04): once the detail carousel has left
-/// the Range, "Score 4 – 8pm" under the Showing line asks the SERVER to score
+/// the Range, the glass "Score 4 – 8pm" capsule under the fixed Range line
+/// (row 2 of the hero's row column) asks the SERVER to score
 /// the shown hours — the authored Activity re-sent with `window` = the span.
 /// There is no client-side score formula (the deleted ADR-0007 mirror stays
 /// deleted); these tests pin the pure request/visibility/label/extraction
@@ -43,7 +44,12 @@ final class SpanScoringTests: XCTestCase {
         let window = WindowSpec(startHour: 16, endHour: 20)
         XCTAssertEqual(SpanScoring.buttonLabel(window), "Score 4 – 8pm")
         XCTAssertEqual(SpanScoring.buttonAccessibilityLabel(window), "Score 4 to 8pm")
-        XCTAssertEqual(SpanScoring.caption(window), "4 – 8pm")
+        XCTAssertEqual(SpanScoring.spanText(window), "4 – 8pm")
+    }
+
+    func testScoredLabelNamesTheSpanOnce() {
+        XCTAssertEqual(SpanScoring.scoredLabel(WindowSpec(startHour: 7, endHour: 11)), "Scored 7 – 11am")
+        XCTAssertEqual(SpanScoring.scoredLabel(WindowSpec(startHour: 22, endHour: 2)), "Scored 10pm – 2am")
     }
 
     func testWrappedSpanLabelCarriesBothMeridiems() {
@@ -163,39 +169,40 @@ final class SpanScoringTests: XCTestCase {
         XCTAssertNil(SpanScoring.result(from: empty, bucketIndex: 0, window: window))
     }
 
-    // MARK: Hero layout — the button row and the caption row
+    // MARK: Hero layout — row 2, the span action row
 
-    func testTheButtonRowAddsExactlyOneRowToTheRowColumn() {
+    func testRowTwoIsOneConstantHeightRowUnderTheLine() {
         typealias L = Theme.Detail
-        XCTAssertEqual(L.rowColumnHeight(hasLine: true, hasButton: true),
-                       L.rowColumnHeight(hasLine: true) + L.lineToSpanButton + L.spanButtonHeight)
-        XCTAssertEqual(L.ringColumnHeight(hasCaption: true),
-                       L.ringColumnHeight + L.wordToCaption + L.captionHeight)
+        XCTAssertEqual(L.spanRowHeight, 28, "the capsule's height; every row-2 state shares it")
+        XCTAssertEqual(L.spanCapsulePadding, 12)
+        XCTAssertEqual(L.rowColumnHeight(hasLine: true, hasSpanRow: true),
+                       L.rowColumnHeight(hasLine: true) + L.rowToLine + L.spanRowHeight)
+        XCTAssertEqual(L.rowColumnHeight(hasLine: false, hasSpanRow: true), L.pillHeight,
+                       "row 2 hangs under the line, so it needs the line")
+        XCTAssertEqual(L.spanRowHeight + 2 * L.spanRowHitPad, L.minHitTarget,
+                       "the capsule's hit area is padded to the HIG 44pt")
     }
 
-    func testThePillRowHoldsStillAsTheButtonAndCaptionComeAndGo() {
-        // Owner rule: the control under the finger must not jump when the
-        // button appears after a + tap, or when the score replaces it.
+    func testThePillRowHoldsStillAsRowTwoComesAndGoes() {
+        // Owner rule: the control under the finger must not jump when row 2
+        // appears after a + tap. The away hero is the on-Range row top plus
+        // the taller block — so the pill row's top is the same in both.
         typealias L = Theme.Detail
-        let lineTop = L.rowColumnTop(hasLine: true)
-        XCTAssertEqual(L.rowColumnTop(hasLine: true, hasButton: true), lineTop)
-        XCTAssertEqual(L.rowColumnTop(hasLine: true, hasButton: false, hasCaption: true), lineTop)
-        XCTAssertEqual(L.rowColumnTop(hasLine: true, hasButton: true, hasCaption: true), lineTop)
-    }
-
-    func testTheHeroGrowsToFitTheTallerColumn() {
-        typealias L = Theme.Detail
-        let base = L.heroHeight(hasLine: true)
-        XCTAssertEqual(base, 122, "unchanged at rest")
-        let withButton = L.heroHeight(hasLine: true, hasButton: true)
-        XCTAssertEqual(withButton,
+        XCTAssertEqual(L.heroHeight(hasLine: true, hasSpanRow: true),
                        L.heroInset + L.rowColumnTop(hasLine: true)
-                           + L.rowColumnHeight(hasLine: true, hasButton: true) + L.heroBottom)
-        XCTAssertGreaterThan(withButton, base)
-        let withCaption = L.heroHeight(hasLine: true, hasCaption: true)
-        XCTAssertGreaterThanOrEqual(withCaption,
-                                    L.heroInset + L.ringColumnHeight(hasCaption: true) + L.heroBottom)
-        XCTAssertGreaterThan(withCaption, base)
+                           + L.rowColumnHeight(hasLine: true, hasSpanRow: true) + L.heroBottom)
+        XCTAssertEqual(L.rowColumnTop(hasLine: true), 17)
+    }
+
+    func testHeroHeightsOnTheRangeAwayAndScored() {
+        typealias L = Theme.Detail
+        XCTAssertEqual(L.heroHeight(hasLine: true), 122, "on the Range: the ring column (90) is taller")
+        XCTAssertEqual(L.heroHeight(hasLine: true, hasSpanRow: false), 122,
+                       "away on an all-gone span: no row 2, nothing to score")
+        // Away with the capsule — and scored / failure, which reuse row 2:
+        // 16 + 17 + 24 + 8 + 24 + 8 + 28 + 16.
+        XCTAssertEqual(L.heroHeight(hasLine: true, hasSpanRow: true), 141)
+        XCTAssertEqual(L.ringColumnHeight, 90, "no caption under the word any more")
     }
 
     // MARK: The view model's call

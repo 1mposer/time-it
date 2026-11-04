@@ -228,6 +228,7 @@ final class DetailHeroLayoutTests: XCTestCase {
     func testHeroHeightIsTheTallerColumnPlusInsets() {
         XCTAssertEqual(Theme.Detail.rowColumnHeight(hasLine: false), 24)
         XCTAssertEqual(Theme.Detail.rowColumnHeight(hasLine: true), 24 + 8 + 24)
+        XCTAssertEqual(Theme.Detail.rowColumnHeight(hasLine: true, hasSpanRow: true), 24 + 8 + 24 + 8 + 28)
         XCTAssertEqual(Theme.Detail.heroHeight(hasLine: false), 122, "16 + 64 + 12 + 14 + 16")
         XCTAssertEqual(Theme.Detail.heroHeight(hasLine: true), 122,
                        "the row + line block (56) is shorter than the ring column (90)")
@@ -241,63 +242,66 @@ final class DetailHeroLayoutTests: XCTestCase {
     }
 }
 
-/// The line under the detail row: "Your range …" on the Range, "Showing …"
-/// plus the return button away from it. Uses `RangeText.chipLabel`, so the
-/// am/pm rules match the card chip and the server's clock labels.
+/// The line under the detail row (owner rulings 2026-11-04): the user's
+/// Range in ONE place that never changes — "Your range …" wherever the
+/// carousel is, with the return button at its end only away from the Range.
+/// Uses `RangeText.chipLabel`, so the am/pm rules match the card chip and the
+/// server's clock labels.
 final class RangeLineTests: XCTestCase {
     private let window = WindowSpec(startHour: 6, endHour: 10)
 
     func testOnTheRangeReadsYourRangeWithNoReturn() {
-        let line = RangeLine(window: window, isAtRange: true, spanStartHour: 6, spanEndHour: 10)
+        let line = RangeLine(window: window, isAtRange: true)
         XCTAssertEqual(line.text, "Your range 6 – 10am")
         XCTAssertFalse(line.showsReturn)
     }
 
-    func testAwayReadsShowingTheSpanWithReturn() {
-        let line = RangeLine(window: window, isAtRange: false, spanStartHour: 7, spanEndHour: 11)
-        XCTAssertEqual(line.text, "Showing 7 – 11am")
+    func testAwayStillReadsYourRangeWithReturn() {
+        let line = RangeLine(window: window, isAtRange: false)
+        XCTAssertEqual(line.text, "Your range 6 – 10am", "the line never names the span")
         XCTAssertTrue(line.showsReturn)
     }
 
-    func testAwayAcrossNoonKeepsBothSuffixes() {
-        let line = RangeLine(window: window, isAtRange: false, spanStartHour: 8, spanEndHour: 12)
-        XCTAssertEqual(line.text, "Showing 8am – 12pm", "chipLabel's meridiem rule, not a new format")
+    func testTheTextIsTheSameOnAndAway() {
+        XCTAssertEqual(RangeLine(window: window, isAtRange: true).text,
+                       RangeLine(window: window, isAtRange: false).text)
+    }
+
+    func testAcrossNoonKeepsBothSuffixes() {
+        let line = RangeLine(window: WindowSpec(startHour: 8, endHour: 12), isAtRange: false)
+        XCTAssertEqual(line.text, "Your range 8am – 12pm", "chipLabel's meridiem rule, not a new format")
     }
 
     func testWrappedRangeOnAndAway() {
         let night = WindowSpec(startHour: 22, endHour: 2)
-        XCTAssertEqual(RangeLine(window: night, isAtRange: true, spanStartHour: 22, spanEndHour: 2).text,
-                       "Your range 10pm – 2am")
-        XCTAssertEqual(RangeLine(window: night, isAtRange: false, spanStartHour: 23, spanEndHour: 3).text,
-                       "Showing 11pm – 3am")
+        XCTAssertEqual(RangeLine(window: night, isAtRange: true).text, "Your range 10pm – 2am")
+        XCTAssertEqual(RangeLine(window: night, isAtRange: false).text, "Your range 10pm – 2am")
     }
 
     // MARK: "Time passed" (owner ruling 2026-11-04)
 
     func testOnAPassedRangeReadsTimePassedOnTheSameLine() {
-        let line = RangeLine(window: window, isAtRange: true, spanStartHour: 6, spanEndHour: 10,
-                             rangeHasPassed: true)
+        let line = RangeLine(window: window, isAtRange: true, rangeHasPassed: true)
         XCTAssertEqual(line.text, "Your range 6 – 10am · Time passed")
         XCTAssertFalse(line.showsReturn)
     }
 
     func testOnARangeStillAheadHasNoTimePassed() {
-        let line = RangeLine(window: window, isAtRange: true, spanStartHour: 6, spanEndHour: 10,
-                             rangeHasPassed: false)
+        let line = RangeLine(window: window, isAtRange: true, rangeHasPassed: false)
         XCTAssertEqual(line.text, "Your range 6 – 10am")
     }
 
-    func testAwayFromAPassedRangeStillReadsShowing() {
-        let line = RangeLine(window: window, isAtRange: false, spanStartHour: 7, spanEndHour: 11,
-                             rangeHasPassed: true)
-        XCTAssertEqual(line.text, "Showing 7 – 11am", "the flag only words the Range itself")
+    func testAwayFromAPassedRangeKeepsTimePassed() {
+        // The suffix words the Range, not the carousel: stepping away must
+        // not change the line (the one-place rule).
+        let line = RangeLine(window: window, isAtRange: false, rangeHasPassed: true)
+        XCTAssertEqual(line.text, "Your range 6 – 10am · Time passed")
         XCTAssertTrue(line.showsReturn)
     }
 
     func testWrappedPassedRangeReadsTimePassed() {
         let night = WindowSpec(startHour: 22, endHour: 2)
-        XCTAssertEqual(RangeLine(window: night, isAtRange: true, spanStartHour: 22, spanEndHour: 2,
-                                 rangeHasPassed: true).text,
+        XCTAssertEqual(RangeLine(window: night, isAtRange: true, rangeHasPassed: true).text,
                        "Your range 10pm – 2am · Time passed")
     }
 }
