@@ -63,7 +63,19 @@ struct HeaderView: View {
                         .font(.system(size: 60, weight: .bold, design: .default))
                         .tracking(-2.5)
                         .foregroundStyle(.white)
+                        .numeralLegibility()
                         .accessibilityIdentifier("headerTime")
+                }
+                // The numeral scrim (Final – Opus v1): a soft dark pool
+                // under the big numeral so it reads over the lighter melt.
+                .background {
+                    Ellipse()
+                        .fill(Color.black.opacity(Theme.Fade.scrimOpacity))
+                        .frame(width: Theme.Fade.scrimSize.width,
+                               height: Theme.Fade.scrimSize.height)
+                        .blur(radius: Theme.Fade.scrimBlur)
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
                 }
 
                 if showsWeather {
@@ -71,6 +83,7 @@ struct HeaderView: View {
                         .font(.system(size: 28, weight: .light))
                         .tracking(-0.5)
                         .foregroundStyle(.white.opacity(0.92))
+                        .numeralLegibility()
                         .accessibilityIdentifier("headerTemp")
 
                     HStack(spacing: 24) {
@@ -110,11 +123,25 @@ struct HeaderView: View {
             .accessibilityIdentifier("settingsGear")
         }
         .fixedSize(horizontal: false, vertical: true)
-        // Content stays in the safe area (a control under the status bar is
-        // untappable) — only the gradient bleeds behind it. The gradient is
-        // temperature-banded: cool blue / mid amber / hot salmon.
-        .background(Theme.headerGradient(forTemp: showsWeather ? currentHour?.temp : nil)
-            .ignoresSafeArea(edges: .top))
+        // No background of its own: the temperature band (cool blue / mid
+        // amber / hot salmon) and its melt are the dashboard's backdrop
+        // (`BandMeltView`), drawn full-screen behind this text and the card
+        // list. Content stays in the safe area (a control under the status
+        // bar is untappable).
+    }
+
+    /// The temperature the band is coloured by — nil (Cool) when the
+    /// weather rows are hidden, so no fabricated band either.
+    static func bandTemp(currentHour: HourlyWeather?, showsWeather: Bool) -> Double? {
+        showsWeather ? currentHour?.temp : nil
+    }
+}
+
+private extension View {
+    /// Figma drop shadow on the header numerals (radius 6, black 30%).
+    func numeralLegibility() -> some View {
+        shadow(color: .black.opacity(Theme.Fade.numeralShadowOpacity),
+               radius: Theme.Fade.numeralShadowRadius)
     }
 }
 
@@ -126,7 +153,7 @@ struct HeaderView: View {
                    timezoneIdentifier: "Asia/Dubai") {}
         Spacer()
     }
-    .background(Theme.appBackground)
+    .background(BandMeltView(firstCardTop: 229, temp: 24).ignoresSafeArea())
 }
 
 #Preview("Header — no location") {
@@ -136,6 +163,6 @@ struct HeaderView: View {
                    showsWeather: false) {}
         Spacer()
     }
-    .background(Theme.appBackground)
+    .background(BandMeltView(firstCardTop: 229, temp: nil).ignoresSafeArea())
 }
 #endif

@@ -221,22 +221,87 @@ enum Theme {
         }
     }
 
-    /// Header gradient by current-hour temperature. Stops sampled from the
-    /// Figma header states (Cool blue / Mid amber / Hot salmon — the old
-    /// ocean-blue gradient is retired per the design page note).
-    static func headerGradient(forTemp temp: Double?) -> LinearGradient {
-        let colors: [Color]
-        switch HeaderBand.band(forTemp: temp) {
-        case .cool:
-            colors = [Color(hex: 0x1774ff), Color(hex: 0x3295fd), Color(hex: 0x68d7fc)]
-        case .mid:
-            colors = [Color(hex: 0xe49b23), Color(hex: 0xe9ab36), Color(hex: 0xf3ca5d)]
-        case .hot:
-            colors = [Color(hex: 0xee6a4d), Color(hex: 0xf27b60), Color(hex: 0xfa9c86)]
+    /// The dashboard band melt (Figma Final – Opus v1, `839:3930` light /
+    /// `839:4160` dark): the header band holds full strength down to the
+    /// first list item's top, then melts to the plain ground. Geometry math
+    /// lives in `FadeGeometry`; this is the values' only home (ADR-0009).
+    enum Fade {
+        /// Where the melt reaches 0%, below the first card's top. Owner-
+        /// tunable — the owner may still carry it lower; the intermediate
+        /// stops scale with it so the curve keeps its shape.
+        static let endBelowFirstCard: CGFloat = 111
+
+        /// The Figma melt's span (y229 → y340) — the unit `maskOffsets` is
+        /// written in. Fixed: tune `endBelowFirstCard`, never this.
+        static let referenceSpan: CGFloat = 111
+
+        /// The mask's alpha stops, as offsets below the first card's top in
+        /// `referenceSpan` units (Figma y229 → 229/250/274/298/320/340).
+        /// `FadeGeometry` scales them by `endBelowFirstCard / referenceSpan`.
+        static let maskOffsets: [(offset: CGFloat, opacity: Double)] = [
+            (0, 1), (21, 0.80), (45, 0.52), (69, 0.26), (91, 0.08), (referenceSpan, 0),
+        ]
+
+        /// The band's axis in the group's unit space — mostly vertical with
+        /// a slight rightward lean (≈19° off vertical).
+        static let bandStart = UnitPoint(x: 0.33, y: 0.03)
+        static let bandEnd = UnitPoint(x: 0.66, y: 0.98)
+
+        /// `gradient/<set>/start` and `/end` as hex.
+        struct BandHex: Equatable {
+            let start: UInt32
+            let end: UInt32
         }
-        return LinearGradient(colors: colors,
-                              startPoint: UnitPoint(x: 0.33, y: 0),
-                              endPoint: UnitPoint(x: 0.67, y: 1))
+
+        static func bandHex(_ band: HeaderBand, dark: Bool) -> BandHex {
+            switch (band, dark) {
+            case (.cool, false): return BandHex(start: 0x1774ff, end: 0x68d7fc)
+            case (.mid, false): return BandHex(start: 0xe49b23, end: 0xf3ca5d)
+            case (.hot, false): return BandHex(start: 0xee6a4d, end: 0xfa9c86)
+            case (.cool, true): return BandHex(start: 0x1a5fd6, end: 0x2690b8)
+            case (.mid, true): return BandHex(start: 0xb26414, end: 0xd4992a)
+            case (.hot, true): return BandHex(start: 0xc24a2c, end: 0xc86a50)
+            }
+        }
+
+        // The glow blob (inside the masked group, so the melt tapers it).
+        /// Top-left relative to the group's left edge and the first card's
+        /// top (Figma (−90, 150) with the card at 229).
+        static let blobOrigin = CGPoint(x: -90, y: -79)
+        static let blobSizeLight = CGSize(width: 400, height: 300)
+        static let blobSizeDark = CGSize(width: 300, height: 240)
+        /// Light fills with the band's start at 85%; dark with its end at 100%.
+        static let blobOpacityLight: Double = 0.85
+        static let blobOpacityDark: Double = 1
+        /// Figma layer blur 80 → SwiftUI blur radius 40 (SwiftUI's radius is
+        /// about half a Figma blur — the `cardFloat` convention).
+        static let blobBlur: CGFloat = 40
+
+        // The drift: a slow ping-pong between keyframes A and B.
+        /// Keyframe B − keyframe A.
+        static let driftDelta = CGSize(width: 90, height: 25)
+        /// One leg (A→B or B→A), in seconds.
+        static let driftLeg: TimeInterval = 30
+        /// The drift moves ~3pt/s, so 20 redraws a second is sub-point
+        /// motion — no need to redraw at the display's full rate.
+        static let driftFrameInterval: TimeInterval = 1.0 / 20
+
+        // The header numeral's readability over the lighter melt.
+        /// Ellipse 240×130 at (76.5, 61) on the 393 frame — centred on the
+        /// numeral; black 10%, Figma blur 40 → SwiftUI 20.
+        static let scrimSize = CGSize(width: 240, height: 130)
+        static let scrimOpacity: Double = 0.10
+        static let scrimBlur: CGFloat = 20
+        /// Figma drop shadow radius 6, black 30% → SwiftUI radius 3.
+        static let numeralShadowOpacity: Double = 0.30
+        static let numeralShadowRadius: CGFloat = 3
+
+        /// The ground under the melt. Dark is black; light is the existing
+        /// grey (`appBackground`). The app is light-only today
+        /// (`UIUserInterfaceStyle = Light`), so the dark values are staged.
+        static func ground(dark: Bool) -> Color {
+            dark ? .black : Theme.appBackground
+        }
     }
 }
 

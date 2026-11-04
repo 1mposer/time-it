@@ -821,6 +821,23 @@ final class TimeItUITests: XCTestCase {
                       "the refreshed list is live")
     }
 
+    /// Build 8 fade slice: the band melt is a backdrop under the list — the
+    /// first card is hittable inside the melt zone (its top edge), the
+    /// header still renders over the band, and a screenshot of the resting
+    /// dashboard is kept for review.
+    func testBandMeltNeverInterceptsTheFirstCard() {
+        let app = launchApp()
+        let card = app.buttons["card.cycling"]
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["headerTime"].exists)
+        XCTAssertTrue(card.isHittable, "the melt must not cover the first card")
+        attachScreenshot(app, named: "dashboard-band-melt")
+        // A tap near the card's top edge — inside the melt's strongest band.
+        card.coordinate(withNormalizedOffset: CGVector(dx: 0.3, dy: 0.1)).tap()
+        XCTAssertTrue(app.navigationBars["Cycling"].waitForExistence(timeout: 5),
+                      "the tap reached the card, not the backdrop")
+    }
+
     private func attachScreenshot(_ app: XCUIApplication, named name: String) {
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = name
