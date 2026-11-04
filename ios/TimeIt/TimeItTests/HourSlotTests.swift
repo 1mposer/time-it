@@ -25,7 +25,9 @@ final class HourSlotTests: XCTestCase {
     }
 
     /// Asia/Dubai is UTC+4 with no DST: `forecastStart` 04:00Z = 8am local.
-    private func makeLoadedVM(forecastStart: String, hourCount: Int = 40) async -> DashboardViewModel {
+    private func makeLoadedVM(forecastStart: String,
+                              hourCount: Int = 40,
+                              now: @escaping () -> Date = Date.init) async -> DashboardViewModel {
         let forecast = ForecastResponse(forecastStart: forecastStart,
                                         timezone: "Asia/Dubai",
                                         activities: [],
@@ -34,7 +36,8 @@ final class HourSlotTests: XCTestCase {
         let store = ActivityStore(defaults: defaults, seeds: Fixtures.liveSeeds)
         let vm = DashboardViewModel(api: FakeRatingService(result: .success(forecast)),
                                     locationProvider: FakeLocationProvider(location: CLLocation(latitude: 25.2, longitude: 55.27)),
-                                    store: store, preferences: preferences)
+                                    store: store, preferences: preferences,
+                                    now: now)
         await vm.loadForecast()
         return vm
     }
@@ -120,6 +123,18 @@ final class HourSlotTests: XCTestCase {
                                        dayIndex: 0,
                                        now: date("2026-06-19T05:15:00Z"))
         XCTAssertEqual(tiers, [nil, nil, nil, .green])
+    }
+
+    /// The clock seam (UI-test clock pin): with no `now:` argument the strip
+    /// reads the view model's injected clock, not the wall clock — so a run
+    /// pinned to 8:30am greys exactly the gone hours of a 2026 fixture.
+    func testCardStripDefaultsToTheViewModelsClock() async {
+        let pinned = date("2026-06-19T04:30:00Z")
+        let vm = await makeLoadedVM(forecastStart: "2026-06-19T04:00:00Z", now: { pinned })
+        XCTAssertEqual(vm.now(), pinned)
+        let tiers = vm.rangeStripTiers(for: activity(WindowSpec(startHour: 6, endHour: 10)), dayIndex: 0)
+        XCTAssertEqual(tiers, [nil, nil, .green, .green],
+                       "the injected 8:30am clock, not the real one (which would grey all four)")
     }
 
     // MARK: Carousel walk
