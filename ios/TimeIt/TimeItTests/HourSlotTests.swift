@@ -256,4 +256,81 @@ final class RangeLineTests: XCTestCase {
         XCTAssertEqual(RangeLine(window: night, isAtRange: false, spanStartHour: 23, spanEndHour: 3).text,
                        "Showing 11pm – 3am")
     }
+
+    // MARK: "Time passed" (owner ruling 2026-11-04)
+
+    func testOnAPassedRangeReadsTimePassedOnTheSameLine() {
+        let line = RangeLine(window: window, isAtRange: true, spanStartHour: 6, spanEndHour: 10,
+                             rangeHasPassed: true)
+        XCTAssertEqual(line.text, "Your range 6 – 10am · Time passed")
+        XCTAssertFalse(line.showsReturn)
+    }
+
+    func testOnARangeStillAheadHasNoTimePassed() {
+        let line = RangeLine(window: window, isAtRange: true, spanStartHour: 6, spanEndHour: 10,
+                             rangeHasPassed: false)
+        XCTAssertEqual(line.text, "Your range 6 – 10am")
+    }
+
+    func testAwayFromAPassedRangeStillReadsShowing() {
+        let line = RangeLine(window: window, isAtRange: false, spanStartHour: 7, spanEndHour: 11,
+                             rangeHasPassed: true)
+        XCTAssertEqual(line.text, "Showing 7 – 11am", "the flag only words the Range itself")
+        XCTAssertTrue(line.showsReturn)
+    }
+
+    func testWrappedPassedRangeReadsTimePassed() {
+        let night = WindowSpec(startHour: 22, endHour: 2)
+        XCTAssertEqual(RangeLine(window: night, isAtRange: true, spanStartHour: 22, spanEndHour: 2,
+                                 rangeHasPassed: true).text,
+                       "Your range 10pm – 2am · Time passed")
+    }
+}
+
+/// "Range has ended" (owner ruling 2026-11-04): every position of the Range
+/// has passed — i.e. its LAST position has. A position before the forecast
+/// start (negative, no data) is passed by definition; one with an index has
+/// passed once `hasPassed(index, now)` (now ≥ its start + 1h).
+final class RangeHasPassedTests: XCTestCase {
+    /// Asia/Dubai, `forecastStart` 04:00Z = 8am local.
+    private func deriver() throws -> TimeDeriver {
+        try XCTUnwrap(TimeDeriver(forecastStart: "2026-06-19T04:00:00Z", timezone: "Asia/Dubai"))
+    }
+
+    private func date(_ iso: String) -> Date { ISO8601DateFormatter().date(from: iso)! }
+
+    func testAllBeforeTheForecastStartHasPassed() throws {
+        // A 5–7am Range at an 8am start: positions -3..<-1, no data at all.
+        // `now` is even BEFORE the forecast start — gone hours are passed anyway.
+        XCTAssertTrue(try deriver().rangeHasPassed(-3..<(-1), now: date("2026-06-19T03:00:00Z")))
+    }
+
+    func testLastPositionUnderWayHasNotPassed() throws {
+        // 6–10am = -2..<2; the last hour (9am, index 1) is under way at 9:30.
+        XCTAssertFalse(try deriver().rangeHasPassed(-2..<2, now: date("2026-06-19T05:30:00Z")))
+    }
+
+    func testLastPositionEndedHasPassed() throws {
+        // 9am ends at 10am local = 06:00Z, exactly.
+        XCTAssertTrue(try deriver().rangeHasPassed(-2..<2, now: date("2026-06-19T06:00:00Z")))
+    }
+
+    func testWrappedRangeUsesItsLastPosition() throws {
+        let deriver = try deriver()
+        let night = try XCTUnwrap(deriver.rangePositions(window: WindowSpec(startHour: 22, endHour: 2), dayIndex: 0))
+        // 10pm–2am: the last hour is 1am, which ends at 2am local = 22:00Z.
+        XCTAssertFalse(deriver.rangeHasPassed(night, now: date("2026-06-19T21:30:00Z")), "1am under way")
+        XCTAssertTrue(deriver.rangeHasPassed(night, now: date("2026-06-19T22:00:00Z")))
+    }
+
+    func testAFutureDayRangeHasNotPassed() throws {
+        let deriver = try deriver()
+        let tomorrow = try XCTUnwrap(deriver.rangePositions(window: WindowSpec(startHour: 6, endHour: 10), dayIndex: 1))
+        // Late on day 0: today's Range is over, tomorrow's is not.
+        XCTAssertFalse(deriver.rangeHasPassed(tomorrow, now: date("2026-06-19T19:00:00Z")))
+    }
+
+    func testAnEmptyRangeHasNotPassed() throws {
+        XCTAssertFalse(try deriver().rangeHasPassed(0..<0, now: date("2026-06-20T00:00:00Z")))
+    }
 }

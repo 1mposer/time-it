@@ -51,6 +51,17 @@ struct TimeDeriver {
         now >= date(at: index + 1)
     }
 
+    /// True once a WHOLE Range (global positions, `rangePositions`) has
+    /// ended — the detail line's "Time passed" (owner ruling 2026-11-04).
+    /// Every position passed ⇔ the last one has: a position before the
+    /// forecast start (negative, no data) is passed by definition, one with
+    /// an index once `hasPassed`. A wrapped Range reads its morning tail's
+    /// last hour. An empty Range has not passed.
+    func rangeHasPassed(_ positions: Range<Int>, now: Date) -> Bool {
+        guard let last = positions.last else { return false }
+        return last < 0 || hasPassed(last, now: now)
+    }
+
     /// Compact clock label in the location zone, e.g. "4pm", "12am".
     func hourLabel(at index: Int) -> String {
         hourFormatter.string(from: date(at: index)).lowercased()
