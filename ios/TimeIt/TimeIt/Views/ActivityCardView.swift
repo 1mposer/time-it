@@ -63,8 +63,8 @@ struct ActivityCardView: View {
         .cardLift(cornerRadius: 16, light: .rest)
     }
 
-    /// The gear is overlaid by DashboardView (above the NavigationLink) so it
-    /// stays independently tappable — the trailing padding clears it.
+    /// The editor Review tab's preview card; the trailing padding keeps its
+    /// row layout as approved (no control overlays it).
     private var topRow: some View {
         HStack(alignment: .center, spacing: 8) {
             ActivityIconView(identifier: iconSymbol ?? Self.iconName(for: activity), size: 18)

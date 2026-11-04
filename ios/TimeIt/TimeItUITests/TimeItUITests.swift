@@ -51,6 +51,19 @@ final class TimeItUITests: XCTestCase {
         return app
     }
 
+    /// The only edit door (owner ruling 2026-10-06 #2 — the card gear is
+    /// gone): tap the card, then the detail's Edit metrics circle. Edit mode
+    /// unlocks every wizard tab, so callers tab on from there.
+    private func openEditorFromDetail(_ activityId: String, in app: XCUIApplication) {
+        let card = app.buttons["card.\(activityId)"]
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        card.tap()
+        let editMetrics = app.buttons["detail.editMetrics"]
+        XCTAssertTrue(editMetrics.waitForExistence(timeout: 5), "the detail's edit circles")
+        editMetrics.tap()
+        XCTAssertTrue(app.buttons["editor.tab.3"].waitForExistence(timeout: 5), "the editor sheet is up")
+    }
+
     private func cardCount(in app: XCUIApplication) -> Int {
         app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'card.'")).count
     }
@@ -144,10 +157,12 @@ final class TimeItUITests: XCTestCase {
                       "the card carries the week-dot row — shown is the natural state")
         XCTAssertTrue(app.buttons["cardChevron.cycling"].exists)
         XCTAssertEqual(app.buttons["cardChevron.cycling"].label, "Hide week")
-        XCTAssertTrue(app.buttons["gear.cycling"].exists, "the gear stays, left of the chevron")
-        XCTAssertLessThan(app.buttons["gear.cycling"].frame.midX,
-                          app.buttons["cardChevron.cycling"].frame.midX,
-                          "the chevron is the right-most element (top-right)")
+        // Owner ruling 2026-10-06 #2: the card gear is gone — editing lives
+        // only behind the detail's circles; the chevron sits alone top-right.
+        XCTAssertFalse(app.buttons["gear.cycling"].exists, "no per-card gear")
+        XCTAssertGreaterThan(app.buttons["cardChevron.cycling"].frame.midX,
+                             app.buttons["card.cycling"].frame.midX,
+                             "the chevron is the top-right element")
     }
 
     /// Spec 05 chevron ruling: tap hides the dot row, the choice is
@@ -225,6 +240,7 @@ final class TimeItUITests: XCTestCase {
         XCTAssertTrue(message.label.contains("for any activity you create."),
                       "the owner-approved wording (edited 2026-09-01, pre-archive)")
         XCTAssertEqual(cardCount(in: app), 0, "an empty store never rates — no request, no cards")
+        attachScreenshot(app, named: "first-launch-glass")
         XCTAssertFalse(app.staticTexts["Weather Unavailable"].exists, "and it is not an error — no request was made")
         XCTAssertFalse(app.staticTexts["headerTemp"].exists,
                        "no fabricated or placeholder weather while nothing is live")
@@ -375,8 +391,7 @@ final class TimeItUITests: XCTestCase {
         // Owner edit 2026-08-30: the mode menu is gone — a selected metric
         // carries two checkboxes, "Priority" and "Show don't calculate".
         let app = launchApp()
-        XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5))
-        app.buttons["gear.cycling"].tap()
+        openEditorFromDetail("cycling", in: app)
 
         let metricsTab = app.buttons["editor.tab.1"]
         XCTAssertTrue(metricsTab.waitForExistence(timeout: 5))
@@ -422,13 +437,13 @@ final class TimeItUITests: XCTestCase {
         app.buttons["editor.cancel"].tap()
     }
 
-    // MARK: - Edit + delete via the card gear
+    // MARK: - Edit + delete via the detail's circles (the card gear is gone)
 
-    func testGearOpensEditorAndEditedLabelReflectsOnCard() {
+    func testDetailEditDoorOpensEditorAndEditedLabelReflectsOnCard() {
         let app = launchApp()
-        XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5))
+        openEditorFromDetail("cycling", in: app)
 
-        app.buttons["gear.cycling"].tap()
+        app.buttons["editor.tab.0"].tap()
         let nameField = app.textFields["editor.name"]
         XCTAssertTrue(nameField.waitForExistence(timeout: 5))
         XCTAssertEqual(nameField.value as? String, "Cycling", "edit mode pre-fills the existing Activity")
@@ -446,16 +461,17 @@ final class TimeItUITests: XCTestCase {
                       "the Review tab shows the dashboard card preview")
         save.tap()
 
+        // Back from the detail to the dashboard card.
+        XCTAssertTrue(app.buttons["editor.save"].waitForNonExistence(timeout: 5), "the sheet closes")
+        app.navigationBars.firstMatch.buttons.firstMatch.tap()
+        XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5), "back on the dashboard")
         XCTAssertTrue(app.staticTexts["Cycling Pro"].waitForExistence(timeout: 5), "the card reflects the edit after refetch")
     }
 
     func testDeletingLastActivityLandsTheAddHeroNotADeadEnd() {
         let app = launchApp()
-        XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5))
-
-        app.buttons["gear.cycling"].tap()
+        openEditorFromDetail("cycling", in: app)
         // Delete lives on the Review tab now — edit mode unlocks it directly.
-        XCTAssertTrue(app.buttons["editor.tab.3"].waitForExistence(timeout: 5))
         app.buttons["editor.tab.3"].tap()
         scrollTo(app.buttons["editor.delete"], in: app)
         XCTAssertTrue(app.buttons["editor.delete"].waitForExistence(timeout: 5))
@@ -464,11 +480,11 @@ final class TimeItUITests: XCTestCase {
         XCTAssertTrue(app.buttons["editor.confirmDelete"].firstMatch.waitForExistence(timeout: 5))
         app.buttons["editor.confirmDelete"].firstMatch.tap()
 
+        // The deleted Activity's detail pops itself — back on the dashboard.
         XCTAssertTrue(app.buttons["card.fishing-lite"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["card.cycling"].exists, "deleted card is gone")
 
-        app.buttons["gear.fishing-lite"].tap()
-        XCTAssertTrue(app.buttons["editor.tab.3"].waitForExistence(timeout: 5))
+        openEditorFromDetail("fishing-lite", in: app)
         app.buttons["editor.tab.3"].tap()
         scrollTo(app.buttons["editor.delete"], in: app)
         XCTAssertTrue(app.buttons["editor.delete"].waitForExistence(timeout: 5))
@@ -493,9 +509,7 @@ final class TimeItUITests: XCTestCase {
     func testAuthoredListPersistsAcrossRelaunch() {
         // Delete one of the two seeded activities…
         var app = launchApp()
-        XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5))
-        app.buttons["gear.cycling"].tap()
-        XCTAssertTrue(app.buttons["editor.tab.3"].waitForExistence(timeout: 5))
+        openEditorFromDetail("cycling", in: app)
         app.buttons["editor.tab.3"].tap()
         scrollTo(app.buttons["editor.delete"], in: app)
         XCTAssertTrue(app.buttons["editor.delete"].waitForExistence(timeout: 5))
@@ -1110,10 +1124,14 @@ final class TimeItUITests: XCTestCase {
     // MARK: - Beta feedback — disclaimer banner + suggestion sheet
 
     func testBetaBannerAndSuggestionButtonRenderWhenGateOn() {
+        // Pinned Light (absent = the simulator's appearance) so the shot below
+        // is the light glass: the header gear, the suggestion capsule, the
+        // add capsule after the list.
         let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_SEED_LIVE",
-                                        "UITEST_LOCATION", "UITEST_BETA"])
+                                        "UITEST_LOCATION", "UITEST_BETA", "UITEST_APPEARANCE=light"])
 
         XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5))
+        attachScreenshot(app, named: "dashboard-glass-light")
         let banner = app.otherElements["betaBanner"]
         XCTAssertTrue(banner.exists, "the disclaimer card renders on a beta (dev/TestFlight) install")
         XCTAssertTrue(app.staticTexts.matching(

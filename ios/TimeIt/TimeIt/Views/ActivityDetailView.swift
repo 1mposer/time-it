@@ -50,6 +50,10 @@ struct ActivityDetailView: View {
     var windUnit: WindSpeedUnit = .kmh
     /// The clock the passed-hour grey reads — injectable for previews/tests.
     var now: () -> Date = Date.init
+    /// Pops the detail once its Activity is deleted from the editor — the
+    /// dashboard owns the navigation path (an `@Environment(\.dismiss)` read
+    /// here kept the pushed detail re-rendering and starved XCUI).
+    var onActivityDeleted: () -> Void = {}
 
     /// The day the detail shows — opens on today; the week-dot row jumps it
     /// (spec 05 day-jump, frame `508:417`).
@@ -270,13 +274,20 @@ struct ActivityDetailView: View {
         .sensoryFeedback(.impact(weight: .light), trigger: editTick)
         .navigationTitle(current.label)
         .navigationBarTitleDisplayMode(.inline)
-        .sheet(item: $editing) { request in
+        // The circles are the only edit door (the card gear is gone — owner
+        // ruling 2026-10-06 #2), so Delete lives here too. A deleted
+        // Activity pops the detail as the sheet closes: `authored` reads the
+        // store, so it is nil the moment the delete lands (no refetch wait).
+        .sheet(item: $editing, onDismiss: {
+            if authored == nil { onActivityDeleted() }
+        }) { request in
             NavigationStack {
                 ActivityEditorView(existing: request.activity,
                                    isNew: false,
                                    initialStep: request.step,
                                    windUnit: windUnit,
-                                   onSave: { viewModel.store.update($0) })
+                                   onSave: { viewModel.store.update($0) },
+                                   onDelete: { viewModel.store.delete(id: request.activity.id) })
             }
         }
     }
@@ -499,13 +510,11 @@ struct ActivityDetailView: View {
         return GlassGroup(spacing: Layout.spanCapsuleBlend) {
             Button(action: scoreSpan) {
                 Text(SpanScoring.buttonLabel(window))
-                    .font(.system(size: Layout.spanRowFont, weight: .semibold))
-                    .foregroundStyle(Theme.accentInteractive)
-                    .lineLimit(1)
                     .minimumScaleFactor(0.8)
-                    .padding(.horizontal, Layout.spanCapsulePadding)
-                    .frame(height: Layout.spanRowHeight)
-                    .glassPieceSurface(in: Capsule(), enabled: !inFlight, fallback: .material)
+                    .glassCapsule(font: .system(size: Layout.spanRowFont, weight: .semibold),
+                                  height: Layout.spanRowHeight,
+                                  horizontalPadding: Layout.spanCapsulePadding,
+                                  enabled: !inFlight)
                     .opacity(inFlight ? Layout.inFlightOpacity : 1)
                     .liftOnRelease(trigger: liftTick)
                     .padding(.vertical, Layout.spanRowHitPad)
@@ -861,51 +870,10 @@ struct ActivityDetailView: View {
     }
 }
 
-// MARK: Liquid Glass (experimental, iOS 26+)
-
-/// Groups the detail's glass pieces (the hero row's − / +, the span capsule,
-/// the edit circles — one container each) so the pieces in a group share one
-/// material under iOS 26; a plain pass-through below it.
-private struct GlassGroup<Content: View>: View {
-    let spacing: CGFloat
-    @ViewBuilder let content: Content
-
-    var body: some View {
-        if #available(iOS 26, *) {
-            GlassEffectContainer(spacing: spacing) { content }
-        } else {
-            content
-        }
-    }
-}
-
-/// What a glass piece draws below iOS 26.
-private enum GlassFallback {
-    /// The flat recess-track fill (the − / + pieces).
-    case track
-    /// Thin material with the cards' 0.5pt hairline (the span capsule, the
-    /// edit circles).
-    case material
-}
+// MARK: Liquid Glass — `GlassGroup`, `glassPieceSurface` and `glassCapsule`
+// are shared with the dashboard (Glass.swift)
 
 private extension View {
-    /// A detail glass piece's surface: interactive Liquid Glass on iOS 26
-    /// (plain glass while disabled), `fallback` below it.
-    @ViewBuilder
-    func glassPieceSurface<S: Shape>(in shape: S, enabled: Bool, fallback: GlassFallback) -> some View {
-        if #available(iOS 26, *) {
-            self.glassEffect(enabled ? .regular.interactive() : .regular, in: shape)
-        } else {
-            switch fallback {
-            case .track:
-                self.background(Theme.timelineTrack, in: shape)
-            case .material:
-                self.background(.ultraThinMaterial, in: shape)
-                    .overlay(shape.stroke(Theme.cardHairline, lineWidth: Theme.cardHairlineWidth))
-            }
-        }
-    }
-
     /// The − / + piece's surface: an r6 glass piece on the recess track.
     func stepPieceSurface(enabled: Bool) -> some View {
         glassPieceSurface(in: RoundedRectangle(cornerRadius: Theme.Radius.sm),

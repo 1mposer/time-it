@@ -186,7 +186,8 @@ struct DashboardView: View {
             ActivityDetailView(activity: activity,
                                viewModel: viewModel,
                                windUnit: preferences.windSpeedUnit,
-                               now: viewModel.now)
+                               now: viewModel.now,
+                               onActivityDeleted: { navigationPath = [] })
         } else {
             Color.clear
                 .onAppear { navigationPath = [] }
@@ -217,7 +218,8 @@ struct DashboardView: View {
     }
 
     /// First-launch / emptied-store state: the approved Add-Activity hero —
-    /// one dashed card, and the wizard is the only path in.
+    /// the glass Add Activity capsule over its invitation copy, and the
+    /// wizard is the only path in.
     private var firstLaunchState: some View {
         ScrollView {
             VStack(spacing: 0) {
@@ -225,30 +227,22 @@ struct DashboardView: View {
                     betaBanner
                         .padding(.bottom, 10)
                 }
-                Button {
-                    showAdd = true
-                } label: {
-                    VStack(spacing: 0) {
-                        Image(systemName: "plus.circle")
-                            .font(.system(size: 44))
-                        Text("Add Activity")
-                            .font(.system(size: 17, weight: .semibold))
-                            .padding(.top, 14)
-                        Text("Time It checks weather conditions\nfor any activity you create.\n\nStart with your first one.")
-                            .font(.system(size: 14))
-                            .foregroundStyle(Theme.secondaryText)
-                            .multilineTextAlignment(.center)
-                            .padding(.top, 8)
-                            .accessibilityIdentifier("firstLaunchMessage")
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 52)
-                    .contentShape(RoundedRectangle(cornerRadius: 16))
+                // The glass Add Activity capsule (owner ruling 2026-11-04)
+                // replaces the dashed hero card, centred in the space the
+                // card's glyph + title used; the invitation copy stays below.
+                VStack(spacing: 0) {
+                    addActivityCapsule(identifier: "addActivitiesButton")
+                    Text("Time It checks weather conditions\nfor any activity you create.\n\nStart with your first one.")
+                        .font(.system(size: 14))
+                        .foregroundStyle(Theme.secondaryText)
+                        .multilineTextAlignment(.center)
+                        .padding(.top, 16)
+                        .accessibilityIdentifier("firstLaunchMessage")
                 }
-                .buttonStyle(HeroAddButtonStyle())
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 52)
                 .padding(.top, Self.firstLaunchHeroTop)
-                .accessibilityIdentifier("addActivitiesButton")
             }
             .padding(14)
             .frame(maxWidth: .infinity)
@@ -353,19 +347,11 @@ struct DashboardView: View {
                         .padding(.top, 16)
                         .accessibilityIdentifier("locationRestrictedMessage")
                 } else {
-                    Button(action: enableLocation) {
+                    GlassControl(identifier: "enableLocationButton", action: enableLocation) {
                         Text("Enable Location")
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(Theme.onGradient)
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 9)
-                            .background(Capsule().fill(Theme.accentInteractive))
-                            .frame(minHeight: 44)
-                            .contentShape(Rectangle())
+                            .glassCapsule(font: GlassCapsule.primaryFont)
                     }
-                    .buttonStyle(.plain)
                     .padding(.top, 8)
-                    .accessibilityIdentifier("enableLocationButton")
                 }
                 Button {
                     showCityPicker = true
@@ -450,19 +436,12 @@ struct DashboardView: View {
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: 280)
                     .padding(.top, 6)
-                Button {
+                GlassControl(identifier: "tryAgainButton") {
                     Task { await viewModel.loadForecast() }
                 } label: {
                     Text("Try Again")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(Theme.onGradient)
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 9)
-                        .background(Capsule().fill(Theme.accentInteractive))
-                        .frame(minHeight: 44)
-                        .contentShape(Rectangle())
+                        .glassCapsule(font: GlassCapsule.primaryFont)
                 }
-                .buttonStyle(.plain)
                 .padding(.top, 8)
             }
             .padding(14)
@@ -500,13 +479,13 @@ struct DashboardView: View {
                                     }
                                     .buttonStyle(.plain)
                                     .accessibilityIdentifier("card.\(activity.activityId)")
-                                    // Outside the NavigationLink, so neither
-                                    // button pushes the detail. The chevron is
-                                    // the right-most element (spec 05).
-                                    HStack(spacing: 0) {
-                                        gearButton(for: activity)
-                                        chevronButton(for: authored)
-                                    }
+                                    // Outside the NavigationLink, so it never
+                                    // pushes the detail. The card gear is gone
+                                    // (owner ruling 2026-10-06 #2): a tap on
+                                    // the card opens the detail, whose circles
+                                    // are the only edit door. The chevron is a
+                                    // plain inline control, not glass chrome.
+                                    chevronButton(for: authored)
                                     // Centres the 34pt chevron on the frame's
                                     // glyph (`458:394` Chevron x336–351,
                                     // y13–29 → centre 343.5, 21 on a 365 card).
@@ -566,29 +545,20 @@ struct DashboardView: View {
         pendingFocusId = nil
     }
 
-    /// The beta disclaimer card: disclaimer copy plus the suggestion pill.
-    /// (The ±9pt vertical padding pair on the pill keeps a 44pt tap target
-    /// without growing the card.)
+    /// The beta disclaimer card: disclaimer copy plus the glass suggestion
+    /// capsule (44pt tall — the capsule is its own tap target).
     private var betaBanner: some View {
         VStack(alignment: .leading, spacing: 8) {
             disclaimerText
                 .font(.system(size: 14))
                 .foregroundStyle(Theme.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)
-            Button {
+            GlassControl(presentsSheet: true, identifier: "betaBanner.suggest") {
                 showFeedback = true
             } label: {
                 Text("Send a suggestion")
-                    .font(.system(size: 15))
-                    .foregroundStyle(Theme.onGradient)
-                    .frame(width: 165, height: 26)
-                    .background(Capsule().fill(Theme.accentInteractive))
-                    .padding(.vertical, 9)
-                    .contentShape(Rectangle())
+                    .glassCapsule(font: GlassCapsule.primaryFont)
             }
-            .buttonStyle(.plain)
-            .padding(.vertical, -9)
-            .accessibilityIdentifier("betaBanner.suggest")
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
@@ -666,22 +636,6 @@ struct DashboardView: View {
         }
     }
 
-    /// The card gear — opens the editor for this Activity.
-    private func gearButton(for activity: ActivityRating) -> some View {
-        Button {
-            editing = viewModel.authoredActivity(forActivityId: activity.activityId)
-        } label: {
-            Image(systemName: "gearshape")
-                .font(.system(size: 15))
-                .foregroundStyle(Theme.secondaryText)
-                .frame(width: 34, height: 34)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.borderless)
-        .accessibilityLabel("Edit \(activity.label)")
-        .accessibilityIdentifier("gear.\(activity.activityId)")
-    }
-
     /// The card chevron (owner ruling 2026-10-02): reveals/hides the
     /// week-dot row — `chevron.down` while shown (the natural state),
     /// `chevron.right` while hidden; remembered per card across launches.
@@ -701,32 +655,36 @@ struct DashboardView: View {
         .accessibilityIdentifier("cardChevron.\(authored.id)")
     }
 
-    /// The ghost add-card: dashed border, after the card list. At the soft
-    /// cap it dims with a limit message.
+    /// The add slot after the card list: the glass Add Activity capsule,
+    /// centred in the 64pt the dashed ghost card used (owner ruling
+    /// 2026-11-04). At the soft cap the same capsule reads the limit,
+    /// disabled at half strength.
     private var addCard: some View {
-        Button {
+        addActivityCapsule(identifier: "addActivityCard")
+            .frame(maxWidth: .infinity)
+            .frame(height: Self.addSlotHeight)
+    }
+
+    /// The ghost add slot's height (the dashed card's old 64pt).
+    private static let addSlotHeight: CGFloat = 64
+
+    /// "⊕ Add Activity" — a 44pt glass capsule (plus.circle + 17pt Semibold
+    /// in `accentInteractive`) that opens the wizard; the first-launch hero
+    /// and the add slot after the list are the same control. At the soft cap
+    /// it reads "Activity limit reached (N)", disabled at 50%.
+    private func addActivityCapsule(identifier: String) -> some View {
+        let atCap = store.isAtCap
+        return GlassControl(presentsSheet: true, identifier: identifier) {
             showAdd = true
         } label: {
-            HStack(spacing: 8) {
+            HStack(spacing: 6) {
                 Image(systemName: "plus.circle")
-                    .font(.system(size: 16))
-                Text(store.isAtCap ? "Activity limit reached (\(ActivityStore.softCap))" : "Add Activity")
-                    .font(.system(size: 14, weight: .medium))
-                    .tracking(-0.1)
+                Text(atCap ? "Activity limit reached (\(ActivityStore.softCap))" : "Add Activity")
             }
-            .foregroundStyle(store.isAtCap ? Theme.secondaryText : Theme.accentInteractive)
-            .frame(maxWidth: .infinity)
-            .frame(height: 64)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .strokeBorder(Theme.divider,
-                                  style: StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
-            )
-            .contentShape(RoundedRectangle(cornerRadius: 16))
+            .glassCapsule(font: GlassCapsule.addFont, enabled: !atCap)
+            .opacity(atCap ? GlassCapsule.disabledOpacity : 1)
         }
-        .buttonStyle(.plain)
-        .disabled(store.isAtCap)
-        .accessibilityIdentifier("addActivityCard")
+        .disabled(atCap)
     }
 
     /// Card v2 — "Score ring" (approved frame `458:394`). Wordless beyond the
@@ -754,22 +712,6 @@ struct DashboardView: View {
             } ?? [],
             showsWeekDots: !preferences.collapsedCardIds.contains(authored.id)
         )
-    }
-}
-
-/// The hero card's press feedback (approved frame annotation): the blue
-/// eases dark → light (#007AFF → #66B2FF) over ~0.15s while pressed.
-private struct HeroAddButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        let blue = configuration.isPressed ? Theme.accentInteractivePressed : Theme.accentInteractive
-        configuration.label
-            .foregroundStyle(blue)
-            .background(RoundedRectangle(cornerRadius: 16).fill(Theme.cardBackground))
-            .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .strokeBorder(blue, style: StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
-            )
-            .animation(.easeOut(duration: 0.15), value: configuration.isPressed)
     }
 }
 

@@ -24,6 +24,9 @@ struct HeaderView: View {
     var windUnit: WindSpeedUnit = .kmh
     let onGearTap: () -> Void
 
+    /// The Settings gear's glass circle — the HIG 44pt target.
+    static let gearDiameter: CGFloat = 44
+
     /// The clock text at `date` in the given zone (device zone when nil or
     /// unresolvable) — pinned by HeaderClockTests.
     static func clockText(for date: Date, timezoneIdentifier: String?) -> String {
@@ -110,17 +113,21 @@ struct HeaderView: View {
             .padding(.horizontal, 20)
             .padding(.bottom, 22)
 
-            Button(action: onGearTap) {
+            // A 44pt glass circle floating over the band — the textbook
+            // glass case (owner ruling 2026-11-04). Centred where the old
+            // 34pt circle was (top 8 + 17, trailing 18 + 17).
+            GlassControl(presentsSheet: true,
+                         identifier: "settingsGear",
+                         accessibilityLabel: "Settings",
+                         action: onGearTap) {
                 Image(systemName: "gearshape")
                     .font(.system(size: 16, weight: .medium))
                     .foregroundStyle(Theme.onGradient)
-                    .frame(width: 34, height: 34)
-                    .background(Theme.onGradient.opacity(0.18), in: Circle())
+                    .frame(width: Self.gearDiameter, height: Self.gearDiameter)
+                    .glassPieceSurface(in: Circle(), enabled: true, fallback: .material)
             }
-            .padding(.top, 8)
-            .padding(.trailing, 18)
-            .accessibilityLabel("Settings")
-            .accessibilityIdentifier("settingsGear")
+            .padding(.top, 3)
+            .padding(.trailing, 13)
         }
         .fixedSize(horizontal: false, vertical: true)
         // No background of its own: the temperature band (cool blue / mid
