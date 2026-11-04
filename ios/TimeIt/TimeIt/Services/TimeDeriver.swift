@@ -121,6 +121,44 @@ struct TimeDeriver {
         return "\(day) · \(rangeLabel(startIndex: startIndex, endIndex: endIndex))"
     }
 
+    /// The day-local slot at a global position — `index` is nil outside
+    /// `0..<hourCount` (a gone hour before the forecast, or past its horizon).
+    func slot(at position: Int, hourCount: Int) -> HourSlot {
+        HourSlot(position: position,
+                 localHour: localHour(at: position),
+                 index: (0..<hourCount).contains(position) ? position : nil)
+    }
+
+    /// The FULL authored Range of a day bucket as global positions, whether
+    /// or not the forecast covers them (owner ruling 2026-11-04). Same
+    /// predicate as the data-only Range filter — a wrapped Range stitches the
+    /// evening with the next morning, attributed to the evening — but the
+    /// scan starts a day before the bucket, so hours before `hours[0]` count.
+    /// Scanning (not arithmetic) keeps DST and half-hour zones honest.
+    func rangePositions(window: WindowSpec, dayIndex: Int) -> Range<Int>? {
+        let dayStart = calendar.date(byAdding: .day, value: dayIndex, to: calendar.startOfDay(for: start)) ?? start
+        let base = Int((dayStart.timeIntervalSince(start) / 3600).rounded(.down)) - 2
+        var lower: Int?
+        var upper: Int?
+        for position in base..<(base + 52) {
+            let day = dayOrdinal(at: position)
+            let hour = localHour(at: position)
+            let inRange: Bool
+            if window.isWrapped {
+                inRange = (day == dayIndex && hour >= window.startHour)
+                    || (day == dayIndex + 1 && hour < window.endHour)
+            } else {
+                inRange = day == dayIndex && hour >= window.startHour && hour < window.endHour
+            }
+            if inRange {
+                if lower == nil { lower = position }
+                upper = position + 1
+            }
+        }
+        guard let lower, let upper else { return nil }
+        return lower..<upper
+    }
+
     /// The contiguous hours[] index range belonging to a local calendar day —
     /// the card timeline's real axis (never a hardcoded 6am–midnight span).
     /// Nil when the day is beyond the forecast horizon.

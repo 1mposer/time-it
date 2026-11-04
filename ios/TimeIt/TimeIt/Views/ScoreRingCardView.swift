@@ -22,9 +22,10 @@ struct ScoreRingCardView: View {
     var iconSymbol: String?
     /// The authored Range as hours-only chip copy ("6 – 10am"); nil hides it.
     var rangeChipLabel: String?
-    /// Per-hour tiers over the Range hours shown today — one strip segment
-    /// each. Empty renders the bare track (no data).
-    var tiers: [HourTier] = []
+    /// One strip segment per hour of the FULL authored Range (owner ruling
+    /// 2026-11-04): a tier colours it; nil is a gone / no-data hour, drawn as
+    /// the grey track. Empty renders the bare track.
+    var tiers: [HourTier?] = []
     /// Local hour of the strip's first segment — the boundary numerals count
     /// up from here.
     var stripStartLocalHour: Int?
@@ -143,7 +144,7 @@ struct ScoreRingCardView: View {
             HStack(spacing: 2) {
                 ForEach(Array(tiers.enumerated()), id: \.offset) { _, tier in
                     RoundedRectangle(cornerRadius: 3)
-                        .fill(Theme.tierColor(tier))
+                        .fill(tier.map(Theme.tierColor) ?? Theme.timelineTrack)
                         .frame(maxWidth: .infinity)
                 }
             }
@@ -205,7 +206,7 @@ struct ScoreRingCardView: View {
                                    startIndex: 2, endIndex: 6, duration: 4, score: 86),
                           iconSymbol: "figure.outdoor.cycle",
                           rangeChipLabel: RangeText.chipLabel(WindowSpec(startHour: 6, endHour: 10)),
-                          tiers: [.orange, .green, .green, .green],
+                          tiers: [nil, .green, .green, .green],
                           stripStartLocalHour: 6)
         ScoreRingCardView(activity: forecast.activities[2],
                           day: Day(dayIndex: 0, rating: nil, score: 31),

@@ -3,15 +3,18 @@ import SwiftUI
 /// Activity Detail v3 (Figma `456:358` / `464:2348`, owner-approved
 /// 2026-09-30; day-jump `508:417`, owner-approved 2026-10-02; hero carousel —
 /// depth & polish pass build 8, owner rulings 2026-10-31 / 2026-11-01 /
-/// 2026-11-03). Opens on TODAY. Top to bottom: the week-dot row (the day-jump
-/// control — ring on the selected day), the hero (the 80pt day-score ring +
-/// rating word, and beside it the hour row: `−` · a natively scrolling strip
-/// of tier-coloured hour pills · `+`), square metric cards two per row
-/// AVERAGING the chosen hours, then the Edit range / Edit metrics list.
+/// 2026-11-03 / 2026-11-04). Opens on TODAY. Top to bottom: the week-dot row
+/// (the day-jump control — ring on the selected day), the hero (the 64pt
+/// day-score ring + rating word, and beside it the hour row: `−` · a
+/// natively scrolling strip of tier-coloured hour pills · `+`, with one line
+/// under it naming the hours the cards show), square metric cards two per
+/// row AVERAGING the chosen hours, then the Edit range / Edit metrics list.
 ///
-/// No buttons for "calculate" or "return": the cards recompute live as the
-/// row settles, the Range's home slots keep a faint ghost outline while the
-/// span drifts, and tapping the ring springs the row home.
+/// The row always shows the FULL Range: hours of it before the forecast
+/// start are drawn grey with no data. No Calculate button: the cards
+/// recompute live as the row settles, the Range's home slots keep a faint
+/// ghost outline while the span drifts, and the line's return button (or a
+/// tap on the ring) springs the row home.
 ///
 /// The hero ring shows the selected DAY's score (`days[selectedDayIndex]
 /// .score` from the wire), never the chosen hours' — the ring, the rating
@@ -64,9 +67,11 @@ struct ActivityDetailView: View {
     /// The shown day read RAW — a rating-null day still carries its score.
     private var selectedDay: Day? { viewModel.rawDay(for: current, dayIndex: selectedDayIndex) }
 
-    /// The shown day's Range hours as global indices.
+    /// The shown day's FULL Range as global positions — hours before the
+    /// forecast start are negative and carry no data (owner ruling
+    /// 2026-11-04: the row always shows the whole authored Range).
     private var rangeHours: Range<Int>? {
-        authored.flatMap { viewModel.rangeHourIndices(for: $0, dayIndex: selectedDayIndex) }
+        authored.flatMap { viewModel.rangeSlotPositions(for: $0, dayIndex: selectedDayIndex) }
     }
 
     /// Every hour the carousel may show on the shown day.
@@ -92,14 +97,28 @@ struct ActivityDetailView: View {
         return carousel
     }
 
-    /// The hours the metric cards read — the carousel's chosen span, live.
-    private var displayedHours: [HourlyWeather] {
-        guard let carousel, let hours = viewModel.forecast?.hours else { return [] }
-        return carousel.span.filter(hours.indices.contains).map { hours[$0] }
+    /// The chosen span's slots — the metric cards and the line read them.
+    private var displayedSlots: [HourSlot] {
+        carousel.map { viewModel.slots(in: $0.span) } ?? []
     }
 
-    /// The chosen hours folded into one reading (`HourAggregate`).
-    private var displayedHour: HourlyWeather? { HourAggregate.aggregate(displayedHours) }
+    /// The chosen hours folded into one reading (`HourAggregate`) — only the
+    /// slots with data count; an all-gone span is nil, so the cards show "—".
+    private var displayedHour: HourlyWeather? {
+        HourAggregate.aggregate(slots: displayedSlots, hours: viewModel.forecast?.hours ?? [])
+    }
+
+    /// The line under the row: "Your range …" on the Range, "Showing …" plus
+    /// the return button away from it. Derived from the same `carousel` as
+    /// the cards, so both change on the same settle. Nil without a Range.
+    private var rangeLine: RangeLine? {
+        guard let carousel, carousel.rangeHours != nil,
+              let window = authored?.window, let deriver else { return nil }
+        return RangeLine(window: window,
+                         isAtRange: carousel.isAtRange,
+                         spanStartHour: deriver.localHour(at: carousel.span.lowerBound),
+                         spanEndHour: deriver.localHour(at: carousel.span.upperBound))
+    }
 
     var body: some View {
         ScrollView {
@@ -183,17 +202,29 @@ struct ActivityDetailView: View {
 
     // MARK: Hero — ring + rating word, the hour row beside it
 
-    /// Figma detail frame: 365 wide, ring 80 inset 16 from the top and
-    /// left, the word 12 under it, 28 of air to the bottom. The row column
-    /// runs from the ring's right edge + 16 to the right inset; with no
-    /// "time passed" line to stack under it, the row centres on the ring's
-    /// centre line so there is no dead gap.
+    /// Owner ruling 2026-11-04: ring 64 inset 16 from the top and left, the
+    /// word 12 under it, 16 to the bottom. The row column runs from the
+    /// ring's right edge + 16 to the right inset: the pill row, and 8 under
+    /// it the line. Alone, the row sits on the ring's centre line; with the
+    /// line, the row + line block centres on the ring column. The hero is
+    /// the taller column plus the insets (`Theme.Detail.heroHeight`).
     private var heroCard: some View {
-        HStack(alignment: .top, spacing: Layout.ringToRow) {
+        let line = rangeLine
+        let hasLine = line != nil
+        return HStack(alignment: .top, spacing: Layout.ringToRow) {
             ringButton
-            carouselRow
-                .frame(height: Layout.ringDiameter)
+            VStack(alignment: .leading, spacing: Layout.rowToLine) {
+                carouselRow
+                    .frame(height: Layout.pillHeight)
+                if let line {
+                    rangeLineView(line)
+                        .frame(height: Layout.lineHeight)
+                }
+            }
+            .padding(.top, Layout.rowColumnTop(hasLine: hasLine))
         }
+        .frame(height: Layout.heroHeight(hasLine: hasLine) - Layout.heroInset - Layout.heroBottom,
+               alignment: .top)
         .padding(EdgeInsets(top: Layout.heroInset, leading: Layout.heroInset,
                             bottom: Layout.heroBottom, trailing: Layout.heroInset))
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -208,12 +239,11 @@ struct ActivityDetailView: View {
 
     private var canReturn: Bool { carousel?.canReturnToRange ?? false }
 
-    /// The ring belongs to the Range: tapping it springs the row home. Press
-    /// feedback lands on touch-down; the button is inert on the Range.
-    /// Accessibility is carried by two overlay elements rather than the
-    /// button, so the day score (`detail.score`) stays its own element and
-    /// the return affordance (`detail.returnToRange`) exists only off the
-    /// Range.
+    /// The ring belongs to the Range: tapping it springs the row home — the
+    /// second way home beside the line's return button (owner ruling
+    /// 2026-11-04 moved `detail.returnToRange` to that button). Press
+    /// feedback lands on touch-down; the button is inert on the Range. The
+    /// day score (`detail.score`) is an overlay element of its own.
     private var ringButton: some View {
         VStack(spacing: Layout.ringToWord) {
             Button(action: returnToRange) {
@@ -229,8 +259,9 @@ struct ActivityDetailView: View {
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(Theme.ratingTint(selectedDay?.rating))
                 .fixedSize()
+                .frame(height: Layout.wordHeight)
         }
-        .frame(width: Layout.ringDiameter)
+        .frame(width: Layout.ringDiameter, height: Layout.ringColumnHeight, alignment: .top)
         .overlay {
             Color.clear
                 .accessibilityElement()
@@ -238,17 +269,46 @@ struct ActivityDetailView: View {
                 .accessibilityLabel(scoreAccessibilityLabel)
                 .allowsHitTesting(false)
         }
-        .overlay {
-            if canReturn {
-                Color.clear
-                    .accessibilityElement()
-                    .accessibilityAddTraits(.isButton)
-                    .accessibilityIdentifier("detail.returnToRange")
-                    .accessibilityLabel("Return to your range")
-                    .accessibilityAction { returnToRange() }
-                    .allowsHitTesting(false)
+    }
+
+    /// "Your range 6 – 10am" / "Showing 7 – 11am" + return — 13pt secondary
+    /// text; the swap rolls (`numericText`), the return button fades in at
+    /// the line's end.
+    private func rangeLineView(_ line: RangeLine) -> some View {
+        HStack(spacing: Theme.Spacing.xs) {
+            Text(line.text)
+                .font(.system(size: Layout.lineFont))
+                .foregroundStyle(Theme.secondaryText)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                .contentTransition(.numericText())
+                .accessibilityIdentifier("detail.rangeLine")
+            if line.showsReturn {
+                returnButton
+                    .transition(.opacity)
             }
+            Spacer(minLength: 0)
         }
+        .animation(reduceMotion ? nil : Theme.Motion.value, value: line)
+    }
+
+    /// The line's return button: a 12pt Semibold `arrow.uturn.backward` in a
+    /// 24×24 capsule hit shape, padded to the HIG 44pt target. Springs the
+    /// row home exactly like the ring tap.
+    private var returnButton: some View {
+        Button(action: returnToRange) {
+            Image(systemName: "arrow.uturn.backward")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(Theme.accentInteractive)
+                .frame(width: Layout.returnPiece, height: Layout.returnPiece)
+                .contentShape(Capsule())
+                .padding(Layout.hitPad)
+                .contentShape(Rectangle())
+                .padding(-Layout.hitPad)
+        }
+        .buttonStyle(PressStyle())
+        .accessibilityIdentifier("detail.returnToRange")
+        .accessibilityLabel("Return to your range")
     }
 
     private var scoreAccessibilityLabel: String {
@@ -384,22 +444,27 @@ struct ActivityDetailView: View {
     }
 
     /// The round-2 pill: r6, tier colour, white 11pt numeral (Semibold when
-    /// chosen; 9pt Semibold on a pill narrower than 22pt — a long Range). Chosen hours 100%, the rest 35%. A PASSED hour is grey but
-    /// readable — its fill drops to 15% and its numeral turns secondary; the
-    /// 35% dim then applies to its fill only, so the numeral stays legible.
+    /// chosen; 9pt Semibold on a pill narrower than 22pt — a long Range).
+    /// Chosen hours 100%, the rest 35%. A PASSED hour — or one with no data,
+    /// like a gone hour before the forecast start (owner ruling 2026-11-04) —
+    /// is the grey track with a secondary numeral and no tier colour; off the
+    /// span its track fill dims to 50% (35% of the track would vanish on
+    /// white) and the numeral stays legible.
     /// A Range ("home") hour keeps a 1pt ghost outline inside its rect while
     /// the span is away.
     private func pill(at index: Int, authored: AuthoredActivity, compact: Bool, chosen: Bool, home: Bool) -> some View {
+        let hasPassed = deriver?.hasPassed(index, now: now()) ?? false
         let tier = viewModel.forecast.flatMap { forecast -> HourTier? in
-            guard forecast.hours.indices.contains(index) else { return nil }
+            guard !hasPassed, forecast.hours.indices.contains(index) else { return nil }
             return HourQuality.tier(for: forecast.hours[index], thresholds: authored.thresholds)
         }
+        // No tier = passed or no data: drawn grey either way.
+        let passed = tier == nil
         let fill = tier.map(Theme.tierColor) ?? Theme.timelineTrack
-        let passed = deriver?.hasPassed(index, now: now()) ?? false
         let dim: Double = chosen ? 1 : 0.35
         let shape = RoundedRectangle(cornerRadius: Theme.Radius.sm)
         return shape
-            .fill(fill.opacity(passed ? 0.15 * dim : 1))
+            .fill(fill.opacity(passed ? (chosen ? 1 : 0.5) : 1))
             .overlay(
                 Text(RangeStripAxis.numeral(viewModel.localHour(at: index) ?? 0))
                     .font(compact ? .system(size: 9, weight: .semibold)

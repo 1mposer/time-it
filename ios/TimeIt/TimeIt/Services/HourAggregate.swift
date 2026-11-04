@@ -14,6 +14,13 @@ import Foundation
 /// - label (`moon`) and the coming-soon placeholders: the first hour's value.
 /// - `index`: the first chosen hour's index.
 enum HourAggregate {
+    /// The chosen SLOTS folded into one reading: only slots with data count
+    /// (a gone hour before the forecast has none — owner ruling 2026-11-04);
+    /// nil when no chosen slot has data, so the cards show "—".
+    static func aggregate(slots: [HourSlot], hours: [HourlyWeather]) -> HourlyWeather? {
+        aggregate(slots.compactMap(\.index).filter(hours.indices.contains).map { hours[$0] })
+    }
+
     static func aggregate(_ hours: [HourlyWeather]) -> HourlyWeather? {
         guard let first = hours.first else { return nil }
         guard hours.count > 1 else { return first }

@@ -670,6 +670,11 @@ final class TimeItUITests: XCTestCase {
         XCTAssertTrue(forward.exists)
         XCTAssertFalse(app.buttons["detail.returnToRange"].exists,
                        "no return control while the span sits on the Range")
+        // The line under the row names the hours the cards show (owner
+        // ruling 2026-11-04): on the Range it reads the Range itself.
+        let line = app.staticTexts["detail.rangeLine"]
+        XCTAssertTrue(line.exists)
+        XCTAssertEqual(line.label, "Your range 6 – 10am")
 
         // ONE metric card per displayMetric — the grid is not capped at the
         // frames' three. Cycling shows temp/wind/rain/uV.
@@ -691,19 +696,24 @@ final class TimeItUITests: XCTestCase {
         XCTAssertTrue(waitForLabel(uv, suffix: "UV 4"), "the cards average the chosen hours — got \(uv.label)")
         XCTAssertEqual(app.otherElements["detail.score"].label, "Perfect, score 86 out of 100",
                        "the hero ring shows the DAY score, unchanged by the span")
+        XCTAssertTrue(waitForLabel(line, "Showing 7 – 11am"),
+                      "the line follows the span on the same settle — got \(line.label)")
 
-        // Off the Range the ring becomes the return affordance; tapping it
-        // springs the span home.
+        // Off the Range the line grows its return button (owner ruling
+        // 2026-11-04 moved the id off the ring); tapping it springs home.
         XCTAssertFalse(app.buttons.matching(NSPredicate(format: "label == 'Calculate'")).firstMatch.exists,
                        "no Calculate button — the cards are live")
         let returnControl = app.buttons["detail.returnToRange"]
         XCTAssertTrue(returnControl.waitForExistence(timeout: 2))
         XCTAssertEqual(returnControl.label, "Return to your range")
-        XCTAssertTrue(returnControl.frame.intersects(app.otherElements["detail.score"].frame),
-                      "the return affordance IS the score ring")
+        XCTAssertFalse(returnControl.frame.intersects(app.otherElements["detail.score"].frame),
+                       "the return button sits at the line's end, not on the ring")
+        XCTAssertGreaterThan(returnControl.frame.midX, line.frame.maxX - 1,
+                             "the return button trails the line")
         returnControl.tap()
         XCTAssertTrue(waitForLabel(row, "Hours 6am to 10am"), "got \(row.label)")
         XCTAssertTrue(waitForLabel(uv, suffix: "UV 3"), "got \(uv.label)")
+        XCTAssertTrue(waitForLabel(line, "Your range 6 – 10am"), "got \(line.label)")
         XCTAssertFalse(returnControl.waitForExistence(timeout: 1), "gone once back on the Range")
 
         // − walks back to the walk start (today's first forecast hour, 4am =
@@ -756,6 +766,66 @@ final class TimeItUITests: XCTestCase {
         XCTAssertEqual(app.otherElements["detail.score"].label, "Perfect, score 86 out of 100",
                        "back to today")
         XCTAssertTrue(waitForLabel(row, "Hours 6am to 10am"), "got \(row.label)")
+    }
+
+    /// Owner ruling 2026-11-04 (items 1, 3, 4): the detail opens with the
+    /// full Range on the row and "Your range …" under it; two + presses move
+    /// the line to "Showing …" with the return button. Attaches the two
+    /// screenshots the owner reviews (the June-2026 mock reads every hour as
+    /// passed against today's clock, so every pill is grey).
+    func testDetailLineFollowsTheSpanAndScreenshotsTheHero() {
+        let app = launchApp()
+        let card = app.buttons["card.cycling"]
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        card.tap()
+        XCTAssertTrue(app.navigationBars["Cycling"].waitForExistence(timeout: 5))
+
+        let row = app.descendants(matching: .any)["detail.hourStrip"]
+        let line = app.staticTexts["detail.rangeLine"]
+        XCTAssertTrue(line.waitForExistence(timeout: 3))
+        XCTAssertEqual(row.label, "Hours 6am to 10am", "the full Range is on the row")
+        XCTAssertEqual(line.label, "Your range 6 – 10am")
+        attachScreenshot(app, named: "detail-at-rest")
+
+        let forward = app.buttons["detail.stepForward"]
+        forward.tap()
+        XCTAssertTrue(waitForLabel(row, "Hours 7am to 11am"), "got \(row.label)")
+        forward.tap()
+        XCTAssertTrue(waitForLabel(row, "Hours 8am to 12pm"), "got \(row.label)")
+        XCTAssertTrue(waitForLabel(line, "Showing 8am – 12pm"), "got \(line.label)")
+        XCTAssertTrue(app.buttons["detail.returnToRange"].waitForExistence(timeout: 2))
+        // Let the springs and the line's crossfade settle before the capture.
+        Thread.sleep(forTimeInterval: 0.6)
+        attachScreenshot(app, named: "detail-after-two-plus")
+
+        app.buttons["detail.returnToRange"].tap()
+        XCTAssertTrue(waitForLabel(line, "Your range 6 – 10am"), "got \(line.label)")
+        XCTAssertTrue(waitForLabel(row, "Hours 6am to 10am"), "got \(row.label)")
+    }
+
+    /// Item 2: pulling the dashboard list down refreshes it in place — the
+    /// cards stay rendered through and after the pull (the mock refetch).
+    func testDashboardPullToRefreshKeepsTheListRendered() {
+        let app = launchApp()
+        let card = app.buttons["card.cycling"]
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        let start = card.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2))
+        start.press(forDuration: 0.05,
+                    thenDragTo: start.withOffset(CGVector(dx: 0, dy: 320)))
+        XCTAssertTrue(card.waitForExistence(timeout: 5), "the list is still rendered after the pull")
+        XCTAssertTrue(app.buttons["card.fishing-lite"].exists)
+        XCTAssertFalse(app.staticTexts["Checking conditions…"].exists,
+                       "a pull never swaps the list for the full-screen spinner")
+        card.tap()
+        XCTAssertTrue(app.navigationBars["Cycling"].waitForExistence(timeout: 5),
+                      "the refreshed list is live")
+    }
+
+    private func attachScreenshot(_ app: XCUIApplication, named name: String) {
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
     }
 
     /// Polls an element's accessibility label — the row's span follows a

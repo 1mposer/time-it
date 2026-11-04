@@ -503,6 +503,9 @@ struct DashboardView: View {
                     if value != pullOverscroll { pullOverscroll = value }
                 }
             }
+            // Pull-to-refresh: the system spinner over the same overscroll
+            // the stagger reads; `refresh()` keeps the list mounted.
+            .refreshable { await viewModel.refresh() }
             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { listViewport = $0 }
             .onChange(of: pendingFocusId) { _, activityId in
                 scrollToPendingFocus(activityId, proxy: proxy)
@@ -702,7 +705,8 @@ struct DashboardView: View {
         // Today-only (owner ruling 2026-10-02): always day 0; the week is
         // visible in the card's dot row.
         let dayIndex = viewModel.cardDayIndex(for: authored)
-        let sliceRange = viewModel.rangeHourIndices(for: authored, dayIndex: dayIndex)
+        // The FULL Range, gone hours included (owner ruling 2026-11-04).
+        let slots = viewModel.rangeSlots(for: authored, dayIndex: dayIndex)
         return ScoreRingCardView(
             // RAW day: a rating-null day still carries its score (ADR-0011),
             // and the frame draws exactly that (the red 31 ring).
@@ -710,8 +714,8 @@ struct DashboardView: View {
             day: viewModel.rawDay(for: activity, dayIndex: dayIndex),
             iconSymbol: authored.iconSymbol,
             rangeChipLabel: authored.window.map(RangeText.chipLabel),
-            tiers: viewModel.rangeTiers(for: authored, dayIndex: dayIndex),
-            stripStartLocalHour: sliceRange.flatMap { viewModel.localHour(at: $0.lowerBound) },
+            tiers: viewModel.rangeStripTiers(for: authored, dayIndex: dayIndex),
+            stripStartLocalHour: slots.first?.localHour,
             weekDots: viewModel.timeDeriver.map {
                 WeekDots.dots(for: activity, deriver: $0,
                               nocturnal: viewModel.isNocturnal(activityId: activity.activityId))

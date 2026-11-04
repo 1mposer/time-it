@@ -61,13 +61,48 @@ enum Theme {
         static let gridRowGap: CGFloat = 12
         static let gridColumnGap: CGFloat = 13
 
-        // The hero: ring 80 inset 16 from top/left, the rating word 12
-        // under it, 28 of air to the bottom (16 + 80 + 12 + 14 + 28 = 150).
+        // The hero (owner ruling 2026-11-04): ring 64 inset 16 from the
+        // top/left, the rating word 12 under it, 16 to the bottom
+        // (16 + 64 + 12 + 14 + 16 = 122). The height is the TALLER of the
+        // ring column and the row column, plus the insets — see `heroHeight`.
         static let heroInset: CGFloat = Spacing.card
-        static let heroBottom: CGFloat = 28
-        static let ringDiameter: CGFloat = 80
-        static let ringNumeral: CGFloat = 28
+        static let heroBottom: CGFloat = Spacing.xl
+        static let ringDiameter: CGFloat = 64
+        static let ringNumeral: CGFloat = 24
+        /// The 6pt stroke of the 80pt ring, scaled to 64 (6 × 0.8 ≈ 5).
+        static let ringStroke: CGFloat = 5
         static let ringToWord: CGFloat = 12
+        /// The rating word's line (Semibold 12).
+        static let wordHeight: CGFloat = 14
+        /// Ring + gap + word.
+        static let ringColumnHeight: CGFloat = ringDiameter + ringToWord + wordHeight
+
+        // The line under the pill row: 13pt, `space/sm` below the row, as tall
+        // as its return button so the block never jumps when it appears.
+        static let rowToLine: CGFloat = Spacing.sm
+        static let lineFont: CGFloat = 13
+        static let returnPiece: CGFloat = 24
+        static let lineHeight: CGFloat = returnPiece
+
+        /// The pill row (+ the line under it) as one block.
+        static func rowColumnHeight(hasLine: Bool) -> CGFloat {
+            hasLine ? pillHeight + rowToLine + lineHeight : pillHeight
+        }
+
+        /// Where the row block starts below the hero's top inset: alone, the
+        /// row sits level with the ring's centre line; with the line, the
+        /// block centres on the ring column.
+        static func rowColumnTop(hasLine: Bool) -> CGFloat {
+            hasLine ? (ringColumnHeight - rowColumnHeight(hasLine: true)) / 2
+                    : (ringDiameter - pillHeight) / 2
+        }
+
+        /// The hero's height: the taller column plus the insets.
+        static func heroHeight(hasLine: Bool) -> CGFloat {
+            let row = rowColumnTop(hasLine: hasLine) + rowColumnHeight(hasLine: hasLine)
+            return heroInset + Swift.max(ringColumnHeight, row) + heroBottom
+        }
+
         /// Ring right edge → the pill column.
         static let ringToRow: CGFloat = Spacing.xl
 

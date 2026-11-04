@@ -17,15 +17,15 @@ struct ScoreRingView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// The two drawn sizes. Measured off the exported ring SVGs: the 48pt
-    /// ring is a 5pt stroke (outer r24 / inner r19); the hero ring is 80pt with
-    /// a Semibold 28 numeral (Figma detail frame, 2026-11-03) and keeps the 6pt
-    /// stroke of the old 64pt export (the frame gave no stroke value).
+    /// ring is a 5pt stroke (outer r24 / inner r19); the hero ring is 64pt with
+    /// a Semibold 24 numeral and a 5pt stroke (owner ruling 2026-11-04 — the
+    /// 80pt ring's 6pt stroke scaled down).
     enum Style {
         case card
         case hero
 
         var diameter: CGFloat { self == .card ? 48 : Theme.Detail.ringDiameter }
-        var lineWidth: CGFloat { self == .card ? 5 : 6 }
+        var lineWidth: CGFloat { self == .card ? 5 : Theme.Detail.ringStroke }
         var numeralSize: CGFloat { self == .card ? 15 : Theme.Detail.ringNumeral }
         var numeralTracking: CGFloat { self == .card ? -0.3 : -0.4 }
     }

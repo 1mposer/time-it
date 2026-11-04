@@ -198,6 +198,18 @@ final class DashboardViewModel: ObservableObject {
     /// Resolves the active location and fetches ratings for the live
     /// Activities; publishes forecast/error/empty-state accordingly.
     func loadForecast() async {
+        await loadForecast(showsLoading: true)
+    }
+
+    /// Pull-to-refresh: the same refetch (the app keeps no client cache, so
+    /// it always reaches the server), but with a forecast already on screen
+    /// `isLoading` stays false — the dashboard's full-screen spinner would
+    /// unmount the card list, and with it the refresh control mid-pull.
+    func refresh() async {
+        await loadForecast(showsLoading: forecast == nil)
+    }
+
+    private func loadForecast(showsLoading: Bool) async {
         loadGeneration += 1
         let generation = loadGeneration
 
@@ -212,7 +224,7 @@ final class DashboardViewModel: ObservableObject {
             return
         }
 
-        isLoading = true
+        isLoading = showsLoading
         errorMessage = nil
         isTransientError = false
 
@@ -352,7 +364,9 @@ final class DashboardViewModel: ObservableObject {
     func walkableHourRange(for authored: AuthoredActivity, dayIndex: Int = 0) -> Range<Int>? {
         guard let deriver = timeDeriver,
               let hourCount = forecast?.hours.count, hourCount > 0 else { return nil }
-        let rangeHours = rangeHourIndices(for: authored, dayIndex: dayIndex)
+        // The FULL Range (gone hours included — owner ruling 2026-11-04), so
+        // the row can show the hours of the Range before the forecast start.
+        let rangeHours = rangeSlotPositions(for: authored, dayIndex: dayIndex)
         guard let daySpan = deriver.hourRange(forDayIndex: dayIndex, hourCount: hourCount) else {
             return rangeHours
         }
@@ -426,6 +440,40 @@ final class DashboardViewModel: ObservableObject {
         }
         guard let lower, let upper else { return nil }
         return lower..<upper
+    }
+
+    // MARK: Range slots — the full authored Range, gone hours included
+
+    /// The full authored Range of a day bucket as global positions — hours
+    /// before `hours[0]` are negative (owner ruling 2026-11-04: both the card
+    /// strip and the detail row always draw the whole Range). Nil when
+    /// dormant or without a forecast.
+    func rangeSlotPositions(for authored: AuthoredActivity, dayIndex: Int) -> Range<Int>? {
+        guard let window = authored.window, let deriver = timeDeriver, forecast != nil else { return nil }
+        return deriver.rangePositions(window: window, dayIndex: dayIndex)
+    }
+
+    /// The day-local slots for global positions; `index` nil where there is
+    /// no forecast data.
+    func slots(in positions: Range<Int>) -> [HourSlot] {
+        guard let deriver = timeDeriver, let hourCount = forecast?.hours.count else { return [] }
+        return positions.map { deriver.slot(at: $0, hourCount: hourCount) }
+    }
+
+    /// The full Range's slots in a day bucket; empty when dormant/no forecast.
+    func rangeSlots(for authored: AuthoredActivity, dayIndex: Int) -> [HourSlot] {
+        rangeSlotPositions(for: authored, dayIndex: dayIndex).map(slots(in:)) ?? []
+    }
+
+    /// The card strip's segments over the full Range: a tier per hour with
+    /// data still ahead (or under way), nil for a passed hour or one with no
+    /// data — drawn as the grey track, never tier-coloured.
+    func rangeStripTiers(for authored: AuthoredActivity, dayIndex: Int, now: Date = Date()) -> [HourTier?] {
+        guard let deriver = timeDeriver, let hours = forecast?.hours else { return [] }
+        return rangeSlots(for: authored, dayIndex: dayIndex).map { slot in
+            guard let index = slot.index, !deriver.hasPassed(slot.position, now: now) else { return nil }
+            return HourQuality.tier(for: hours[index], thresholds: authored.thresholds)
+        }
     }
 
     /// The forecast hours the Range covers in a day bucket; empty when none.
