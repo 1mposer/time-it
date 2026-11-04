@@ -8,7 +8,7 @@ struct SpanScore: Equatable {
     let score: Int?
     /// The bucket's verdict for the span.
     let rating: Rating?
-    /// The span as the request's `window` — the caption and labels read it.
+    /// The span as the request's `window` — the row-2 labels read it.
     let window: WindowSpec
 }
 
@@ -87,20 +87,26 @@ enum SpanScoring {
 
     // MARK: Copy
 
-    /// "4 – 8pm" — the caption under the rating word; `RangeText.chipLabel`'s
-    /// am/pm rules, like the Showing line.
-    static func caption(_ window: WindowSpec) -> String {
+    /// "4 – 8pm" — the span as row 2 names it; `RangeText.chipLabel`'s am/pm
+    /// rules, like the Range line.
+    static func spanText(_ window: WindowSpec) -> String {
         RangeText.chipLabel(window)
     }
 
     /// "4 to 8pm" — the spoken form.
     static func spoken(_ window: WindowSpec) -> String {
-        caption(window).replacingOccurrences(of: " – ", with: " to ")
+        spanText(window).replacingOccurrences(of: " – ", with: " to ")
     }
 
-    /// "Score 4 – 8pm" — the button names the span, not the verb alone.
+    /// "Score 4 – 8pm" — the capsule names the span, not the verb alone.
     static func buttonLabel(_ window: WindowSpec) -> String {
-        "Score \(caption(window))"
+        "Score \(spanText(window))"
+    }
+
+    /// "Scored 4 – 8pm" — the quiet text the capsule becomes once the shown
+    /// span has a result; the one place the scored span is named.
+    static func scoredLabel(_ window: WindowSpec) -> String {
+        "Scored \(spanText(window))"
     }
 
     static func buttonAccessibilityLabel(_ window: WindowSpec) -> String {

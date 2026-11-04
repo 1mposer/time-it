@@ -6,33 +6,39 @@ import SwiftUI
 /// 2026-11-03 / 2026-11-04). Opens on TODAY. Top to bottom: the week-dot row
 /// (the day-jump control — ring on the selected day), the hero (the 64pt
 /// day-score ring + rating word, and beside it the hour row: `−` · a
-/// natively scrolling strip of tier-coloured hour pills · `+`, with one line
-/// under it naming the hours the cards show), square metric cards two per
-/// row AVERAGING the chosen hours, then the two captioned edit circles —
-/// Range / Metrics (owner rulings 2026-11-04; they replaced the list card).
+/// natively scrolling strip of tier-coloured hour pills · `+`, and under it
+/// row 1 — the fixed Range line — and, away from the Range, row 2 — the span
+/// action row), square metric cards two per row AVERAGING the chosen hours,
+/// then the two captioned edit circles — Range / Metrics (owner rulings
+/// 2026-11-04; they replaced the list card).
+///
+/// The one-place rule (owner rulings 2026-11-04): the user's chosen Range
+/// lives in exactly ONE place on the detail and never changes — row 1 always
+/// reads "Your range 6 – 10am" (" · Time passed" once the shown day's whole
+/// Range has ended), wherever the carousel is. It never names the span.
 ///
 /// Hero wording (owner rulings 2026-11-04): a day with no rating reads
 /// "No Window" under the ring in Regular 12 light red (`Theme.noWindowTint`)
-/// — Perfect / Good stay Semibold in their tint; once the shown day's whole
-/// Range has ended, the line on the Range reads "Your range 6 – 10am · Time
-/// passed" (same line, same height).
+/// — Perfect / Good stay Semibold in their tint.
 ///
 /// The row always shows the FULL Range: hours of it before the forecast
 /// start are drawn grey with no data. No Calculate button: the cards
 /// recompute live as the row settles, the Range's home slots keep a faint
-/// ghost outline while the span drifts, and the line's return button (or a
-/// tap on the ring) springs the row home.
+/// ghost outline while the span drifts, and the return button at row 1's end
+/// (present only away from the Range) or a tap on the ring springs the row
+/// home.
 ///
 /// The hero ring shows the selected DAY's score (`days[selectedDayIndex]
 /// .score` from the wire) — the ring, the rating word and the day selection
 /// never move with the carousel, EXCEPT for a scored span (owner rulings
-/// 2026-11-04): away from the Range, "Score 4 – 8pm" under the Showing line
+/// 2026-11-04): away from the Range, row 2's glass "Score 7 – 11am" capsule
 /// asks the SERVER to score the shown hours (`DashboardViewModel.scoreSpan`
 /// — no client formula); the ring then counts to that score, the word takes
-/// the span's verdict and a "4 – 8pm" caption names it. The span score is
-/// detail-only and cleared the moment the span, the day or the forecast
-/// changes, so the ring shows the day score or the CURRENT span's, never a
-/// stale span's.
+/// the span's verdict, and the capsule becomes the quiet "Scored 7 – 11am" —
+/// the one place the span is named (no caption under the word). The span
+/// score is detail-only and cleared the moment the span, the day or the
+/// forecast changes, so the ring shows the day score or the CURRENT span's,
+/// never a stale span's; a new span brings the capsule back.
 struct ActivityDetailView: View {
     /// The rating captured at navigation time — a fallback; the body
     /// re-resolves from the live forecast so a refetch updates in place.
@@ -104,10 +110,12 @@ struct ActivityDetailView: View {
         let result: SpanScore
     }
 
-    /// The row under the Showing line: the score button, or for ~2 s after a
-    /// failed call the note that takes its place.
+    /// Row 2 under the Range line: the score capsule, the quiet "Scored …"
+    /// text once the shown span has a result, or for ~2 s after a failed
+    /// call the note that takes the capsule's place.
     private enum SpanRow: Equatable {
         case button(WindowSpec)
+        case scored(WindowSpec)
         case failure
     }
 
@@ -158,17 +166,16 @@ struct ActivityDetailView: View {
         HourAggregate.aggregate(slots: displayedSlots, hours: viewModel.forecast?.hours ?? [])
     }
 
-    /// The line under the row: "Your range …" on the Range (with "· Time
-    /// passed" once the whole Range has ended), "Showing …" plus
-    /// the return button away from it. Derived from the same `carousel` as
-    /// the cards, so both change on the same settle. Nil without a Range.
+    /// Row 1 under the pill row: always "Your range …" (with "· Time passed"
+    /// once the whole Range has ended); away from the Range only the return
+    /// button at its end appears. Derived from the same `carousel` as the
+    /// cards, so the button comes and goes on the same settle. Nil without a
+    /// Range.
     private var rangeLine: RangeLine? {
         guard let carousel, let range = carousel.rangeHours,
               let window = authored?.window, let deriver else { return nil }
         return RangeLine(window: window,
                          isAtRange: carousel.isAtRange,
-                         spanStartHour: deriver.localHour(at: carousel.span.lowerBound),
-                         spanEndHour: deriver.localHour(at: carousel.span.upperBound),
                          rangeHasPassed: deriver.rangeHasPassed(range, now: now()))
     }
 
@@ -186,10 +193,13 @@ struct ActivityDetailView: View {
         return scoredSpan.result
     }
 
-    /// The button shows away from the Range on a span with a data hour,
-    /// until that span has a score; a failed call shows its note instead.
+    /// Row 2 exists only away from the Range: "Scored …" once the shown span
+    /// has a result; otherwise the capsule on a span with a data hour (a
+    /// failed call shows its note instead); nothing on an all-gone span.
     private var spanRow: SpanRow? {
-        guard let carousel, let deriver, let key = spanKey, shownSpanScore == nil,
+        guard let carousel, !carousel.isAtRange, let key = spanKey else { return nil }
+        if let shown = shownSpanScore { return .scored(shown.window) }
+        guard let deriver,
               SpanScoring.showsButton(isAtRange: carousel.isAtRange, slots: displayedSlots),
               let window = SpanScoring.window(for: carousel.span, deriver: deriver) else { return nil }
         return failedKey == key ? .failure : .button(window)
@@ -199,7 +209,8 @@ struct ActivityDetailView: View {
     private var ringScore: Int? { shownSpanScore.map(\.score) ?? selectedDay?.score }
     private var ringRating: Rating? { shownSpanScore.map(\.rating) ?? selectedDay?.rating }
 
-    /// The span row's and caption's fade — a crossfade under Reduce Motion.
+    /// Row 2's fade (its swaps and its coming and going) — a crossfade under
+    /// Reduce Motion.
     private var fade: Animation {
         reduceMotion ? .easeInOut(duration: 0.2) : Theme.Motion.value
     }
@@ -302,40 +313,37 @@ struct ActivityDetailView: View {
     /// line, the row + line block centres on the ring column. The hero is
     /// the taller column plus the insets (`Theme.Detail.heroHeight`).
     ///
-    /// Span scoring (owner rulings 2026-11-04) adds a third row under the
-    /// line — the "Score 4 – 8pm" button — and, once scored, a caption row
-    /// under the word. Neither moves the pill row (the finger is on it); the
-    /// hero grows to the taller column instead.
+    /// Row 1 is the fixed Range line (owner rulings 2026-11-04). Away from
+    /// the Range, row 2 — the span action row (capsule / "Scored …" /
+    /// failure note, one constant 28pt slot) — hangs `rowToLine` under it.
+    /// Row 2 never moves the pill row (the finger is on it); the hero grows
+    /// to the taller column instead.
     private var heroCard: some View {
         let line = rangeLine
         let hasLine = line != nil
         let row = hasLine ? spanRow : nil
-        let hasButton = row != nil
-        let hasCaption = shownSpanScore != nil
+        let hasSpanRow = row != nil
         return HStack(alignment: .top, spacing: Layout.ringToRow) {
             ringButton
             VStack(alignment: .leading, spacing: Layout.rowToLine) {
                 carouselRow
                     .frame(height: Layout.pillHeight)
                 if let line {
-                    VStack(alignment: .leading, spacing: Layout.lineToSpanButton) {
-                        rangeLineView(line)
-                            .frame(height: Layout.lineHeight)
-                        if let row {
-                            spanRowView(row)
-                                .frame(height: Layout.spanButtonHeight)
-                                .transition(.opacity)
-                        }
-                    }
+                    rangeLineView(line)
+                        .frame(height: Layout.lineHeight)
+                }
+                if let row {
+                    spanRowView(row)
+                        .frame(height: Layout.spanRowHeight, alignment: .leading)
+                        .transition(.opacity)
                 }
             }
-            .padding(.top, Layout.rowColumnTop(hasLine: hasLine, hasButton: hasButton, hasCaption: hasCaption))
+            .padding(.top, Layout.rowColumnTop(hasLine: hasLine))
         }
-        .frame(height: Layout.heroHeight(hasLine: hasLine, hasButton: hasButton, hasCaption: hasCaption)
+        .frame(height: Layout.heroHeight(hasLine: hasLine, hasSpanRow: hasSpanRow)
                    - Layout.heroInset - Layout.heroBottom,
                alignment: .top)
         .animation(fade, value: row)
-        .animation(fade, value: hasCaption)
         .padding(EdgeInsets(top: Layout.heroInset, leading: Layout.heroInset,
                             bottom: Layout.heroBottom, trailing: Layout.heroInset))
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -366,23 +374,12 @@ struct ActivityDetailView: View {
             .buttonStyle(PressStyle())
             .disabled(!canReturn)
             .accessibilityHidden(true)
-            VStack(spacing: Layout.wordToCaption) {
-                ratingWord
-                    .fixedSize()
-                    .frame(height: Layout.wordHeight)
-                if let shown = shownSpanScore {
-                    Text(SpanScoring.caption(shown.window))
-                        .font(.system(size: Layout.captionFont))
-                        .foregroundStyle(Theme.secondaryText)
-                        .fixedSize()
-                        .frame(height: Layout.captionHeight)
-                        .accessibilityIdentifier("detail.spanCaption")
-                        .transition(.opacity)
-                }
-            }
+            ratingWord
+                .fixedSize()
+                .frame(height: Layout.wordHeight)
         }
         .frame(width: Layout.ringDiameter,
-               height: Layout.ringColumnHeight(hasCaption: shownSpanScore != nil),
+               height: Layout.ringColumnHeight,
                alignment: .top)
         .overlay {
             Color.clear
@@ -410,9 +407,10 @@ struct ActivityDetailView: View {
         Day(dayIndex: 0, rating: rating).ratingDisplay
     }
 
-    /// "Your range 6 – 10am" / "Showing 7 – 11am" + return — 13pt secondary
-    /// text; the swap rolls (`numericText`), the return button fades in at
-    /// the line's end.
+    /// Row 1: "Your range 6 – 10am" — 13pt secondary text that never changes
+    /// with the carousel (a day jump to a different Range rolls it,
+    /// `numericText`); away from the Range the return button fades in at the
+    /// line's end.
     private func rangeLineView(_ line: RangeLine) -> some View {
         HStack(spacing: Theme.Spacing.xs) {
             Text(line.text)
@@ -457,49 +455,72 @@ struct ActivityDetailView: View {
                                             span: shownSpanScore?.window)
     }
 
-    // MARK: Span scoring — the third row (owner rulings 2026-11-04)
+    // MARK: Span scoring — row 2, the span action row (owner rulings 2026-11-04)
 
-    @ViewBuilder
+    /// The three row-2 states overlap in one leading-aligned slot, each laid
+    /// out 28pt tall with its leading edge on the column's left edge (the
+    /// Range text's and the − piece's x), so a swap (capsule → "Scored …",
+    /// capsule ↔ failure note) is a true crossfade with nothing shifting.
     private func spanRowView(_ row: SpanRow) -> some View {
-        switch row {
-        case .button(let window):
-            spanScoreButton(window)
-        case .failure:
-            Text("Couldn\u{2019}t score \u{2014} try again")
-                .font(.system(size: Layout.spanButtonFont))
-                .foregroundStyle(Theme.secondaryText)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-                .accessibilityIdentifier("detail.scoreError")
+        ZStack(alignment: .leading) {
+            switch row {
+            case .button(let window):
+                spanScoreButton(window)
+                    .transition(.opacity)
+            case .scored(let window):
+                Text(SpanScoring.scoredLabel(window))
+                    .font(.system(size: Layout.spanRowFont))
+                    .foregroundStyle(Theme.secondaryText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                    .frame(height: Layout.spanRowHeight, alignment: .leading)
+                    .accessibilityIdentifier("detail.scoredSpan")
+                    .transition(.opacity)
+            case .failure:
+                Text("Couldn\u{2019}t score \u{2014} try again")
+                    .font(.system(size: Layout.spanRowFont))
+                    .foregroundStyle(Theme.secondaryText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                    .frame(height: Layout.spanRowHeight, alignment: .leading)
+                    .accessibilityIdentifier("detail.scoreError")
+                    .transition(.opacity)
+            }
         }
     }
 
-    /// "Score 4 – 8pm": a tinted 13pt Semibold text button, padded to the
-    /// HIG 44pt target. Touch-down = `PressStyle`; release = the lift (a rise
-    /// past rest that falls back on a bouncy spring) + the impact haptic +
-    /// the request. No spinner: in flight it is disabled at 60%.
+    /// "Score 7 – 11am": a 28pt glass capsule (12pt side padding, 13pt
+    /// Semibold tinted label), its hit area padded to the HIG 44pt. Its own
+    /// glass container — the hero's wraps only the − / + row, and the
+    /// capsule must never blend into those pieces. The hit padding is grown
+    /// and given back (`padding` / `-padding`), so the LAID-OUT capsule is
+    /// 28pt tall at the column's left edge. Touch-down = `PressStyle`;
+    /// release = the shared lift (on the label, a render effect — the resting
+    /// layout never moves) + the impact haptic + the request. No spinner: in
+    /// flight it is disabled at 60%.
     private func spanScoreButton(_ window: WindowSpec) -> some View {
         let inFlight = scoringKey != nil && scoringKey == spanKey
-        let verticalPad = (Layout.minHitTarget - Layout.spanButtonHeight) / 2
-        return Button(action: scoreSpan) {
-            Text(SpanScoring.buttonLabel(window))
-                .font(.system(size: Layout.spanButtonFont, weight: .semibold))
-                .foregroundStyle(Theme.accentInteractive)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-                .opacity(inFlight ? Layout.inFlightOpacity : 1)
-                .frame(height: Layout.spanButtonHeight)
-                .padding(.vertical, verticalPad)
-                .padding(.horizontal, Layout.hitPad)
-                .contentShape(Rectangle())
-                .padding(.vertical, -verticalPad)
-                .padding(.horizontal, -Layout.hitPad)
+        return GlassGroup(spacing: Layout.spanCapsuleBlend) {
+            Button(action: scoreSpan) {
+                Text(SpanScoring.buttonLabel(window))
+                    .font(.system(size: Layout.spanRowFont, weight: .semibold))
+                    .foregroundStyle(Theme.accentInteractive)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                    .padding(.horizontal, Layout.spanCapsulePadding)
+                    .frame(height: Layout.spanRowHeight)
+                    .glassPieceSurface(in: Capsule(), enabled: !inFlight, fallback: .material)
+                    .opacity(inFlight ? Layout.inFlightOpacity : 1)
+                    .liftOnRelease(trigger: liftTick)
+                    .padding(.vertical, Layout.spanRowHitPad)
+                    .contentShape(Rectangle())
+                    .padding(.vertical, -Layout.spanRowHitPad)
+            }
+            .buttonStyle(PressStyle())
+            .disabled(inFlight)
+            .accessibilityIdentifier("detail.scoreSpan")
+            .accessibilityLabel(SpanScoring.buttonAccessibilityLabel(window))
         }
-        .buttonStyle(PressStyle())
-        .disabled(inFlight)
-        .liftOnRelease(trigger: liftTick)
-        .accessibilityIdentifier("detail.scoreSpan")
-        .accessibilityLabel(SpanScoring.buttonAccessibilityLabel(window))
     }
 
     /// How long the failure note holds the button's place.
@@ -846,8 +867,9 @@ struct ActivityDetailView: View {
 
 // MARK: Liquid Glass (experimental, iOS 26+)
 
-/// Groups the detail's glass pieces (the hero row's − / +, the edit circles)
-/// so they share one material under iOS 26; a plain pass-through below it.
+/// Groups the detail's glass pieces (the hero row's − / +, the span capsule,
+/// the edit circles — one container each) so the pieces in a group share one
+/// material under iOS 26; a plain pass-through below it.
 private struct GlassGroup<Content: View>: View {
     let spacing: CGFloat
     @ViewBuilder let content: Content
@@ -865,7 +887,8 @@ private struct GlassGroup<Content: View>: View {
 private enum GlassFallback {
     /// The flat recess-track fill (the − / + pieces).
     case track
-    /// Thin material with the cards' 0.5pt hairline (the edit circles).
+    /// Thin material with the cards' 0.5pt hairline (the span capsule, the
+    /// edit circles).
     case material
 }
 

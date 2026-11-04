@@ -77,62 +77,60 @@ enum Theme {
         static let ringToWord: CGFloat = 12
         /// The rating word's line (Semibold 12).
         static let wordHeight: CGFloat = 14
-        /// Ring + gap + word.
+        /// Ring + gap + word — the ring column in every state (owner ruling
+        /// 2026-11-04 removed the scored-span caption under the word).
         static let ringColumnHeight: CGFloat = ringDiameter + ringToWord + wordHeight
 
-        // The scored-span caption under the word (owner ruling 2026-11-04):
-        // "4 – 8pm", 11pt secondary text.
-        static let wordToCaption: CGFloat = 2
-        static let captionFont: CGFloat = 11
-        static let captionHeight: CGFloat = 13
-
-        /// The ring column, grown by the caption row while a span is scored.
-        static func ringColumnHeight(hasCaption: Bool) -> CGFloat {
-            hasCaption ? ringColumnHeight + wordToCaption + captionHeight : ringColumnHeight
-        }
-
-        // The line under the pill row: 13pt, `space/sm` below the row, as tall
-        // as its return button so the block never jumps when it appears.
+        // Row 1, the Range line under the pill row: 13pt, `space/sm` below
+        // the row, as tall as its return button so the line never jumps when
+        // the button appears at its end.
         static let rowToLine: CGFloat = Spacing.sm
         static let lineFont: CGFloat = 13
         static let returnPiece: CGFloat = 24
         static let lineHeight: CGFloat = returnPiece
 
-        // The span-score row under the line (owner ruling 2026-11-04): the
-        // "Score 4 – 8pm" text button, or its one-line failure note.
-        static let lineToSpanButton: CGFloat = Spacing.xs
-        static let spanButtonFont: CGFloat = 13
-        static let spanButtonHeight: CGFloat = 20
+        // Row 2, the span action row (owner rulings 2026-11-04), `rowToLine`
+        // under row 1 and only away from the Range: the glass "Score 7 –
+        // 11am" capsule, the quiet "Scored 7 – 11am" text, or the failure
+        // note — all in one constant-height slot so nothing below jumps.
+        static let spanRowHeight: CGFloat = 28
+        static let spanRowFont: CGFloat = 13
+        static let spanCapsulePadding: CGFloat = 12
+        /// Pads the 28pt capsule's hit area to the HIG 44pt target.
+        static let spanRowHitPad: CGFloat = (minHitTarget - spanRowHeight) / 2
+        /// The capsule's own glass container blend distance (it is not in
+        /// the − / + container, so it never melts into those pieces).
+        static let spanCapsuleBlend: CGFloat = 0
         /// The press lift: past rest by this much, then falls back.
         static let liftScale: CGFloat = 1.04
         static let liftRise: CGFloat = -4
         /// The in-flight label dims to this while the server scores the span.
         static let inFlightOpacity: Double = 0.6
 
-        /// The pill row (+ the line, + the span-score row) as one block. The
-        /// span-score row hangs under the line, so it needs the line.
-        static func rowColumnHeight(hasLine: Bool, hasButton: Bool = false) -> CGFloat {
+        /// The pill row (+ row 1, the Range line, + row 2, the span action
+        /// row) as one block. Row 2 hangs under row 1, so it needs the line.
+        static func rowColumnHeight(hasLine: Bool, hasSpanRow: Bool = false) -> CGFloat {
             guard hasLine else { return pillHeight }
             let line = pillHeight + rowToLine + lineHeight
-            return hasButton ? line + lineToSpanButton + spanButtonHeight : line
+            return hasSpanRow ? line + rowToLine + spanRowHeight : line
         }
 
         /// Where the row block starts below the hero's top inset: alone, the
         /// row sits level with the ring's centre line; with the line, the
-        /// row + line block centres on the (caption-less) ring column. The
-        /// span-score row and the caption never move it — the − / + row the
-        /// finger is on holds still while they come and go (fluid-interfaces
-        /// spatial consistency); the hero grows instead (`heroHeight`).
-        static func rowColumnTop(hasLine: Bool, hasButton: Bool = false, hasCaption: Bool = false) -> CGFloat {
+        /// row + line block centres on the ring column. Row 2 never moves it
+        /// — the − / + row the finger is on holds still while row 2 comes and
+        /// goes (fluid-interfaces spatial consistency); the hero grows
+        /// instead (`heroHeight`).
+        static func rowColumnTop(hasLine: Bool) -> CGFloat {
             hasLine ? (ringColumnHeight - rowColumnHeight(hasLine: true)) / 2
                     : (ringDiameter - pillHeight) / 2
         }
 
-        /// The hero's height: the taller column plus the insets.
-        static func heroHeight(hasLine: Bool, hasButton: Bool = false, hasCaption: Bool = false) -> CGFloat {
-            let row = rowColumnTop(hasLine: hasLine, hasButton: hasButton, hasCaption: hasCaption)
-                + rowColumnHeight(hasLine: hasLine, hasButton: hasButton)
-            return heroInset + Swift.max(ringColumnHeight(hasCaption: hasCaption), row) + heroBottom
+        /// The hero's height: the taller column plus the insets — 122 on the
+        /// Range (the ring column), 141 away with row 2.
+        static func heroHeight(hasLine: Bool, hasSpanRow: Bool = false) -> CGFloat {
+            let row = rowColumnTop(hasLine: hasLine) + rowColumnHeight(hasLine: hasLine, hasSpanRow: hasSpanRow)
+            return heroInset + Swift.max(ringColumnHeight, row) + heroBottom
         }
 
         /// Ring right edge → the pill column.
