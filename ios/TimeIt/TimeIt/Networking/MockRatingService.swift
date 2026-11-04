@@ -29,6 +29,16 @@ extension ForecastResponse {
     /// Good window tomorrow, a wrapped-window activity gets 6 night buckets
     /// with Perfect tonight; anything else all-null days. UI tests assert
     /// these exact indices.
+    ///
+    /// Span scoring (owner rulings 2026-11-04): a request for a SEEDED
+    /// activity (`PreviewFixtures.liveActivities`, matched by id) whose
+    /// `window` differs from the seed's own Range is the detail's span-score
+    /// call. It is answered first, before every rule above: every bucket
+    /// rates Good with score `60 + window.startHour` (Cycling's 6–10am Range
+    /// stepped once to 7–11am → Good 67), so a span score is deterministic,
+    /// distinct from the day's 86 / 1, and different per span. A seed sent
+    /// with its own Range (every dashboard load) never matches, so the
+    /// fixtures above are unchanged.
     static func uiTestFixture(for activities: [ActivityInput]) -> ForecastResponse {
         let hours = (0..<56).map { index in
             HourlyWeather(index: index,
@@ -54,6 +64,17 @@ extension ForecastResponse {
 
         let ratings = activities.enumerated().map { offset, input -> ActivityRating in
             let nocturnal = input.window?.isWrapped == true
+            if let window = input.window,
+               let seed = PreviewFixtures.liveActivities.first(where: { $0.id == input.id }),
+               seed.window != window {
+                let days = (0..<(nocturnal ? 6 : 7)).map {
+                    Day(dayIndex: $0, rating: .good, score: 60 + window.startHour)
+                }
+                return ActivityRating(activityId: input.id,
+                                      label: input.label,
+                                      displayMetrics: input.displayMetrics,
+                                      days: days)
+            }
             let days = (0..<(nocturnal ? 6 : 7)).map { dayIndex -> Day in
                 if nocturnal, dayIndex == 0 {
                     return Day(dayIndex: 0, rating: .perfect, startIndex: 18, endIndex: 22, duration: 4, score: 86)

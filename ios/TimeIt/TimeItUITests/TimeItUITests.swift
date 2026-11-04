@@ -804,6 +804,64 @@ final class TimeItUITests: XCTestCase {
         XCTAssertTrue(waitForLabel(row, "Hours 6am to 10am"), "got \(row.label)")
     }
 
+    /// Span scoring (owner rulings 2026-11-04): away from the Range, "Score
+    /// 7 – 11am" under the Showing line scores the shown hours on the server.
+    /// The mock answers a seeded activity sent with a non-seed window as Good
+    /// `60 + startHour` (7–11am → 67, 8am–12pm → 68 — see
+    /// `ForecastResponse.uiTestFixture`). The ring then reads the span's
+    /// score with a caption naming it; a new span or a return clears it.
+    func testScoreSpanScoresTheShownHoursAndClearsOnReturn() {
+        let app = launchApp()
+        let card = app.buttons["card.cycling"]
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        card.tap()
+        XCTAssertTrue(app.navigationBars["Cycling"].waitForExistence(timeout: 5))
+
+        let score = app.otherElements["detail.score"]
+        let scoreButton = app.buttons["detail.scoreSpan"]
+        let caption = app.staticTexts["detail.spanCaption"]
+        let row = app.descendants(matching: .any)["detail.hourStrip"]
+        XCTAssertEqual(score.label, "Perfect, score 86 out of 100")
+        XCTAssertFalse(scoreButton.exists, "no score button on the Range — the ring already scores it")
+
+        app.buttons["detail.stepForward"].tap()
+        XCTAssertTrue(waitForLabel(row, "Hours 7am to 11am"), "got \(row.label)")
+        XCTAssertTrue(scoreButton.waitForExistence(timeout: 2))
+        XCTAssertEqual(scoreButton.label, "Score 7 to 11am", "the button names the span")
+        // midY: the button's accessibility frame is its padded 44pt target.
+        XCTAssertGreaterThan(scoreButton.frame.midY, app.staticTexts["detail.rangeLine"].frame.maxY,
+                             "the button sits under the Showing line")
+        XCTAssertFalse(caption.exists)
+
+        scoreButton.tap()
+        XCTAssertTrue(caption.waitForExistence(timeout: 3), "the scored span is named under the word")
+        XCTAssertEqual(caption.label, "7 – 11am")
+        XCTAssertTrue(waitForLabel(score, "Good, score 67 out of 100 for 7 to 11am"), "got \(score.label)")
+        XCTAssertTrue(app.staticTexts["Good"].exists, "the word takes the span's verdict")
+        XCTAssertFalse(scoreButton.waitForExistence(timeout: 1), "the button goes once the span has a score")
+        attachScreenshot(app, named: "detail-span-scored")
+
+        // A new span clears the score: the ring is the day's again, the
+        // button is back for the new span.
+        app.buttons["detail.stepForward"].tap()
+        XCTAssertTrue(waitForLabel(row, "Hours 8am to 12pm"), "got \(row.label)")
+        XCTAssertTrue(waitForLabel(score, "Perfect, score 86 out of 100"), "got \(score.label)")
+        XCTAssertFalse(caption.exists, "a stale span score never stays on the ring")
+        XCTAssertTrue(scoreButton.waitForExistence(timeout: 2))
+        XCTAssertEqual(scoreButton.label, "Score 8am to 12pm")
+
+        scoreButton.tap()
+        XCTAssertTrue(waitForLabel(score, "Good, score 68 out of 100 for 8am to 12pm"), "got \(score.label)")
+        XCTAssertTrue(caption.waitForExistence(timeout: 2))
+
+        // Return clears it too.
+        app.buttons["detail.returnToRange"].tap()
+        XCTAssertTrue(waitForLabel(row, "Hours 6am to 10am"), "got \(row.label)")
+        XCTAssertTrue(waitForLabel(score, "Perfect, score 86 out of 100"), "got \(score.label)")
+        XCTAssertFalse(caption.exists, "the caption goes on return")
+        XCTAssertFalse(scoreButton.exists, "no button back on the Range")
+    }
+
     /// Item 2: pulling the dashboard list down refreshes it in place — the
     /// cards stay rendered through and after the pull (the mock refetch).
     func testDashboardPullToRefreshKeepsTheListRendered() {

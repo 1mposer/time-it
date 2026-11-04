@@ -49,6 +49,9 @@ struct ScoreRingView: View {
                     .font(.system(size: style.numeralSize, weight: .semibold))
                     .tracking(style.numeralTracking)
                     .foregroundStyle(tint)
+                    // The numeral counts to a new score (a scored span on
+                    // the detail hero) rather than crossfading.
+                    .contentTransition(.numericText(value: Double(score ?? 0)))
             }
         }
         .frame(width: style.diameter, height: style.diameter)

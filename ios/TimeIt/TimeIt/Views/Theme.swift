@@ -80,6 +80,17 @@ enum Theme {
         /// Ring + gap + word.
         static let ringColumnHeight: CGFloat = ringDiameter + ringToWord + wordHeight
 
+        // The scored-span caption under the word (owner ruling 2026-11-04):
+        // "4 – 8pm", 11pt secondary text.
+        static let wordToCaption: CGFloat = 2
+        static let captionFont: CGFloat = 11
+        static let captionHeight: CGFloat = 13
+
+        /// The ring column, grown by the caption row while a span is scored.
+        static func ringColumnHeight(hasCaption: Bool) -> CGFloat {
+            hasCaption ? ringColumnHeight + wordToCaption + captionHeight : ringColumnHeight
+        }
+
         // The line under the pill row: 13pt, `space/sm` below the row, as tall
         // as its return button so the block never jumps when it appears.
         static let rowToLine: CGFloat = Spacing.sm
@@ -87,23 +98,41 @@ enum Theme {
         static let returnPiece: CGFloat = 24
         static let lineHeight: CGFloat = returnPiece
 
-        /// The pill row (+ the line under it) as one block.
-        static func rowColumnHeight(hasLine: Bool) -> CGFloat {
-            hasLine ? pillHeight + rowToLine + lineHeight : pillHeight
+        // The span-score row under the line (owner ruling 2026-11-04): the
+        // "Score 4 – 8pm" text button, or its one-line failure note.
+        static let lineToSpanButton: CGFloat = Spacing.xs
+        static let spanButtonFont: CGFloat = 13
+        static let spanButtonHeight: CGFloat = 20
+        /// The press lift: past rest by this much, then falls back.
+        static let liftScale: CGFloat = 1.04
+        static let liftRise: CGFloat = -4
+        /// The in-flight label dims to this while the server scores the span.
+        static let inFlightOpacity: Double = 0.6
+
+        /// The pill row (+ the line, + the span-score row) as one block. The
+        /// span-score row hangs under the line, so it needs the line.
+        static func rowColumnHeight(hasLine: Bool, hasButton: Bool = false) -> CGFloat {
+            guard hasLine else { return pillHeight }
+            let line = pillHeight + rowToLine + lineHeight
+            return hasButton ? line + lineToSpanButton + spanButtonHeight : line
         }
 
         /// Where the row block starts below the hero's top inset: alone, the
         /// row sits level with the ring's centre line; with the line, the
-        /// block centres on the ring column.
-        static func rowColumnTop(hasLine: Bool) -> CGFloat {
+        /// row + line block centres on the (caption-less) ring column. The
+        /// span-score row and the caption never move it — the − / + row the
+        /// finger is on holds still while they come and go (fluid-interfaces
+        /// spatial consistency); the hero grows instead (`heroHeight`).
+        static func rowColumnTop(hasLine: Bool, hasButton: Bool = false, hasCaption: Bool = false) -> CGFloat {
             hasLine ? (ringColumnHeight - rowColumnHeight(hasLine: true)) / 2
                     : (ringDiameter - pillHeight) / 2
         }
 
         /// The hero's height: the taller column plus the insets.
-        static func heroHeight(hasLine: Bool) -> CGFloat {
-            let row = rowColumnTop(hasLine: hasLine) + rowColumnHeight(hasLine: hasLine)
-            return heroInset + Swift.max(ringColumnHeight, row) + heroBottom
+        static func heroHeight(hasLine: Bool, hasButton: Bool = false, hasCaption: Bool = false) -> CGFloat {
+            let row = rowColumnTop(hasLine: hasLine, hasButton: hasButton, hasCaption: hasCaption)
+                + rowColumnHeight(hasLine: hasLine, hasButton: hasButton)
+            return heroInset + Swift.max(ringColumnHeight(hasCaption: hasCaption), row) + heroBottom
         }
 
         /// Ring right edge → the pill column.
@@ -116,6 +145,8 @@ enum Theme {
         static let stepToViewport: CGFloat = Spacing.xs
         /// Pads the 24pt pieces to the HIG 44pt target.
         static let hitPad: CGFloat = 10
+        /// The HIG minimum hit target.
+        static let minHitTarget: CGFloat = 44
 
         /// The metric card's inner inset.
         static let metricInset: CGFloat = 20
@@ -133,6 +164,11 @@ enum Theme {
         /// A press releasing: instant on, slower off.
         static let pressRelease = Animation.spring(duration: 0.3)
         static let pressScale: CGFloat = 0.97
+        /// The span-score button's "lift and fall" on release (owner ruling
+        /// 2026-11-04): a quick rise past rest, then a bouncy fall back.
+        static let liftRiseSpring = Spring(response: 0.15, dampingRatio: 1)
+        static let liftSpring = Spring(response: 0.4, dampingRatio: 0.6)
+        static let lift = Animation.spring(liftSpring)
     }
 
     /// Light-mode card elevation — Figma "Card Float" (y4, blur 16, black
