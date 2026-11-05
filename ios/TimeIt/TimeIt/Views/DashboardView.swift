@@ -464,6 +464,9 @@ struct DashboardView: View {
                         pushCallout
                             .transition(.deReveal(anchor: .topTrailing, reduceMotion: reduceMotion))
                             .offset(y: staggerOffset(at: 0))
+                            // Above its siblings, so the cards sliding up
+                            // pass behind the shrinking callout, not over it.
+                            .zIndex(1)
                     }
                     if isBetaBuild {
                         betaBanner
