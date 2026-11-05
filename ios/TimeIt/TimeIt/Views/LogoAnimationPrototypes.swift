@@ -37,7 +37,7 @@ struct LogoMark: View {
         .frame(width: size, height: size)
         .rotationEffect(orbit, anchor: LogoGeometry.centroidAnchor)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Time It")
+        .accessibilityLabel("Time it")
         .accessibilityAddTraits(.isImage)
     }
 
@@ -88,8 +88,11 @@ struct LogoStaticScreen: View {
 
 // MARK: - Variants
 
-/// 1 · Converge — each circle starts off its own edge (cool bottom-left, mid
-/// top, hot bottom-right) and springs in, staggered 0.1s. ~1.3s.
+/// 1 · Converge (owner pick) — each circle starts off its own edge (cool
+/// bottom-left, mid top, hot bottom-right) and springs in, staggered 0.1s
+/// (~1.3s). Then: hold 0.28s → the mark rises (critically damped, 0.6s) until
+/// the whole mark + name lockup is centred → 60% into the rise the name
+/// fades in drifting up 9pt (0.48s) → hold 0.5s → `onFinished`. ~2.9s total.
 struct LogoConvergeAnimation: View {
     var onFinished: () -> Void = {}
 
@@ -98,12 +101,18 @@ struct LogoConvergeAnimation: View {
         .mid: LogoPose(drift: CGSize(width: 0, height: -0.75), opacity: 0),
         .hot: LogoPose(drift: CGSize(width: 0.75, height: 0.35), opacity: 0),
     ]
+    @State private var risen = false
+    @State private var nameShown = false
 
     var body: some View {
-        LogoScreen { size in LogoMark(size: size, poses: poses) }
-            // onAppear sits inside the fallback, so Reduce Motion never runs `play`.
-            .onAppear(perform: play)
-            .logoReduceMotionFallback(onFinished: onFinished)
+        LogoScreen { size in
+            LogoLockup(size: size, poses: poses, risen: risen, nameShown: nameShown)
+        }
+        // onAppear sits inside the fallback, so Reduce Motion never runs `play`.
+        .onAppear(perform: play)
+        .logoReduceMotionFallback(onFinished: onFinished) {
+            LogoScreen { size in LogoLockup(size: size) }
+        }
     }
 
     private func play() {
@@ -111,7 +120,22 @@ struct LogoConvergeAnimation: View {
                            step: 0.1,
                            animation: .spring(duration: 1.1, bounce: 0.28),
                            apply: { poses[$0] = .rest },
-                           onFinished: onFinished)
+                           onFinished: reveal)
+    }
+
+    /// Phase 2, from the moment the circles settle. Bounce 0 on both — the
+    /// rise isn't thrown by anything, so it hasn't earned an overshoot.
+    private func reveal() {
+        let hold = 0.28, rise = 0.6
+        withAnimation(.spring(duration: rise, bounce: 0).delay(hold)) { risen = true }
+        withAnimation(.spring(duration: 0.48, bounce: 0).delay(hold + rise * 0.6)) {
+            nameShown = true
+        } completion: {
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(0.5))
+                onFinished()
+            }
+        }
     }
 }
 
@@ -178,6 +202,80 @@ struct LogoOrbitAnimation: View {
     }
 }
 
+// MARK: - Lockup
+
+/// The mark with the "Time it" wordmark under it — Figma Cover Hero (93:15):
+/// SF Pro Bold, tracking −1.5 at 64pt, #1C1C1E, mark above name. Figma's
+/// ratios are against a 180pt *tile*; with the tile gone they are mapped onto
+/// the circles: the gap runs from the circles' visible bottom (not the virtual
+/// tile edge, which would leave ~0.18 tile of dead cream) and the type is
+/// 0.30 tile rather than Figma's 0.36 — at 0.36 the name reads ~1.6× the
+/// circles' width and outweighs a mark that no longer has a tile's mass.
+/// `risen` lifts the mark so the lockup (circle tops → name baseline) is
+/// optically centred on screen; the rise is derived from the lockup height.
+/// The default arguments are the end frame (Reduce Motion shows exactly it).
+private struct LogoLockup: View {
+    let size: CGFloat
+    var poses: [LogoCircle: LogoPose] = LogoPose.restPoses
+    var risen = true
+    var nameShown = true
+
+    var body: some View {
+        let m = LogoLockupMetrics(size: size)
+        LogoMark(size: size, poses: poses)
+            .overlay {
+                Text("Time it")
+                    // A fixed size on purpose: this is a logo lockup, so it
+                    // never scales with Dynamic Type (`.system(size:)` is
+                    // un-scaled; the label below carries it for VoiceOver).
+                    .font(.system(size: m.fontSize, weight: .bold))
+                    .tracking(m.tracking)
+                    .foregroundStyle(LogoPalette.wordmark)
+                    .lineLimit(1)
+                    .fixedSize()
+                    // Pin the baseline, not the text box, to the mark centre.
+                    .alignmentGuide(VerticalAlignment.center) { $0[.firstTextBaseline] }
+                    .offset(y: m.baselineY + (nameShown ? 0 : LogoLockupMetrics.nameDrift))
+                    .opacity(nameShown ? 1 : 0)
+            }
+            .offset(y: risen ? m.risenMarkY : 0)
+            // One element for the whole lockup; the circles are decorative.
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Time it")
+            .accessibilityAddTraits(.isImage)
+    }
+}
+
+/// Lockup layout, in points, for a circle group of `size` (the virtual tile).
+private struct LogoLockupMetrics {
+    /// Wordmark size and mark-to-name gap, in tile widths (see `LogoLockup`).
+    static let fontScale: CGFloat = 0.30
+    static let gapScale: CGFloat = 0.155
+    /// How far below its rest spot the name starts before drifting up.
+    static let nameDrift: CGFloat = 9
+
+    let fontSize: CGFloat
+    let tracking: CGFloat
+    /// Name baseline, measured down from the mark's centre.
+    let baselineY: CGFloat
+    /// Mark-centre offset that centres the lockup on screen (negative = up).
+    let risenMarkY: CGFloat
+
+    init(size: CGFloat) {
+        fontSize = size * Self.fontScale
+        tracking = -1.5 / 64 * fontSize
+        // Visible circle extent: the top circle's top, the lower pair's bottom.
+        let r = LogoGeometry.diameter / 2
+        let top = (LogoCircle.mid.restOffset.height - r) * size
+        let bottom = (LogoCircle.cool.restOffset.height + r) * size
+        // "Time it" has no descenders, so its ink runs cap height → baseline.
+        let capHeight = UIFont.systemFont(ofSize: fontSize, weight: .bold).capHeight
+        baselineY = bottom + size * Self.gapScale + capHeight
+        let lockupHeight = baselineY - top
+        risenMarkY = -lockupHeight / 2 - top
+    }
+}
+
 // MARK: - Model
 
 /// One circle's animated state, in group-size units. `rest` is the icon.
@@ -238,6 +336,8 @@ private enum LogoGeometry {
 /// hand-off from launch screen to animation is seamless.
 private enum LogoPalette {
     static let background = Color("LaunchBackground")
+    /// The wordmark ink — Figma's #1C1C1E (the cream background is light-only).
+    static let wordmark = Color(hex: 0x1C1C1E)
 
     static func band(_ circle: LogoCircle) -> (start: UInt32, end: UInt32) {
         switch circle {
@@ -269,17 +369,19 @@ private enum LogoTiming {
 
 // MARK: - Reduce Motion
 
-/// With Reduce Motion on, every variant collapses to the static mark fading
-/// in (0.4s) — the motion variant underneath is replaced, never played.
-private struct LogoReduceMotionFallback: ViewModifier {
+/// With Reduce Motion on, every variant collapses to its end frame fading
+/// in (0.4s) — the static mark, or Converge's lockup — and the motion variant
+/// underneath is replaced, never played.
+private struct LogoReduceMotionFallback<EndFrame: View>: ViewModifier {
     let onFinished: () -> Void
+    let endFrame: EndFrame
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var visible = false
 
     func body(content: Content) -> some View {
         if reduceMotion {
-            LogoStaticScreen()
+            endFrame
                 .opacity(visible ? 1 : 0)
                 .onAppear {
                     withAnimation(.easeOut(duration: 0.4)) { visible = true } completion: { onFinished() }
@@ -292,12 +394,20 @@ private struct LogoReduceMotionFallback: ViewModifier {
 
 private extension View {
     func logoReduceMotionFallback(onFinished: @escaping () -> Void) -> some View {
-        modifier(LogoReduceMotionFallback(onFinished: onFinished))
+        logoReduceMotionFallback(onFinished: onFinished) { LogoStaticScreen() }
+    }
+
+    func logoReduceMotionFallback<EndFrame: View>(
+        onFinished: @escaping () -> Void,
+        @ViewBuilder endFrame: () -> EndFrame
+    ) -> some View {
+        modifier(LogoReduceMotionFallback(onFinished: onFinished, endFrame: endFrame()))
     }
 }
 
 #if DEBUG
-/// Tap anywhere to replay — `.id` rebuilds the variant from its start pose.
+/// Tap anywhere to replay — `.id` rebuilds the variant from its start pose
+/// (for Converge, the whole sequence: circles, rise and wordmark).
 private struct LogoReplayPreview<Content: View>: View {
     @ViewBuilder let content: () -> Content
     @State private var replay = 0
@@ -308,6 +418,10 @@ private struct LogoReplayPreview<Content: View>: View {
             .contentShape(Rectangle())
             .onTapGesture { replay += 1 }
     }
+}
+
+#Preview("Logo · lockup end frame") {
+    LogoScreen { size in LogoLockup(size: size) }
 }
 
 #Preview("Logo · static mark") {
