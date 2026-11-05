@@ -8,22 +8,14 @@ import SwiftUI
 /// The app mark — Figma component "Size=1024" (93:2): three translucent
 /// identity-temperature circles in a Venn — drawn tile-less, straight onto
 /// the screen (`LogoScreen` supplies the cream). Geometry measured off the
-/// 1024 `AppIcon.png`, as fractions of the (virtual) tile width. The animation draws through this one view
-/// and settles on `LogoPose.rest`, so the end frame IS the static mark.
+/// 1024 `AppIcon.png`, as fractions of the (virtual) tile width. The
+/// animation draws through this one view and settles on `LogoPose.rest`, so
+/// the end frame IS the static mark.
 struct LogoMark: View {
     /// Scale of the circle group — the width of the virtual tile the Venn
     /// proportions are measured against (nothing is drawn at that size).
     let size: CGFloat
     fileprivate var poses: [LogoCircle: LogoPose] = LogoPose.restPoses
-
-    init(size: CGFloat) {
-        self.size = size
-    }
-
-    fileprivate init(size: CGFloat, poses: [LogoCircle: LogoPose]) {
-        self.size = size
-        self.poses = poses
-    }
 
     var body: some View {
         ZStack {
@@ -72,13 +64,6 @@ struct LogoScreen<Content: View>: View {
     }
 }
 
-/// The static mark as a full-screen opening screen.
-struct LogoStaticScreen: View {
-    var body: some View {
-        LogoScreen { size in LogoMark(size: size) }
-    }
-}
-
 // MARK: - Converge
 
 /// Converge (owner pick) — each circle starts off its own edge (cool
@@ -104,17 +89,21 @@ struct LogoConvergeAnimation: View {
         }
         // onAppear sits inside the fallback, so Reduce Motion never runs `play`.
         .onAppear(perform: play)
-        .logoReduceMotionFallback(onFinished: onFinished) {
-            LogoScreen { size in LogoLockup(size: size) }
-        }
+        .logoReduceMotionFallback(onFinished: onFinished)
     }
 
+    /// Phase 1 — the circles spring in 0.1s apart; phase 2 rides the last
+    /// circle's completion, so it starts once the final one lands.
     private func play() {
-        LogoTiming.stagger(LogoCircle.entranceOrder,
-                           step: 0.1,
-                           animation: .spring(duration: 1.3, bounce: 0.28),
-                           apply: { poses[$0] = .rest },
-                           onFinished: reveal)
+        let order = LogoCircle.entranceOrder
+        for (i, circle) in order.enumerated() {
+            let spring = Animation.spring(duration: 1.3, bounce: 0.28).delay(0.1 * Double(i))
+            if i == order.count - 1 {
+                withAnimation(spring) { poses[circle] = .rest } completion: { reveal() }
+            } else {
+                withAnimation(spring) { poses[circle] = .rest }
+            }
+        }
     }
 
     /// Phase 2, from the moment the circles settle. Bounce 0 on both — the
@@ -277,39 +266,19 @@ private enum LogoPalette {
     }
 }
 
-private enum LogoTiming {
-    /// Runs `apply` per item with a growing delay; `onFinished` rides the
-    /// last item's completion, so it fires after the final stagger lands.
-    static func stagger(_ items: [LogoCircle],
-                        step: Double,
-                        animation: Animation,
-                        apply: @escaping (LogoCircle) -> Void,
-                        onFinished: @escaping () -> Void) {
-        for (i, item) in items.enumerated() {
-            let delayed = animation.delay(step * Double(i))
-            if i == items.count - 1 {
-                withAnimation(delayed) { apply(item) } completion: { onFinished() }
-            } else {
-                withAnimation(delayed) { apply(item) }
-            }
-        }
-    }
-}
-
 // MARK: - Reduce Motion
 
-/// With Reduce Motion on, the animation collapses to its end frame fading
-/// in (0.4s) and the motion underneath is replaced, never played.
-private struct LogoReduceMotionFallback<EndFrame: View>: ViewModifier {
+/// With Reduce Motion on, Converge collapses to its end frame — the risen
+/// lockup — fading in (0.4s); the motion underneath is replaced, never played.
+private struct LogoReduceMotionFallback: ViewModifier {
     let onFinished: () -> Void
-    let endFrame: EndFrame
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var visible = false
 
     func body(content: Content) -> some View {
         if reduceMotion {
-            endFrame
+            LogoScreen { size in LogoLockup(size: size) }
                 .opacity(visible ? 1 : 0)
                 .onAppear {
                     withAnimation(.easeOut(duration: 0.4)) { visible = true } completion: { onFinished() }
@@ -321,11 +290,8 @@ private struct LogoReduceMotionFallback<EndFrame: View>: ViewModifier {
 }
 
 private extension View {
-    func logoReduceMotionFallback<EndFrame: View>(
-        onFinished: @escaping () -> Void,
-        @ViewBuilder endFrame: () -> EndFrame
-    ) -> some View {
-        modifier(LogoReduceMotionFallback(onFinished: onFinished, endFrame: endFrame()))
+    func logoReduceMotionFallback(onFinished: @escaping () -> Void) -> some View {
+        modifier(LogoReduceMotionFallback(onFinished: onFinished))
     }
 }
 
@@ -385,7 +351,7 @@ struct LogoOpeningSequence<App: View>: View {
         switch reveal {
         case .curtain: return .move(edge: .top)
         case .zoomThrough: return .scale(scale: 3).combined(with: .opacity)
-        case .iris: return .identity
+        case .iris: return .identity // never used — iris exits through its mask
         }
     }
 
