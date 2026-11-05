@@ -206,7 +206,7 @@ struct LogoOrbitAnimation: View {
 
 /// The mark with the "Time it" wordmark under it — Figma Cover Hero (93:15):
 /// #1C1C1E, mark above name. Owner (2026-11-05): thin, not Figma's SF Pro
-/// Bold — light weight, untracked, 0.20 tile. Figma's
+/// Bold — light weight, lightly tracked, 0.20 tile. Figma's
 /// ratios are against a 180pt *tile*; with the tile gone they are mapped onto
 /// the circles: the gap runs from the circles' visible bottom (not the virtual
 /// tile edge, which would leave ~0.18 tile of dead cream) and the type is
@@ -264,7 +264,7 @@ private struct LogoLockupMetrics {
 
     init(size: CGFloat) {
         fontSize = size * Self.fontScale
-        tracking = 0
+        tracking = 0.04 * fontSize // a pinch of air (owner, 2026-11-05)
         // Visible circle extent: the top circle's top, the lower pair's bottom.
         let r = LogoGeometry.diameter / 2
         let top = (LogoCircle.mid.restOffset.height - r) * size
