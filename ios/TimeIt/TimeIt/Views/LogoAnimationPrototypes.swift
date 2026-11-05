@@ -205,12 +205,13 @@ struct LogoOrbitAnimation: View {
 // MARK: - Lockup
 
 /// The mark with the "Time it" wordmark under it — Figma Cover Hero (93:15):
-/// SF Pro Bold, tracking −1.5 at 64pt, #1C1C1E, mark above name. Figma's
+/// #1C1C1E, mark above name. Owner (2026-11-05): thin, not Figma's SF Pro
+/// Bold — light weight, untracked, 0.20 tile. Figma's
 /// ratios are against a 180pt *tile*; with the tile gone they are mapped onto
 /// the circles: the gap runs from the circles' visible bottom (not the virtual
 /// tile edge, which would leave ~0.18 tile of dead cream) and the type is
-/// 0.30 tile rather than Figma's 0.36 — at 0.36 the name reads ~1.6× the
-/// circles' width and outweighs a mark that no longer has a tile's mass.
+/// well under Figma's 0.36 tile, so the name sits beneath the mark rather
+/// than outweighing it.
 /// `risen` lifts the mark so the lockup (circle tops → name baseline) is
 /// optically centred on screen; the rise is derived from the lockup height.
 /// The default arguments are the end frame (Reduce Motion shows exactly it).
@@ -228,7 +229,7 @@ private struct LogoLockup: View {
                     // A fixed size on purpose: this is a logo lockup, so it
                     // never scales with Dynamic Type (`.system(size:)` is
                     // un-scaled; the label below carries it for VoiceOver).
-                    .font(.system(size: m.fontSize, weight: .bold))
+                    .font(.system(size: m.fontSize, weight: .light))
                     .tracking(m.tracking)
                     .foregroundStyle(LogoPalette.wordmark)
                     .lineLimit(1)
@@ -249,7 +250,7 @@ private struct LogoLockup: View {
 /// Lockup layout, in points, for a circle group of `size` (the virtual tile).
 private struct LogoLockupMetrics {
     /// Wordmark size and mark-to-name gap, in tile widths (see `LogoLockup`).
-    static let fontScale: CGFloat = 0.30
+    static let fontScale: CGFloat = 0.20
     static let gapScale: CGFloat = 0.155
     /// How far below its rest spot the name starts before drifting up.
     static let nameDrift: CGFloat = 9
@@ -263,13 +264,13 @@ private struct LogoLockupMetrics {
 
     init(size: CGFloat) {
         fontSize = size * Self.fontScale
-        tracking = -1.5 / 64 * fontSize
+        tracking = 0
         // Visible circle extent: the top circle's top, the lower pair's bottom.
         let r = LogoGeometry.diameter / 2
         let top = (LogoCircle.mid.restOffset.height - r) * size
         let bottom = (LogoCircle.cool.restOffset.height + r) * size
         // "Time it" has no descenders, so its ink runs cap height → baseline.
-        let capHeight = UIFont.systemFont(ofSize: fontSize, weight: .bold).capHeight
+        let capHeight = UIFont.systemFont(ofSize: fontSize, weight: .light).capHeight
         baselineY = bottom + size * Self.gapScale + capHeight
         let lockupHeight = baselineY - top
         risenMarkY = -lockupHeight / 2 - top
