@@ -20,8 +20,9 @@ struct PressStyle: ButtonStyle {
 /// `Theme.Motion.liftRiseSpring`), then the bouncy `Theme.Motion.liftSpring`
 /// fall back. Pairs with `PressStyle` (touch-down) on the span-score button
 /// and the detail's edit circles — one implementation for both. Each bump of
-/// `trigger` plays it once; under Reduce Motion it never plays, so callers
-/// bump unconditionally.
+/// `trigger` plays it once; under Reduce Motion the keyframes are identity
+/// (no scale, no travel), so callers bump unconditionally — and toggling
+/// Reduce Motion never changes the trigger, so it never plays a lift.
 struct LiftOnRelease: ViewModifier {
     let trigger: Int
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -36,18 +37,22 @@ struct LiftOnRelease: ViewModifier {
     static let riseDuration: TimeInterval = 0.12
 
     func body(content: Content) -> some View {
-        // nil under Reduce Motion: the trigger holds still, nothing plays.
-        content.keyframeAnimator(initialValue: Lift(), trigger: reduceMotion ? nil : trigger) { content, lift in
+        // Keyed on `trigger` alone: a Reduce Motion toggle must not flip the
+        // trigger (nil → N would play a lift on every visible control).
+        // Under Reduce Motion the keyframes hold rest — nothing moves.
+        let scale = reduceMotion ? 1 : Theme.Detail.liftScale
+        let rise = reduceMotion ? 0 : Theme.Detail.liftRise
+        return content.keyframeAnimator(initialValue: Lift(), trigger: trigger) { content, lift in
             content
                 .scaleEffect(lift.scale)
                 .offset(y: lift.rise)
         } keyframes: { _ in
             KeyframeTrack(\.scale) {
-                SpringKeyframe(Theme.Detail.liftScale, duration: Self.riseDuration, spring: Theme.Motion.liftRiseSpring)
+                SpringKeyframe(scale, duration: Self.riseDuration, spring: Theme.Motion.liftRiseSpring)
                 SpringKeyframe(1, spring: Theme.Motion.liftSpring)
             }
             KeyframeTrack(\.rise) {
-                SpringKeyframe(Theme.Detail.liftRise, duration: Self.riseDuration, spring: Theme.Motion.liftRiseSpring)
+                SpringKeyframe(rise, duration: Self.riseDuration, spring: Theme.Motion.liftRiseSpring)
                 SpringKeyframe(0, spring: Theme.Motion.liftSpring)
             }
         }
