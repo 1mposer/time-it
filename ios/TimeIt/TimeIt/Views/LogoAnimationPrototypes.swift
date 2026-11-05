@@ -94,6 +94,9 @@ struct LogoStaticScreen: View {
 /// the whole mark + name lockup is centred → 60% into the rise the name
 /// fades in drifting up 9pt (0.48s) → hold 0.5s → `onFinished`. ~2.9s total.
 struct LogoConvergeAnimation: View {
+    /// Extra rise above the centred lockup, in tile widths (owner, 2026-11-05:
+    /// "go up a bit more" — the three candidates are `LogoLift`).
+    var lift: CGFloat = LogoLift.medium
     var onFinished: () -> Void = {}
 
     @State private var poses: [LogoCircle: LogoPose] = [
@@ -106,12 +109,12 @@ struct LogoConvergeAnimation: View {
 
     var body: some View {
         LogoScreen { size in
-            LogoLockup(size: size, poses: poses, risen: risen, nameShown: nameShown)
+            LogoLockup(size: size, poses: poses, risen: risen, nameShown: nameShown, lift: lift)
         }
         // onAppear sits inside the fallback, so Reduce Motion never runs `play`.
         .onAppear(perform: play)
         .logoReduceMotionFallback(onFinished: onFinished) {
-            LogoScreen { size in LogoLockup(size: size) }
+            LogoScreen { size in LogoLockup(size: size, lift: lift) }
         }
     }
 
@@ -220,6 +223,7 @@ private struct LogoLockup: View {
     var poses: [LogoCircle: LogoPose] = LogoPose.restPoses
     var risen = true
     var nameShown = true
+    var lift: CGFloat = 0
 
     var body: some View {
         let m = LogoLockupMetrics(size: size)
@@ -239,7 +243,7 @@ private struct LogoLockup: View {
                     .offset(y: m.baselineY + (nameShown ? 0 : LogoLockupMetrics.nameDrift))
                     .opacity(nameShown ? 1 : 0)
             }
-            .offset(y: risen ? m.risenMarkY : 0)
+            .offset(y: risen ? m.risenMarkY - lift * size : 0)
             // One element for the whole lockup; the circles are decorative.
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Time it")
@@ -441,6 +445,18 @@ private struct LogoReplayPreview<Content: View>: View {
     LogoReplayPreview { LogoOrbitAnimation() }
 }
 
+#Preview("Logo · Converge lift · side by side") {
+    HStack(spacing: 12) {
+        ForEach(LogoLift.all, id: \.name) { option in
+            LogoReplayPreview { LogoConvergeAnimation(lift: option.lift) }
+                .aspectRatio(9.0 / 19.5, contentMode: .fit)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay(alignment: .bottom) { Text(option.name).font(.caption).padding(6) }
+        }
+    }
+    .padding(12)
+}
+
 #Preview("Logo · side by side") {
     // Three phone-aspect panels; the clip is preview-only, for the comparison.
     HStack(spacing: 12) {
@@ -459,3 +475,16 @@ private struct LogoReplayPreview<Content: View>: View {
     .padding(12)
 }
 #endif
+
+/// The three rise heights on the table for the Converge lockup, in tile widths
+/// above optical centre (~0.6 screen width per tile, so 0.2 ≈ 47pt on a 393pt
+/// screen).
+enum LogoLift {
+    static let slight: CGFloat = 0.2
+    static let medium: CGFloat = 0.4
+    static let high: CGFloat = 0.65
+
+    static let all: [(name: String, lift: CGFloat)] = [
+        ("A · slight", slight), ("B · medium", medium), ("C · high", high),
+    ]
+}
