@@ -1,10 +1,12 @@
 import SwiftUI
 
-/// Gradient dashboard header: Active location name, wall-clock time, and the
-/// forecast location's current-hour weather (temp/wind/humidity from
-/// `hours[0]`). Falls back to `—` while loading, on error, or when a metric
-/// is missing; in the no-location state the weather rows hide entirely
-/// (`showsWeather`) — no fabricated conditions. Top-right control is the
+/// Gradient dashboard header: Active location name, the current-hour
+/// temperature as the big numeral, and a meta line of wall-clock time +
+/// wind + humidity (from `hours[0]`; FIGMA.md §12 ruling 7). The numeral
+/// falls back to `—°` while loading or on error, and a missing wind or
+/// humidity drops its segment; in the no-location state the numeral and the
+/// weather segments hide entirely (`showsWeather`) — no fabricated
+/// conditions — and the meta line keeps only the clock. Top-right control is the
 /// Settings gear — no sign-in (ADR-0001).
 struct HeaderView: View {
     /// Active location's display name (picked city, "Current location", or
@@ -37,76 +39,86 @@ struct HeaderView: View {
         return date.formatted(style)
     }
 
-    private var tempText: String {
-        guard let t = currentHour?.temp else { return "—°C" }
-        return "\(Int(t.rounded()))°C"
+    /// The meta line at `date`: the clock alone in the no-location state,
+    /// else clock + whatever weather the hour carries.
+    private func metaSegments(at date: Date) -> [HeaderCopy.MetaSegment] {
+        let clock = Self.clockText(for: date, timezoneIdentifier: timezoneIdentifier)
+        guard showsWeather else { return [.clock(clock)] }
+        return HeaderCopy.metaSegments(clock: clock,
+                                       windKmh: currentHour?.windSpeed,
+                                       humidity: currentHour?.humidity,
+                                       windUnit: windUnit)
     }
 
-    private var windText: String {
-        guard let w = currentHour?.windSpeed else { return "— \(windUnit.label)" }
-        return "\(Int(windUnit.fromKmh(w).rounded())) \(windUnit.label)"
-    }
-
-    private var humidityText: String {
-        guard let h = currentHour?.humidity else { return "—%" }
-        return "\(Int(h.rounded()))%"
+    @ViewBuilder
+    private func metaItem(_ segment: HeaderCopy.MetaSegment) -> some View {
+        switch segment {
+        case .clock(let text):
+            Text(text)
+                .accessibilityIdentifier("headerTime")
+        case .wind(let text):
+            HStack(spacing: 4) {
+                ActivityIconView(identifier: "wind", size: 11)
+                    .opacity(0.85)
+                    .accessibilityLabel("Wind")
+                Text(text)
+            }
+        case .humidity(let text):
+            HStack(spacing: 4) {
+                ActivityIconView(identifier: "humidity.fill", size: 11)
+                    .opacity(0.85)
+                    .accessibilityLabel("Humidity")
+                Text(text)
+            }
+        }
     }
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
-            VStack(spacing: 4) {
+            VStack(spacing: 0) {
                 Text((locationName ?? "No location").uppercased())
                     .font(.system(size: 11, weight: .medium))
                     .tracking(1.4)
                     .foregroundStyle(Theme.onGradient.opacity(0.85))
                     .accessibilityIdentifier("headerLocation")
 
-                TimelineView(.everyMinute) { context in
-                    Text(Self.clockText(for: context.date, timezoneIdentifier: timezoneIdentifier))
-                        .font(.system(size: 60, weight: .bold, design: .default))
+                if showsWeather {
+                    // The temperature numeral (rulings 7 / 6b / 8a): light,
+                    // with a firmer shadow and a local scrim — a soft dark
+                    // pool centred on it — so it reads over the lighter melt.
+                    Text(HeaderCopy.numeral(temp: currentHour?.temp))
+                        .font(.system(size: 60, weight: .light))
                         .tracking(-2.5)
                         .foregroundStyle(Theme.onGradient)
                         .numeralLegibility()
-                        .accessibilityIdentifier("headerTime")
-                }
-                // The numeral scrim (Final – Opus v1): a soft dark pool
-                // under the big numeral so it reads over the lighter melt.
-                .background {
-                    Ellipse()
-                        .fill(Theme.shadowInk.opacity(Theme.Fade.scrimOpacity))
-                        .frame(width: Theme.Fade.scrimSize.width,
-                               height: Theme.Fade.scrimSize.height)
-                        .blur(radius: Theme.Fade.scrimBlur)
-                        .allowsHitTesting(false)
-                        .accessibilityHidden(true)
-                }
-
-                if showsWeather {
-                    Text(tempText)
-                        .font(.system(size: 28, weight: .light))
-                        .tracking(-0.5)
-                        .foregroundStyle(Theme.onGradient.opacity(0.92))
-                        .numeralLegibility()
-                        .accessibilityIdentifier("headerTemp")
-
-                    HStack(spacing: 24) {
-                        HStack(spacing: 5) {
-                            ActivityIconView(identifier: "wind", size: 12)
-                                .accessibilityLabel("Wind")
-                            Text(windText)
+                        .background {
+                            Ellipse()
+                                .fill(Theme.shadowInk.opacity(Theme.Fade.scrimOpacity))
+                                .frame(width: Theme.Fade.scrimSize.width,
+                                       height: Theme.Fade.scrimSize.height)
+                                .blur(radius: Theme.Fade.scrimBlur)
+                                .allowsHitTesting(false)
+                                .accessibilityHidden(true)
                         }
+                        .accessibilityIdentifier("headerTemp")
+                        .padding(.top, 2)
+                }
 
-                        HStack(spacing: 5) {
-                            ActivityIconView(identifier: "humidity.fill", size: 12)
-                                .accessibilityLabel("Humidity")
-                            Text(humidityText)
+                // The meta line — clock, wind, humidity (Figma Meta row:
+                // 16pt between groups, 4pt icon → value, 13pt regular, no
+                // separator glyph). The clock is not weather, so it stays in
+                // the no-location state; it ticks in the forecast zone.
+                TimelineView(.everyMinute) { context in
+                    HStack(spacing: 16) {
+                        ForEach(metaSegments(at: context.date), id: \.self) { segment in
+                            metaItem(segment)
                         }
                     }
-                    .font(.system(size: 13))
-                    .tracking(0.1)
-                    .foregroundStyle(Theme.onGradient.opacity(0.8))
-                    .padding(.top, 6)
                 }
+                .font(.system(size: 13))
+                .tracking(0.1)
+                .foregroundStyle(Theme.onGradient)
+                .padding(.top, showsWeather ? 10 : 6)
             }
             .frame(maxWidth: .infinity)
             .padding(.top, 8)
@@ -145,10 +157,11 @@ struct HeaderView: View {
 }
 
 private extension View {
-    /// Figma drop shadow on the header numerals (radius 6, black 30%).
+    /// Figma drop shadow on the temperature numeral (radius 6, y 2, black 30%).
     func numeralLegibility() -> some View {
         shadow(color: Theme.shadowInk.opacity(Theme.Fade.numeralShadowOpacity),
-               radius: Theme.Fade.numeralShadowRadius)
+               radius: Theme.Fade.numeralShadowRadius,
+               y: Theme.Fade.numeralShadowY)
     }
 }
 
