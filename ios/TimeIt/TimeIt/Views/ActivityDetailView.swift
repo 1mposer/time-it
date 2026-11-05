@@ -93,8 +93,27 @@ struct ActivityDetailView: View {
     @State private var editTick = 0
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Accessibility sizes stack the hero and single-column the grid.
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    // Dynamic Type (owner ruling 8): the text rows' heights scale with the
+    // style their text scales with (`scaledFont`), from the Figma defaults.
+    @ScaledMetric(relativeTo: .caption) private var wordHeight = Theme.Detail.wordHeight
+    @ScaledMetric(relativeTo: .footnote) private var lineHeight = Theme.Detail.lineHeight
+    @ScaledMetric(relativeTo: .footnote) private var spanRowHeight = Theme.Detail.spanRowHeight
+    @ScaledMetric(relativeTo: .footnote) private var spanRowFont = Theme.Detail.spanRowFont
+    @ScaledMetric(relativeTo: .footnote) private var spanCapsulePadding = Theme.Detail.spanCapsulePadding
 
     private typealias Layout = Theme.Detail
+
+    /// The hero's text rows at the user's text size (`.standard` at default).
+    private var heroMetrics: Layout.HeroMetrics {
+        .scaled(wordHeight: wordHeight, lineHeight: lineHeight, spanRowHeight: spanRowHeight)
+    }
+
+    /// Ruling 5 (the surviving part): at accessibility sizes the hour
+    /// cluster drops under the ring instead of squeezing beside it.
+    private var isStacked: Bool { dynamicTypeSize.isAccessibilitySize }
 
     private struct EditRequest: Identifiable {
         let activity: AuthoredActivity
@@ -334,25 +353,35 @@ struct ActivityDetailView: View {
         let hasLine = line != nil
         let row = hasLine ? spanRow : nil
         let hasSpanRow = row != nil
-        return HStack(alignment: .top, spacing: Layout.ringToRow) {
+        let metrics = heroMetrics
+        let stacked = isStacked
+        // One layout switched in place (`AnyLayout`), so the pill row's
+        // scroll view keeps its identity across a text-size change.
+        let layout = stacked
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: Layout.ringToRow))
+            : AnyLayout(HStackLayout(alignment: .top, spacing: Layout.ringToRow))
+        let height = stacked
+            ? Layout.stackedHeroHeight(hasLine: hasLine, hasSpanRow: hasSpanRow, metrics: metrics)
+            : Layout.heroHeight(hasLine: hasLine, hasSpanRow: hasSpanRow, metrics: metrics)
+        return layout {
             ringButton
+                .frame(maxWidth: stacked ? .infinity : nil)
             VStack(alignment: .leading, spacing: Layout.rowToLine) {
                 carouselRow
                     .frame(height: Layout.pillHeight)
                 if let line {
                     rangeLineView(line)
-                        .frame(height: Layout.lineHeight)
+                        .frame(height: metrics.lineHeight)
                 }
                 if let row {
                     spanRowView(row)
-                        .frame(height: Layout.spanRowHeight, alignment: .leading)
+                        .frame(height: metrics.spanRowHeight, alignment: .leading)
                         .transition(.opacity)
                 }
             }
-            .padding(.top, Layout.rowColumnTop(hasLine: hasLine))
+            .padding(.top, stacked ? 0 : Layout.rowColumnTop(hasLine: hasLine, metrics: metrics))
         }
-        .frame(height: Layout.heroHeight(hasLine: hasLine, hasSpanRow: hasSpanRow)
-                   - Layout.heroInset - Layout.heroBottom,
+        .frame(height: height - Layout.heroInset - Layout.heroBottom,
                alignment: .top)
         .animation(fade, value: row)
         .padding(EdgeInsets(top: Layout.heroInset, leading: Layout.heroInset,
@@ -383,11 +412,11 @@ struct ActivityDetailView: View {
             .accessibilityHidden(true)
             ratingWord
                 .fixedSize()
-                .frame(height: Layout.wordHeight)
+                .frame(height: heroMetrics.wordHeight)
         }
-        .frame(width: Layout.ringDiameter,
-               height: Layout.ringColumnHeight,
-               alignment: .top)
+        // A floor, not a width: a scaled word may be wider than the ring.
+        .frame(minWidth: Layout.ringDiameter)
+        .frame(height: Layout.scaledRingColumnHeight(heroMetrics), alignment: .top)
         .overlay {
             Color.clear
                 .accessibilityElement()
@@ -405,7 +434,7 @@ struct ActivityDetailView: View {
         let rating = ringRating
         let isRated = rating == .perfect || rating == .good
         return Text(Self.verdictText(rating))
-            .font(.system(size: 12, weight: isRated ? .semibold : .regular))
+            .scaledFont(size: 12, weight: isRated ? .semibold : .regular)
             .foregroundStyle(isRated ? Theme.ratingTint(rating) : Theme.noWindowTint)
     }
 
@@ -421,10 +450,10 @@ struct ActivityDetailView: View {
     private func rangeLineView(_ line: RangeLine) -> some View {
         HStack(spacing: Theme.Spacing.xs) {
             Text(line.text)
-                .font(.system(size: Layout.lineFont))
+                .scaledFont(size: Layout.lineFont)
                 .foregroundStyle(Theme.secondaryText)
                 .lineLimit(1)
-                .minimumScaleFactor(0.8)
+                .minimumScaleFactor(0.7)
                 .contentTransition(.numericText())
                 .accessibilityIdentifier("detail.rangeLine")
             if line.showsReturn {
@@ -476,20 +505,20 @@ struct ActivityDetailView: View {
                     .transition(.opacity)
             case .scored(let window):
                 Text(SpanScoring.scoredLabel(window))
-                    .font(.system(size: Layout.spanRowFont))
+                    .font(.system(size: spanRowFont))
                     .foregroundStyle(Theme.secondaryText)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-                    .frame(height: Layout.spanRowHeight, alignment: .leading)
+                    .minimumScaleFactor(0.7)
+                    .frame(height: spanRowHeight, alignment: .leading)
                     .accessibilityIdentifier("detail.scoredSpan")
                     .transition(.opacity)
             case .failure:
                 Text("Couldn\u{2019}t score \u{2014} try again")
-                    .font(.system(size: Layout.spanRowFont))
+                    .font(.system(size: spanRowFont))
                     .foregroundStyle(Theme.secondaryText)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-                    .frame(height: Layout.spanRowHeight, alignment: .leading)
+                    .minimumScaleFactor(0.7)
+                    .frame(height: spanRowHeight, alignment: .leading)
                     .accessibilityIdentifier("detail.scoreError")
                     .transition(.opacity)
             }
@@ -507,19 +536,20 @@ struct ActivityDetailView: View {
     /// flight it is disabled at 60%.
     private func spanScoreButton(_ window: WindowSpec) -> some View {
         let inFlight = scoringKey != nil && scoringKey == spanKey
+        let hitPad = Layout.hitPad(forSpanRowHeight: spanRowHeight)
         return GlassGroup(spacing: Layout.spanCapsuleBlend) {
             Button(action: scoreSpan) {
                 Text(SpanScoring.buttonLabel(window))
-                    .minimumScaleFactor(0.8)
-                    .glassCapsule(font: .system(size: Layout.spanRowFont, weight: .semibold),
-                                  height: Layout.spanRowHeight,
-                                  horizontalPadding: Layout.spanCapsulePadding,
+                    .minimumScaleFactor(0.7)
+                    .glassCapsule(font: .system(size: spanRowFont, weight: .semibold),
+                                  height: spanRowHeight,
+                                  horizontalPadding: spanCapsulePadding,
                                   enabled: !inFlight)
                     .opacity(inFlight ? Layout.inFlightOpacity : 1)
                     .liftOnRelease(trigger: liftTick)
-                    .padding(.vertical, Layout.spanRowHitPad)
+                    .padding(.vertical, hitPad)
                     .contentShape(Rectangle())
-                    .padding(.vertical, -Layout.spanRowHitPad)
+                    .padding(.vertical, -hitPad)
             }
             .buttonStyle(PressStyle())
             .disabled(inFlight)
@@ -778,9 +808,12 @@ struct ActivityDetailView: View {
         let metrics = current.displayMetrics
         let inRange = carousel?.overlapsRange ?? false
         let hour = displayedHour
-        return LazyVGrid(columns: [GridItem(.flexible(), spacing: Layout.gridColumnGap),
-                                   GridItem(.flexible(), spacing: Layout.gridColumnGap)],
-                         spacing: Layout.gridRowGap) {
+        // Accessibility sizes: one column, so the scaled words have room.
+        let columnCount = Layout.metricGridColumnCount(isAccessibilitySize: isStacked)
+        let squareFloor = Layout.metricCardHasSquareFloor(columnCount: columnCount)
+        let columns = Array(repeating: GridItem(.flexible(), spacing: Layout.gridColumnGap),
+                            count: columnCount)
+        return LazyVGrid(columns: columns, spacing: Layout.gridRowGap) {
             ForEach(metrics, id: \.self) { metric in
                 MetricCardView(metric: metric,
                                hour: hour,
@@ -788,7 +821,11 @@ struct ActivityDetailView: View {
                                verdict: verdict(for: metric, hour: hour, inRange: inRange),
                                catalog: catalog,
                                windUnit: windUnit)
-                    .aspectRatio(1, contentMode: .fit)
+                    // Two columns: square at the default size, taller once
+                    // the scaled text needs the room (never clipped). One
+                    // column (AX sizes): the content's own height — a
+                    // full-width square would be mostly empty.
+                    .atLeastSquare(squareFloor)
             }
         }
     }
@@ -849,10 +886,13 @@ struct ActivityDetailView: View {
                     .foregroundStyle(Theme.accentInteractive)
                     .frame(width: Layout.editCircleDiameter, height: Layout.editCircleDiameter)
                     .glassPieceSurface(in: Circle(), enabled: true, fallback: .material)
+                // The circle stays 44 (ruling 9a / HIG target); its caption
+                // grows and may wrap, centred under it.
                 Text(caption)
-                    .font(.system(size: Layout.editCaptionFont))
+                    .scaledFont(size: Layout.editCaptionFont)
                     .foregroundStyle(Theme.secondaryText)
-                    .fixedSize()
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .contentShape(Rectangle())
         }
@@ -954,7 +994,9 @@ private let previewNow: @Sendable () -> Date = { ISO8601DateFormatter().date(fro
     .task { await viewModel.loadForecast() }
 }
 
-/// HIG check: the hero and cards at the accessibility XL text size.
+/// HIG check: the hero and cards at the accessibility XL text size — the
+/// hero stacks (ring on top, the hour row block under it) and the metric
+/// grid goes to one column.
 #Preview("Cycling (Accessibility XL)") {
     let viewModel = PreviewFixtures.dashboardViewModel()
     NavigationStack {
@@ -963,6 +1005,30 @@ private let previewNow: @Sendable () -> Date = { ISO8601DateFormatter().date(fro
                            now: previewNow)
     }
     .environment(\.dynamicTypeSize, .accessibility3)
+    .task { await viewModel.loadForecast() }
+}
+
+/// The UI test's size (`UICTContentSizeCategoryAccessibilityXXL`).
+#Preview("Cycling (Accessibility XXL)") {
+    let viewModel = PreviewFixtures.dashboardViewModel()
+    NavigationStack {
+        ActivityDetailView(activity: PreviewFixtures.forecast.activities[0],
+                           viewModel: viewModel,
+                           now: previewNow)
+    }
+    .environment(\.dynamicTypeSize, .accessibility4)
+    .task { await viewModel.loadForecast() }
+}
+
+/// The smallest text size: the hero keeps its side-by-side layout.
+#Preview("Cycling (Extra Small)") {
+    let viewModel = PreviewFixtures.dashboardViewModel()
+    NavigationStack {
+        ActivityDetailView(activity: PreviewFixtures.forecast.activities[0],
+                           viewModel: viewModel,
+                           now: previewNow)
+    }
+    .environment(\.dynamicTypeSize, .xSmall)
     .task { await viewModel.loadForecast() }
 }
 #endif

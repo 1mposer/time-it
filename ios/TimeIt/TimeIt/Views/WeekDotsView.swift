@@ -26,7 +26,8 @@ struct WeekDotsView: View {
                     .frame(maxWidth: .infinity)
             }
         }
-        .frame(height: 34)
+        // 34 at the default text size (12 label + 4 + 18 slot); the label
+        // line grows with the text, the slot and the dots never scale.
         .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: ringedDayIndex)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier(identifierPrefix)
@@ -62,10 +63,13 @@ struct WeekDotsView: View {
         let ringed = dot.dayIndex == ringedDayIndex
         return VStack(spacing: 4) {
             Text(dot.letter)
-                .font(.system(size: 10))
+                .scaledFont(size: 10)
                 .tracking(0.1)
                 .foregroundStyle(ringed ? Theme.primaryText : Theme.secondaryText)
-                .frame(height: 12)
+                .frame(minHeight: 12)
+                // The letters label the fixed dots (ruling 9a): they grow
+                // to xxxLarge, then clamp so seven still fit a card row.
+                .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
             ZStack {
                 dotShape(dot.tier)
                 if ringed {

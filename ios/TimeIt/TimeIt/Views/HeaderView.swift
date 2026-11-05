@@ -28,6 +28,13 @@ struct HeaderView: View {
 
     /// The Settings gear's glass circle — the HIG 44pt target.
     static let gearDiameter: CGFloat = 44
+    /// The gear circle's reach in from the content edge (13 trailing + 44 −
+    /// the content's 20 inset) — the location label wraps inside it.
+    private static let gearClearance: CGFloat = gearDiameter + 13 - 20
+
+    /// The meta line's glyphs scale with its footnote text (Dynamic Type,
+    /// owner ruling 8); the big numeral and the gear stay fixed.
+    @ScaledMetric(relativeTo: .footnote) private var metaGlyph: CGFloat = 11
 
     /// The clock text at `date` in the given zone (device zone when nil or
     /// unresolvable) — pinned by HeaderClockTests.
@@ -58,14 +65,14 @@ struct HeaderView: View {
                 .accessibilityIdentifier("headerTime")
         case .wind(let text):
             HStack(spacing: 4) {
-                ActivityIconView(identifier: "wind", size: 11)
+                ActivityIconView(identifier: "wind", size: metaGlyph)
                     .opacity(0.85)
                     .accessibilityLabel("Wind")
                 Text(text)
             }
         case .humidity(let text):
             HStack(spacing: 4) {
-                ActivityIconView(identifier: "humidity.fill", size: 11)
+                ActivityIconView(identifier: "humidity.fill", size: metaGlyph)
                     .opacity(0.85)
                     .accessibilityLabel("Humidity")
                 Text(text)
@@ -77,9 +84,13 @@ struct HeaderView: View {
         ZStack(alignment: .topTrailing) {
             VStack(spacing: 0) {
                 Text((locationName ?? "No location").uppercased())
-                    .font(.system(size: 11, weight: .medium))
+                    .scaledFont(size: 11, weight: .medium)
                     .tracking(1.4)
                     .foregroundStyle(Theme.onGradient.opacity(0.85))
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                    // A long or scaled name wraps clear of the gear circle.
+                    .padding(.horizontal, Self.gearClearance)
                     .accessibilityIdentifier("headerLocation")
 
                 if showsWeather {
@@ -108,14 +119,24 @@ struct HeaderView: View {
                 // 16pt between groups, 4pt icon → value, 13pt regular, no
                 // separator glyph). The clock is not weather, so it stays in
                 // the no-location state; it ticks in the forecast zone.
+                // One line while it fits; at large text sizes the segments
+                // stack rather than run off the screen.
                 TimelineView(.everyMinute) { context in
-                    HStack(spacing: 16) {
-                        ForEach(metaSegments(at: context.date), id: \.self) { segment in
-                            metaItem(segment)
+                    let segments = metaSegments(at: context.date)
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: 16) {
+                            ForEach(segments, id: \.self) { segment in
+                                metaItem(segment)
+                            }
+                        }
+                        VStack(spacing: 4) {
+                            ForEach(segments, id: \.self) { segment in
+                                metaItem(segment)
+                            }
                         }
                     }
                 }
-                .font(.system(size: 13))
+                .scaledFont(size: 13)
                 .tracking(0.1)
                 .foregroundStyle(Theme.onGradient)
                 .padding(.top, showsWeather ? 10 : 6)
@@ -174,6 +195,17 @@ private extension View {
         Spacer()
     }
     .background(BandMeltView(firstCardTop: 229, temp: 24).ignoresSafeArea())
+}
+
+#Preview("Header — Accessibility XXL") {
+    VStack(spacing: 0) {
+        HeaderView(locationName: "Dubai",
+                   currentHour: PreviewFixtures.forecast.hours.first,
+                   timezoneIdentifier: "Asia/Dubai") {}
+        Spacer()
+    }
+    .background(BandMeltView(firstCardTop: 229, temp: 24).ignoresSafeArea())
+    .environment(\.dynamicTypeSize, .accessibility4)
 }
 
 #Preview("Header — no location") {

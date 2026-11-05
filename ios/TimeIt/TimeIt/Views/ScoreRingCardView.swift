@@ -36,6 +36,13 @@ struct ScoreRingCardView: View {
     var showsWeekDots: Bool = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Accessibility sizes put the chip under the name (no squeeze).
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    /// The name → strip → numerals block's floor: 65 at the default text
+    /// size (the frame's collapsed card), its own height once the scaled
+    /// text outgrows it (Dynamic Type, owner ruling 8 — no fixed column).
+    static let stripBlockFloor: CGFloat = 65
 
     private var dotsVisible: Bool { showsWeekDots && !weekDots.isEmpty }
 
@@ -63,10 +70,14 @@ struct ScoreRingCardView: View {
                           tint: Theme.ratingTint(day?.rating),
                           style: .card)
             Text("Score")
-                .font(.system(size: 11, weight: .medium))
+                .scaledFont(size: 11, weight: .medium)
                 .foregroundStyle(Theme.secondaryText)
+                .lineLimit(1)
+                .fixedSize()
         }
-        .frame(width: 48)
+        // The ring is fixed at 48 (ruling 9a); the caption is a word and
+        // grows, so the column is a floor, not a width.
+        .frame(minWidth: 48)
         // VoiceOver keeps the words the visual drops — verdict and score.
         .accessibilityElement(children: .ignore)
         .accessibilityIdentifier("score.\(activity.activityId)")
@@ -77,12 +88,20 @@ struct ScoreRingCardView: View {
 
     private var detailColumn: some View {
         VStack(alignment: .leading, spacing: 0) {
-            topRow
-            Spacer(minLength: 10)
-            hourStrip
-                .frame(height: 10)
-            axisNumerals
-                .padding(.top, 4)
+            VStack(alignment: .leading, spacing: 0) {
+                topRow
+                Spacer(minLength: 10)
+                // The strip bars never scale (ruling 9a).
+                hourStrip
+                    .frame(height: 10)
+                StripAxisNumerals(tiers: tiers, stripStartLocalHour: stripStartLocalHour)
+                    // The numerals scale as text up to xxxLarge, then clamp
+                    // (ruling 9a: the strip's numerals may clamp) so they
+                    // never overprint each other on the fixed strip.
+                    .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                    .padding(.top, 4)
+            }
+            .minHeightFloor(Self.stripBlockFloor)
             if dotsVisible {
                 // Frame `458:394`: axis bottom → dots top = 8pt; the row
                 // spans the strip's x and width; 34pt tall (12 label + 4 +
@@ -95,40 +114,77 @@ struct ScoreRingCardView: View {
                     .transition(.opacity)
             }
         }
-        // 65 = name row → strip → numerals; +42 (8 gap + 34 row) with dots —
-        // the frame's 132 vs 90 expanded/collapsed delta.
-        .frame(height: dotsVisible ? 107 : 65, alignment: .top)
+        // 65 = name row → strip → numerals at the default text size; +42
+        // (8 gap + 34 row) with dots — the frame's 132 vs 90 delta. Both
+        // are intrinsic now: the content's height at any text size.
         .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: dotsVisible)
     }
 
+    /// The name and the chip on one line; at accessibility sizes the chip
+    /// drops under the name and the name wraps (HIG: stack, don't truncate).
+    @ViewBuilder
     private var topRow: some View {
-        HStack(spacing: 8) {
-            ActivityIconView(identifier: iconSymbol ?? ActivityCardView.iconName(for: activity), size: 18)
-                .foregroundStyle(Theme.primaryText.opacity(0.75))
-                .accessibilityHidden(true)
-            Text(activity.label)
-                .font(.system(size: 15, weight: .medium))
-                .tracking(-0.1)
-                .foregroundStyle(Theme.primaryText)
-                .lineLimit(1)
-            if let rangeChipLabel {
-                // Hours only — the "Range · " prefix is dropped on the v2
-                // card by owner ruling (FIGMA.md §11).
-                Text(rangeChipLabel)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(Theme.accentInteractive)
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 4)
-                    .background(Theme.accentInteractive.opacity(0.12), in: Capsule())
-                    .fixedSize()
-                    .accessibilityIdentifier("rangeChip.\(activity.activityId)")
+        if dynamicTypeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    icon
+                    title
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 0)
+                }
+                .padding(.trailing, Self.chevronClearance)
+                chip
             }
-            Spacer(minLength: 0)
+        } else {
+            HStack(spacing: 8) {
+                icon
+                title
+                    // One line at the default size and below (the frame);
+                    // a larger name wraps rather than truncates.
+                    .lineLimit(dynamicTypeSize > .large ? nil : 1)
+                    .fixedSize(horizontal: false, vertical: true)
+                chip
+                Spacer(minLength: 0)
+            }
+            .padding(.trailing, Self.chevronClearance)
         }
-        // Clears the chevron the dashboard overlays on the card (a 34pt
-        // button ending 4.5pt in from the card edge: 38.5 − the card's 14.5
-        // trailing inset). The card gear is gone (owner ruling 2026-10-06 #2).
-        .padding(.trailing, 24)
+    }
+
+    /// Clears the chevron the dashboard overlays on the card (a 34pt
+    /// button ending 4.5pt in from the card edge: 38.5 − the card's 14.5
+    /// trailing inset). The card gear is gone (owner ruling 2026-10-06 #2).
+    private static let chevronClearance: CGFloat = 24
+
+    private var icon: some View {
+        ActivityIconView(identifier: iconSymbol ?? ActivityCardView.iconName(for: activity), size: 18)
+            .foregroundStyle(Theme.primaryText.opacity(0.75))
+            .accessibilityHidden(true)
+    }
+
+    private var title: some View {
+        Text(activity.label)
+            .scaledFont(size: 15, weight: .medium)
+            .tracking(-0.1)
+            .foregroundStyle(Theme.primaryText)
+    }
+
+    /// Hours only — the "Range · " prefix is dropped on the v2 card by
+    /// owner ruling (FIGMA.md §11). One line that shrinks before it ever
+    /// truncates.
+    @ViewBuilder
+    private var chip: some View {
+        if let rangeChipLabel {
+            Text(rangeChipLabel)
+                .scaledFont(size: 12, weight: .medium)
+                .foregroundStyle(Theme.accentInteractive)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .padding(.horizontal, 9)
+                .padding(.vertical, 4)
+                .background(Theme.accentInteractive.opacity(0.12), in: Capsule())
+                .fixedSize(horizontal: !dynamicTypeSize.isAccessibilitySize, vertical: true)
+                .accessibilityIdentifier("rangeChip.\(activity.activityId)")
+        }
     }
 
     /// One rounded segment per Range hour, 2pt apart — the frame's strip.
@@ -148,10 +204,26 @@ struct ScoreRingCardView: View {
         }
     }
 
-    /// Boundary numerals, positioned on the segment boundaries: the first
-    /// left-aligned, the last right-aligned, the rest centred.
-    @ViewBuilder
-    private var axisNumerals: some View {
+    private var accessibilitySummary: String {
+        let verdict = day?.ratingDisplay ?? "No Window"
+        guard let score = day?.score else { return "\(verdict), no score" }
+        return "\(verdict), score \(score) out of 100"
+    }
+}
+
+/// The strip's boundary numerals, positioned on the segment boundaries: the
+/// first left-aligned, the last right-aligned, the rest centred. Its own view
+/// so its scaled metrics read the clamped text size it is given.
+private struct StripAxisNumerals: View {
+    let tiers: [HourTier?]
+    let stripStartLocalHour: Int?
+
+    /// The axis slot (14 at the default size) and the half-width estimate
+    /// that anchors the end numerals, both scaling with the caption text.
+    @ScaledMetric(relativeTo: .caption) private var slotHeight: CGFloat = 14
+    @ScaledMetric(relativeTo: .caption) private var halfWidth: CGFloat = 7
+
+    var body: some View {
         if let stripStartLocalHour, !tiers.isEmpty {
             let labels = RangeStripAxis.labels(startLocalHour: stripStartLocalHour,
                                                hourCount: tiers.count)
@@ -159,20 +231,20 @@ struct ScoreRingCardView: View {
                 ForEach(labels, id: \.boundary) { label in
                     let fraction = CGFloat(label.boundary) / CGFloat(tiers.count)
                     Text(label.text)
-                        .font(.system(size: 12))
+                        .scaledFont(size: 12)
                         .foregroundStyle(Theme.secondaryText)
                         .fixedSize()
                         .position(x: geo.size.width * fraction
                                      + anchorOffset(label.boundary, of: tiers.count),
-                                  y: 7)
+                                  y: slotHeight / 2)
                 }
             }
-            .frame(height: 14)
+            .frame(height: slotHeight)
         } else {
             // Reserve the axis slot with no numerals (e.g. a passed-Range
             // today: bare track) so the strip's y and the 8pt axis → dots
             // relation hold either way.
-            Color.clear.frame(height: 14)
+            Color.clear.frame(height: slotHeight)
         }
     }
 
@@ -181,16 +253,9 @@ struct ScoreRingCardView: View {
     /// view's CENTRE, so the offsets are half-width-based and resolved with a
     /// fixed estimate per glyph count (the numerals are 1–2 digits).
     private func anchorOffset(_ boundary: Int, of count: Int) -> CGFloat {
-        let halfWidth: CGFloat = 7
         if boundary == 0 { return halfWidth }
         if boundary == count { return -halfWidth }
         return 0
-    }
-
-    private var accessibilitySummary: String {
-        let verdict = day?.ratingDisplay ?? "No Window"
-        guard let score = day?.score else { return "\(verdict), no score" }
-        return "\(verdict), score \(score) out of 100"
     }
 }
 
@@ -218,6 +283,24 @@ struct ScoreRingCardView: View {
     }
     .padding(14)
     .background(Theme.appBackground)
+}
+
+/// Dynamic Type: the card at the accessibility XXL size — the chip under
+/// the name, the height intrinsic, the strip and the dots fixed.
+#Preview("Card v2 — Accessibility XXL") {
+    let forecast = PreviewFixtures.forecast
+    VStack(spacing: 10) {
+        ScoreRingCardView(activity: forecast.activities[0],
+                          day: Day(dayIndex: 0, rating: .perfect,
+                                   startIndex: 2, endIndex: 6, duration: 4, score: 86),
+                          iconSymbol: "figure.outdoor.cycle",
+                          rangeChipLabel: RangeText.chipLabel(WindowSpec(startHour: 6, endHour: 10)),
+                          tiers: [nil, .green, .green, .green],
+                          stripStartLocalHour: 6)
+    }
+    .padding(14)
+    .background(Theme.appBackground)
+    .environment(\.dynamicTypeSize, .accessibility4)
 }
 
 #Preview("Card v2 — dark") {
