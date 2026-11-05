@@ -5,10 +5,9 @@ import SwiftUI
 /// down"). The system control's threshold cannot be changed, so on iOS 18+
 /// the list decides for itself: while the finger is down the system
 /// spinner's spokes are revealed with the pull (the threshold is announced,
-/// one light haptic the moment it is crossed); on release past
-/// `PullRefresh.threshold` the refresh runs and the spinner turns until it
-/// finishes. Nothing is held down —
-/// the list springs home on the scroll view's own spring and the spinner
+/// one light haptic the moment it is crossed — the commitment); a release
+/// while armed runs the refresh and the spinner turns until it finishes.
+/// Nothing is held down — the list springs home on the scroll view's own spring and the spinner
 /// sits over the band above the first item. Below iOS 18 (no scroll phase
 /// API) the system `.refreshable` stays.
 enum PullRefresh {
@@ -27,9 +26,24 @@ enum PullRefresh {
         return min(max(overscroll / threshold, 0), 1)
     }
 
-    /// Whether a release at `overscroll` runs the refresh.
+    /// Easing back under this fraction of the threshold (finger still down)
+    /// disarms the pull; crossing the threshold again re-arms it, with one
+    /// more haptic. The gap is the hysteresis that keeps a finger resting on
+    /// the threshold from buzzing.
+    static let disarmFraction: CGFloat = 0.8
+
+    /// Whether `overscroll` reaches the threshold (arms the pull).
     static func fires(overscroll: CGFloat) -> Bool {
         overscroll >= threshold
+    }
+
+    /// The armed state after the finger-down overscroll moves to `overscroll`.
+    /// Armed is the commitment (apple-fluid-motion: decide by the committed
+    /// threshold, not the resting position): the release refreshes iff armed,
+    /// so the haptic and the refresh always agree.
+    static func armed(wasArmed: Bool, overscroll: CGFloat) -> Bool {
+        if wasArmed { return overscroll >= threshold * disarmFraction }
+        return fires(overscroll: overscroll)
     }
 }
 
@@ -50,22 +64,24 @@ struct PullToRefreshModifier: ViewModifier {
                 .onScrollPhaseChange { oldPhase, newPhase in
                     dragging = newPhase == .interacting
                     guard oldPhase == .interacting, newPhase != .interacting else { return }
-                    // Release: decide once, from where the finger let go.
-                    if armed, !refreshing, PullRefresh.fires(overscroll: overscroll) {
-                        refreshing = true
-                        Task {
-                            await action()
-                            refreshing = false
-                        }
-                    }
+                    // Release: the pull committed at the haptic — armed
+                    // refreshes, wherever the finger eased to before lifting.
+                    if armed { runRefresh() }
                     armed = false
                 }
                 .onChange(of: overscroll) { _, value in
-                    // Announce the threshold once per pull, finger down only.
-                    guard dragging, !armed, PullRefresh.fires(overscroll: value) else { return }
-                    armed = true
-                    hapticTick += 1
+                    // Finger down only: arm (one haptic) at the threshold,
+                    // disarm under `disarmFraction` of it, re-arm past it.
+                    guard dragging else { return }
+                    let next = PullRefresh.armed(wasArmed: armed, overscroll: value)
+                    guard next != armed else { return }
+                    armed = next
+                    if next { hapticTick += 1 }
                 }
+                // VoiceOver / Switch Control: the indicator is hidden and the
+                // system control is gone on this branch, so the list carries
+                // the action itself (same guard — no double trigger).
+                .accessibilityAction(named: Text("Refresh")) { runRefresh() }
                 .sensoryFeedback(.impact(weight: .light), trigger: hapticTick)
                 .overlay(alignment: .top) {
                     PullRefreshIndicator(progress: PullRefresh.progress(overscroll: overscroll),
@@ -78,6 +94,16 @@ struct PullToRefreshModifier: ViewModifier {
                 }
         } else {
             content.refreshable { await action() }
+        }
+    }
+
+    /// Runs the refresh unless one is already running.
+    private func runRefresh() {
+        guard !refreshing else { return }
+        refreshing = true
+        Task {
+            await action()
+            refreshing = false
         }
     }
 }

@@ -263,14 +263,27 @@ final class DashboardViewModel: ObservableObject {
             }
         } catch let error as APIError {
             guard generation == loadGeneration else { return }
+            if keepsListOnFailure(showsLoading: showsLoading) { return }
             errorMessage = error.userMessage
             isTransientError = error.isTransient
         } catch {
             guard generation == loadGeneration else { return }
+            if keepsListOnFailure(showsLoading: showsLoading) { return }
             errorMessage = "Unable to reach the server. Check that it's running and try again."
             isTransientError = true
         }
         isLoading = false
+    }
+
+    /// A failed pull over a live list keeps the cards on screen: no
+    /// full-screen error replaces them (the `refresh()` promise). Clears
+    /// `isLoading` and reports true so the caller returns without touching
+    /// `errorMessage` / `isTransientError`. A first load (or a pull with no
+    /// forecast yet) still surfaces the error.
+    private func keepsListOnFailure(showsLoading: Bool) -> Bool {
+        guard !showsLoading, forecast != nil else { return false }
+        isLoading = false
+        return true
     }
 
     /// Scores the detail carousel's span on the SERVER (owner rulings

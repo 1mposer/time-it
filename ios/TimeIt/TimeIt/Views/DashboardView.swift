@@ -98,6 +98,12 @@ struct DashboardView: View {
                                                        showsWeather: showsHeaderWeather))
                     .ignoresSafeArea()
             }
+            #if DEBUG
+            // XCUI only: the mock's fetch count (the pull-to-refresh test).
+            .overlay(alignment: .bottomLeading) {
+                if ProcessInfo.processInfo.isUITestMockRun { UITestFetchCountProbe() }
+            }
+            #endif
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: String.self) { activityId in
                 detailDestination(for: activityId)

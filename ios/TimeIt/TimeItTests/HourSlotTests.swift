@@ -213,6 +213,42 @@ final class HourSlotTests: XCTestCase {
         XCTAssertEqual(api.fetchCount, 2, "the pull refetches (there is no client cache)")
         XCTAssertNotNil(refreshing.forecast)
     }
+
+    func testAFailedRefreshKeepsTheCardsAndShowsNoError() async {
+        let loaded = await makeLoadedVM(forecastStart: "2026-06-19T04:00:00Z")
+        let api = FakeRatingService(result: .success(loaded.forecast!))
+        let store = ActivityStore(defaults: defaults, seeds: Fixtures.liveSeeds)
+        let vm = DashboardViewModel(api: api,
+                                    locationProvider: FakeLocationProvider(location: CLLocation(latitude: 25.2, longitude: 55.27)),
+                                    store: store, preferences: PreferencesStore(defaults: defaults))
+        await vm.loadForecast()
+        XCTAssertNotNil(vm.forecast)
+
+        api.result = .failure(APIError.providerUnavailable)
+        await vm.refresh()
+        XCTAssertEqual(api.fetchCount, 2)
+        XCTAssertNotNil(vm.forecast, "a failed pull keeps the card list")
+        XCTAssertNil(vm.errorMessage, "no full-screen error replaces the cards")
+        XCTAssertFalse(vm.isTransientError)
+        XCTAssertFalse(vm.isLoading)
+
+        api.result = .failure(URLError(.notConnectedToInternet))
+        await vm.refresh()
+        XCTAssertNotNil(vm.forecast, "the non-API failure path keeps the list too")
+        XCTAssertNil(vm.errorMessage)
+    }
+
+    func testAFailedFirstLoadStillShowsTheError() async {
+        let api = FakeRatingService(result: .failure(APIError.providerUnavailable))
+        let store = ActivityStore(defaults: defaults, seeds: Fixtures.liveSeeds)
+        let vm = DashboardViewModel(api: api,
+                                    locationProvider: FakeLocationProvider(location: CLLocation(latitude: 25.2, longitude: 55.27)),
+                                    store: store, preferences: PreferencesStore(defaults: defaults))
+        await vm.loadForecast()
+        XCTAssertNil(vm.forecast)
+        XCTAssertEqual(vm.errorMessage, APIError.providerUnavailable.userMessage)
+        XCTAssertFalse(vm.isLoading)
+    }
 }
 
 /// The detail hero's geometry (owner ruling 2026-11-04): ring 64, the line

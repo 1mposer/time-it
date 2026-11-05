@@ -110,6 +110,23 @@ final class PullRefreshTests: XCTestCase {
         XCTAssertTrue(PullRefresh.fires(overscroll: 110))
         XCTAssertTrue(PullRefresh.fires(overscroll: 300))
     }
+
+    func testTheDisarmFractionIsEightyPercent() {
+        XCTAssertEqual(PullRefresh.disarmFraction, 0.8)
+    }
+
+    /// The haptic is the commitment: once armed, easing back to 105pt keeps
+    /// it armed (the release refreshes); only under 88pt does it disarm, and
+    /// crossing 110pt again re-arms.
+    func testArmedHoldsUntilUnderTheDisarmLineAndReArmsPastTheThreshold() {
+        XCTAssertFalse(PullRefresh.armed(wasArmed: false, overscroll: 109.9))
+        XCTAssertTrue(PullRefresh.armed(wasArmed: false, overscroll: 110), "arms at the threshold")
+        XCTAssertTrue(PullRefresh.armed(wasArmed: true, overscroll: 105), "easing back keeps the commitment")
+        XCTAssertTrue(PullRefresh.armed(wasArmed: true, overscroll: 88), "88 = 110 × 0.8 still holds")
+        XCTAssertFalse(PullRefresh.armed(wasArmed: true, overscroll: 87.9), "under the disarm line")
+        XCTAssertFalse(PullRefresh.armed(wasArmed: false, overscroll: 100), "no re-arm below the threshold")
+        XCTAssertTrue(PullRefresh.armed(wasArmed: false, overscroll: 110), "re-arms past it again")
+    }
 }
 
 /// The dashboard rhythm (owner ruling 2026-11-05: wider tries returned,

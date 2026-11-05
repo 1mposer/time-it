@@ -13,6 +13,7 @@ struct MockRatingService: RatingFetching {
     let mode: Mode
 
     func fetchRatings(lat: Double, lon: Double, activities: [ActivityInput]) async throws -> ForecastResponse {
+        await MainActor.run { UITestFetchCounter.shared.count += 1 }
         switch mode {
         case .failure:
             throw APIError.providerUnavailable

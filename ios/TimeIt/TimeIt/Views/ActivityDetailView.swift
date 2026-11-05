@@ -121,11 +121,14 @@ struct ActivityDetailView: View {
         var id: String { activity.id }
     }
 
-    /// What a span score belongs to: the span, the day and the forecast.
+    /// What a span score belongs to: the span, the day, the forecast and
+    /// the authored Activity as sent — a thresholds-only edit refetches the
+    /// same forecast, so without `input` the old score would survive it.
     private struct SpanKey: Equatable {
         let span: Range<Int>
         let dayIndex: Int
         let forecastStart: String
+        let input: ActivityInput
     }
 
     private struct ScoredSpan: Equatable {
@@ -206,8 +209,9 @@ struct ActivityDetailView: View {
 
     /// The span on screen as a span-score key; nil without a carousel.
     private var spanKey: SpanKey? {
-        guard let carousel, let start = viewModel.forecast?.forecastStart else { return nil }
-        return SpanKey(span: carousel.span, dayIndex: selectedDayIndex, forecastStart: start)
+        guard let carousel, let authored, let start = viewModel.forecast?.forecastStart else { return nil }
+        return SpanKey(span: carousel.span, dayIndex: selectedDayIndex, forecastStart: start,
+                       input: authored.activityInput)
     }
 
     /// The span score the ring shows — only the CURRENT span's.
@@ -710,6 +714,8 @@ struct ActivityDetailView: View {
     @ViewBuilder
     private func slot(_ id: Int, carousel: HourCarousel, authored: AuthoredActivity, compact: Bool) -> some View {
         if carousel.walkable.contains(id) {
+            // Read on the main actor, outside the Sendable transition closure.
+            let reduceMotion = reduceMotion
             pill(at: id,
                  authored: authored,
                  compact: compact,

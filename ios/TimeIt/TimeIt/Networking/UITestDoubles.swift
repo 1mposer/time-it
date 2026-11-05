@@ -63,6 +63,30 @@ struct UITestFeedbackAPI: SuggestionSending {
     }
 }
 
+/// Counts the mock's `fetchRatings` calls so XCUI can prove a refetch
+/// happened (the pull-to-refresh test) — read through `UITestFetchCountProbe`.
+@MainActor
+final class UITestFetchCounter: ObservableObject {
+    static let shared = UITestFetchCounter()
+    @Published var count = 0
+}
+
+/// A 1pt, invisible accessibility element (`uitest.fetchCount`) whose value
+/// is the mock fetch count. Mounted on the dashboard in UI-test mock runs only.
+struct UITestFetchCountProbe: View {
+    @ObservedObject private var counter = UITestFetchCounter.shared
+
+    var body: some View {
+        Color.clear
+            .frame(width: 1, height: 1)
+            .accessibilityElement()
+            .accessibilityIdentifier("uitest.fetchCount")
+            .accessibilityLabel("Fetch count")
+            .accessibilityValue("\(counter.count)")
+            .allowsHitTesting(false)
+    }
+}
+
 extension ProcessInfo {
     /// The UI-test clock pin: the instant in a `UITEST_NOW=<ISO8601>` launch
     /// argument (e.g. `UITEST_NOW=2026-06-19T00:30:00Z`); nil when absent or
