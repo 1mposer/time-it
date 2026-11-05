@@ -365,6 +365,10 @@ struct LogoOpeningSequence<App: View>: View {
                 if !revealed {
                     LogoConvergeAnimation(onFinished: start)
                         .transition(splashExit)
+                        // A removed ZStack child loses its z-order and drops
+                        // behind the app — the exit then plays unseen and the
+                        // reveal reads as a hard cut. Pin it on top.
+                        .zIndex(1)
                 }
             }
         }
