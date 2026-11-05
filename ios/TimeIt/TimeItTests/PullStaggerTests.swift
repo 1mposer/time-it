@@ -88,3 +88,37 @@ final class PullStaggerTests: XCTestCase {
         }
     }
 }
+
+/// The tunable pull-to-refresh (owner report 2026-11-05: the system control
+/// fired too early). One threshold, one decision from the release point.
+final class PullRefreshTests: XCTestCase {
+
+    func testTheThresholdIsWellPastTheSystemControl() {
+        XCTAssertEqual(PullRefresh.threshold, 110)
+    }
+
+    func testProgressFillsTheArcUpToTheThresholdAndClamps() {
+        XCTAssertEqual(PullRefresh.progress(overscroll: 0), 0)
+        XCTAssertEqual(PullRefresh.progress(overscroll: 55), 0.5)
+        XCTAssertEqual(PullRefresh.progress(overscroll: 110), 1)
+        XCTAssertEqual(PullRefresh.progress(overscroll: 400), 1)
+        XCTAssertEqual(PullRefresh.progress(overscroll: -20), 0)
+    }
+
+    func testAReleaseFiresOnlyAtOrPastTheThreshold() {
+        XCTAssertFalse(PullRefresh.fires(overscroll: 109.9))
+        XCTAssertTrue(PullRefresh.fires(overscroll: 110))
+        XCTAssertTrue(PullRefresh.fires(overscroll: 300))
+    }
+}
+
+/// The dashboard rhythm (owner ruling 2026-11-05: wider tries returned,
+/// the original values stay — as named tokens now).
+final class DashboardRhythmTests: XCTestCase {
+    func testTheOriginalRhythmIsPinned() {
+        XCTAssertEqual(Theme.Spacing.listBelowHeader, 14)
+        XCTAssertEqual(Theme.Spacing.cardGap, 10)
+        XCTAssertEqual(Theme.Spacing.headerLocationToNumeral, 2)
+        XCTAssertEqual(Theme.Spacing.headerNumeralToMeta, 10)
+    }
+}

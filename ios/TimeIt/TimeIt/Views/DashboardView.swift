@@ -34,17 +34,18 @@ struct DashboardView: View {
     @State private var pullOverscroll: CGFloat = 0
     @State private var listViewport: CGFloat = 700
     /// The pinned header's bottom edge in full-screen space — the melt's
-    /// anchor (the first list item rests `Spacing.lg` below it).
+    /// anchor (the first list item rests `firstItemInset` below it).
     @State private var headerBottom: CGFloat = 215
 
-    /// The first list item's resting top below the header, per state: every
-    /// list pads `Spacing.lg`; the first-launch hero (no banner above it)
-    /// sits a further `firstLaunchHeroTop` down.
+    /// The first list item's resting top below the header, per state: the
+    /// card and dormant lists pad `Spacing.listBelowHeader`; the first-launch
+    /// hero (its own `Spacing.lg` padding, no banner above it) sits a further
+    /// `firstLaunchHeroTop` down.
     private var firstItemInset: CGFloat {
         if !viewModel.hasActivities && !isBetaBuild {
             return Theme.Spacing.lg + Self.firstLaunchHeroTop
         }
-        return Theme.Spacing.lg
+        return Theme.Spacing.listBelowHeader
     }
 
     /// The Add-Activity hero's extra top padding (approved First Launch frame).
@@ -255,7 +256,7 @@ struct DashboardView: View {
     /// never a dead end.
     private var dormantList: some View {
         ScrollView {
-            LazyVStack(spacing: 10) {
+            LazyVStack(spacing: Theme.Spacing.cardGap) {
                 if isBetaBuild {
                     betaBanner
                 }
@@ -266,7 +267,7 @@ struct DashboardView: View {
                 Spacer()
                     .frame(height: 12)
             }
-            .padding(.top, 14)
+            .padding(.top, Theme.Spacing.listBelowHeader)
             .padding(.horizontal, 14)
         }
     }
@@ -459,7 +460,7 @@ struct DashboardView: View {
         let leading = (showsCallout ? 1 : 0) + (isBetaBuild ? 1 : 0)
         return ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(spacing: 10) {
+                LazyVStack(spacing: Theme.Spacing.cardGap) {
                     if showsCallout {
                         pushCallout
                             .transition(.deReveal(anchor: .topTrailing, reduceMotion: reduceMotion))
@@ -506,7 +507,7 @@ struct DashboardView: View {
                     Spacer()
                         .frame(height: 12)
                 }
-                .padding(.top, 14)
+                .padding(.top, Theme.Spacing.listBelowHeader)
                 .padding(.horizontal, 14)
                 // The top overscroll: the padded content's top in the scroll
                 // view's space rests at 0 and goes positive when pulled past
@@ -518,9 +519,11 @@ struct DashboardView: View {
                     if value != pullOverscroll { pullOverscroll = value }
                 }
             }
-            // Pull-to-refresh: the system spinner over the same overscroll
-            // the stagger reads; `refresh()` keeps the list mounted.
-            .refreshable { await viewModel.refresh() }
+            // Pull-to-refresh over the same overscroll the stagger reads,
+            // firing only past `PullRefresh.threshold` (owner report
+            // 2026-11-05: the system control fired too early); `refresh()`
+            // keeps the list mounted.
+            .pullToRefresh(overscroll: pullOverscroll) { await viewModel.refresh() }
             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { listViewport = $0 }
             .onChange(of: pendingFocusId) { _, activityId in
                 scrollToPendingFocus(activityId, proxy: proxy)

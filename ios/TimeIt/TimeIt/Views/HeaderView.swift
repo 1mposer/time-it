@@ -116,7 +116,7 @@ struct HeaderView: View {
                                 .accessibilityHidden(true)
                         }
                         .accessibilityIdentifier("headerTemp")
-                        .padding(.top, 2)
+                        .padding(.top, Theme.Spacing.headerLocationToNumeral)
                 }
 
                 // The meta line — clock, wind, humidity (Figma Meta row:
@@ -143,7 +143,7 @@ struct HeaderView: View {
                 .scaledFont(size: 13)
                 .tracking(0.1)
                 .foregroundStyle(Theme.onGradient)
-                .padding(.top, showsWeather ? 10 : 6)
+                .padding(.top, showsWeather ? Theme.Spacing.headerNumeralToMeta : 6)
             }
             .frame(maxWidth: .infinity)
             .padding(.top, 8)

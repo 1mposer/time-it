@@ -147,6 +147,17 @@ enum Theme {
         static let xl: CGFloat = 16
         /// The card padding token.
         static let card: CGFloat = 16
+        /// The card list's resting top below the header — the hero's room to
+        /// breathe (owner ruling 2026-11-05: 14 → 18). The melt anchors on
+        /// it too (`BandMeltView.firstCardTop`).
+        static let listBelowHeader: CGFloat = 14
+        /// The gap between cards in the list (the 10pt md token; a 12pt
+        /// try on 2026-11-05 was returned).
+        static let cardGap: CGFloat = 10
+        /// The header's vertical rhythm: location → numeral, numeral → meta
+        /// row (the original values; wider tries on 2026-11-05 were returned).
+        static let headerLocationToNumeral: CGFloat = 2
+        static let headerNumeralToMeta: CGFloat = 10
     }
 
     /// The Figma corner radii.
