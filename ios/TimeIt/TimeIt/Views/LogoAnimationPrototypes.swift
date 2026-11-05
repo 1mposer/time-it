@@ -127,11 +127,13 @@ struct LogoConvergeAnimation: View {
     }
 
     /// Phase 2, from the moment the circles settle. Bounce 0 on both — the
-    /// rise isn't thrown by anything, so it hasn't earned an overshoot.
+    /// rise isn't thrown by anything, so it hasn't earned an overshoot. The
+    /// name waits for the rise to land, then a beat (owner, 2026-11-05:
+    /// overlapping the rise read abrupt), and fades in slower.
     private func reveal() {
-        let hold = 0.28, rise = 0.6
+        let hold = 0.28, rise = 0.6, beat = 0.4
         withAnimation(.spring(duration: rise, bounce: 0).delay(hold)) { risen = true }
-        withAnimation(.spring(duration: 0.48, bounce: 0).delay(hold + rise * 0.6)) {
+        withAnimation(.spring(duration: 0.7, bounce: 0).delay(hold + rise + beat)) {
             nameShown = true
         } completion: {
             Task { @MainActor in
