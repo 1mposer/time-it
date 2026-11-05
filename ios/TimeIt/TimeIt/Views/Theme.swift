@@ -180,6 +180,9 @@ enum Theme {
         static let heroBottom: CGFloat = Spacing.xl
         static let ringDiameter: CGFloat = 64
         static let ringNumeral: CGFloat = 24
+        /// The numeral's Dynamic Type cap — Figma "Score" Semibold 28, the
+        /// largest a "100" still fits inside the fixed 64pt ring's stroke.
+        static let ringNumeralMax: CGFloat = 28
         /// The 6pt stroke of the 80pt ring, scaled to 64 (6 × 0.8 ≈ 5).
         static let ringStroke: CGFloat = 5
         static let ringToWord: CGFloat = 12
@@ -215,12 +218,43 @@ enum Theme {
         /// The in-flight label dims to this while the server scores the span.
         static let inFlightOpacity: Double = 0.6
 
+        /// The Dynamic Type seam (owner ruling 8, 2026-10-06): the three
+        /// text rows the hero stacks — the rating word, row 1 (the Range
+        /// line) and row 2 (the span action row) — at the user's text size.
+        /// `.standard` is the Figma default-size set, so every function below
+        /// reads exactly today's constants unless the view passes the
+        /// `@ScaledMetric` values. The ring, the pills and the − / + pieces
+        /// never scale (ruling 9a), so they stay plain constants.
+        struct HeroMetrics: Equatable {
+            var wordHeight: CGFloat
+            var lineHeight: CGFloat
+            var spanRowHeight: CGFloat
+
+            static let standard = HeroMetrics(wordHeight: Detail.wordHeight,
+                                              lineHeight: Detail.lineHeight,
+                                              spanRowHeight: Detail.spanRowHeight)
+
+            /// The view's scaled set. Row 1 is never shorter than its return
+            /// piece (the line must hold still as the button appears).
+            static func scaled(wordHeight: CGFloat, lineHeight: CGFloat, spanRowHeight: CGFloat) -> HeroMetrics {
+                HeroMetrics(wordHeight: wordHeight,
+                            lineHeight: Swift.max(lineHeight, Detail.returnPiece),
+                            spanRowHeight: spanRowHeight)
+            }
+        }
+
+        /// Ring + gap + word at a text size (`ringColumnHeight` at default).
+        static func scaledRingColumnHeight(_ metrics: HeroMetrics) -> CGFloat {
+            ringDiameter + ringToWord + metrics.wordHeight
+        }
+
         /// The pill row (+ row 1, the Range line, + row 2, the span action
         /// row) as one block. Row 2 hangs under row 1, so it needs the line.
-        static func rowColumnHeight(hasLine: Bool, hasSpanRow: Bool = false) -> CGFloat {
+        static func rowColumnHeight(hasLine: Bool, hasSpanRow: Bool = false,
+                                    metrics: HeroMetrics = .standard) -> CGFloat {
             guard hasLine else { return pillHeight }
-            let line = pillHeight + rowToLine + lineHeight
-            return hasSpanRow ? line + rowToLine + spanRowHeight : line
+            let line = pillHeight + rowToLine + metrics.lineHeight
+            return hasSpanRow ? line + rowToLine + metrics.spanRowHeight : line
         }
 
         /// Where the row block starts below the hero's top inset: alone, the
@@ -228,17 +262,38 @@ enum Theme {
         /// row + line block centres on the ring column. Row 2 never moves it
         /// — the − / + row the finger is on holds still while row 2 comes and
         /// goes (fluid-interfaces spatial consistency); the hero grows
-        /// instead (`heroHeight`).
-        static func rowColumnTop(hasLine: Bool) -> CGFloat {
-            hasLine ? (ringColumnHeight - rowColumnHeight(hasLine: true)) / 2
-                    : (ringDiameter - pillHeight) / 2
+        /// instead (`heroHeight`). Never negative: at a large text size the
+        /// row + line block outgrows the ring column and starts at the top.
+        static func rowColumnTop(hasLine: Bool, metrics: HeroMetrics = .standard) -> CGFloat {
+            let top = hasLine
+                ? (scaledRingColumnHeight(metrics) - rowColumnHeight(hasLine: true, metrics: metrics)) / 2
+                : (ringDiameter - pillHeight) / 2
+            return Swift.max(top, 0)
         }
 
         /// The hero's height: the taller column plus the insets — 122 on the
-        /// Range (the ring column), 141 away with row 2.
-        static func heroHeight(hasLine: Bool, hasSpanRow: Bool = false) -> CGFloat {
-            let row = rowColumnTop(hasLine: hasLine) + rowColumnHeight(hasLine: hasLine, hasSpanRow: hasSpanRow)
-            return heroInset + Swift.max(ringColumnHeight, row) + heroBottom
+        /// Range (the ring column), 141 away with row 2 (default text size).
+        static func heroHeight(hasLine: Bool, hasSpanRow: Bool = false,
+                               metrics: HeroMetrics = .standard) -> CGFloat {
+            let row = rowColumnTop(hasLine: hasLine, metrics: metrics)
+                + rowColumnHeight(hasLine: hasLine, hasSpanRow: hasSpanRow, metrics: metrics)
+            return heroInset + Swift.max(scaledRingColumnHeight(metrics), row) + heroBottom
+        }
+
+        /// The accessibility-size hero (owner ruling 5, the surviving part):
+        /// the ring column on top, `ringToRow` gap, then the row block full
+        /// width under it — the pill row's top is fixed under the ring
+        /// column, so row 2 still never moves it.
+        static func stackedHeroHeight(hasLine: Bool, hasSpanRow: Bool = false,
+                                      metrics: HeroMetrics = .standard) -> CGFloat {
+            heroInset + scaledRingColumnHeight(metrics) + ringToRow
+                + rowColumnHeight(hasLine: hasLine, hasSpanRow: hasSpanRow, metrics: metrics) + heroBottom
+        }
+
+        /// The capsule's vertical hit padding at a row-2 height — to the HIG
+        /// 44pt, and none once the capsule is itself taller than that.
+        static func hitPad(forSpanRowHeight height: CGFloat) -> CGFloat {
+            Swift.max((minHitTarget - height) / 2, 0)
         }
 
         /// Ring right edge → the pill column.

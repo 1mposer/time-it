@@ -48,22 +48,33 @@ struct MetricCardView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    // Dynamic Type (owner ruling 8): the glyph scales with the value's
+    // title2. The gauge — track, band, dot AND its bound numerals — stays
+    // fixed (ruling 9a: the strip-like pieces never scale, their numerals
+    // may clamp): the numerals' anti-collision gap (`MetricGauge`) is sized
+    // for the 10pt glyphs on the fixed 136pt track, so scaled numerals
+    // would overprint each other on a narrow band.
+    @ScaledMetric(relativeTo: .title2) private var glyphSize: CGFloat = 22
+    private static let numeralSlot: CGFloat = 12
+
     /// Figma detail frame card (176 square, inset 20): glyph 22 at y25, name
     /// 12 at y55, value Semibold 22 at y79, track at y128, band labels 10pt
     /// at y140 — the gauge block is bottom-anchored 24 from the edge.
     var body: some View {
         VStack(spacing: 0) {
-            ActivityIconView(identifier: catalog.iconSymbol(for: metric), size: 22)
+            ActivityIconView(identifier: catalog.iconSymbol(for: metric), size: glyphSize)
                 .foregroundStyle(Theme.primaryText.opacity(0.75))
-                .frame(height: 22)
+                .frame(height: glyphSize)
                 .padding(.top, 25)
                 .accessibilityHidden(true)
             Text(catalog.displayName(for: metric))
-                .font(.system(size: 12))
+                .scaledFont(size: 12)
                 .foregroundStyle(Theme.secondaryText)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
                 .padding(.top, Theme.Spacing.sm)
             Text(valueText)
-                .font(.system(size: 22, weight: .semibold))
+                .scaledFont(size: 22, weight: .semibold)
                 .tracking(-0.4)
                 .foregroundStyle(valueColor)
                 .minimumScaleFactor(0.6)
@@ -92,7 +103,13 @@ struct MetricCardView: View {
     /// metric (dustAlert, moon) has nothing to place on a track.
     @ViewBuilder
     private var gauge: some View {
-        if let domain {
+        if domain == nil {
+            // No gauge, but its slot is kept: every card in a grid row then
+            // has the same intrinsic height at any text size, so a taller-
+            // than-square row never mismatches its two cards.
+            Color.clear
+                .frame(height: Self.dotSize + 4 + Self.numeralSlot)
+        } else if let domain {
             VStack(spacing: 4) {
                 ZStack(alignment: .leading) {
                     RoundedRectangle(cornerRadius: 2)
@@ -116,7 +133,7 @@ struct MetricCardView: View {
                 }
                 .frame(width: Self.trackWidth, height: Self.dotSize)
                 boundNumerals(domain)
-                    .frame(width: Self.trackWidth, height: 12)
+                    .frame(width: Self.trackWidth, height: Self.numeralSlot)
             }
         }
     }
@@ -157,7 +174,7 @@ struct MetricCardView: View {
             .tracking(0.1)
             .foregroundStyle(Theme.secondaryText)
             .fixedSize()
-            .position(x: CGFloat(x), y: 6)
+            .position(x: CGFloat(x), y: Self.numeralSlot / 2)
     }
 }
 
@@ -169,12 +186,12 @@ struct MetricCardView: View {
                        hour: hour,
                        threshold: Threshold(min: 15, max: 35, required: true),
                        verdict: .green)
-            .aspectRatio(1, contentMode: .fit)
+            .atLeastSquare()
         MetricCardView(metric: "windSpeed",
                        hour: hour,
                        threshold: Threshold(max: 15, required: false),
                        verdict: .orange)
-            .aspectRatio(1, contentMode: .fit)
+            .atLeastSquare()
     }
     .padding(14)
     .background(Theme.appBackground)

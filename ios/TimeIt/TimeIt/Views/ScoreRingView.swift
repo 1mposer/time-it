@@ -30,6 +30,15 @@ struct ScoreRingView: View {
         var numeralTracking: CGFloat { self == .card ? -0.3 : -0.4 }
     }
 
+    /// The hero numeral scales with title2 from its 24 (Dynamic Type, owner
+    /// ruling 8) up to the Figma Score 28 — the most a "100" fits inside
+    /// the fixed 64pt ring (ruling 9a). The card ring's 15 stays fixed.
+    @ScaledMetric(relativeTo: .title2) private var heroNumeral = Theme.Detail.ringNumeral
+
+    private var numeralSize: CGFloat {
+        style == .hero ? Swift.min(heroNumeral, Theme.Detail.ringNumeralMax) : style.numeralSize
+    }
+
     private var fraction: Double {
         guard let score else { return 0 }
         return Swift.min(Swift.max(Double(score) / 100, 0), 1)
@@ -46,9 +55,14 @@ struct ScoreRingView: View {
                     // SwiftUI trims from 3 o'clock; the frame starts at 12.
                     .rotationEffect(.degrees(-90))
                 Text("\(score ?? 0)")
-                    .font(.system(size: style.numeralSize, weight: .semibold))
+                    .font(.system(size: numeralSize, weight: .semibold))
                     .tracking(style.numeralTracking)
                     .foregroundStyle(tint)
+                    // The guard under the cap: a numeral never overprints
+                    // the fixed ring's stroke.
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                    .padding(.horizontal, style.lineWidth)
                     // The numeral counts to a new score (a scored span on
                     // the detail hero) rather than crossfading.
                     .contentTransition(.numericText(value: Double(score ?? 0)))

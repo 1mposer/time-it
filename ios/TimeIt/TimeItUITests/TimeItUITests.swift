@@ -1,3 +1,4 @@
+import UIKit
 import XCTest
 
 /// Acceptance tests for the dashboard and the authoring layer. The app is
@@ -30,6 +31,9 @@ import XCTest
 ///   their live colours on the simulator instead of passed-grey.
 /// - `UITEST_APPEARANCE=dark|light`: pins the colour scheme; absent = the
 ///   simulator's system appearance (the app no longer pins Light).
+/// - `contentSize:` (launch helper) passes the system launch argument
+///   `-UIPreferredContentSizeCategoryName <category>` — the app's text size
+///   for that run, with no app code (the Dynamic Type pass, build 8).
 final class TimeItUITests: XCTestCase {
 
     // MARK: - Launch helpers
@@ -42,11 +46,15 @@ final class TimeItUITests: XCTestCase {
     /// every run (whatever its other arguments) shows the live look.
     private static let pinnedNow = "UITEST_NOW=2026-06-19T00:30:00Z"
 
-    private func launchApp(arguments: [String] = ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_SEED_LIVE", "UITEST_LOCATION"]) -> XCUIApplication {
+    private func launchApp(arguments: [String] = ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_SEED_LIVE", "UITEST_LOCATION"],
+                           contentSize: UIContentSizeCategory? = nil) -> XCUIApplication {
         let app = XCUIApplication()
         // The clock pin rides along unless the caller pins its own instant.
         let pinsOwnClock = arguments.contains { $0.hasPrefix("UITEST_NOW=") }
         app.launchArguments = pinsOwnClock ? arguments : arguments + [Self.pinnedNow]
+        if let contentSize {
+            app.launchArguments += ["-UIPreferredContentSizeCategoryName", contentSize.rawValue]
+        }
         app.launch()
         return app
     }
@@ -1019,6 +1027,125 @@ final class TimeItUITests: XCTestCase {
 
         app.navigationBars["Cycling"].buttons.firstMatch.tap()
         XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5), "back returns to the dashboard")
+    }
+
+    // MARK: - Dynamic Type (owner rulings 8 / 9a / 5, build 8)
+
+    /// The largest size the pass is walked at: the hero stacks (ring on top,
+    /// the hour row block under it), the grid is one column, and nothing on
+    /// the dashboard or the detail runs past the screen's edges. The full
+    /// walk — + → Score → return → back — must still work.
+    func testAccessibilityXXLStacksTheHeroAndNothingOverflows() {
+        let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_SEED_LIVE", "UITEST_LOCATION",
+                                        "UITEST_APPEARANCE=light"],
+                            contentSize: .accessibilityExtraExtraLarge)
+        let card = app.buttons["card.cycling"]
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        XCTAssertTrue(card.isHittable)
+        // The launch argument took effect: the 11pt location label (no
+        // minimum scale factor) is far taller than its default ~13pt line.
+        let location = app.staticTexts["headerLocation"]
+        XCTAssertTrue(location.exists)
+        XCTAssertGreaterThan(location.frame.height, 30, "the text size reached the app")
+        XCTAssertTrue(app.staticTexts["headerTime"].exists)
+        XCTAssertTrue(app.buttons["settingsGear"].isHittable)
+        assertNothingOverflowsHorizontally(app)
+        attachScreenshot(app, named: "dashboard-ax-xxl")
+
+        card.tap()
+        XCTAssertTrue(app.navigationBars["Cycling"].waitForExistence(timeout: 5))
+        let score = app.otherElements["detail.score"]
+        let row = app.descendants(matching: .any)["detail.hourStrip"]
+        let line = app.staticTexts["detail.rangeLine"]
+        XCTAssertTrue(line.waitForExistence(timeout: 3))
+        XCTAssertTrue(score.exists)
+        XCTAssertTrue(row.exists)
+        XCTAssertTrue(row.isHittable)
+        XCTAssertTrue(line.isHittable)
+        XCTAssertTrue(app.buttons["detail.stepForward"].isHittable)
+        // Ruling 5: the hour row drops UNDER the ring column.
+        XCTAssertGreaterThanOrEqual(row.frame.minY, score.frame.maxY - 0.5,
+                                    "the hero stacks: the row block sits under the ring")
+        XCTAssertTrue(app.otherElements["detail.metric.temp"].exists)
+        Thread.sleep(forTimeInterval: 0.6)
+        assertNothingOverflowsHorizontally(app)
+        attachScreenshot(app, named: "detail-ax-xxl")
+
+        app.buttons["detail.stepForward"].tap()
+        XCTAssertTrue(waitForLabel(row, "Hours 7am to 11am"), "got \(row.label)")
+        let scoreButton = app.buttons["detail.scoreSpan"]
+        XCTAssertTrue(scoreButton.waitForExistence(timeout: 2))
+        XCTAssertTrue(scoreButton.isHittable)
+        scoreButton.tap()
+        let scored = app.staticTexts["detail.scoredSpan"]
+        XCTAssertTrue(scored.waitForExistence(timeout: 3))
+        XCTAssertTrue(waitForLabel(score, "Good, score 67 out of 100 for 7 to 11am"), "got \(score.label)")
+        Thread.sleep(forTimeInterval: 0.6)
+        assertNothingOverflowsHorizontally(app)
+
+        let returnControl = app.buttons["detail.returnToRange"]
+        XCTAssertTrue(returnControl.isHittable)
+        returnControl.tap()
+        XCTAssertTrue(waitForLabel(row, "Hours 6am to 10am"), "got \(row.label)")
+        XCTAssertTrue(scored.waitForNonExistence(timeout: 2))
+
+        // The edit circles keep 44pt and stay reachable below the grid.
+        let editRange = app.buttons["detail.editRange"]
+        scrollTo(editRange, in: app)
+        XCTAssertTrue(editRange.isHittable)
+        XCTAssertTrue(app.buttons["detail.editMetrics"].isHittable)
+        assertNothingOverflowsHorizontally(app)
+
+        app.navigationBars["Cycling"].buttons.firstMatch.tap()
+        XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5), "back returns to the dashboard")
+    }
+
+    /// The smallest size: the hero keeps its side-by-side layout and the
+    /// text shrinks from the Figma defaults.
+    func testExtraSmallKeepsTheSideBySideHero() {
+        let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_SEED_LIVE", "UITEST_LOCATION",
+                                        "UITEST_APPEARANCE=light"],
+                            contentSize: .extraSmall)
+        let card = app.buttons["card.cycling"]
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        card.tap()
+        XCTAssertTrue(app.navigationBars["Cycling"].waitForExistence(timeout: 5))
+        let score = app.otherElements["detail.score"]
+        let row = app.descendants(matching: .any)["detail.hourStrip"]
+        let line = app.staticTexts["detail.rangeLine"]
+        XCTAssertTrue(line.waitForExistence(timeout: 3))
+        // The launch argument took effect: the 13pt footnote line shrinks
+        // (12pt at extra small — a line under the default ~15.5pt).
+        XCTAssertLessThan(line.frame.height, 15.2, "the text size reached the app")
+        XCTAssertLessThan(row.frame.minY, score.frame.maxY, "side by side: the row sits beside the ring")
+        XCTAssertGreaterThan(row.frame.minX, score.frame.maxX, "the row is right of the ring column")
+        assertNothingOverflowsHorizontally(app)
+        Thread.sleep(forTimeInterval: 0.6)
+        attachScreenshot(app, named: "detail-xs")
+    }
+
+    /// Every on-screen text, button and metric card stays inside the
+    /// screen's width (0.5pt tolerance).
+    private func assertNothingOverflowsHorizontally(_ app: XCUIApplication,
+                                                    file: StaticString = #filePath, line: UInt = #line) {
+        let width = app.windows.firstMatch.frame.width
+        let queries: [XCUIElementQuery] = [
+            app.staticTexts,
+            app.buttons,
+            app.otherElements.matching(NSPredicate(format: "identifier BEGINSWITH 'detail.'")),
+        ]
+        for query in queries {
+            for element in query.allElementsBoundByIndex where element.exists {
+                let frame = element.frame
+                guard !frame.isEmpty else { continue }
+                XCTAssertGreaterThanOrEqual(frame.minX, -0.5,
+                                            "\(element.identifier) '\(element.label)' runs off the left edge: \(frame)",
+                                            file: file, line: line)
+                XCTAssertLessThanOrEqual(frame.maxX, width + 0.5,
+                                         "\(element.identifier) '\(element.label)' runs off the right edge: \(frame)",
+                                         file: file, line: line)
+            }
+        }
     }
 
     private func attachScreenshot(_ app: XCUIApplication, named name: String) {
