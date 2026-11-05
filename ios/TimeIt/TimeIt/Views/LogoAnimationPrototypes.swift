@@ -5,12 +5,13 @@ import SwiftUI
 // chosen variant gets adopted (and this file trimmed) once the owner rules.
 
 /// The app mark — Figma component "Size=1024" (93:2): three translucent
-/// identity-temperature circles in a Venn on a cream rounded-square tile.
-/// Geometry measured off the 1024 `AppIcon.png`, as fractions of the tile
-/// width. Every animation variant below draws through this one view and
+/// identity-temperature circles in a Venn — drawn tile-less, straight onto
+/// the screen (`LogoScreen` supplies the cream). Geometry measured off the
+/// 1024 `AppIcon.png`, as fractions of the (virtual) tile width. Every animation variant below draws through this one view and
 /// settles on `LogoPose.rest`, so the end frame IS the static mark.
 struct LogoMark: View {
-    /// Tile width (and height).
+    /// Scale of the circle group — the width of the virtual tile the Venn
+    /// proportions are measured against (nothing is drawn at that size).
     let size: CGFloat
     fileprivate var poses: [LogoCircle: LogoPose] = LogoPose.restPoses
     /// Orbit variant only — the circle group spins about the Venn centroid.
@@ -27,20 +28,14 @@ struct LogoMark: View {
     }
 
     var body: some View {
-        let tile = RoundedRectangle(cornerRadius: size * LogoGeometry.cornerRadius, style: .continuous)
         ZStack {
-            tile.fill(LogoPalette.tile)
-            ZStack {
-                // Draw order is the icon's: amber under, coral on top.
-                ForEach(LogoCircle.drawOrder, id: \.self) { circle in
-                    circleView(circle, pose: poses[circle] ?? .rest)
-                }
+            // Draw order is the icon's: amber under, coral on top.
+            ForEach(LogoCircle.drawOrder, id: \.self) { circle in
+                circleView(circle, pose: poses[circle] ?? .rest)
             }
-            .frame(width: size, height: size)
-            .rotationEffect(orbit, anchor: LogoGeometry.centroidAnchor)
         }
         .frame(width: size, height: size)
-        .clipShape(tile)
+        .rotationEffect(orbit, anchor: LogoGeometry.centroidAnchor)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Time It")
         .accessibilityAddTraits(.isImage)
@@ -63,12 +58,39 @@ struct LogoMark: View {
     }
 }
 
+// MARK: - Screen
+
+/// The full-screen opening canvas: the launch-screen cream edge to edge
+/// (safe areas included, so the hand-off from the launch screen is seamless)
+/// with the circle group centred at ~60% of the screen width. Nothing clips
+/// the circles, so Converge's off-edge starts fly in from beyond the screen.
+struct LogoScreen<Content: View>: View {
+    @ViewBuilder let content: (CGFloat) -> Content
+
+    var body: some View {
+        ZStack {
+            LogoPalette.background.ignoresSafeArea()
+            GeometryReader { geo in
+                content(geo.size.width * LogoGeometry.screenFraction)
+                    .position(x: geo.size.width / 2, y: geo.size.height / 2)
+            }
+            .ignoresSafeArea()
+        }
+    }
+}
+
+/// The static mark as a full-screen opening screen.
+struct LogoStaticScreen: View {
+    var body: some View {
+        LogoScreen { size in LogoMark(size: size) }
+    }
+}
+
 // MARK: - Variants
 
 /// 1 · Converge — each circle starts off its own edge (cool bottom-left, mid
 /// top, hot bottom-right) and springs in, staggered 0.1s. ~1.3s.
 struct LogoConvergeAnimation: View {
-    let size: CGFloat
     var onFinished: () -> Void = {}
 
     @State private var poses: [LogoCircle: LogoPose] = [
@@ -78,10 +100,10 @@ struct LogoConvergeAnimation: View {
     ]
 
     var body: some View {
-        LogoMark(size: size, poses: poses)
+        LogoScreen { size in LogoMark(size: size, poses: poses) }
             // onAppear sits inside the fallback, so Reduce Motion never runs `play`.
             .onAppear(perform: play)
-            .logoReduceMotionFallback(size: size, onFinished: onFinished)
+            .logoReduceMotionFallback(onFinished: onFinished)
     }
 
     private func play() {
@@ -96,7 +118,6 @@ struct LogoConvergeAnimation: View {
 /// 2 · Bloom — circles grow out of the shared centroid, staggered
 /// cool → mid → hot by 0.14s, with an overshooting spring. ~1.3s.
 struct LogoBloomAnimation: View {
-    let size: CGFloat
     var onFinished: () -> Void = {}
 
     // 0.01, not 0 — a zero scale is a singular transform (CG console noise).
@@ -106,10 +127,10 @@ struct LogoBloomAnimation: View {
         })
 
     var body: some View {
-        LogoMark(size: size, poses: poses)
+        LogoScreen { size in LogoMark(size: size, poses: poses) }
             // onAppear sits inside the fallback, so Reduce Motion never runs `play`.
             .onAppear(perform: play)
-            .logoReduceMotionFallback(size: size, onFinished: onFinished)
+            .logoReduceMotionFallback(onFinished: onFinished)
     }
 
     private func play() {
@@ -125,7 +146,6 @@ struct LogoBloomAnimation: View {
 /// group turns two-thirds of a revolution while spreading to rest — a nod
 /// to time passing. One gentle spring, ~1.7s; ends at exactly 0°.
 struct LogoOrbitAnimation: View {
-    let size: CGFloat
     var onFinished: () -> Void = {}
 
     @State private var poses: [LogoCircle: LogoPose] = Dictionary(
@@ -135,10 +155,10 @@ struct LogoOrbitAnimation: View {
     @State private var orbit: Angle = .degrees(-240)
 
     var body: some View {
-        LogoMark(size: size, poses: poses, orbit: orbit)
+        LogoScreen { size in LogoMark(size: size, poses: poses, orbit: orbit) }
             // onAppear sits inside the fallback, so Reduce Motion never runs `play`.
             .onAppear(perform: play)
-            .logoReduceMotionFallback(size: size, onFinished: onFinished)
+            .logoReduceMotionFallback(onFinished: onFinished)
     }
 
     private func play() {
@@ -160,7 +180,7 @@ struct LogoOrbitAnimation: View {
 
 // MARK: - Model
 
-/// One circle's animated state, in tile-width units. `rest` is the icon.
+/// One circle's animated state, in group-size units. `rest` is the icon.
 private struct LogoPose: Equatable {
     var spread: CGFloat = 1
     var drift: CGSize = .zero
@@ -180,7 +200,7 @@ private enum LogoCircle: CaseIterable {
     /// The stagger order the variants enter in.
     static let entranceOrder: [LogoCircle] = [.cool, .mid, .hot]
 
-    /// Circle centre minus tile centre, in tile widths (icon: centres at
+    /// Circle centre minus group centre, in group sizes (icon: centres at
     /// (512, 412), (384, 619), (640, 619) on 1024).
     var restOffset: CGSize {
         switch self {
@@ -201,8 +221,8 @@ private enum LogoGeometry {
     static let diameter: CGFloat = 0.434
     /// Each circle's own translucency — what makes the overlaps blend.
     static let circleOpacity: Double = 0.85
-    /// iOS icon squircle ratio (the PNG itself is square; iOS masks it).
-    static let cornerRadius: CGFloat = 0.2237
+    /// Group size as a fraction of the screen width.
+    static let screenFraction: CGFloat = 0.6
     /// Mean of the three rest centres — Bloom/Orbit's shared origin.
     static let centroid = CGSize(
         width: LogoCircle.allCases.map(\.restOffset.width).reduce(0, +) / 3,
@@ -214,9 +234,10 @@ private enum LogoGeometry {
 /// Colours. The circle stops are the identity temperatures' light-mode
 /// band stops — copied verbatim from `Theme.Header.bandHex(_:dark: false)`
 /// on `owner-tweaks` (not yet on this branch); replace with that call once
-/// it merges. The tile cream is sampled off `AppIcon.png`.
+/// it merges. The background is the launch screen's asset colour, so the
+/// hand-off from launch screen to animation is seamless.
 private enum LogoPalette {
-    static let tile = Color(hex: 0xfdeed6)
+    static let background = Color("LaunchBackground")
 
     static func band(_ circle: LogoCircle) -> (start: UInt32, end: UInt32) {
         switch circle {
@@ -251,7 +272,6 @@ private enum LogoTiming {
 /// With Reduce Motion on, every variant collapses to the static mark fading
 /// in (0.4s) — the motion variant underneath is replaced, never played.
 private struct LogoReduceMotionFallback: ViewModifier {
-    let size: CGFloat
     let onFinished: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -259,7 +279,7 @@ private struct LogoReduceMotionFallback: ViewModifier {
 
     func body(content: Content) -> some View {
         if reduceMotion {
-            LogoMark(size: size)
+            LogoStaticScreen()
                 .opacity(visible ? 1 : 0)
                 .onAppear {
                     withAnimation(.easeOut(duration: 0.4)) { visible = true } completion: { onFinished() }
@@ -271,54 +291,56 @@ private struct LogoReduceMotionFallback: ViewModifier {
 }
 
 private extension View {
-    func logoReduceMotionFallback(size: CGFloat, onFinished: @escaping () -> Void) -> some View {
-        modifier(LogoReduceMotionFallback(size: size, onFinished: onFinished))
+    func logoReduceMotionFallback(onFinished: @escaping () -> Void) -> some View {
+        modifier(LogoReduceMotionFallback(onFinished: onFinished))
     }
 }
 
 #if DEBUG
 /// Tap anywhere to replay — `.id` rebuilds the variant from its start pose.
 private struct LogoReplayPreview<Content: View>: View {
-    let title: String
     @ViewBuilder let content: () -> Content
     @State private var replay = 0
 
     var body: some View {
-        VStack(spacing: 16) {
-            content().id(replay)
-            Text(title).font(.headline)
-            Text("Tap to replay").font(.caption).foregroundStyle(Theme.secondaryText)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Theme.appBackground)
-        .contentShape(Rectangle())
-        .onTapGesture { replay += 1 }
+        content()
+            .id(replay)
+            .contentShape(Rectangle())
+            .onTapGesture { replay += 1 }
     }
 }
 
 #Preview("Logo · static mark") {
-    LogoMark(size: 240)
+    LogoStaticScreen()
 }
 
 #Preview("Logo · 1 Converge") {
-    LogoReplayPreview(title: "Converge") { LogoConvergeAnimation(size: 200) }
+    LogoReplayPreview { LogoConvergeAnimation() }
 }
 
 #Preview("Logo · 2 Bloom") {
-    LogoReplayPreview(title: "Bloom") { LogoBloomAnimation(size: 200) }
+    LogoReplayPreview { LogoBloomAnimation() }
 }
 
 #Preview("Logo · 3 Orbit") {
-    LogoReplayPreview(title: "Orbit") { LogoOrbitAnimation(size: 200) }
+    LogoReplayPreview { LogoOrbitAnimation() }
 }
 
 #Preview("Logo · side by side") {
-    LogoReplayPreview(title: "Converge · Bloom · Orbit") {
-        HStack(spacing: 16) {
-            LogoConvergeAnimation(size: 100)
-            LogoBloomAnimation(size: 100)
-            LogoOrbitAnimation(size: 100)
+    // Three phone-aspect panels; the clip is preview-only, for the comparison.
+    HStack(spacing: 12) {
+        ForEach(["Converge", "Bloom", "Orbit"], id: \.self) { name in
+            LogoReplayPreview {
+                switch name {
+                case "Converge": LogoConvergeAnimation()
+                case "Bloom": LogoBloomAnimation()
+                default: LogoOrbitAnimation()
+                }
+            }
+            .aspectRatio(9.0 / 19.5, contentMode: .fit)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
     }
+    .padding(12)
 }
 #endif
