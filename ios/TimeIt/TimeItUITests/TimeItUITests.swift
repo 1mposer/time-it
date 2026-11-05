@@ -90,15 +90,37 @@ final class TimeItUITests: XCTestCase {
     }
 
     func testHeaderShowsCurrentConditionsAndGear() {
-        let app = launchApp()
+        let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_SEED_LIVE", "UITEST_LOCATION",
+                                        "UITEST_APPEARANCE=light"])
 
         XCTAssertTrue(app.staticTexts["headerTime"].waitForExistence(timeout: 5))
         // Mock fixture's hours[0] = temp 24 / wind 10 / humidity 40 — header
         // renders from hours.first.
-        XCTAssertTrue(app.staticTexts["24°C"].exists)
         XCTAssertTrue(app.staticTexts["10 km/h"].exists)
         XCTAssertTrue(app.staticTexts["40%"].exists)
         XCTAssertTrue(app.buttons["settingsGear"].exists, "top-right gear, not a sign-in button")
+        assertHeaderNumeralSwap(app)
+        attachScreenshot(app, named: "header-light")
+    }
+
+    /// Ruling 7: the temperature is the big numeral ("24°", no unit letter)
+    /// and the clock leads the meta line — on the wind/humidity row, below
+    /// the numeral.
+    private func assertHeaderNumeralSwap(_ app: XCUIApplication,
+                                         file: StaticString = #filePath, line: UInt = #line) {
+        let numeral = app.staticTexts["headerTemp"]
+        let clock = app.staticTexts["headerTime"]
+        let wind = app.staticTexts["10 km/h"]
+        XCTAssertTrue(numeral.waitForExistence(timeout: 5), file: file, line: line)
+        XCTAssertEqual(numeral.label, "24°", "the numeral is the mock's temperature", file: file, line: line)
+        XCTAssertFalse(clock.label.isEmpty, file: file, line: line)
+        XCTAssertLessThan(abs(clock.frame.midY - wind.frame.midY), 2,
+                          "the clock sits on the meta line with wind", file: file, line: line)
+        // midY, not maxY: the numeral's accessibility frame includes its
+        // 130pt scrim, which extends past the meta line by design.
+        XCTAssertGreaterThan(clock.frame.minY, numeral.frame.midY,
+                             "the meta line is below the numeral", file: file, line: line)
+        XCTAssertLessThan(clock.frame.maxX, wind.frame.minX, "the clock leads the meta line", file: file, line: line)
     }
 
     // MARK: - Cards
@@ -976,6 +998,8 @@ final class TimeItUITests: XCTestCase {
         XCTAssertTrue(card.waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["headerTime"].exists)
         XCTAssertTrue(app.buttons["card.fishing-lite"].exists)
+        assertHeaderNumeralSwap(app)
+        attachScreenshot(app, named: "header-dark")
         attachScreenshot(app, named: "dashboard-dark")
 
         card.tap()

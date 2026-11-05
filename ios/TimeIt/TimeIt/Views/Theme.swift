@@ -469,15 +469,18 @@ enum Theme {
         /// motion — no need to redraw at the display's full rate.
         static let driftFrameInterval: TimeInterval = 1.0 / 20
 
-        // The header numeral's readability over the lighter melt.
+        // The temperature numeral's readability over the lighter melt
+        // (ruling 8a; Figma scrims 811:4854 / 811:4855).
         /// Ellipse 240×130 at (76.5, 61) on the 393 frame — centred on the
-        /// numeral; black 10%, Figma blur 40 → SwiftUI 20.
+        /// temperature numeral; black 10%, Figma blur 40 → SwiftUI 20.
         static let scrimSize = CGSize(width: 240, height: 130)
         static let scrimOpacity: Double = 0.10
         static let scrimBlur: CGFloat = 20
-        /// Figma drop shadow radius 6, black 30% → SwiftUI radius 3.
+        /// The temperature numeral's Figma drop shadow (541:906 / 541:4095):
+        /// radius 6 → SwiftUI radius 3, offset y 2, black 30%.
         static let numeralShadowOpacity: Double = 0.30
         static let numeralShadowRadius: CGFloat = 3
+        static let numeralShadowY: CGFloat = 2
 
         /// The ground under the melt — `surface/background` resolved for the
         /// mode (black in dark, the grey `appBackground` in light).
