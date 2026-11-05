@@ -97,6 +97,15 @@ final class DynamicTypeHeroLayoutTests: XCTestCase {
         XCTAssertEqual(small.lineHeight, L.returnPiece)
     }
 
+    func testTheSquareFloorBelongsToTheTwoColumnGridOnly() {
+        XCTAssertEqual(L.metricGridColumnCount(isAccessibilitySize: false), 2)
+        XCTAssertEqual(L.metricGridColumnCount(isAccessibilitySize: true), 1)
+        XCTAssertTrue(L.metricCardHasSquareFloor(columnCount: 2),
+                      "two columns: square at default, a row's two cards match")
+        XCTAssertFalse(L.metricCardHasSquareFloor(columnCount: 1),
+                       "one full-width column: the card's own height, no empty square")
+    }
+
     func testTheStackedHeroPutsTheRowBlockUnderTheRingColumn() {
         // Ruling 5: ring column on top, the 16pt gap, the row block.
         XCTAssertEqual(L.stackedHeroHeight(hasLine: true, metrics: scaled),

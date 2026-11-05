@@ -809,10 +809,10 @@ struct ActivityDetailView: View {
         let inRange = carousel?.overlapsRange ?? false
         let hour = displayedHour
         // Accessibility sizes: one column, so the scaled words have room.
-        let columns = isStacked
-            ? [GridItem(.flexible())]
-            : [GridItem(.flexible(), spacing: Layout.gridColumnGap),
-               GridItem(.flexible(), spacing: Layout.gridColumnGap)]
+        let columnCount = Layout.metricGridColumnCount(isAccessibilitySize: isStacked)
+        let squareFloor = Layout.metricCardHasSquareFloor(columnCount: columnCount)
+        let columns = Array(repeating: GridItem(.flexible(), spacing: Layout.gridColumnGap),
+                            count: columnCount)
         return LazyVGrid(columns: columns, spacing: Layout.gridRowGap) {
             ForEach(metrics, id: \.self) { metric in
                 MetricCardView(metric: metric,
@@ -821,9 +821,11 @@ struct ActivityDetailView: View {
                                verdict: verdict(for: metric, hour: hour, inRange: inRange),
                                catalog: catalog,
                                windUnit: windUnit)
-                    // Square at the default size; taller once the scaled
-                    // text needs the room (never clipped).
-                    .atLeastSquare()
+                    // Two columns: square at the default size, taller once
+                    // the scaled text needs the room (never clipped). One
+                    // column (AX sizes): the content's own height — a
+                    // full-width square would be mostly empty.
+                    .atLeastSquare(squareFloor)
             }
         }
     }

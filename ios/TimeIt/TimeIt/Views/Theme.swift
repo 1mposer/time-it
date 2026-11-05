@@ -325,6 +325,19 @@ enum Theme {
 
         /// The metric card's inner inset.
         static let metricInset: CGFloat = 20
+
+        /// The metric grid: two columns, one at accessibility sizes (owner
+        /// ruling 5's surviving part — reduce columns, don't truncate).
+        static func metricGridColumnCount(isAccessibilitySize: Bool) -> Int {
+            isAccessibilitySize ? 1 : 2
+        }
+
+        /// The square floor belongs to the two-column grid only: there the
+        /// cards are square at the default size and a row's two cards match.
+        /// A single full-width column takes the content's own height.
+        static func metricCardHasSquareFloor(columnCount: Int) -> Bool {
+            columnCount > 1
+        }
     }
 
     /// The detail's motion springs (fluid-interfaces spring table: response

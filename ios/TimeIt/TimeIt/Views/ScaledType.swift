@@ -96,9 +96,10 @@ extension View {
         modifier(ScaledSystemFont(size: size, weight: weight, maxSize: maxSize))
     }
 
-    /// `AtLeastSquareLayout` around this view.
-    func atLeastSquare() -> some View {
-        AtLeastSquareLayout { self }
+    /// `AtLeastSquareLayout` around this view; `isActive: false` lays it
+    /// out at its own intrinsic height instead.
+    func atLeastSquare(_ isActive: Bool = true) -> some View {
+        AtLeastSquareLayout(isActive: isActive) { self }
     }
 
     /// `MinHeightLayout` around this view.
@@ -129,13 +130,16 @@ struct MinHeightLayout: Layout {
 }
 
 /// At least square: as tall as it is wide (the detail's metric cards at the
-/// default text size), taller once its scaled text needs the room.
+/// default text size), taller once its scaled text needs the room. Inactive,
+/// it is just the child's intrinsic height at the proposed width.
 struct AtLeastSquareLayout: Layout {
+    var isActive = true
+
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         guard let child = subviews.first else { return .zero }
         let ideal = child.sizeThatFits(ProposedViewSize(width: proposal.width, height: nil))
         let width = proposal.width ?? ideal.width
-        return CGSize(width: width, height: Swift.max(width, ideal.height))
+        return CGSize(width: width, height: isActive ? Swift.max(width, ideal.height) : ideal.height)
     }
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {

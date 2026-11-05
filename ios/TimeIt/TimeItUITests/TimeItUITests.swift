@@ -1066,7 +1066,12 @@ final class TimeItUITests: XCTestCase {
         // Ruling 5: the hour row drops UNDER the ring column.
         XCTAssertGreaterThanOrEqual(row.frame.minY, score.frame.maxY - 0.5,
                                     "the hero stacks: the row block sits under the ring")
-        XCTAssertTrue(app.otherElements["detail.metric.temp"].exists)
+        let tempCard = app.otherElements["detail.metric.temp"]
+        XCTAssertTrue(tempCard.exists)
+        // One column: the card is its content's height, not a full-width
+        // square with an empty gap above the gauge.
+        XCTAssertLessThan(tempCard.frame.height, tempCard.frame.width * 0.9,
+                          "single-column metric card is intrinsic: \(tempCard.frame)")
         Thread.sleep(forTimeInterval: 0.6)
         assertNothingOverflowsHorizontally(app)
         attachScreenshot(app, named: "detail-ax-xxl")
