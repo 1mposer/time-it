@@ -1,30 +1,28 @@
 import SwiftUI
 
-// PROTOTYPE — the opening logo animation, three variants for the owner to
-// compare in Xcode previews. Nothing here is wired into the launch flow; the
-// chosen variant gets adopted (and this file trimmed) once the owner rules.
+// PROTOTYPE — the opening sequence: the owner-picked Converge logo animation
+// (lift B, owner timing) and three candidate reveals into the dashboard, for
+// the owner to compare in Xcode previews. Nothing here is wired into the
+// launch flow yet.
 
 /// The app mark — Figma component "Size=1024" (93:2): three translucent
 /// identity-temperature circles in a Venn — drawn tile-less, straight onto
 /// the screen (`LogoScreen` supplies the cream). Geometry measured off the
-/// 1024 `AppIcon.png`, as fractions of the (virtual) tile width. Every animation variant below draws through this one view and
-/// settles on `LogoPose.rest`, so the end frame IS the static mark.
+/// 1024 `AppIcon.png`, as fractions of the (virtual) tile width. The animation draws through this one view
+/// and settles on `LogoPose.rest`, so the end frame IS the static mark.
 struct LogoMark: View {
     /// Scale of the circle group — the width of the virtual tile the Venn
     /// proportions are measured against (nothing is drawn at that size).
     let size: CGFloat
     fileprivate var poses: [LogoCircle: LogoPose] = LogoPose.restPoses
-    /// Orbit variant only — the circle group spins about the Venn centroid.
-    fileprivate var orbit: Angle = .zero
 
     init(size: CGFloat) {
         self.size = size
     }
 
-    fileprivate init(size: CGFloat, poses: [LogoCircle: LogoPose], orbit: Angle = .zero) {
+    fileprivate init(size: CGFloat, poses: [LogoCircle: LogoPose]) {
         self.size = size
         self.poses = poses
-        self.orbit = orbit
     }
 
     var body: some View {
@@ -35,24 +33,19 @@ struct LogoMark: View {
             }
         }
         .frame(width: size, height: size)
-        .rotationEffect(orbit, anchor: LogoGeometry.centroidAnchor)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Time it")
         .accessibilityAddTraits(.isImage)
     }
 
     private func circleView(_ circle: LogoCircle, pose: LogoPose) -> some View {
-        // Spread 0 = stacked on the centroid, 1 = resting Venn position;
-        // `drift` is an extra offset on top (Converge's off-edge start).
-        let rest = circle.restOffset
-        let c = LogoGeometry.centroid
-        let x = c.width + (rest.width - c.width) * pose.spread + pose.drift.width
-        let y = c.height + (rest.height - c.height) * pose.spread + pose.drift.height
+        // `drift` offsets the circle from its resting Venn spot (the off-edge start).
+        let x = circle.restOffset.width + pose.drift.width
+        let y = circle.restOffset.height + pose.drift.height
         return Circle()
             .fill(LinearGradient(colors: circle.colors, startPoint: .top, endPoint: .bottom))
             .opacity(LogoGeometry.circleOpacity)
             .frame(width: size * LogoGeometry.diameter, height: size * LogoGeometry.diameter)
-            .scaleEffect(pose.scale)
             .opacity(pose.opacity)
             .offset(x: x * size, y: y * size)
     }
@@ -63,7 +56,7 @@ struct LogoMark: View {
 /// The full-screen opening canvas: the launch-screen cream edge to edge
 /// (safe areas included, so the hand-off from the launch screen is seamless)
 /// with the circle group centred at ~60% of the screen width. Nothing clips
-/// the circles, so Converge's off-edge starts fly in from beyond the screen.
+/// the circles, so the off-edge starts fly in from beyond the screen.
 struct LogoScreen<Content: View>: View {
     @ViewBuilder let content: (CGFloat) -> Content
 
@@ -86,17 +79,14 @@ struct LogoStaticScreen: View {
     }
 }
 
-// MARK: - Variants
+// MARK: - Converge
 
-/// 1 · Converge (owner pick) — each circle starts off its own edge (cool
+/// Converge (owner pick) — each circle starts off its own edge (cool
 /// bottom-left, mid top, hot bottom-right) and springs in, staggered 0.1s
-/// (~1.3s). Then: hold 0.28s → the mark rises (critically damped, 0.6s) until
-/// the whole mark + name lockup is centred → 60% into the rise the name
-/// fades in drifting up 9pt (0.48s) → hold 0.5s → `onFinished`. ~2.9s total.
+/// (~1.3s). Then: hold 0.28s → the mark rises (critically damped, 0.6s) to
+/// `LogoGeometry.lift` above the centred lockup → a 0.4s beat → the name
+/// fades in drifting up 9pt (0.28s, owner-tuned) → hold 0.5s → `onFinished`.
 struct LogoConvergeAnimation: View {
-    /// Extra rise above the centred lockup, in tile widths (owner, 2026-11-05:
-    /// "go up a bit more" — the three candidates are `LogoLift`).
-    var lift: CGFloat = LogoLift.medium
     var onFinished: () -> Void = {}
 
     @State private var poses: [LogoCircle: LogoPose] = [
@@ -109,12 +99,12 @@ struct LogoConvergeAnimation: View {
 
     var body: some View {
         LogoScreen { size in
-            LogoLockup(size: size, poses: poses, risen: risen, nameShown: nameShown, lift: lift)
+            LogoLockup(size: size, poses: poses, risen: risen, nameShown: nameShown)
         }
         // onAppear sits inside the fallback, so Reduce Motion never runs `play`.
         .onAppear(perform: play)
         .logoReduceMotionFallback(onFinished: onFinished) {
-            LogoScreen { size in LogoLockup(size: size, lift: lift) }
+            LogoScreen { size in LogoLockup(size: size) }
         }
     }
 
@@ -133,76 +123,13 @@ struct LogoConvergeAnimation: View {
     private func reveal() {
         let hold = 0.28, rise = 0.6, beat = 0.4
         withAnimation(.spring(duration: rise, bounce: 0).delay(hold)) { risen = true }
-        withAnimation(.spring(duration: 0.7, bounce: 0).delay(hold + rise + beat)) {
+        withAnimation(.spring(duration: 0.28, bounce: 0).delay(hold + rise + beat)) {
             nameShown = true
         } completion: {
             Task { @MainActor in
                 try? await Task.sleep(for: .seconds(0.5))
                 onFinished()
             }
-        }
-    }
-}
-
-/// 2 · Bloom — circles grow out of the shared centroid, staggered
-/// cool → mid → hot by 0.14s, with an overshooting spring. ~1.3s.
-struct LogoBloomAnimation: View {
-    var onFinished: () -> Void = {}
-
-    // 0.01, not 0 — a zero scale is a singular transform (CG console noise).
-    @State private var poses: [LogoCircle: LogoPose] = Dictionary(
-        uniqueKeysWithValues: LogoCircle.allCases.map {
-            ($0, LogoPose(spread: 0, scale: 0.01, opacity: 0))
-        })
-
-    var body: some View {
-        LogoScreen { size in LogoMark(size: size, poses: poses) }
-            // onAppear sits inside the fallback, so Reduce Motion never runs `play`.
-            .onAppear(perform: play)
-            .logoReduceMotionFallback(onFinished: onFinished)
-    }
-
-    private func play() {
-        LogoTiming.stagger(LogoCircle.entranceOrder,
-                           step: 0.14,
-                           animation: .spring(duration: 1.0, bounce: 0.38),
-                           apply: { poses[$0] = .rest },
-                           onFinished: onFinished)
-    }
-}
-
-/// 3 · Orbit — circles start stacked and small on the centroid, then the
-/// group turns two-thirds of a revolution while spreading to rest — a nod
-/// to time passing. One gentle spring, ~1.7s; ends at exactly 0°.
-struct LogoOrbitAnimation: View {
-    var onFinished: () -> Void = {}
-
-    @State private var poses: [LogoCircle: LogoPose] = Dictionary(
-        uniqueKeysWithValues: LogoCircle.allCases.map {
-            ($0, LogoPose(spread: 0, scale: 0.35, opacity: 0))
-        })
-    @State private var orbit: Angle = .degrees(-240)
-
-    var body: some View {
-        LogoScreen { size in LogoMark(size: size, poses: poses, orbit: orbit) }
-            // onAppear sits inside the fallback, so Reduce Motion never runs `play`.
-            .onAppear(perform: play)
-            .logoReduceMotionFallback(onFinished: onFinished)
-    }
-
-    private func play() {
-        // Fade in fast so the stack is visible as it starts to turn.
-        withAnimation(.easeOut(duration: 0.3)) {
-            for circle in LogoCircle.allCases { poses[circle]?.opacity = 1 }
-        }
-        withAnimation(.spring(duration: 1.7, bounce: 0.12)) {
-            orbit = .zero
-            for circle in LogoCircle.allCases {
-                poses[circle]?.spread = 1
-                poses[circle]?.scale = 1
-            }
-        } completion: {
-            onFinished()
         }
     }
 }
@@ -217,15 +144,14 @@ struct LogoOrbitAnimation: View {
 /// tile edge, which would leave ~0.18 tile of dead cream) and the type is
 /// well under Figma's 0.36 tile, so the name sits beneath the mark rather
 /// than outweighing it.
-/// `risen` lifts the mark so the lockup (circle tops → name baseline) is
-/// optically centred on screen; the rise is derived from the lockup height.
+/// `risen` lifts the mark so the lockup (circle tops → name baseline) sits
+/// `LogoGeometry.lift` above screen centre; the rise derives from its height.
 /// The default arguments are the end frame (Reduce Motion shows exactly it).
 private struct LogoLockup: View {
     let size: CGFloat
     var poses: [LogoCircle: LogoPose] = LogoPose.restPoses
     var risen = true
     var nameShown = true
-    var lift: CGFloat = 0
 
     var body: some View {
         let m = LogoLockupMetrics(size: size)
@@ -245,7 +171,7 @@ private struct LogoLockup: View {
                     .offset(y: m.baselineY + (nameShown ? 0 : LogoLockupMetrics.nameDrift))
                     .opacity(nameShown ? 1 : 0)
             }
-            .offset(y: risen ? m.risenMarkY - lift * size : 0)
+            .offset(y: risen ? m.risenMarkY : 0)
             // One element for the whole lockup; the circles are decorative.
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Time it")
@@ -265,7 +191,7 @@ private struct LogoLockupMetrics {
     let tracking: CGFloat
     /// Name baseline, measured down from the mark's centre.
     let baselineY: CGFloat
-    /// Mark-centre offset that centres the lockup on screen (negative = up).
+    /// Mark-centre offset at rest after the rise (negative = up).
     let risenMarkY: CGFloat
 
     init(size: CGFloat) {
@@ -279,7 +205,7 @@ private struct LogoLockupMetrics {
         let capHeight = UIFont.systemFont(ofSize: fontSize, weight: .light).capHeight
         baselineY = bottom + size * Self.gapScale + capHeight
         let lockupHeight = baselineY - top
-        risenMarkY = -lockupHeight / 2 - top
+        risenMarkY = -lockupHeight / 2 - top - LogoGeometry.lift * size
     }
 }
 
@@ -287,9 +213,7 @@ private struct LogoLockupMetrics {
 
 /// One circle's animated state, in group-size units. `rest` is the icon.
 private struct LogoPose: Equatable {
-    var spread: CGFloat = 1
     var drift: CGSize = .zero
-    var scale: CGFloat = 1
     var opacity: Double = 1
 
     static let rest = LogoPose()
@@ -302,7 +226,7 @@ private enum LogoCircle: CaseIterable {
 
     /// Bottom to top: mid under, cool over it, hot over both.
     static let drawOrder: [LogoCircle] = [.mid, .cool, .hot]
-    /// The stagger order the variants enter in.
+    /// The stagger order the circles enter in.
     static let entranceOrder: [LogoCircle] = [.cool, .mid, .hot]
 
     /// Circle centre minus group centre, in group sizes (icon: centres at
@@ -328,12 +252,9 @@ private enum LogoGeometry {
     static let circleOpacity: Double = 0.85
     /// Group size as a fraction of the screen width.
     static let screenFraction: CGFloat = 0.6
-    /// Mean of the three rest centres — Bloom/Orbit's shared origin.
-    static let centroid = CGSize(
-        width: LogoCircle.allCases.map(\.restOffset.width).reduce(0, +) / 3,
-        height: LogoCircle.allCases.map(\.restOffset.height).reduce(0, +) / 3)
-    /// The centroid as a rotation anchor, so the orbit doesn't wobble.
-    static let centroidAnchor = UnitPoint(x: 0.5 + centroid.width, y: 0.5 + centroid.height)
+    /// How far the risen lockup sits above screen centre, in tile widths
+    /// (owner, 2026-11-05: lift B, ~95pt on a 393pt screen).
+    static let lift: CGFloat = 0.4
 }
 
 /// Colours. The circle stops are the identity temperatures' light-mode
@@ -376,9 +297,8 @@ private enum LogoTiming {
 
 // MARK: - Reduce Motion
 
-/// With Reduce Motion on, every variant collapses to its end frame fading
-/// in (0.4s) — the static mark, or Converge's lockup — and the motion variant
-/// underneath is replaced, never played.
+/// With Reduce Motion on, the animation collapses to its end frame fading
+/// in (0.4s) and the motion underneath is replaced, never played.
 private struct LogoReduceMotionFallback<EndFrame: View>: ViewModifier {
     let onFinished: () -> Void
     let endFrame: EndFrame
@@ -400,10 +320,6 @@ private struct LogoReduceMotionFallback<EndFrame: View>: ViewModifier {
 }
 
 private extension View {
-    func logoReduceMotionFallback(onFinished: @escaping () -> Void) -> some View {
-        logoReduceMotionFallback(onFinished: onFinished) { LogoStaticScreen() }
-    }
-
     func logoReduceMotionFallback<EndFrame: View>(
         onFinished: @escaping () -> Void,
         @ViewBuilder endFrame: () -> EndFrame
@@ -412,9 +328,89 @@ private extension View {
     }
 }
 
+// MARK: - Dashboard reveal
+
+/// The three candidate hand-offs from the finished lockup into the app.
+enum DashboardReveal: CaseIterable {
+    /// The cream screen lifts off upward like a curtain; the app underneath
+    /// eases up from 94% scale, as if it was waiting just behind.
+    case curtain
+    /// The camera flies through the mark: the splash scales up past the
+    /// viewer and fades, while the app settles in from 106%.
+    case zoomThrough
+    /// An iris opens from the mark's centre and the app grows out of the
+    /// logo, edge to edge.
+    case iris
+}
+
+/// Converge, then the chosen reveal into `app`. The splash is removed once
+/// the reveal lands, so the app underneath is the only thing left.
+struct LogoOpeningSequence<App: View>: View {
+    let reveal: DashboardReveal
+    @ViewBuilder let app: () -> App
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var revealed = false
+    @State private var splashGone = false
+
+    var body: some View {
+        ZStack {
+            if reveal == .iris {
+                if !splashGone { LogoConvergeAnimation(onFinished: start) }
+                app().mask { if splashGone { Color.black } else { iris } }
+            } else {
+                app()
+                    .scaleEffect(revealed ? 1 : appStartScale)
+                    .opacity(revealed || reveal == .curtain ? 1 : 0)
+                if !revealed {
+                    LogoConvergeAnimation(onFinished: start)
+                        .transition(splashExit)
+                }
+            }
+        }
+    }
+
+    private var appStartScale: CGFloat {
+        if reduceMotion { return 1 }
+        return reveal == .curtain ? 0.94 : 1.06
+    }
+
+    private var splashExit: AnyTransition {
+        if reduceMotion { return .opacity }
+        switch reveal {
+        case .curtain: return .move(edge: .top)
+        case .zoomThrough: return .scale(scale: 5).combined(with: .opacity)
+        case .iris: return .identity
+        }
+    }
+
+    /// A circle on the risen mark's centre, grown from nothing to past the
+    /// screen's far corner. Reduce Motion skips the growth (a straight fade).
+    private var iris: some View {
+        GeometryReader { geo in
+            let size = geo.size.width * LogoGeometry.screenFraction
+            let centre = CGPoint(x: geo.size.width / 2,
+                                 y: geo.size.height / 2 + LogoLockupMetrics(size: size).risenMarkY)
+            let reach = 2 * hypot(geo.size.width, geo.size.height)
+            Circle()
+                .frame(width: reach, height: reach)
+                .scaleEffect(revealed || reduceMotion ? 1 : 0.001)
+                .opacity(reduceMotion && !revealed ? 0 : 1)
+                .position(centre)
+        }
+        .ignoresSafeArea()
+    }
+
+    private func start() {
+        let animation: Animation = reduceMotion
+            ? .easeInOut(duration: 0.35)
+            : reveal == .iris ? .spring(duration: 0.9, bounce: 0) : .spring(duration: 0.7, bounce: 0)
+        withAnimation(animation) { revealed = true } completion: { splashGone = true }
+    }
+}
+
 #if DEBUG
-/// Tap anywhere to replay — `.id` rebuilds the variant from its start pose
-/// (for Converge, the whole sequence: circles, rise and wordmark).
+/// Tap anywhere to replay — `.id` rebuilds the content from its start state.
 private struct LogoReplayPreview<Content: View>: View {
     @ViewBuilder let content: () -> Content
     @State private var replay = 0
@@ -427,78 +423,36 @@ private struct LogoReplayPreview<Content: View>: View {
     }
 }
 
-#Preview("Logo · lockup end frame") {
-    LogoScreen { size in LogoLockup(size: size) }
-}
 
-#Preview("Logo · static mark") {
-    LogoStaticScreen()
-}
-
-#Preview("Logo · 1 Converge") {
+#Preview("Logo · Converge") {
     LogoReplayPreview { LogoConvergeAnimation() }
 }
 
-#Preview("Logo · 2 Bloom") {
-    LogoReplayPreview { LogoBloomAnimation() }
-}
-
-#Preview("Logo · 3 Orbit") {
-    LogoReplayPreview { LogoOrbitAnimation() }
-}
-
-#Preview("Lift A · slight") {
-    LogoReplayPreview { LogoConvergeAnimation(lift: LogoLift.slight) }
-}
-
-#Preview("Lift B · medium") {
-    LogoReplayPreview { LogoConvergeAnimation(lift: LogoLift.medium) }
-}
-
-#Preview("Lift C · high") {
-    LogoReplayPreview { LogoConvergeAnimation(lift: LogoLift.high) }
-}
-
-#Preview("Logo · Converge lift · side by side") {
-    HStack(spacing: 12) {
-        ForEach(LogoLift.all, id: \.name) { option in
-            LogoReplayPreview { LogoConvergeAnimation(lift: option.lift) }
-                .aspectRatio(9.0 / 19.5, contentMode: .fit)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .overlay(alignment: .bottom) { Text(option.name).font(.caption).padding(6) }
-        }
+#Preview("Reveal 1 · Curtain") {
+    LogoReplayPreview {
+        LogoOpeningSequence(reveal: .curtain) { RevealPreviewDashboard() }
     }
-    .padding(12)
 }
 
-#Preview("Logo · side by side") {
-    // Three phone-aspect panels; the clip is preview-only, for the comparison.
-    HStack(spacing: 12) {
-        ForEach(["Converge", "Bloom", "Orbit"], id: \.self) { name in
-            LogoReplayPreview {
-                switch name {
-                case "Converge": LogoConvergeAnimation()
-                case "Bloom": LogoBloomAnimation()
-                default: LogoOrbitAnimation()
-                }
-            }
-            .aspectRatio(9.0 / 19.5, contentMode: .fit)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        }
+#Preview("Reveal 2 · Zoom through") {
+    LogoReplayPreview {
+        LogoOpeningSequence(reveal: .zoomThrough) { RevealPreviewDashboard() }
     }
-    .padding(12)
+}
+
+#Preview("Reveal 3 · Iris") {
+    LogoReplayPreview {
+        LogoOpeningSequence(reveal: .iris) { RevealPreviewDashboard() }
+    }
+}
+
+/// The live-cards dashboard the reveals hand off to.
+private struct RevealPreviewDashboard: View {
+    var body: some View {
+        DashboardView(viewModel: PreviewFixtures.dashboardViewModel(),
+                      registration: PreviewFixtures.registration(),
+                      router: PushRouter())
+            .fontDesign(.rounded)
+    }
 }
 #endif
-
-/// The three rise heights on the table for the Converge lockup, in tile widths
-/// above optical centre (~0.6 screen width per tile, so 0.2 ≈ 47pt on a 393pt
-/// screen).
-enum LogoLift {
-    static let slight: CGFloat = 0.2
-    static let medium: CGFloat = 0.4
-    static let high: CGFloat = 0.65
-
-    static let all: [(name: String, lift: CGFloat)] = [
-        ("A · slight", slight), ("B · medium", medium), ("C · high", high),
-    ]
-}
