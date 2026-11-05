@@ -125,9 +125,10 @@ struct ScoreRingCardView: View {
             }
             Spacer(minLength: 0)
         }
-        // Clears the gear + chevron pair the dashboard overlays on the card
-        // (two 34pt buttons ending 4.5pt in from the card edge).
-        .padding(.trailing, 58)
+        // Clears the chevron the dashboard overlays on the card (a 34pt
+        // button ending 4.5pt in from the card edge: 38.5 − the card's 14.5
+        // trailing inset). The card gear is gone (owner ruling 2026-10-06 #2).
+        .padding(.trailing, 24)
     }
 
     /// One rounded segment per Range hour, 2pt apart — the frame's strip.
