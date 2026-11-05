@@ -1269,7 +1269,10 @@ final class TimeItUITests: XCTestCase {
         let dismiss = app.buttons["pushCallout.dismiss"]
         XCTAssertTrue(dismiss.waitForExistence(timeout: 5))
         dismiss.tap()
-        XCTAssertFalse(app.buttons["pushCallout"].exists, "dismissed on the spot")
+        // The callout de-reveals on the 0.35s reveal spring (owner report
+        // 2026-11-05), so it is gone within a second, not on the same frame.
+        XCTAssertTrue(app.buttons["pushCallout"].waitForNonExistence(timeout: 1),
+                      "the ✕ de-reveals the callout within 1s")
 
         // Relaunch WITHOUT UITEST_RESET — one-time means gone for good.
         app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_SEED_LIVE", "UITEST_LOCATION"])

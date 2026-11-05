@@ -6,6 +6,7 @@ import SwiftUI
 struct DidYouKnowBox: View {
     private let body_: String
     @AppStorage private var dismissed: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(key: String, body: String) {
         body_ = body
@@ -29,17 +30,21 @@ struct DidYouKnowBox: View {
                 }
                 Spacer(minLength: 12)
                 Button {
-                    dismissed = true
+                    // De-reveal: the box shrinks back toward this ✕.
+                    withAnimation(Theme.Motion.reveal(reduceMotion: reduceMotion)) {
+                        dismissed = true
+                    }
                 } label: {
                     Image(systemName: "xmark")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(Theme.secondaryText)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(PressStyle())
             }
             .padding(19)
             .background(Theme.accentOrange.opacity(0.1),
                         in: RoundedRectangle(cornerRadius: 12))
+            .transition(.deReveal(anchor: .topTrailing, reduceMotion: reduceMotion))
         }
     }
 }

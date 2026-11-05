@@ -102,22 +102,30 @@ struct ScoreRingCardView: View {
                     .padding(.top, 4)
             }
             .minHeightFloor(Self.stripBlockFloor)
-            if dotsVisible {
-                // Frame `458:394`: axis bottom → dots top = 8pt; the row
-                // spans the strip's x and width; 34pt tall (12 label + 4 +
-                // 18 slot). Removed — not hidden — when collapsed, so the
-                // collapsed card is exactly the pre-dots card.
-                WeekDotsView(dots: weekDots,
-                             ringedDayIndex: 0,
-                             identifierPrefix: "weekDots.\(activity.activityId)")
-                    .padding(.top, 8)
-                    .transition(.opacity)
+            // The fold's mask: this wrapper's height springs 42 ↔ 0 with the
+            // row, and `.clipped()` hides the row while it slides up under
+            // the numerals (owner report 2026-11-05: the chevron de-reveals
+            // the row, the reverse of revealing it). The row's 8pt gap rides
+            // inside, so nothing at rest is cut.
+            VStack(spacing: 0) {
+                if dotsVisible {
+                    // Frame `458:394`: axis bottom → dots top = 8pt; the row
+                    // spans the strip's x and width; 34pt tall (12 label + 4 +
+                    // 18 slot). Removed — not hidden — when collapsed, so the
+                    // collapsed card is exactly the pre-dots card.
+                    WeekDotsView(dots: weekDots,
+                                 ringedDayIndex: 0,
+                                 identifierPrefix: "weekDots.\(activity.activityId)")
+                        .padding(.top, 8)
+                        .transition(.unfold(reduceMotion: reduceMotion))
+                }
             }
+            .clipped()
         }
         // 65 = name row → strip → numerals at the default text size; +42
         // (8 gap + 34 row) with dots — the frame's 132 vs 90 delta. Both
         // are intrinsic now: the content's height at any text size.
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: dotsVisible)
+        .animation(Theme.Motion.reveal(reduceMotion: reduceMotion), value: dotsVisible)
     }
 
     /// The name and the chip on one line; at accessibility sizes the chip

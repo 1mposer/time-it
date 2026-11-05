@@ -462,7 +462,11 @@ struct DashboardView: View {
                 LazyVStack(spacing: 10) {
                     if showsCallout {
                         pushCallout
+                            .transition(.deReveal(anchor: .topTrailing, reduceMotion: reduceMotion))
                             .offset(y: staggerOffset(at: 0))
+                            // Above its siblings, so the cards sliding up
+                            // pass behind the shrinking callout, not over it.
+                            .zIndex(1)
                     }
                     if isBetaBuild {
                         betaBanner
@@ -604,7 +608,11 @@ struct DashboardView: View {
             .buttonStyle(.plain)
             .accessibilityIdentifier("pushCallout")
             Button {
-                preferences.pushCalloutDismissed = true
+                // De-reveal: the callout shrinks back toward this ✕ and the
+                // whole list slides up on the same spring.
+                withAnimation(Theme.Motion.reveal(reduceMotion: reduceMotion)) {
+                    preferences.pushCalloutDismissed = true
+                }
             } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 13, weight: .semibold))
@@ -612,7 +620,7 @@ struct DashboardView: View {
                     .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
-            .buttonStyle(.borderless)
+            .buttonStyle(PressStyle())
             .accessibilityLabel("Dismiss")
             .accessibilityIdentifier("pushCallout.dismiss")
         }
@@ -637,20 +645,25 @@ struct DashboardView: View {
     }
 
     /// The card chevron (owner ruling 2026-10-02): reveals/hides the
-    /// week-dot row — `chevron.down` while shown (the natural state),
-    /// `chevron.right` while hidden; remembered per card across launches.
+    /// week-dot row — one `chevron.down` that turns −90° while hidden, on
+    /// the same reveal spring the row folds on (owner report 2026-11-05);
+    /// remembered per card across launches. The toggle runs inside the
+    /// transaction so the card AND the list below animate together.
     private func chevronButton(for authored: AuthoredActivity) -> some View {
         let expanded = !preferences.collapsedCardIds.contains(authored.id)
         return Button {
-            preferences.toggleCardCollapsed(authored.id)
+            withAnimation(Theme.Motion.reveal(reduceMotion: reduceMotion)) {
+                preferences.toggleCardCollapsed(authored.id)
+            }
         } label: {
-            Image(systemName: expanded ? "chevron.down" : "chevron.right")
+            Image(systemName: "chevron.down")
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(Theme.secondaryText)
+                .rotationEffect(.degrees(expanded ? 0 : -90))
                 .frame(width: 34, height: 34)
                 .contentShape(Rectangle())
         }
-        .buttonStyle(.borderless)
+        .buttonStyle(PressStyle())
         .accessibilityLabel(expanded ? "Hide week" : "Show week")
         .accessibilityIdentifier("cardChevron.\(authored.id)")
     }
@@ -668,8 +681,9 @@ struct DashboardView: View {
     /// The ghost add slot's height (the dashed card's old 64pt).
     private static let addSlotHeight: CGFloat = 64
 
-    /// "⊕ Add Activity" — a 44pt glass capsule (plus.circle + 17pt Semibold
-    /// in `accentInteractive`) that opens the wizard; the first-launch hero
+    /// "⊕ Add Activity" — a 40pt glass capsule (plus.circle + 16pt Semibold
+    /// in `accentInteractive`) inside a 44pt hit target (2pt above and below,
+    /// outside the glass) that opens the wizard; the first-launch hero
     /// and the add slot after the list are the same control. At the soft cap
     /// it reads "Activity limit reached (N)", disabled at 50%.
     private func addActivityCapsule(identifier: String) -> some View {
@@ -681,8 +695,12 @@ struct DashboardView: View {
                 Image(systemName: "plus.circle")
                 Text(atCap ? "Activity limit reached (\(ActivityStore.softCap))" : "Add Activity")
             }
-            .glassCapsule(font: GlassCapsule.addFont, enabled: !atCap)
+            .glassCapsule(font: GlassCapsule.addFont,
+                          height: GlassCapsule.addHeight,
+                          horizontalPadding: GlassCapsule.addHorizontalPadding,
+                          enabled: !atCap)
             .opacity(atCap ? GlassCapsule.disabledOpacity : 1)
+            .padding(.vertical, GlassCapsule.addHitPadding)
         }
         .disabled(atCap)
     }

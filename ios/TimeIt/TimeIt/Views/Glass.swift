@@ -31,15 +31,40 @@ enum GlassFallback {
     /// Thin material with the cards' 0.5pt hairline (clear in dark, so the
     /// material alone carries the edge there) — every other glass control.
     case material
+    /// A control floating on the temperature band (the header gear): a
+    /// faint white fill + a 0.5pt white stroke, no material — material is
+    /// what whitens a control over the band (owner report 2026-11-05).
+    case band
+}
+
+/// Which Liquid Glass variant a piece takes on iOS 26. `.regular` for every
+/// control on the app background; `.clear` for a control floating on the
+/// temperature band (the header gear), where regular glass over the light
+/// band renders as a near-white disc (owner report 2026-11-05: "the gear's
+/// background is transparent, not white").
+enum GlassStyle {
+    case regular
+    case clear
+}
+
+/// The sub-iOS-26 `.band` fallback's values.
+enum GlassBand {
+    static let fillOpacity: Double = 0.14
+    static let strokeOpacity: Double = 0.35
+    static let strokeWidth: CGFloat = 0.5
 }
 
 extension View {
-    /// A glass piece's surface: interactive Liquid Glass on iOS 26 (plain
-    /// glass while disabled), `fallback` below it.
+    /// A glass piece's surface: interactive Liquid Glass of `style` on iOS 26
+    /// (plain glass while disabled), `fallback` below it.
     @ViewBuilder
-    func glassPieceSurface<S: Shape>(in shape: S, enabled: Bool, fallback: GlassFallback) -> some View {
+    func glassPieceSurface<S: Shape>(in shape: S,
+                                     enabled: Bool,
+                                     fallback: GlassFallback,
+                                     style: GlassStyle = .regular) -> some View {
         if #available(iOS 26, *) {
-            self.glassEffect(enabled ? .regular.interactive() : .regular, in: shape)
+            let base: Glass = style == .clear ? .clear : .regular
+            self.glassEffect(enabled ? base.interactive() : base, in: shape)
         } else {
             switch fallback {
             case .track:
@@ -47,6 +72,10 @@ extension View {
             case .material:
                 self.background(.ultraThinMaterial, in: shape)
                     .overlay(shape.stroke(Theme.cardHairline, lineWidth: Theme.cardHairlineWidth))
+            case .band:
+                self.background(Color.white.opacity(GlassBand.fillOpacity), in: shape)
+                    .overlay(shape.stroke(Color.white.opacity(GlassBand.strokeOpacity),
+                                          lineWidth: GlassBand.strokeWidth))
             }
         }
     }
@@ -75,8 +104,16 @@ enum GlassCapsule {
     static let horizontalPadding: CGFloat = 20
     /// Primary actions (Enable Location, Try Again, Send a suggestion).
     static let primaryFont = Font.system(size: 15, weight: .semibold)
-    /// Add Activity — the dashboard's headline action.
-    static let addFont = Font.system(size: 17, weight: .semibold)
+    /// Add Activity — the dashboard's headline action, one notch below the
+    /// old 17pt / 44pt (owner report 2026-11-05): a 40pt visible capsule
+    /// whose tap area is still the HIG 44pt (`addHitPadding` above and below,
+    /// outside the glass).
+    static let addFont = Font.system(size: 16, weight: .semibold)
+    static let addHeight: CGFloat = 40
+    static let addHorizontalPadding: CGFloat = 18
+    /// The vertical padding outside the Add capsule's glass that restores
+    /// the 44pt hit target: (44 − 40) / 2 = 2.
+    static let addHitPadding: CGFloat = (height - addHeight) / 2
     /// A disabled capsule (the Activity-limit state) draws at half strength.
     static let disabledOpacity: Double = 0.5
 }
