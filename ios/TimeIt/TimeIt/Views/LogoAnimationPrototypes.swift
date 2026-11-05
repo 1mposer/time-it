@@ -445,6 +445,18 @@ private struct LogoReplayPreview<Content: View>: View {
     LogoReplayPreview { LogoOrbitAnimation() }
 }
 
+#Preview("Lift A · slight") {
+    LogoReplayPreview { LogoConvergeAnimation(lift: LogoLift.slight) }
+}
+
+#Preview("Lift B · medium") {
+    LogoReplayPreview { LogoConvergeAnimation(lift: LogoLift.medium) }
+}
+
+#Preview("Lift C · high") {
+    LogoReplayPreview { LogoConvergeAnimation(lift: LogoLift.high) }
+}
+
 #Preview("Logo · Converge lift · side by side") {
     HStack(spacing: 12) {
         ForEach(LogoLift.all, id: \.name) { option in
