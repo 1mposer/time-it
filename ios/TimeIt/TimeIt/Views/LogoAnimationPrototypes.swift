@@ -83,9 +83,10 @@ struct LogoStaticScreen: View {
 
 /// Converge (owner pick) — each circle starts off its own edge (cool
 /// bottom-left, mid top, hot bottom-right) and springs in, staggered 0.1s
-/// (~1.3s). Then: hold 0.28s → the mark rises (critically damped, 0.6s) to
-/// `LogoGeometry.lift` above the centred lockup → a 0.4s beat → the name
-/// fades in drifting up 9pt (0.28s, owner-tuned) → hold 0.5s → `onFinished`.
+/// (~1.5s). Then: hold 0.48s → the mark rises (critically damped, 0.8s) to
+/// `LogoGeometry.lift` above the centred lockup → a 0.6s beat → the name
+/// fades in drifting up 9pt (0.48s) → hold 1.2s (the welcome) → `onFinished`.
+/// Every step is +0.2s on the first cut (owner, 2026-11-05).
 struct LogoConvergeAnimation: View {
     var onFinished: () -> Void = {}
 
@@ -111,7 +112,7 @@ struct LogoConvergeAnimation: View {
     private func play() {
         LogoTiming.stagger(LogoCircle.entranceOrder,
                            step: 0.1,
-                           animation: .spring(duration: 1.1, bounce: 0.28),
+                           animation: .spring(duration: 1.3, bounce: 0.28),
                            apply: { poses[$0] = .rest },
                            onFinished: reveal)
     }
@@ -121,13 +122,13 @@ struct LogoConvergeAnimation: View {
     /// name waits for the rise to land, then a beat (owner, 2026-11-05:
     /// overlapping the rise read abrupt), and fades in slower.
     private func reveal() {
-        let hold = 0.28, rise = 0.6, beat = 0.4
+        let hold = 0.48, rise = 0.8, beat = 0.6
         withAnimation(.spring(duration: rise, bounce: 0).delay(hold)) { risen = true }
-        withAnimation(.spring(duration: 0.28, bounce: 0).delay(hold + rise + beat)) {
+        withAnimation(.spring(duration: 0.48, bounce: 0).delay(hold + rise + beat)) {
             nameShown = true
         } completion: {
             Task { @MainActor in
-                try? await Task.sleep(for: .seconds(0.5))
+                try? await Task.sleep(for: .seconds(1.2)) // the welcome: let it land (owner, 2026-11-05)
                 onFinished()
             }
         }
@@ -383,7 +384,7 @@ struct LogoOpeningSequence<App: View>: View {
         if reduceMotion { return .opacity }
         switch reveal {
         case .curtain: return .move(edge: .top)
-        case .zoomThrough: return .scale(scale: 5).combined(with: .opacity)
+        case .zoomThrough: return .scale(scale: 3).combined(with: .opacity)
         case .iris: return .identity
         }
     }
@@ -408,7 +409,7 @@ struct LogoOpeningSequence<App: View>: View {
     private func start() {
         let animation: Animation = reduceMotion
             ? .easeInOut(duration: 0.35)
-            : reveal == .iris ? .spring(duration: 0.9, bounce: 0) : .spring(duration: 0.7, bounce: 0)
+            : reveal == .iris ? .spring(duration: 1.1, bounce: 0) : .spring(duration: 0.9, bounce: 0)
         withAnimation(animation) { revealed = true } completion: { splashGone = true }
     }
 }
