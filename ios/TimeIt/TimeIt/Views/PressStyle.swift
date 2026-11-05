@@ -54,6 +54,37 @@ struct LiftOnRelease: ViewModifier {
     }
 }
 
+// MARK: Reveal / de-reveal (owner report 2026-11-05)
+//
+// Nothing closes abruptly: a dismissed box shrinks back toward the ✕ that
+// closed it (phone-gestures "Collapse"), and the card's week row folds back
+// under the numerals it slid out from. Both run on `Theme.Motion.reveal`.
+// Transitions cannot read the environment, so the sites pick `.opacity`
+// under Reduce Motion (the cross-fade) — see `deReveal(anchor:reduceMotion:)`.
+extension AnyTransition {
+    /// Insertion fades in; removal shrinks to 0.94 toward `anchor` and fades.
+    static func deReveal(anchor: UnitPoint) -> AnyTransition {
+        .asymmetric(insertion: .opacity,
+                    removal: .scale(scale: 0.94, anchor: anchor).combined(with: .opacity))
+    }
+
+    /// `deReveal(anchor:)`, or a plain cross-fade under Reduce Motion.
+    static func deReveal(anchor: UnitPoint, reduceMotion: Bool) -> AnyTransition {
+        reduceMotion ? .opacity : .deReveal(anchor: anchor)
+    }
+
+    /// The card's week row: slides out from under the numerals above it and
+    /// slides back under them.
+    static var unfold: AnyTransition {
+        .move(edge: .top).combined(with: .opacity)
+    }
+
+    /// `unfold`, or a plain cross-fade under Reduce Motion.
+    static func unfold(reduceMotion: Bool) -> AnyTransition {
+        reduceMotion ? .opacity : .unfold
+    }
+}
+
 extension View {
     /// Plays the shared lift-and-fall each time `trigger` changes.
     func liftOnRelease(trigger: Int) -> some View {

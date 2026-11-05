@@ -28,6 +28,10 @@ struct HeaderView: View {
 
     /// The Settings gear's glass circle — the HIG 44pt target.
     static let gearDiameter: CGFloat = 44
+    /// The gear floats on the temperature band, so it takes CLEAR glass —
+    /// regular glass over the light band reads as a white disc (owner report
+    /// 2026-11-05). Every other glass control stays `.regular`.
+    static let gearGlassStyle: GlassStyle = .clear
     /// The gear circle's reach in from the content edge (13 trailing + 44 −
     /// the content's 20 inset) — the location label wraps inside it.
     private static let gearClearance: CGFloat = gearDiameter + 13 - 20
@@ -157,7 +161,8 @@ struct HeaderView: View {
                     .font(.system(size: 16, weight: .medium))
                     .foregroundStyle(Theme.onGradient)
                     .frame(width: Self.gearDiameter, height: Self.gearDiameter)
-                    .glassPieceSurface(in: Circle(), enabled: true, fallback: .material)
+                    .glassPieceSurface(in: Circle(), enabled: true, fallback: .band,
+                                       style: Self.gearGlassStyle)
             }
             .padding(.top, 3)
             .padding(.trailing, 13)

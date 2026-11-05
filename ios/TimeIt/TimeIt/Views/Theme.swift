@@ -357,6 +357,18 @@ enum Theme {
         static let liftRiseSpring = Spring(response: 0.15, dampingRatio: 1)
         static let liftSpring = Spring(response: 0.4, dampingRatio: 0.6)
         static let lift = Animation.spring(liftSpring)
+        /// A tap-driven reveal / de-reveal (the ✕ dismissals, the card
+        /// chevron — owner report 2026-11-05): a tap throws nothing, so the
+        /// spring is critically damped — no overshoot.
+        static let revealDuration: Double = 0.35
+        static let revealBounce: Double = 0
+        static let reveal = Animation.spring(duration: revealDuration, bounce: revealBounce)
+        /// The Reduce Motion stand-in: a cross-fade, never an abrupt removal.
+        static let revealReduced = Animation.easeOut(duration: 0.2)
+        /// The reveal animation for the current Reduce Motion setting.
+        static func reveal(reduceMotion: Bool) -> Animation {
+            reduceMotion ? revealReduced : reveal
+        }
     }
 
     /// Light-mode card elevation — Figma "Card Float" (y4, blur 16, black
