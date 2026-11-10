@@ -15,7 +15,7 @@
 
 ## Where things stand (2026-11-05)
 
-- **Build 8 code is complete on local `main`** = `owner-tweaks` (43+ commits ahead of `origin/main`; last pushed `2e41a4d`). `CURRENT_PROJECT_VERSION` = 8 (`767b104`). **Nothing is pushed until the owner says "push".**
+- **Build 8 code is complete and pushed:** `main` = `owner-tweaks` = `origin/main` = `4465d43` (pushed 2026-11-10 on the owner's word). `CURRENT_PROJECT_VERSION` = 8 (`767b104`). Any further code commit for build 8 is pushed only when the owner says so again.
 - Last green: **552 unit / 41 UI** (review fix slice, 2026-11-05).
 - Build 7 (`0ca6fa3`) is the last shipped code; the owner audited it live 2026-10-06 and ruled the depth pass; Figma rounds 1–3 + an edit loop followed (record: FIGMA.md §12). Coding ran 2026-11-03 → 11-05 on `owner-tweaks`, merging into `main` locally since 11-04.
 - Process rule learned 2026-11-04: never run two suites on one simulator at once (runner kills, false failures).
@@ -40,11 +40,11 @@
 ## Remaining order (owner-gated where marked)
 
 1. ~~Adversarial review~~ done (above).
-2. **NEXT:** Owner says **"push"** → push `main`. Owner uploads to TestFlight from Xcode → ask what build number App Store Connect assigned and sync `project.pbxproj` the same session.
+2. ~~Push~~ done 2026-11-10. **NEXT:** Owner uploads to TestFlight from Xcode → ask what build number App Store Connect assigned and sync `project.pbxproj` the same session.
 3. **Figma graduation** after the owner accepts build 8 on the simulator: redraw both themes to match the shipped code on the Screens pages (the Mess around scratch rows are behind the code on hero wording, colour, placement, the span capsule, the circles, glass, the meta row); clean the stale raw `0,0,0` numeral fills on S1/S2/S4/S5. Then ROADMAP 17 → built, STATUS, FIGMA.md §12 gate — one docs commit.
 4. Item 13 (onboarding v2) on the new card.
 
-## Open owner calls (by eye, none blocks the push)
+## Open owner calls (by eye, none blocks TestFlight)
 
 - Wizard tip ✕ snaps (Form limitation) — accept, or move the tip out of the Form later.
 - Clock keeps AM/PM (locale formatter; Figma's "9:41" is a placeholder).
@@ -57,7 +57,7 @@
 ## Standing rules (owner-adopted; do not relitigate)
 
 - Owner communication: short plain English, action list first; decisions one at a time as multiple choice, or one artifact page with a/b/c options. Call a mock surface a "screen".
-- No code push unless the owner says so. Docs-only batches under `docs/` commit without asking (they now ride on local `main` with the code, so they wait for the same push).
+- No code push unless the owner says so. Docs-only batches under `docs/` commit without asking (after the 2026-11-10 push they go straight to `origin/main` again).
 - Status/gate changes sweep ROADMAP + STATUS (+ FIGMA.md) in one commit. Figma inventory claims only from a live enumerate.
 - Implementers: `model: "opus"`, worktree isolation, `git reset --hard <base>` first; Sonnet verifier re-runs both suites alone; merge `--no-ff` into `main`, `--ff-only` into `owner-tweaks`, remove the worktree. Never perform a subagent's denied action in its place.
 - Orchestrator stays hands-off on Figma and suites (owner rule 2026-10-30) — **except** when the owner says "do it yourself, no need to spawn someone" (2026-11-05: direct Theme edits + build + install + unit runs were owner-authorised for quick visual tunes).
