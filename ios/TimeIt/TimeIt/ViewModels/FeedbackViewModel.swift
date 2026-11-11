@@ -106,6 +106,16 @@ extension FeedbackKind {
         }
     }
 
+    /// The ⓘ menu row — short enough for one line in the native menu
+    /// (orchestrator nit 2026-11-11: "What have you liked?" wrapped); the
+    /// sheet keeps the owner-approved `title`.
+    var menuTitle: String {
+        switch self {
+        case .suggestion: return "Send a suggestion"
+        case .liked: return "What you liked"
+        }
+    }
+
     /// The editor's placeholder.
     var placeholder: String {
         switch self {

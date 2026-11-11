@@ -134,6 +134,9 @@ final class FeedbackViewModelTests: XCTestCase {
     func testEachKindHasItsOwnTitleAndPlaceholderButTheSameNote() {
         XCTAssertEqual(FeedbackKind.suggestion.title, "Send a suggestion")
         XCTAssertEqual(FeedbackKind.liked.title, "What have you liked?")
+        XCTAssertEqual(FeedbackKind.suggestion.menuTitle, "Send a suggestion")
+        XCTAssertEqual(FeedbackKind.liked.menuTitle, "What you liked",
+                       "the menu row stays on one line; the sheet keeps the full title")
         XCTAssertNotEqual(FeedbackKind.suggestion.placeholder, FeedbackKind.liked.placeholder)
         XCTAssertEqual(FeedbackViewModel.note,
                        "Please explain what it is you like, dislike, or would suggest.",

@@ -602,7 +602,7 @@ struct DashboardView: View {
                         Button {
                             feedbackKind = kind
                         } label: {
-                            Label(kind.title, systemImage: kind.symbol)
+                            Label(kind.menuTitle, systemImage: kind.symbol)
                         }
                     }
                 }

@@ -1325,6 +1325,54 @@ final class TimeItUITests: XCTestCase {
         XCTAssertFalse(app.buttons["pushCallout.bell"].exists, "and no bell")
     }
 
+    // MARK: - Lane B screen tour (evidence shots for the owner page)
+
+    func testLaneBScreenTourLight() { laneBScreenTour(appearance: "light") }
+    func testLaneBScreenTourDark() { laneBScreenTour(appearance: "dark") }
+
+    /// Walks the Lane B states that need taps and attaches a screenshot of
+    /// each: first-sight callout, resting bell, its long-press menu, the ⓘ
+    /// menu, the liked sheet, Settings with the compact Appearance segment.
+    private func laneBScreenTour(appearance: String) {
+        let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_SEED_LIVE",
+                                        "UITEST_LOCATION", "UITEST_BETA",
+                                        "UITEST_NOW=2026-06-19T05:00:00Z",
+                                        "UITEST_APPEARANCE=\(appearance)"])
+        XCTAssertTrue(app.buttons["pushCallout.dismiss"].waitForExistence(timeout: 5))
+        attachScreenshot(app, named: "laneB-\(appearance)-1-first-sight")
+
+        app.buttons["pushCallout.dismiss"].tap()
+        let bell = app.buttons["pushCallout.bell"]
+        XCTAssertTrue(bell.waitForExistence(timeout: 2))
+        sleep(1)
+        attachScreenshot(app, named: "laneB-\(appearance)-2-resting-bell")
+
+        bell.press(forDuration: 1.0)
+        XCTAssertTrue(app.buttons["Don't show again"].waitForExistence(timeout: 3))
+        attachScreenshot(app, named: "laneB-\(appearance)-3-bell-long-press")
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap()
+        XCTAssertTrue(app.buttons["Don't show again"].waitForNonExistence(timeout: 3))
+
+        app.buttons["feedbackInfo"].tap()
+        XCTAssertTrue(app.buttons["What you liked"].waitForExistence(timeout: 3))
+        attachScreenshot(app, named: "laneB-\(appearance)-4-info-menu")
+        for (row, shot) in [("Send a suggestion", "5-suggestion-sheet"), ("What you liked", "6-liked-sheet")] {
+            if !app.buttons[row].exists { app.buttons["feedbackInfo"].tap() }
+            XCTAssertTrue(app.buttons[row].waitForExistence(timeout: 3))
+            app.buttons[row].tap()
+            XCTAssertTrue(app.textViews["feedback.editor"].waitForExistence(timeout: 5))
+            sleep(1)
+            attachScreenshot(app, named: "laneB-\(appearance)-\(shot)")
+            app.buttons["feedback.cancel"].tap()
+            XCTAssertTrue(app.textViews["feedback.editor"].waitForNonExistence(timeout: 3))
+        }
+
+        app.buttons["settingsGear"].tap()
+        XCTAssertTrue(app.segmentedControls["settings.appearance"].waitForExistence(timeout: 5))
+        sleep(1)
+        attachScreenshot(app, named: "laneB-\(appearance)-7-settings")
+    }
+
     // MARK: - Light / Dark — one value, two controls
 
     func testHeaderToggleAndSettingsSegmentShareOneAppearance() {
@@ -1365,7 +1413,7 @@ final class TimeItUITests: XCTestCase {
     // MARK: - Beta feedback — the ⓘ menu + the two feedback sheets
 
     /// Opens the beta ⓘ menu and picks `row` ("Send a suggestion" /
-    /// "What have you liked?").
+    /// "What you liked").
     private func openFeedback(_ app: XCUIApplication, row: String) {
         let info = app.buttons["feedbackInfo"]
         XCTAssertTrue(info.waitForExistence(timeout: 5))
@@ -1392,7 +1440,7 @@ final class TimeItUITests: XCTestCase {
             NSPredicate(format: "label CONTAINS 'Early test build'")).firstMatch.waitForExistence(timeout: 5),
                       "the disclaimer folds into the menu's header line")
         XCTAssertTrue(app.buttons["Send a suggestion"].exists)
-        XCTAssertTrue(app.buttons["What have you liked?"].exists)
+        XCTAssertTrue(app.buttons["What you liked"].exists)
         attachScreenshot(app, named: "feedback-menu-open")
         XCTAssertFalse(app.textViews["feedback.editor"].exists, "a first tap only opens the menu")
     }
@@ -1432,7 +1480,7 @@ final class TimeItUITests: XCTestCase {
         let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_SEED_LIVE",
                                         "UITEST_LOCATION", "UITEST_BETA", "UITEST_FEEDBACK_FAIL"])
 
-        openFeedback(app, row: "What have you liked?")
+        openFeedback(app, row: "What you liked")
 
         let editor = app.textViews["feedback.editor"]
         XCTAssertTrue(editor.waitForExistence(timeout: 5))
