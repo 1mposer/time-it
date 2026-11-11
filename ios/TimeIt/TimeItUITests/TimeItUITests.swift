@@ -464,6 +464,55 @@ final class TimeItUITests: XCTestCase {
         app.buttons["editor.cancel"].tap()
     }
 
+    /// The owner's by-eye check of the Lane A screens (owner rulings
+    /// 2026-11-11): every wizard step, the Review reveal, the opening and the
+    /// dashboard, in light and in dark — screenshots only, the colours have no
+    /// accessibility surface.
+    func testLaneAScreensLightAndDark() {
+        for appearance in ["light", "dark"] {
+            let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_SEED_LIVE",
+                                            "UITEST_LOCATION", "UITEST_APPEARANCE=\(appearance)"],
+                                skipOpening: false)
+            let splash = app.descendants(matching: .any)["opening.splash"]
+            XCTAssertTrue(splash.waitForExistence(timeout: 5))
+            sleep(5) // let Converge settle on its end frame
+            attachScreenshot(app, named: "laneA-opening-\(appearance)")
+            if splash.exists { splash.tap() }
+            XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 8))
+            attachScreenshot(app, named: "laneA-dashboard-\(appearance)")
+
+            app.swipeUp()
+            app.buttons["addActivityCard"].tap()
+            let name = app.textFields["editor.name"]
+            XCTAssertTrue(name.waitForExistence(timeout: 5))
+            name.tap()
+            name.typeText("Padel\n")
+            let icon = app.buttons["icon.figure.tennis"]
+            scrollTo(icon, in: app)
+            icon.tap()
+            attachScreenshot(app, named: "laneA-wizard-1-name-\(appearance)")
+            app.buttons["editor.nextStep"].tap()
+            XCTAssertTrue(app.buttons["metric.temp"].waitForExistence(timeout: 5))
+            app.buttons["metric.temp"].tap()
+            app.buttons["metric.windSpeed"].tap()
+            app.buttons["metric.temp"].tap()
+            attachScreenshot(app, named: "laneA-wizard-2-metrics-\(appearance)")
+            app.buttons["editor.nextStep"].tap()
+            XCTAssertTrue(app.buttons["editor.priority.temp"].waitForExistence(timeout: 5))
+            app.buttons["editor.priority.temp"].tap()
+            attachScreenshot(app, named: "laneA-wizard-3-priority-\(appearance)")
+            app.buttons["editor.nextStep"].tap()
+            XCTAssertTrue(app.pickers["editor.startHour"].waitForExistence(timeout: 5))
+            attachScreenshot(app, named: "laneA-wizard-4-range-\(appearance)")
+            app.buttons["editor.nextStep"].tap()
+            app.buttons["editor.nextStep"].tap()
+            XCTAssertTrue(app.buttons["editor.save"].waitForExistence(timeout: 5))
+            sleep(2) // the reveal settles
+            attachScreenshot(app, named: "laneA-wizard-5-review-\(appearance)")
+            app.terminate()
+        }
+    }
+
     func testOpeningSequencePlaysOnColdLaunchAndATapSkipsIt() {
         let app = launchApp(skipOpening: false)
         let splash = app.descendants(matching: .any)["opening.splash"]
