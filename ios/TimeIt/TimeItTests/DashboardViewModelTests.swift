@@ -773,27 +773,34 @@ final class DashboardViewModelTests: XCTestCase {
                        "a wrapped Range never passes — tonight is always ahead or ongoing")
     }
 
-    // MARK: review pills — first Range hour today, tomorrow once passed
+    // MARK: review reveal — the draft's card, computed by the server
 
-    func testReviewRangeStartHourFallsToTomorrowOncePassed() async {
-        let (vm, _, _, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])))
+    func testReviewPreviewSendsTheDraftAndReadsTheReplysCard() async throws {
+        let rated = Fixtures.makeActivity(days: [Fixtures.makeDay(dayIndex: 0, rating: "perfect",
+                                                                  startIndex: 0, endIndex: 3, duration: 3)])
+        let (vm, api, _, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [rated])))
         await vm.loadForecast()
 
-        // Forecast starts 16:00 Dubai → index 8 is local midnight, 14 is 6am.
-        XCTAssertEqual(vm.reviewRangeStartHour(for: WindowSpec(startHour: 6, endHour: 10))?.index, 14)
+        let result = await vm.reviewPreview(for: Fixtures.cycling)
+        let preview = try XCTUnwrap(result)
+        XCTAssertEqual(api.capturedActivities?.map(\.id), [Fixtures.cycling.id], "one call, the draft alone")
+        XCTAssertEqual(preview.rating.activityId, rated.activityId)
+        XCTAssertEqual(preview.day?.rating, .perfect)
+        XCTAssertEqual(preview.weekDots.count, 7)
     }
 
-    func testReviewRangeStartHourReadsTodayWhileAhead() async {
+    func testReviewPreviewNilWithoutAForecast() async {
         let (vm, _, _, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])))
+        let preview = await vm.reviewPreview(for: Fixtures.cycling)
+        XCTAssertNil(preview, "no forecast yet → the empty-ring card")
+    }
+
+    func testReviewPreviewNilWhenTheCallFails() async {
+        let rated = Fixtures.makeActivity(days: [Fixtures.makeDay(dayIndex: 0)])
+        let (vm, api, _, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [rated])))
         await vm.loadForecast()
-
-        // 3–7pm at a 16:00 start: the first in-range hour is hours[0] itself.
-        XCTAssertEqual(vm.reviewRangeStartHour(for: WindowSpec(startHour: 15, endHour: 19))?.index, 0)
-    }
-
-    func testReviewRangeStartHourNilWithoutForecast() {
-        let (vm, _, _, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])))
-
-        XCTAssertNil(vm.reviewRangeStartHour(for: WindowSpec(startHour: 6, endHour: 10)))
+        api.result = .failure(URLError(.notConnectedToInternet))
+        let preview = await vm.reviewPreview(for: Fixtures.cycling)
+        XCTAssertNil(preview, "a failed call keeps the empty-ring card")
     }
 }

@@ -312,6 +312,36 @@ final class DashboardViewModel: ObservableObject {
         }
     }
 
+    /// The wizard's Review reveal (owner ruling 2026-11-11, item 5): the new
+    /// Activity's card exactly as the dashboard will draw it — its real
+    /// server score and colours. One `/rating` call to the last-fetched
+    /// coordinate with the draft (no client score formula, ADR-0007); the
+    /// strip and dots read the loaded forecast the same way the dashboard
+    /// does. Nil when there is no forecast or coordinate yet, the draft has
+    /// no Range, the reply rolled past local midnight, or the call fails —
+    /// the reveal then keeps the empty-ring card.
+    func reviewPreview(for authored: AuthoredActivity) async -> ReviewPreview? {
+        guard let deriver = timeDeriver,
+              let coordinate = lastFetchedCoordinate,
+              authored.window != nil else { return nil }
+        do {
+            let reply = try await api.fetchRatings(lat: coordinate.latitude,
+                                                   lon: coordinate.longitude,
+                                                   activities: [authored.activityInput])
+            guard SpanScoring.replyDayZeroMatches(current: deriver, replyStart: reply.forecastStart),
+                  let rating = reply.activities.first else { return nil }
+            let dayIndex = cardDayIndex(for: authored)
+            return ReviewPreview(rating: rating,
+                                 day: rawDay(for: rating, dayIndex: dayIndex),
+                                 tiers: rangeStripTiers(for: authored, dayIndex: dayIndex),
+                                 stripStartLocalHour: rangeSlots(for: authored, dayIndex: dayIndex).first?.localHour,
+                                 weekDots: WeekDots.dots(for: rating, deriver: deriver,
+                                                         nocturnal: authored.isNocturnal))
+        } catch {
+            return nil
+        }
+    }
+
     /// OK on the alert — remember the home so it never re-warns for it.
     func acknowledgeTimezoneWarning() {
         if let home = preferences.homeLocation {
@@ -440,22 +470,12 @@ final class DashboardViewModel: ObservableObject {
     /// True when a same-day Range has no forecast hour left today — the
     /// forecast starts at the current hour, so an empty day-0 slice means the
     /// Range has fully passed. Drives the editor's "already passed" save
-    /// alert and its review pills (the card no longer falls forward — it is
+    /// alert (the card no longer falls forward — it is
     /// today-only since 2026-10-02). A wrapped Range never "passes"
     /// (tonight is always ahead of, or inside, the forecast).
     func rangeHasPassedToday(_ window: WindowSpec) -> Bool {
         guard !window.isWrapped, forecast != nil else { return false }
         return rangeHourIndices(window: window, dayIndex: 0) == nil
-    }
-
-    /// The forecast hour the editor's review pills read: the Range's first
-    /// hour today, or tomorrow once today's Range has passed. Nil without a
-    /// forecast — the pills fall back to their neutral name-only state.
-    func reviewRangeStartHour(for window: WindowSpec) -> HourlyWeather? {
-        guard let hours = forecast?.hours else { return nil }
-        let range = rangeHourIndices(window: window, dayIndex: 0)
-            ?? rangeHourIndices(window: window, dayIndex: 1)
-        return range.map { hours[$0.lowerBound] }
     }
 
     /// The window-only core of the Range filter — the draft editor has a

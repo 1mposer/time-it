@@ -14,6 +14,7 @@ struct DashboardView: View {
     @StateObject private var registration: DeviceRegistration
     @ObservedObject private var router: PushRouter
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.openingInProgress) private var openingInProgress
     @Environment(\.scenePhase) private var scenePhase
     @State private var showSettings = false
     @State private var showAdd = false
@@ -117,13 +118,14 @@ struct DashboardView: View {
                 NavigationStack {
                     ActivityEditorView(existing: .blank(),
                                        isNew: true,
+                                       isFirstActivity: store.activities.isEmpty,
                                        windUnit: preferences.windSpeedUnit,
                                        onSave: { activity in
                                            if !store.add(activity) {
                                                showingCapAlert = true
                                            }
                                        },
-                                       reviewRangeStartHour: { viewModel.reviewRangeStartHour(for: $0) },
+                                       reviewPreview: { await viewModel.reviewPreview(for: $0) },
                                        rangeHasPassedToday: { viewModel.rangeHasPassedToday($0) })
                 }
             }
@@ -142,7 +144,7 @@ struct DashboardView: View {
                                        windUnit: preferences.windSpeedUnit,
                                        onSave: { store.update($0) },
                                        onDelete: { store.delete(id: activity.id) },
-                                       reviewRangeStartHour: { viewModel.reviewRangeStartHour(for: $0) },
+                                       reviewPreview: { await viewModel.reviewPreview(for: $0) },
                                        rangeHasPassedToday: { viewModel.rangeHasPassedToday($0) })
                 }
             }
@@ -162,8 +164,13 @@ struct DashboardView: View {
             }
         }
         .task {
-            viewModel.requestInitialLocationPermissionIfNeeded()
             await viewModel.loadForecast()
+        }
+        // The first-run location prompt waits for the opening sequence to
+        // hand over (owner ruling 2026-11-11, Q16) — the system alert must
+        // not land on the logo. The fetch above runs underneath it.
+        .onChange(of: openingInProgress, initial: true) { _, inProgress in
+            if !inProgress { viewModel.requestInitialLocationPermissionIfNeeded() }
         }
         // A backgrounded app returns with a stale forecast — hours[0] and the
         // passed-range signal (card fallback + save alert) all read it, so

@@ -1,10 +1,11 @@
 import XCTest
 @testable import TimeIt
 
-/// Pins the wizard's per-tab completion rules (§1 of the redesign), the
-/// forward-gating rule, the rangeConfirmed seeding, and the 3-way threshold
-/// mode mapping (§4). Green = live validity — a tab's rule passing NOW, never
-/// "visited".
+/// Pins the five-step wizard (owner rulings 2026-11-11): per-step completion,
+/// forward gating, the rangeConfirmed seeding, the Priority step over the
+/// threshold contract (pressed = required, unpressed = optional, at least
+/// one pressed), the retired show-only adoption, and the progress fraction.
+/// Complete = live validity — a step's rule passing NOW, never "visited".
 final class EditorWizardTests: XCTestCase {
 
     // MARK: - Helpers
@@ -113,7 +114,7 @@ final class EditorWizardTests: XCTestCase {
 
     // MARK: - Gating chain — tab i is tappable iff tabs 0..<i are all complete
 
-    func testForwardGatingUnlocksTabsInOrder() {
+    func testForwardGatingUnlocksStepsInOrder() {
         var draft = blankDraft()
         XCTAssertTrue(EditorStep.nameIcon.isUnlocked(draft: draft, catalog: catalog, rangeConfirmed: false))
         XCTAssertFalse(EditorStep.metrics.isUnlocked(draft: draft, catalog: catalog, rangeConfirmed: false))
@@ -122,10 +123,15 @@ final class EditorWizardTests: XCTestCase {
         draft.label = "Padel"
         draft.iconSymbol = "figure.tennis"
         XCTAssertTrue(EditorStep.metrics.isUnlocked(draft: draft, catalog: catalog, rangeConfirmed: false))
-        XCTAssertFalse(EditorStep.range.isUnlocked(draft: draft, catalog: catalog, rangeConfirmed: false),
-                       "no metric yet — the Range tab stays locked")
+        XCTAssertFalse(EditorStep.priority.isUnlocked(draft: draft, catalog: catalog, rangeConfirmed: false),
+                       "no metric yet — Priority stays locked")
 
         draft.selectWithPreset(descriptor("temp"))
+        XCTAssertTrue(EditorStep.priority.isUnlocked(draft: draft, catalog: catalog, rangeConfirmed: false))
+        XCTAssertFalse(EditorStep.range.isUnlocked(draft: draft, catalog: catalog, rangeConfirmed: false),
+                       "nothing pressed on Priority — the Range step stays locked")
+
+        PriorityChoice.toggle("temp", in: &draft)
         XCTAssertTrue(EditorStep.range.isUnlocked(draft: draft, catalog: catalog, rangeConfirmed: false))
         XCTAssertFalse(EditorStep.review.isUnlocked(draft: draft, catalog: catalog, rangeConfirmed: false),
                        "the range is valid but unconfirmed — Review stays locked")
@@ -159,18 +165,21 @@ final class EditorWizardTests: XCTestCase {
         draft.label = "Padel"
         draft.iconSymbol = "figure.tennis"
         XCTAssertEqual(EditorStep.landingStep(requested: .range, draft: draft, catalog: catalog, rangeConfirmed: false),
-                       .metrics, "Range is locked without a metric — land on Metrics, never on a gated tab")
+                       .metrics, "Range is locked without a metric — land on Metrics, never on a gated step")
         XCTAssertEqual(EditorStep.landingStep(requested: .nameIcon, draft: draft, catalog: catalog, rangeConfirmed: false),
                        .nameIcon, "a request at or below the first locked tab is honoured as-is")
     }
 
     // MARK: - Preset selection (§4 — one tap = a working Must-have threshold)
 
-    func testSelectWithPresetCreatesAPresetThreshold() {
+    func testSelectWithPresetCreatesAPresetThresholdNotPrioritised() {
         var draft = blankDraft()
         draft.selectWithPreset(descriptor("temp"))
         XCTAssertEqual(draft.metrics, ["temp"])
-        XCTAssertEqual(draft.thresholds["temp"], ThresholdDraft(preset: descriptor("temp")))
+        var expected = ThresholdDraft(preset: descriptor("temp"))
+        expected.required = false
+        XCTAssertEqual(draft.thresholds["temp"], expected,
+                       "a pick shows and is judged, but only the Priority step makes it required")
     }
 
     func testSelectWithPresetOnADisplayOnlyMetricAddsNoThreshold() {
@@ -187,119 +196,116 @@ final class EditorWizardTests: XCTestCase {
         XCTAssertEqual(draft, before, "re-selecting must not clobber authored threshold values")
     }
 
-    // MARK: - Threshold mode mapping (§4)
+    // MARK: - Priority step (owner rulings 2026-11-11)
 
-    func testCurrentModeReflectsTheDraftState() {
-        var draft = ActivityDraft(from: Fixtures.cycling)
-        XCTAssertEqual(ThresholdMode.current(for: "temp", in: draft), .mustHave)
-        XCTAssertEqual(ThresholdMode.current(for: "windSpeed", in: draft), .niceToHave)
-        draft.removeThreshold(for: "temp")
-        XCTAssertEqual(ThresholdMode.current(for: "temp", in: draft), .showOnly)
+    func testPriorityCandidatesAreThePickedJudgedMetricsInOrder() {
+        var draft = blankDraft()
+        draft.selectWithPreset(descriptor("windSpeed"))
+        draft.selectWithPreset(descriptor("moon"))
+        draft.selectWithPreset(descriptor("temp"))
+        draft.selectWithPreset(descriptor("dustAlert"))
+        XCTAssertEqual(PriorityChoice.candidates(in: draft), ["windSpeed", "temp", "dustAlert"],
+                       "Moon Phase can't be judged, so it never appears on Priority")
     }
 
-    func testApplyModeTogglesRequiredWithoutTouchingValues() {
-        var draft = ActivityDraft(from: Fixtures.cycling)
+    func testPressingFlipsRequiredWithoutTouchingTheBounds() {
+        var draft = blankDraft()
+        draft.selectWithPreset(descriptor("temp"))
         draft.thresholds["temp"]?.minText = "18"
+        XCTAssertFalse(PriorityChoice.isChosen("temp", in: draft))
 
-        ThresholdMode.niceToHave.apply(for: descriptor("temp"), to: &draft)
-        XCTAssertEqual(draft.thresholds["temp"]?.required, false)
-        XCTAssertEqual(draft.thresholds["temp"]?.minText, "18", "authored values survive a mode flip")
-
-        ThresholdMode.mustHave.apply(for: descriptor("temp"), to: &draft)
+        PriorityChoice.toggle("temp", in: &draft)
+        XCTAssertTrue(PriorityChoice.isChosen("temp", in: draft))
         XCTAssertEqual(draft.thresholds["temp"]?.required, true)
-        XCTAssertEqual(draft.thresholds["temp"]?.minText, "18")
+        XCTAssertEqual(draft.thresholds["temp"]?.minText, "18", "bounds are never touched")
+
+        PriorityChoice.toggle("temp", in: &draft)
+        XCTAssertEqual(draft.thresholds["temp"]?.required, false)
     }
 
-    func testApplyShowOnlyRemovesTheThresholdButKeepsTheMetric() {
-        var draft = ActivityDraft(from: Fixtures.cycling)
-        ThresholdMode.showOnly.apply(for: descriptor("temp"), to: &draft)
-        XCTAssertNil(draft.thresholds["temp"])
-        XCTAssertTrue(draft.isSelected("temp"), "show only: on the card, doesn't affect rating")
-    }
-
-    func testApplyAThresholdModeAfterShowOnlyRecreatesThePreset() {
-        var draft = ActivityDraft(from: Fixtures.cycling)
-        ThresholdMode.showOnly.apply(for: descriptor("temp"), to: &draft)
-        ThresholdMode.mustHave.apply(for: descriptor("temp"), to: &draft)
-        XCTAssertEqual(draft.thresholds["temp"], ThresholdDraft(preset: descriptor("temp")))
-    }
-
-    func testFlagMetricModesMapToTheFlagThreshold() {
+    func testPressingAFlagMetricMakesItsFlagRequired() {
         var draft = blankDraft()
         draft.selectWithPreset(descriptor("dustAlert"))
         XCTAssertEqual(draft.thresholds["dustAlert"]?.isFlag, true)
-        XCTAssertEqual(ThresholdMode.current(for: "dustAlert", in: draft), .mustHave)
-
-        ThresholdMode.niceToHave.apply(for: descriptor("dustAlert"), to: &draft)
         XCTAssertEqual(draft.thresholds["dustAlert"]?.required, false)
-        XCTAssertEqual(draft.thresholds["dustAlert"]?.isFlag, true)
-
-        ThresholdMode.showOnly.apply(for: descriptor("dustAlert"), to: &draft)
-        XCTAssertNil(draft.thresholds["dustAlert"])
+        PriorityChoice.toggle("dustAlert", in: &draft)
+        XCTAssertEqual(draft.thresholds["dustAlert"]?.required, true)
     }
 
-    func testModeLabelsAreTheSettledCopy() {
-        XCTAssertEqual(ThresholdMode.mustHave.label, "Must-have")
-        XCTAssertEqual(ThresholdMode.niceToHave.label, "Nice-to-have")
-        XCTAssertEqual(ThresholdMode.showOnly.label, "Show only")
+    func testTogglingAMetricWithoutAThresholdIsANoOp() {
+        var draft = blankDraft()
+        draft.selectWithPreset(descriptor("moon"))
+        let before = draft
+        PriorityChoice.toggle("moon", in: &draft)
+        XCTAssertEqual(draft, before)
     }
 
-    // MARK: - Two-checkbox surface (owner edit 2026-08-30 — replaces the mode menu)
-
-    func testCheckboxStateReflectsTheDraft() {
-        var draft = ActivityDraft(from: Fixtures.cycling)
-        XCTAssertTrue(ThresholdCheckboxes.isPriority(for: "temp", in: draft),
-                      "a required threshold reads as Priority checked")
-        XCTAssertFalse(ThresholdCheckboxes.isShowOnly(for: "temp", in: draft))
-
-        XCTAssertFalse(ThresholdCheckboxes.isPriority(for: "windSpeed", in: draft),
-                       "an optional threshold is calculating but not Priority")
-        XCTAssertFalse(ThresholdCheckboxes.isShowOnly(for: "windSpeed", in: draft))
-
-        draft.removeThreshold(for: "temp")
-        XCTAssertFalse(ThresholdCheckboxes.isPriority(for: "temp", in: draft))
-        XCTAssertTrue(ThresholdCheckboxes.isShowOnly(for: "temp", in: draft),
-                      "no threshold on a selected metric = show don't calculate")
+    func testPriorityGateNeedsAtLeastOnePressed() {
+        var draft = blankDraft()
+        draft.selectWithPreset(descriptor("temp"))
+        draft.selectWithPreset(descriptor("windSpeed"))
+        XCTAssertFalse(complete(.priority, draft), "Press at least one: no required threshold means never red")
+        PriorityChoice.toggle("windSpeed", in: &draft)
+        XCTAssertTrue(complete(.priority, draft))
+        XCTAssertEqual(PriorityChoice.gateHint, "Press at least one.")
     }
 
-    func testTogglingPriorityFlipsRequiredWithoutTouchingValues() {
-        var draft = ActivityDraft(from: Fixtures.cycling)
-        draft.thresholds["temp"]?.minText = "18"
-
-        ThresholdCheckboxes.togglePriority(for: descriptor("temp"), in: &draft)
-        XCTAssertEqual(draft.thresholds["temp"]?.required, false,
-                       "unchecking Priority keeps calculating, just softer")
-        XCTAssertEqual(draft.thresholds["temp"]?.minText, "18", "authored values survive")
-
-        ThresholdCheckboxes.togglePriority(for: descriptor("temp"), in: &draft)
-        XCTAssertEqual(draft.thresholds["temp"]?.required, true)
-        XCTAssertEqual(draft.thresholds["temp"]?.minText, "18")
+    func testPriorityGatePassesWhenNothingCanBeJudged() {
+        var draft = blankDraft()
+        draft.selectWithPreset(descriptor("moon"))
+        XCTAssertTrue(complete(.priority, draft), "Moon Phase alone leaves nothing to press")
     }
 
-    func testCheckingShowOnlyRemovesTheThresholdAndUnchecksPriority() {
-        var draft = ActivityDraft(from: Fixtures.cycling)
-        ThresholdCheckboxes.toggleShowOnly(for: descriptor("temp"), in: &draft)
-        XCTAssertNil(draft.thresholds["temp"], "show don't calculate drops the threshold")
-        XCTAssertTrue(draft.isSelected("temp"), "the metric stays on the card")
-        XCTAssertFalse(ThresholdCheckboxes.isPriority(for: "temp", in: draft),
-                       "the two boxes can never both read checked")
+    func testPriorityExplainerIsTheRuledCopy() {
+        XCTAssertEqual(PriorityChoice.explainer, "Pressed ones matter most. The rest still show.")
     }
 
-    func testUncheckingShowOnlyRecreatesThePresetAsPriority() {
-        var draft = ActivityDraft(from: Fixtures.cycling)
-        ThresholdCheckboxes.toggleShowOnly(for: descriptor("temp"), in: &draft)
-        ThresholdCheckboxes.toggleShowOnly(for: descriptor("temp"), in: &draft)
-        XCTAssertEqual(draft.thresholds["temp"], ThresholdDraft(preset: descriptor("temp")),
-                       "back to calculating = the preset Must-have threshold")
-        XCTAssertTrue(ThresholdCheckboxes.isPriority(for: "temp", in: draft))
+    // MARK: - Retired "Show only" (owner ruling 4a)
+
+    func testOpeningAdoptsShowOnlyMetricsAsNotPrioritised() {
+        var legacy = Fixtures.cycling
+        legacy.thresholds["uV"] = nil          // a show-only numeric metric
+        legacy.displayMetrics.append("moon")   // display-only stays untouched
+        var draft = ActivityDraft(from: legacy)
+        draft.adoptShowOnlyMetrics(catalog: catalog)
+
+        XCTAssertEqual(draft.thresholds["uV"]?.required, false)
+        XCTAssertEqual(draft.thresholds["uV"]?.maxText, ThresholdDraft(preset: descriptor("uV")).maxText,
+                       "the preset bound, ready for the user to keep or move")
+        XCTAssertNil(draft.thresholds["moon"])
+        XCTAssertEqual(draft.thresholds["temp"]?.required, true, "existing thresholds are untouched")
     }
 
-    func testCheckingPriorityFromShowOnlyRecreatesThePreset() {
-        var draft = ActivityDraft(from: Fixtures.cycling)
-        ThresholdCheckboxes.toggleShowOnly(for: descriptor("temp"), in: &draft)
-        ThresholdCheckboxes.togglePriority(for: descriptor("temp"), in: &draft)
-        XCTAssertEqual(draft.thresholds["temp"], ThresholdDraft(preset: descriptor("temp")),
-                       "checking Priority while show-only re-creates the threshold and unchecks the show box")
-        XCTAssertFalse(ThresholdCheckboxes.isShowOnly(for: "temp", in: draft))
+    // MARK: - Progress bar
+
+    func testProgressNeverStartsAtZeroAndFillsOnReview() {
+        let fractions = EditorStep.allCases.map(WizardProgress.fraction(for:))
+        XCTAssertEqual(fractions.count, 5)
+        for (actual, expected) in zip(fractions, [0.12, 0.34, 0.56, 0.78, 1.0]) {
+            XCTAssertEqual(actual, expected, accuracy: 0.0001)
+        }
+    }
+
+    func testStepHeadingsAreThePlainLanguageCopy() {
+        XCTAssertEqual(EditorStep.nameIcon.heading, "Name your activity")
+        XCTAssertEqual(EditorStep.metrics.heading, "Pick what to watch")
+        XCTAssertEqual(EditorStep.priority.heading, "What matters most?")
+        XCTAssertEqual(EditorStep.range.heading, "When do you go?")
+        XCTAssertNil(EditorStep.review.heading)
+        for heading in EditorStep.allCases.compactMap(\.heading) {
+            XCTAssertFalse(heading.localizedCaseInsensitiveContains("range"), "no 'range' on screen")
+            XCTAssertFalse(heading.localizedCaseInsensitiveContains("threshold"), "no 'threshold' on screen")
+        }
+    }
+
+    // MARK: - Tile rows
+
+    func testTileRowsPairAndGiveTheOpenedTileAFullRow() {
+        XCTAssertEqual(MetricTile.rows(for: ["a", "b", "c"], opened: nil),
+                       [.pair("a", "b"), .pair("c", nil)])
+        XCTAssertEqual(MetricTile.rows(for: ["a", "b", "c", "d"], opened: "a"),
+                       [.full("a"), .pair("b", "c"), .pair("d", nil)])
+        XCTAssertEqual(MetricTile.rows(for: ["a", "b", "c"], opened: "b"),
+                       [.pair("a", nil), .full("b"), .pair("c", nil)])
     }
 }

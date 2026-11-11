@@ -165,3 +165,24 @@ private struct OptionalAccessibilityLabel: ViewModifier {
         }
     }
 }
+
+// MARK: Accent-tinted glass — the wizard's primary action (owner rulings 2026-11-11)
+
+extension View {
+    /// The primary glass button's surface (Figma `A/R2/Final`, Next / Save):
+    /// Liquid Glass tinted with the brand fill on iOS 26 (interactive while
+    /// enabled); below iOS 26 the opaque brand fill. Both carry the 1pt mint
+    /// edge in dark (the fill alone is only 2.88:1 against the dark card;
+    /// the edge is clear in light). The label is `Theme.onFill`.
+    @ViewBuilder
+    func glassPrimarySurface<S: Shape>(in shape: S, enabled: Bool) -> some View {
+        if #available(iOS 26, *) {
+            let tinted = Glass.regular.tint(Theme.accentBrandFill)
+            self.glassEffect(enabled ? tinted.interactive() : tinted, in: shape)
+                .overlay(shape.stroke(Theme.accentBrandEdge, lineWidth: 1))
+        } else {
+            self.background(Theme.accentBrandFill, in: shape)
+                .overlay(shape.stroke(Theme.accentBrandEdge, lineWidth: 1))
+        }
+    }
+}

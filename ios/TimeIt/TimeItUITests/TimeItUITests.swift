@@ -47,11 +47,14 @@ final class TimeItUITests: XCTestCase {
     private static let pinnedNow = "UITEST_NOW=2026-06-19T00:30:00Z"
 
     private func launchApp(arguments: [String] = ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_SEED_LIVE", "UITEST_LOCATION"],
-                           contentSize: UIContentSizeCategory? = nil) -> XCUIApplication {
+                           contentSize: UIContentSizeCategory? = nil,
+                           skipOpening: Bool = true) -> XCUIApplication {
         let app = XCUIApplication()
         // The clock pin rides along unless the caller pins its own instant.
         let pinsOwnClock = arguments.contains { $0.hasPrefix("UITEST_NOW=") }
         app.launchArguments = pinsOwnClock ? arguments : arguments + [Self.pinnedNow]
+        // The opening sequence is skipped except where a test watches it.
+        if skipOpening { app.launchArguments.append("UITEST_SKIP_OPENING") }
         if let contentSize {
             app.launchArguments += ["-UIPreferredContentSizeCategoryName", contentSize.rawValue]
         }
@@ -69,7 +72,30 @@ final class TimeItUITests: XCTestCase {
         let editMetrics = app.buttons["detail.editMetrics"]
         XCTAssertTrue(editMetrics.waitForExistence(timeout: 5), "the detail's edit circles")
         editMetrics.tap()
-        XCTAssertTrue(app.buttons["editor.tab.3"].waitForExistence(timeout: 5), "the editor sheet is up")
+        XCTAssertTrue(app.buttons["editor.cancel"].waitForExistence(timeout: 5), "the editor sheet is up")
+    }
+
+    /// Next until Review (edit mode passes every gate; an unconfirmed Range
+    /// takes its second press).
+    private func advanceToReview(in app: XCUIApplication) {
+        let save = app.buttons["editor.save"]
+        var presses = 0
+        while !save.exists, presses < 8 {
+            app.buttons["editor.nextStep"].tap()
+            presses += 1
+        }
+        XCTAssertTrue(save.waitForExistence(timeout: 5), "on the Review step")
+    }
+
+    /// Back until the Name step.
+    private func goBackToName(in app: XCUIApplication) {
+        let name = app.textFields["editor.name"]
+        var presses = 0
+        while !name.exists, presses < 6 {
+            app.buttons["editor.back"].tap()
+            presses += 1
+        }
+        XCTAssertTrue(name.waitForExistence(timeout: 5), "on the Name step")
     }
 
     private func cardCount(in app: XCUIApplication) -> Int {
@@ -316,35 +342,28 @@ final class TimeItUITests: XCTestCase {
 
         let next = app.buttons["editor.nextStep"]
         XCTAssertTrue(next.waitForExistence(timeout: 5))
-        XCTAssertFalse(next.isEnabled, "empty name + sentinel icon → tab 0 incomplete")
-
-        // Locked-tab no-op: Review is gated behind tabs 0–2.
-        app.buttons["editor.tab.3"].tap()
-        XCTAssertTrue(app.textFields["editor.name"].exists,
-                      "tapping a locked tab does nothing — still on tab 0")
-        XCTAssertFalse(app.buttons["editor.save"].exists)
+        XCTAssertFalse(next.isEnabled, "empty name + sentinel icon → step 1 incomplete")
+        XCTAssertFalse(app.buttons["editor.back"].exists, "no Back on the first step")
+        XCTAssertFalse(app.buttons["editor.tab.0"].exists, "the tab strip is gone — a progress bar instead")
 
         let nameField = app.textFields["editor.name"]
         nameField.tap()
         nameField.typeText("Padel")
         XCTAssertFalse(next.isEnabled, "a name alone is not enough — an icon must be chosen (the sentinel is gated)")
 
-        // From scratch every category starts collapsed — expand and pick.
-        scrollTo(app.staticTexts["Sports"], in: app)
-        app.staticTexts["Sports"].tap()
+        // From scratch the first category (Sports) starts open.
         let icon = app.buttons["icon.figure.tennis"]
         scrollTo(icon, in: app)
         icon.tap()
-        XCTAssertTrue(next.isEnabled, "name + icon completes the Name & Icon tab")
+        XCTAssertTrue(next.isEnabled, "name + icon completes the Name step")
         next.tap()
 
-        // Tab 1: one tap = a working Must-have threshold (the old
-        // editor.addThreshold flow is gone).
+        // Metrics: one tap picks and opens the tile to its slider.
         let metric = app.buttons["metric.temp"]
         XCTAssertTrue(metric.waitForExistence(timeout: 5))
-        XCTAssertFalse(next.isEnabled, "no metric selected yet")
+        XCTAssertFalse(next.isEnabled, "no metric picked yet")
         metric.tap()
-        XCTAssertTrue(next.isEnabled, "selecting auto-creates the preset threshold — zero typing")
+        XCTAssertTrue(next.isEnabled, "picking auto-creates the preset bounds — zero typing")
 
         // The tap-the-label exact-entry path.
         app.buttons["editor.value.temp"].tap()
@@ -355,30 +374,40 @@ final class TimeItUITests: XCTestCase {
         minField.typeText("\n")
         next.tap()
 
-        // Tab 2: both wheels always visible; a valid but untouched prefill
-        // takes the warn-then-proceed path.
+        // Priority: Next stays off until one tile is pressed.
+        let priority = app.buttons["editor.priority.temp"]
+        XCTAssertTrue(priority.waitForExistence(timeout: 5))
+        XCTAssertFalse(next.isEnabled, "Press at least one.")
+        XCTAssertTrue(app.staticTexts["editor.priorityGate"].exists)
+        priority.tap()
+        XCTAssertTrue(priority.isSelected)
+        XCTAssertTrue(next.isEnabled)
+        next.tap()
+
+        // Range: both wheels; an untouched prefill takes warn-then-proceed.
         XCTAssertTrue(app.pickers["editor.startHour"].waitForExistence(timeout: 5),
                       "both hour wheels render on entry")
         XCTAssertTrue(app.pickers["editor.endHour"].exists)
-        XCTAssertTrue(next.isEnabled, "the warning path keeps Next Step enabled")
+        XCTAssertTrue(next.isEnabled, "the warning path keeps Next enabled")
         next.tap()
         XCTAssertTrue(app.staticTexts["editor.rangeWarning"].waitForExistence(timeout: 5),
                       "first press shows the skip warning exactly once")
         next.tap()
 
+        // Review: the reveal, then Save.
         let save = app.buttons["editor.save"]
         XCTAssertTrue(save.waitForExistence(timeout: 5), "second press proceeds to Review")
+        XCTAssertTrue(app.staticTexts["editor.reviewTitle"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.staticTexts["editor.reviewTitle"].label, "Activity created",
+                       "not the first Activity — the seeded store already has two")
+        attachScreenshot(app, named: "wizard-review-reveal")
         XCTAssertTrue(save.isEnabled)
         save.tap()
         XCTAssertTrue(app.staticTexts["Padel"].waitForExistence(timeout: 5),
-                      "the scratch-built card renders with its confirmed range")
+                      "the scratch-built card renders with its confirmed hours")
     }
 
-    func testReviewTabTapTakesTheWarnThenProceedPath() {
-        // Plan §6: the SECOND press proceeds for BOTH paths — "presses Next
-        // Step (or taps the Review tab)". The Review-tab tap must not loop
-        // on the warning. Walked through the scratch wizard (the only add
-        // path): tabs 0–1 completed, the Range prefill left untouched.
+    func testBackWalksTheStepsAndKeepsTheDraft() {
         let app = launchApp()
         XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5))
         app.swipeUp()
@@ -388,67 +417,62 @@ final class TimeItUITests: XCTestCase {
         XCTAssertTrue(nameField.waitForExistence(timeout: 5))
         nameField.tap()
         nameField.typeText("Padel")
-        scrollTo(app.staticTexts["Sports"], in: app)
-        app.staticTexts["Sports"].tap()
         let icon = app.buttons["icon.figure.tennis"]
         scrollTo(icon, in: app)
         icon.tap()
         app.buttons["editor.nextStep"].tap()
-        let metric = app.buttons["metric.temp"]
-        XCTAssertTrue(metric.waitForExistence(timeout: 5))
-        metric.tap()
+        XCTAssertTrue(app.buttons["metric.temp"].waitForExistence(timeout: 5))
+        app.buttons["metric.temp"].tap()
+
+        app.buttons["editor.back"].tap()
+        XCTAssertTrue(nameField.waitForExistence(timeout: 5), "Back returns to the Name step")
+        XCTAssertEqual(nameField.value as? String, "Padel", "the draft survives the walk back")
         app.buttons["editor.nextStep"].tap()
-        XCTAssertTrue(app.pickers["editor.startHour"].waitForExistence(timeout: 5),
-                      "on the Range tab with the untouched 6–10am prefill")
-
-        let reviewTab = app.buttons["editor.tab.3"]
-        reviewTab.tap()
-
-        XCTAssertTrue(app.staticTexts["editor.rangeWarning"].waitForExistence(timeout: 5),
-                      "first Review-tab tap warns")
-        XCTAssertTrue(app.pickers["editor.startHour"].exists,
-                      "…landing on the Range tab so the skipped range is visible")
-        XCTAssertFalse(app.buttons["editor.save"].exists, "not on Review yet")
-
-        reviewTab.tap()
-        XCTAssertTrue(app.buttons["editor.save"].waitForExistence(timeout: 5),
-                      "second Review-tab tap proceeds to Review (rangeConfirmed set)")
-        XCTAssertFalse(app.staticTexts["editor.rangeWarning"].exists)
+        XCTAssertTrue(app.buttons["metric.temp"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["metric.temp"].isSelected, "the pick survives too")
         app.buttons["editor.cancel"].tap()
     }
 
-    func testMetricCheckboxesSwitchThresholdModes() {
-        // Owner edit 2026-08-30: the mode menu is gone — a selected metric
-        // carries two checkboxes, "Priority" and "Show don't calculate".
+    func testMetricTileOpensAndThePriorityStepPresses() {
+        // Owner rulings 2026-11-11: "Show only" is gone — Metrics picks what
+        // shows, the Priority step presses what matters most.
         let app = launchApp()
         openEditorFromDetail("cycling", in: app)
 
-        let metricsTab = app.buttons["editor.tab.1"]
-        XCTAssertTrue(metricsTab.waitForExistence(timeout: 5))
-        metricsTab.tap()
+        // Edit metrics lands on Metrics with the first numeric pick open.
+        let temp = app.buttons["metric.temp"]
+        XCTAssertTrue(temp.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["editor.value.temp"].exists, "the opened tile shows its slider")
+        XCTAssertFalse(app.buttons["editor.showOnly.temp"].exists, "no Show only anywhere")
 
-        // Cycling's temp threshold is required → Priority arrives checked,
-        // with the slider's value label rendered.
-        let priority = app.buttons["editor.priority.temp"]
-        let showOnly = app.buttons["editor.showOnly.temp"]
-        XCTAssertTrue(priority.waitForExistence(timeout: 5))
-        XCTAssertTrue(showOnly.exists)
-        XCTAssertTrue(priority.isSelected, "a required threshold reads as Priority checked")
-        XCTAssertFalse(showOnly.isSelected)
-        XCTAssertTrue(app.buttons["editor.value.temp"].exists)
-
-        showOnly.tap()
-        XCTAssertFalse(app.buttons["editor.value.temp"].exists,
-                       "show don't calculate drops the threshold — the slider goes")
-        XCTAssertTrue(showOnly.isSelected)
-        XCTAssertFalse(priority.isSelected, "the boxes never both read checked")
-
-        priority.tap()
+        temp.tap()
+        XCTAssertFalse(app.buttons["editor.value.temp"].exists, "tapping the open card's header unpicks it")
+        temp.tap()
         XCTAssertTrue(app.buttons["editor.value.temp"].waitForExistence(timeout: 5),
-                      "checking Priority re-creates the preset threshold")
-        XCTAssertTrue(priority.isSelected)
-        XCTAssertFalse(showOnly.isSelected)
+                      "picking it again re-creates the preset and opens it")
+
+        app.buttons["editor.nextStep"].tap()
+        let tempPriority = app.buttons["editor.priority.temp"]
+        let rainPriority = app.buttons["editor.priority.rainFall"]
+        XCTAssertTrue(tempPriority.waitForExistence(timeout: 5))
+        XCTAssertFalse(tempPriority.isSelected, "a fresh pick is not prioritised")
+        XCTAssertTrue(rainPriority.isSelected, "Cycling's required rain threshold arrives pressed")
+        XCTAssertTrue(app.staticTexts["editor.priorityExplainer"].exists)
+        tempPriority.tap()
+        XCTAssertTrue(tempPriority.isSelected)
+        attachScreenshot(app, named: "wizard-priority")
         app.buttons["editor.cancel"].tap()
+    }
+
+    func testOpeningSequencePlaysOnColdLaunchAndATapSkipsIt() {
+        let app = launchApp(skipOpening: false)
+        let splash = app.descendants(matching: .any)["opening.splash"]
+        XCTAssertTrue(splash.waitForExistence(timeout: 5), "a cold launch opens on the logo")
+        attachScreenshot(app, named: "opening-splash")
+        splash.tap()
+        XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5),
+                      "a tap hands over to the dashboard")
+        XCTAssertTrue(splash.waitForNonExistence(timeout: 5))
     }
 
     func testNameFieldWholeRowActivatesTheKeyboard() {
@@ -473,22 +497,21 @@ final class TimeItUITests: XCTestCase {
         let app = launchApp()
         openEditorFromDetail("cycling", in: app)
 
-        app.buttons["editor.tab.0"].tap()
+        goBackToName(in: app)
         let nameField = app.textFields["editor.name"]
         XCTAssertTrue(nameField.waitForExistence(timeout: 5))
         XCTAssertEqual(nameField.value as? String, "Cycling", "edit mode pre-fills the existing Activity")
 
         nameField.tap()
         nameField.typeText(" Pro")
-        // Edit mode: everything is pre-filled and the window exists — all
-        // four tabs pass their gates, so Review is one tap away.
-        app.buttons["editor.tab.3"].tap()
+        // Edit mode: everything is pre-filled and the window exists — every
+        // step passes its gate, so Next walks straight to Review.
+        advanceToReview(in: app)
         let save = app.buttons["editor.save"]
         XCTAssertTrue(save.waitForExistence(timeout: 5))
-        // Owner edit 2026-08-30: Review renders the actual dashboard card as
-        // a representative preview, not a text summary.
-        XCTAssertTrue(app.otherElements["editor.reviewCard"].exists,
-                      "the Review tab shows the dashboard card preview")
+        // Owner ruling 2026-11-11: Review reveals the real dashboard card.
+        XCTAssertTrue(app.descendants(matching: .any)["editor.reviewCard"].exists,
+                      "the Review step shows the dashboard card")
         save.tap()
 
         // Back from the detail to the dashboard card.
@@ -501,8 +524,8 @@ final class TimeItUITests: XCTestCase {
     func testDeletingLastActivityLandsTheAddHeroNotADeadEnd() {
         let app = launchApp()
         openEditorFromDetail("cycling", in: app)
-        // Delete lives on the Review tab now — edit mode unlocks it directly.
-        app.buttons["editor.tab.3"].tap()
+        // Delete lives on the Review step — edit mode walks there with Next.
+        advanceToReview(in: app)
         scrollTo(app.buttons["editor.delete"], in: app)
         XCTAssertTrue(app.buttons["editor.delete"].waitForExistence(timeout: 5))
         app.buttons["editor.delete"].tap()
@@ -515,7 +538,7 @@ final class TimeItUITests: XCTestCase {
         XCTAssertFalse(app.buttons["card.cycling"].exists, "deleted card is gone")
 
         openEditorFromDetail("fishing-lite", in: app)
-        app.buttons["editor.tab.3"].tap()
+        advanceToReview(in: app)
         scrollTo(app.buttons["editor.delete"], in: app)
         XCTAssertTrue(app.buttons["editor.delete"].waitForExistence(timeout: 5))
         app.buttons["editor.delete"].tap()
@@ -540,7 +563,7 @@ final class TimeItUITests: XCTestCase {
         // Delete one of the two seeded activities…
         var app = launchApp()
         openEditorFromDetail("cycling", in: app)
-        app.buttons["editor.tab.3"].tap()
+        advanceToReview(in: app)
         scrollTo(app.buttons["editor.delete"], in: app)
         XCTAssertTrue(app.buttons["editor.delete"].waitForExistence(timeout: 5))
         app.buttons["editor.delete"].tap()
@@ -682,14 +705,14 @@ final class TimeItUITests: XCTestCase {
 
         app.buttons["detail.editRange"].tap()
         XCTAssertTrue(app.pickers["editor.startHour"].waitForExistence(timeout: 5),
-                      "Edit range opens straight onto the Range tab")
+                      "Edit range opens straight onto the Range step")
         XCTAssertFalse(app.textFields["editor.name"].exists, "not the Name & Icon tab")
         app.buttons["editor.cancel"].tap()
 
         XCTAssertTrue(app.buttons["detail.editMetrics"].waitForExistence(timeout: 5))
         app.buttons["detail.editMetrics"].tap()
         XCTAssertTrue(app.buttons["metric.temp"].waitForExistence(timeout: 5),
-                      "Edit metrics opens straight onto the Metrics tab")
+                      "Edit metrics opens straight onto the Metrics step")
         XCTAssertFalse(app.pickers["editor.startHour"].exists, "not the Range tab")
         XCTAssertFalse(app.textFields["editor.name"].exists, "not the Name & Icon tab")
         app.buttons["editor.cancel"].tap()

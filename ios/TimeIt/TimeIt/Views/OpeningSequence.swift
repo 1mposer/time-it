@@ -1,9 +1,10 @@
 import SwiftUI
 
-// PROTOTYPE — the opening sequence: the owner-picked Converge logo animation
-// (lift B, owner timing) and three candidate reveals into the dashboard, for
-// the owner to compare in Xcode previews. Nothing here is wired into the
-// launch flow yet.
+// The opening sequence (owner rulings 2026-11-11, Lane A item 3): the
+// owner-picked Converge logo animation (lift B, owner timing), then the
+// zoom-through reveal into the dashboard. Cold launch only, a tap skips it,
+// a push-tap launch never waits on it, and Reduce Motion collapses it to the
+// end frame. `OpeningGate` is the one entry point (TimeItApp).
 
 /// The app mark — Figma component "Size=1024" (93:2): three translucent
 /// identity-temperature circles in a Venn — drawn tile-less, straight onto
@@ -126,8 +127,9 @@ struct LogoConvergeAnimation: View {
 
 // MARK: - Lockup
 
-/// The mark with the "Time it" wordmark under it — Figma Cover Hero (93:15):
-/// #1C1C1E, mark above name. Owner (2026-11-05): thin, not Figma's SF Pro
+/// The mark with the "Time it" wordmark under it — Figma Cover Hero (93:15),
+/// mark above name, the wordmark in the brand accent and SF Pro Rounded (the
+/// app's design, owner ruling Q12b). Owner (2026-11-05): thin, not Figma's SF Pro
 /// Bold — light weight, lightly tracked, 0.20 tile. Figma's
 /// ratios are against a 180pt *tile*; with the tile gone they are mapped onto
 /// the circles: the gap runs from the circles' visible bottom (not the virtual
@@ -247,22 +249,25 @@ private enum LogoGeometry {
     static let lift: CGFloat = 0.4
 }
 
-/// Colours. The circle stops are the identity temperatures' light-mode
-/// band stops — copied verbatim from `Theme.Header.bandHex(_:dark: false)`
-/// on `owner-tweaks` (not yet on this branch); replace with that call once
-/// it merges. The background is the launch screen's asset colour, so the
-/// hand-off from launch screen to animation is seamless.
+/// Colours. The circle stops are the identity temperatures' LIGHT band
+/// stops in both modes (owner ruling Q14a: the mark is identity, not the
+/// temperature band), read from the one band table. The background is the
+/// launch screen's asset colour (cream light, sage ground dark), so the
+/// hand-off from the launch screen is seamless; the wordmark takes the brand
+/// accent (mint in dark, Q13a).
 private enum LogoPalette {
     static let background = Color("LaunchBackground")
-    /// The wordmark ink — Figma's #1C1C1E (the cream background is light-only).
-    static let wordmark = Color(hex: 0x1C1C1E)
+    static let wordmark = Theme.accentBrand
 
     static func band(_ circle: LogoCircle) -> (start: UInt32, end: UInt32) {
+        let band: Theme.HeaderBand
         switch circle {
-        case .cool: return (0x1774ff, 0x68d7fc)
-        case .mid: return (0xe49b23, 0xf3ca5d)
-        case .hot: return (0xee6a4d, 0xfa9c86)
+        case .cool: band = .cool
+        case .mid: band = .mid
+        case .hot: band = .hot
         }
+        let hex = Theme.Fade.bandHex(band, dark: false)
+        return (hex.start, hex.end)
     }
 }
 
@@ -295,88 +300,90 @@ private extension View {
     }
 }
 
-// MARK: - Dashboard reveal
+// MARK: - Opening gate
 
-/// The three candidate hand-offs from the finished lockup into the app.
-enum DashboardReveal: CaseIterable {
-    /// The cream screen lifts off upward like a curtain; the app underneath
-    /// eases up from 94% scale, as if it was waiting just behind.
-    case curtain
-    /// The camera flies through the mark: the splash scales up past the
-    /// viewer and fades, while the app settles in from 106%.
-    case zoomThrough
-    /// An iris opens from the mark's centre and the app grows out of the
-    /// logo, edge to edge.
-    case iris
+/// Whether the opening sequence plays — the owner's rules (2026-11-11, Q15a):
+/// only on a cold launch, never for a UI-test run that opts out, never once a
+/// push tap is already routing somewhere.
+enum OpeningPolicy {
+    static func shouldPlay(coldLaunch: Bool, pushRoutePending: Bool, uiTestSkip: Bool) -> Bool {
+        coldLaunch && !pushRoutePending && !uiTestSkip
+    }
+
+    /// The XCUI opt-out argument (the launch helper passes it on every run
+    /// except the one test that watches the opening).
+    static let uiTestSkipArgument = "UITEST_SKIP_OPENING"
 }
 
-/// Converge, then the chosen reveal into `app`. The splash is removed once
-/// the reveal lands, so the app underneath is the only thing left.
-struct LogoOpeningSequence<App: View>: View {
-    let reveal: DashboardReveal
+/// True while the opening sequence covers the app — the dashboard defers its
+/// first-run location prompt until it turns false (owner ruling Q16).
+private struct OpeningInProgressKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    var openingInProgress: Bool {
+        get { self[OpeningInProgressKey.self] }
+        set { self[OpeningInProgressKey.self] = newValue }
+    }
+}
+
+/// The app root: Converge, then the zoom-through reveal into `app`. The app
+/// is mounted underneath from the first frame (its fetch hides behind the
+/// logo); a tap or an arriving push route finishes the opening at once.
+struct OpeningGate<App: View>: View {
+    @ObservedObject var router: PushRouter
     @ViewBuilder let app: () -> App
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var revealed = false
-    @State private var splashGone = false
+    @State private var phase: Phase
+
+    enum Phase { case playing, revealing, done }
+
+    init(plays: Bool, router: PushRouter, @ViewBuilder app: @escaping () -> App) {
+        self.router = router
+        self.app = app
+        _phase = State(initialValue: plays ? .playing : .done)
+    }
 
     var body: some View {
         ZStack {
-            if reveal == .iris {
-                if !splashGone { LogoConvergeAnimation(onFinished: start) }
-                app().mask { if splashGone { Color.black } else { iris } }
-            } else {
-                app()
-                    .scaleEffect(revealed ? 1 : appStartScale)
-                    .opacity(revealed || reveal == .curtain ? 1 : 0)
-                if !revealed {
-                    LogoConvergeAnimation(onFinished: start)
-                        .transition(splashExit)
-                        // A removed ZStack child loses its z-order and drops
-                        // behind the app — the exit then plays unseen and the
-                        // reveal reads as a hard cut. Pin it on top.
-                        .zIndex(1)
-                }
+            app()
+                .scaleEffect(phase == .playing && !reduceMotion ? Self.appStartScale : 1)
+                .opacity(phase == .playing ? 0 : 1)
+                .environment(\.openingInProgress, phase != .done)
+            if phase == .playing {
+                LogoConvergeAnimation(onFinished: reveal)
+                    .contentShape(Rectangle())
+                    .onTapGesture(perform: reveal)
+                    .accessibilityAction(named: "Skip", reveal)
+                    .accessibilityIdentifier("opening.splash")
+                    .transition(splashExit)
+                    // A removed ZStack child loses its z-order and drops
+                    // behind the app — the exit then plays unseen. Pin it.
+                    .zIndex(1)
             }
         }
+        .onChange(of: router.focusActivityId) { _, id in
+            if id != nil { reveal() }
+        }
     }
 
-    private var appStartScale: CGFloat {
-        if reduceMotion { return 1 }
-        return reveal == .curtain ? 0.94 : 1.06
-    }
+    /// The app settles in from 106% as the splash flies past the viewer.
+    static var appStartScale: CGFloat { 1.06 }
+    /// The splash's exit scale (owner tune `c443ac6`: scale 3).
+    static var splashExitScale: CGFloat { 3 }
 
     private var splashExit: AnyTransition {
-        if reduceMotion { return .opacity }
-        switch reveal {
-        case .curtain: return .move(edge: .top)
-        case .zoomThrough: return .scale(scale: 3).combined(with: .opacity)
-        case .iris: return .identity // never used — iris exits through its mask
-        }
+        reduceMotion ? .opacity : .scale(scale: Self.splashExitScale).combined(with: .opacity)
     }
 
-    /// A circle on the risen mark's centre, grown from nothing to past the
-    /// screen's far corner. Reduce Motion skips the growth (a straight fade).
-    private var iris: some View {
-        GeometryReader { geo in
-            let size = geo.size.width * LogoGeometry.screenFraction
-            let centre = CGPoint(x: geo.size.width / 2,
-                                 y: geo.size.height / 2 + LogoLockupMetrics(size: size).risenMarkY)
-            let reach = 2 * hypot(geo.size.width, geo.size.height)
-            Circle()
-                .frame(width: reach, height: reach)
-                .scaleEffect(revealed || reduceMotion ? 1 : 0.001)
-                .opacity(reduceMotion && !revealed ? 0 : 1)
-                .position(centre)
-        }
-        .ignoresSafeArea()
-    }
-
-    private func start() {
+    private func reveal() {
+        guard phase == .playing else { return }
         let animation: Animation = reduceMotion
             ? .easeInOut(duration: 0.35)
-            : reveal == .iris ? .spring(duration: 1.1, bounce: 0) : .spring(duration: 0.9, bounce: 0)
-        withAnimation(animation) { revealed = true } completion: { splashGone = true }
+            : .spring(duration: 0.9, bounce: 0)
+        withAnimation(animation) { phase = .revealing } completion: { phase = .done }
     }
 }
 
@@ -399,21 +406,9 @@ private struct LogoReplayPreview<Content: View>: View {
     LogoReplayPreview { LogoConvergeAnimation() }
 }
 
-#Preview("Reveal 1 · Curtain") {
+#Preview("Opening · Zoom through") {
     LogoReplayPreview {
-        LogoOpeningSequence(reveal: .curtain) { RevealPreviewDashboard() }
-    }
-}
-
-#Preview("Reveal 2 · Zoom through") {
-    LogoReplayPreview {
-        LogoOpeningSequence(reveal: .zoomThrough) { RevealPreviewDashboard() }
-    }
-}
-
-#Preview("Reveal 3 · Iris") {
-    LogoReplayPreview {
-        LogoOpeningSequence(reveal: .iris) { RevealPreviewDashboard() }
+        OpeningGate(plays: true, router: PushRouter()) { RevealPreviewDashboard() }
     }
 }
 

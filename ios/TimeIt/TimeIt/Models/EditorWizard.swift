@@ -1,30 +1,35 @@
 import Foundation
 
-// MARK: - EditorStep — wizard tabs, completion & gating
+// MARK: - EditorStep — wizard steps, completion & gating
 
-/// The four wizard tabs of the Activity editor (§1 of the redesign) and
-/// their completion rules. Green in the tab header = live validity: a tab is
-/// complete the moment its rule passes and reverts if the user breaks it —
-/// never "visited".
+/// The five steps of the Activity editor (owner rulings 2026-11-11, Lane A
+/// item 4): Name → Metrics → Priority → Range → Review, walked with Back /
+/// Next under a progress bar (the tab strip is gone). A step is complete the
+/// moment its rule passes and reverts if the user breaks it — never
+/// "visited".
 enum EditorStep: Int, CaseIterable {
     case nameIcon = 0
     case metrics
+    case priority
     case range
     case review
 
-    /// The capsule-segment label in the tab header.
-    var title: String {
+    /// The step's large heading (Figma `A/R2/Final`, 28pt Semibold). Review
+    /// has none — its reveal carries its own title. Never the words "range"
+    /// or "threshold" on screen (owner ruling 2026-08-22).
+    var heading: String? {
         switch self {
-        case .nameIcon: return "Name"
-        case .metrics: return "Metrics"
-        case .range: return "Range"
-        case .review: return "Review"
+        case .nameIcon: return "Name your activity"
+        case .metrics: return "Pick what to watch"
+        case .priority: return "What matters most?"
+        case .range: return "When do you go?"
+        case .review: return nil
         }
     }
 
     // MARK: Completion
 
-    /// The tab's completion rule (the §1 table).
+    /// The step's completion rule.
     func isComplete(draft: ActivityDraft, catalog: MetricCatalogProviding,
                     rangeConfirmed: Bool) -> Bool {
         switch self {
@@ -36,13 +41,15 @@ enum EditorStep: Int, CaseIterable {
             // "Every threshold parses" = no build issue attributable to a
             // thresholded metric. Threshold issues all lead with the metric
             // key ("temp: min isn't a number", "temp needs at least one of
-            // min/max"); other tabs' issues never do.
+            // min/max"); other steps' issues never do.
             let issues = draft.result(against: catalog).issues
             return !issues.contains { issue in
                 draft.thresholds.keys.contains { key in
                     issue.hasPrefix("\(key):") || issue.hasPrefix("\(key) ")
                 }
             }
+        case .priority:
+            return PriorityChoice.gateIsMet(draft: draft)
         case .range:
             return draft.startHour != draft.endHour && rangeConfirmed
         case .review:
@@ -52,8 +59,8 @@ enum EditorStep: Int, CaseIterable {
 
     // MARK: Gating
 
-    /// Gating: tab *i* is tappable iff tabs `0..<i` are all complete.
-    /// (Backward taps are always allowed — a lower rawValue is never gated.)
+    /// Step *i* is reachable iff steps `0..<i` are all complete. Backward
+    /// moves are always allowed.
     func isUnlocked(draft: ActivityDraft, catalog: MetricCatalogProviding,
                     rangeConfirmed: Bool) -> Bool {
         EditorStep.allCases
@@ -63,12 +70,11 @@ enum EditorStep: Int, CaseIterable {
 
     // MARK: Landing
 
-    /// The tab the editor opens on when a caller asks for `requested` (the
-    /// detail screen's Edit range / Edit metrics doors — #25). A saved Activity
-    /// unlocks every tab, so the request is honoured; a draft that does not
-    /// (defensive — no caller sends one today) lands on the highest unlocked
-    /// tab at or below the request, never on a locked one. Tab 0 is always
-    /// unlocked, so this always resolves.
+    /// The step the editor opens on when a caller asks for `requested` (the
+    /// detail screen's Edit range / Edit metrics doors — #25). A saved
+    /// Activity unlocks every step, so the request is honoured; a draft that
+    /// does not lands on the highest unlocked step at or below the request,
+    /// never on a locked one. Step 0 is always unlocked.
     static func landingStep(requested: EditorStep, draft: ActivityDraft,
                             catalog: MetricCatalogProviding, rangeConfirmed: Bool) -> EditorStep {
         EditorStep.allCases
@@ -78,81 +84,56 @@ enum EditorStep: Int, CaseIterable {
     }
 }
 
-// MARK: - ThresholdMode — 3-way threshold state
+// MARK: - WizardProgress — the progress bar's fill
 
-/// The 3-way threshold mode of a selected metric (§4): replaces the old
-/// required-toggle and Add/Remove-threshold rows.
-enum ThresholdMode: CaseIterable {
-    /// Threshold with `required: true` — bad weather blocks the day.
-    case mustHave
-    /// Threshold with `required: false` — failing only downgrades Perfect to Good.
-    case niceToHave
-    /// No threshold — on the card, doesn't affect rating.
-    case showOnly
+/// The progress bar never starts at zero (owner ruling 2026-11-11): Name
+/// shows 0.12, then evenly to a full bar on Review.
+enum WizardProgress {
+    static let start: Double = 0.12
 
-    var label: String {
-        switch self {
-        case .mustHave: return "Must-have"
-        case .niceToHave: return "Nice-to-have"
-        case .showOnly: return "Show only"
-        }
-    }
-
-    /// The mode the draft is currently in for one metric.
-    static func current(for key: String, in draft: ActivityDraft) -> ThresholdMode {
-        guard let threshold = draft.thresholds[key] else { return .showOnly }
-        return threshold.required ? .mustHave : .niceToHave
-    }
-
-    /// Applies this mode to the draft. A mode flip never touches authored
-    /// bound values; coming back from Show only re-creates the preset.
-    func apply(for descriptor: MetricDescriptor, to draft: inout ActivityDraft) {
-        switch self {
-        case .mustHave, .niceToHave:
-            if draft.thresholds[descriptor.key] == nil {
-                draft.thresholds[descriptor.key] = ThresholdDraft(preset: descriptor)
-            }
-            draft.thresholds[descriptor.key]?.required = (self == .mustHave)
-        case .showOnly:
-            draft.removeThreshold(for: descriptor.key)
-        }
+    static func fraction(for step: EditorStep) -> Double {
+        let last = Double(EditorStep.allCases.count - 1)
+        return start + (1 - start) * Double(step.rawValue) / last
     }
 }
 
-// MARK: - ThresholdCheckboxes — two-checkbox surface over ThresholdMode
+// MARK: - PriorityChoice — the Priority step over the threshold contract
 
-/// The two-checkbox surface over `ThresholdMode` (owner edit 2026-08-30 —
-/// replaces the mode menu). Independent boxes: Priority ✓ = must-have,
-/// Priority ✗ = the soft mode (nice-to-have, unnamed in the UI); "Show don't
-/// calculate" ✓ = no threshold. Checking either clears the other's
-/// contradictory state — they can never both read checked.
-enum ThresholdCheckboxes {
+/// The Priority step (owner ruling 2026-11-11, replacing the Priority / Show
+/// only checkboxes): every metric picked on the Metrics step that can be
+/// judged carries a threshold; pressing it here makes that threshold
+/// `required: true` (it can turn a day Bad), leaving it unpressed keeps
+/// `required: false` (it still shows, and can only turn Perfect into Good).
+/// Display-only metrics (Moon Phase) never appear here.
+enum PriorityChoice {
 
-    static func isPriority(for key: String, in draft: ActivityDraft) -> Bool {
+    /// The Priority grid's metrics: the picked, judged metrics in pick order.
+    static func candidates(in draft: ActivityDraft) -> [String] {
+        draft.metrics.filter { draft.thresholds[$0] != nil }
+    }
+
+    static func isChosen(_ key: String, in draft: ActivityDraft) -> Bool {
         draft.thresholds[key]?.required == true
     }
 
-    static func isShowOnly(for key: String, in draft: ActivityDraft) -> Bool {
-        draft.thresholds[key] == nil
+    /// Flips one metric between prioritised and not. A no-op for a metric
+    /// with no threshold — bounds are never touched.
+    static func toggle(_ key: String, in draft: inout ActivityDraft) {
+        guard draft.thresholds[key] != nil else { return }
+        draft.thresholds[key]?.required.toggle()
     }
 
-    /// On a calculating metric, flips required. From show-only, re-creates
-    /// the preset threshold (which is Must-have, so the box lands checked).
-    static func togglePriority(for descriptor: MetricDescriptor, in draft: inout ActivityDraft) {
-        if isShowOnly(for: descriptor.key, in: draft) || !isPriority(for: descriptor.key, in: draft) {
-            ThresholdMode.mustHave.apply(for: descriptor, to: &draft)
-        } else {
-            ThresholdMode.niceToHave.apply(for: descriptor, to: &draft)
-        }
+    /// Next stays off until at least one metric is pressed (owner ruling 2a,
+    /// "Press at least one."): with no required threshold no hour can ever be
+    /// Bad, so the card could never turn red. A draft with nothing to judge
+    /// (Moon Phase alone) has nothing to press and passes.
+    static func gateIsMet(draft: ActivityDraft) -> Bool {
+        let keys = candidates(in: draft)
+        return keys.isEmpty || keys.contains { isChosen($0, in: draft) }
     }
 
-    /// Checking drops the threshold; unchecking re-creates the preset
-    /// Must-have threshold — back to calculating with Priority on.
-    static func toggleShowOnly(for descriptor: MetricDescriptor, in draft: inout ActivityDraft) {
-        if isShowOnly(for: descriptor.key, in: draft) {
-            ThresholdMode.mustHave.apply(for: descriptor, to: &draft)
-        } else {
-            ThresholdMode.showOnly.apply(for: descriptor, to: &draft)
-        }
-    }
+    /// The gate's line under the grid.
+    static let gateHint = "Press at least one."
+    /// The explainer under the heading (owner ruling 3b — as drawn).
+    static let explainer = "Pressed ones matter most. The rest still show."
 }

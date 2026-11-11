@@ -6,11 +6,9 @@ import SwiftUI
 /// Range chip, and a Range-SCOPED hour strip (one segment per Range hour,
 /// tinted by that hour's tier) under boundary numerals.
 ///
-/// What changed from `ActivityCardView` (the main-look card, still used by the
-/// wizard's review preview): the ring replaces the sublabel, the strip
-/// replaces the 6am–12am day-axis bar, the metric chips move to the detail's
-/// metric cards, and the chip is hours-only — "6 – 10am", no "Range · "
-/// prefix. The prefix survives on every surface the v2 frames don't cover.
+/// The one card: the dashboard draws it, and the wizard's Review reveal draws
+/// the same view for the new Activity (owner ruling 2026-11-11 — an exact
+/// replica, not a look-alike). The chip is hours-only — "6 – 10am".
 struct ScoreRingCardView: View {
     let activity: ActivityRating
     /// The day bucket the card shows — read RAW from `days[]`, never through
@@ -164,7 +162,7 @@ struct ScoreRingCardView: View {
     private static let chevronClearance: CGFloat = 24
 
     private var icon: some View {
-        ActivityIconView(identifier: iconSymbol ?? ActivityCardView.iconName(for: activity), size: 18)
+        ActivityIconView(identifier: iconSymbol ?? Self.iconName(for: activity), size: 18)
             .foregroundStyle(Theme.primaryText.opacity(0.75))
             .accessibilityHidden(true)
     }
@@ -210,6 +208,15 @@ struct ScoreRingCardView: View {
                 }
             }
         }
+    }
+
+    /// Legacy icon fallback by activity id; unlisted glyphs get the
+    /// questionmark.circle guardrail.
+    static func iconName(for activity: ActivityRating) -> String {
+        let key = activity.activityId.lowercased()
+        if key.contains("cycling") { return "figure.outdoor.cycle" }
+        if key.contains("fishing") { return "figure.fishing" }
+        return "questionmark.circle"
     }
 
     private var accessibilitySummary: String {

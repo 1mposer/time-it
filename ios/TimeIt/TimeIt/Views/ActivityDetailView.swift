@@ -310,7 +310,9 @@ struct ActivityDetailView: View {
                                    initialStep: request.step,
                                    windUnit: windUnit,
                                    onSave: { viewModel.store.update($0) },
-                                   onDelete: { viewModel.store.delete(id: request.activity.id) })
+                                   onDelete: { viewModel.store.delete(id: request.activity.id) },
+                                   reviewPreview: { await viewModel.reviewPreview(for: $0) },
+                                   rangeHasPassedToday: { viewModel.rangeHasPassedToday($0) })
             }
         }
     }
