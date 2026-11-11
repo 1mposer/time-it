@@ -1041,23 +1041,24 @@ final class TimeItUITests: XCTestCase {
     /// Item 2: pulling the dashboard list down refreshes it in place — the
     /// mock is fetched exactly once more (read off the DEBUG-only
     /// `uitest.fetchCount` probe) and the cards stay rendered through and
-    /// after the pull. Launch itself fetches twice (the first load, then the
-    /// location fix's reload), so the baseline is read once the count has
-    /// settled rather than assumed to be 1.
+    /// after the pull. Launch fetches once: the location fix's reload and
+    /// the foreground return are served from the 3 h forecast cache (lane
+    /// CACHE — they fetched a second time before it), while the pull always
+    /// bypasses it.
     func testDashboardPullToRefreshKeepsTheListRendered() {
         let app = launchApp()
         let card = app.buttons["card.cycling"]
         XCTAssertTrue(card.waitForExistence(timeout: 5))
         let fetchCount = app.descendants(matching: .any)["uitest.fetchCount"]
         XCTAssertTrue(fetchCount.waitForExistence(timeout: 5))
-        XCTAssertTrue(waitForSwitchValue(fetchCount, "2"), "launch fetches twice, got \(String(describing: fetchCount.value))")
+        XCTAssertTrue(waitForSwitchValue(fetchCount, "1"), "launch fetches once, got \(String(describing: fetchCount.value))")
         // Nothing else fetches while the dashboard rests.
         Thread.sleep(forTimeInterval: 1)
-        XCTAssertEqual(fetchCount.value as? String, "2", "the count has settled before the pull")
+        XCTAssertEqual(fetchCount.value as? String, "1", "the count has settled before the pull")
         let start = card.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2))
         start.press(forDuration: 0.05,
                     thenDragTo: start.withOffset(CGVector(dx: 0, dy: 320)))
-        XCTAssertTrue(waitForSwitchValue(fetchCount, "3"),
+        XCTAssertTrue(waitForSwitchValue(fetchCount, "2"),
                       "the pull refetches, got \(String(describing: fetchCount.value))")
         XCTAssertTrue(card.waitForExistence(timeout: 5), "the list is still rendered after the pull")
         XCTAssertTrue(app.buttons["card.fishing-lite"].exists)
@@ -1066,6 +1067,17 @@ final class TimeItUITests: XCTestCase {
         card.tap()
         XCTAssertTrue(app.navigationBars["Cycling"].waitForExistence(timeout: 5),
                       "the refreshed list is live")
+    }
+
+    /// Lane CACHE, owner rule 4: the dashboard says how old its forecast is
+    /// — the fetch instant on the device clock (the mock pins the clock to
+    /// 00:30Z and the device zone to Dubai, +4 → 4:30).
+    func testDashboardShowsTheForecastAge() {
+        let app = launchApp()
+        XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5))
+        let updated = app.staticTexts["forecastUpdated"]
+        XCTAssertTrue(updated.waitForExistence(timeout: 5))
+        XCTAssertEqual(updated.label, "Updated 4:30")
     }
 
     /// Build 8 fade slice: the band melt is a backdrop under the list — the

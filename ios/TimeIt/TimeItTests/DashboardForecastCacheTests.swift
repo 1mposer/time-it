@@ -10,11 +10,13 @@ final class EchoRatingService: RatingFetching {
     var forecastStart = "2026-06-19T12:00:00Z"
     var timezone = "Asia/Dubai"
     var failure: Error?
+    var onFetch: (@MainActor () -> Void)?
     private(set) var requests: [[ActivityInput]] = []
     var fetchCount: Int { requests.count }
 
     func fetchRatings(lat: Double, lon: Double, activities: [ActivityInput]) async throws -> ForecastResponse {
         requests.append(activities)
+        if let onFetch { await MainActor.run { onFetch() } }
         if let failure { throw failure }
         let call = requests.count
         return ForecastResponse(
@@ -286,6 +288,82 @@ final class DashboardForecastCacheTests: XCTestCase {
         XCTAssertEqual(vm.forecast?.activities.map(\.activityId), ["fishing-lite", "cycling"],
                        "the cards follow the store's order")
         UserDefaults().removePersistentDomain(forName: "\(suiteName!)-reordered")
+    }
+
+    // MARK: Rule 4 — the age is shown; offline keeps the cached forecast
+
+    func testUpdatedLabelReadsTheFetchInstantOnTheDeviceClock() async {
+        let clock = TestClock("2026-06-19T12:10:00Z")
+        let (vm, _) = makeVM(api: EchoRatingService(), clock: clock)
+        XCTAssertNil(vm.updatedLabel, "no forecast, no age")
+
+        await vm.loadForecast()
+
+        XCTAssertEqual(vm.updatedLabel, "Updated 16:10", "12:10Z on a Dubai (+4) device clock")
+    }
+
+    func testAnOfflineLaunchWithAStaleCacheShowsItWithItsAge() async {
+        let clock = TestClock("2026-06-19T12:10:00Z")
+        let (first, _) = makeVM(api: EchoRatingService(), clock: clock)
+        await first.loadForecast()
+
+        clock.advance(hours: 5)
+        let offline = EchoRatingService()
+        offline.failure = URLError(.notConnectedToInternet)
+        let (vm, _) = makeVM(api: offline, clock: clock)
+        await vm.loadForecast()
+
+        XCTAssertEqual(offline.fetchCount, 1, "a stale cache still tries the server")
+        XCTAssertEqual(vm.forecast?.activities.map(\.activityId), ["cycling", "fishing-lite"])
+        XCTAssertNil(vm.errorMessage, "the error state is only for a cache-less failure")
+        XCTAssertFalse(vm.isLoading)
+        XCTAssertEqual(vm.updatedLabel, "Updated 16:10", "the label keeps the cached age, not the failed attempt")
+    }
+
+    func testAFailedStaleReloadKeepsTheForecastOnScreen() async {
+        let api = EchoRatingService()
+        let clock = TestClock("2026-06-19T12:10:00Z")
+        let (vm, _) = makeVM(api: api, clock: clock)
+        await vm.loadForecast()
+
+        clock.advance(hours: 4)
+        api.failure = APIError.providerUnavailable
+        await vm.loadForecast()
+
+        XCTAssertNotNil(vm.forecast)
+        XCTAssertNil(vm.errorMessage)
+        XCTAssertEqual(vm.lastUpdated, ISO8601DateFormatter().date(from: "2026-06-19T12:10:00Z"))
+    }
+
+    func testAStaleCacheIsDrawnWhileTheRefetchIsInFlight() async {
+        let clock = TestClock("2026-06-19T12:10:00Z")
+        let (first, _) = makeVM(api: EchoRatingService(), clock: clock)
+        await first.loadForecast()
+
+        clock.advance(hours: 5)
+        let api = EchoRatingService()
+        api.forecastStart = "2026-06-19T17:00:00Z"
+        let (vm, _) = makeVM(api: api, clock: clock)
+        api.onFetch = { [weak vm] in
+            XCTAssertEqual(vm?.forecast?.forecastStart, "2026-06-19T12:00:00Z", "the cached forecast is up")
+            XCTAssertEqual(vm?.isLoading, false, "no full-screen spinner over a cached forecast")
+        }
+        await vm.loadForecast()
+
+        XCTAssertEqual(vm.forecast?.forecastStart, "2026-06-19T17:00:00Z", "the refetch then replaces it")
+        XCTAssertEqual(api.fetchCount, 1)
+    }
+
+    func testAFailureWithNoCacheStillShowsTheErrorState() async {
+        let api = EchoRatingService()
+        api.failure = APIError.providerUnavailable
+        let (vm, _) = makeVM(api: api, clock: TestClock("2026-06-19T12:10:00Z"))
+
+        await vm.loadForecast()
+
+        XCTAssertNil(vm.forecast)
+        XCTAssertEqual(vm.errorMessage, APIError.providerUnavailable.userMessage)
+        XCTAssertNil(vm.updatedLabel)
     }
 
     func testAnEditToAStaleCacheIsAFullRefetch() async {

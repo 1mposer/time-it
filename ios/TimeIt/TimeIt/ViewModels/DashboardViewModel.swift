@@ -305,6 +305,16 @@ final class DashboardViewModel: ObservableObject {
             // full refetch, which replaces the entry wholesale.
         }
 
+        // A stale (or bypassed) entry for this location is drawn at once and
+        // stays up if the refetch fails — offline shows the last forecast
+        // with its age (owner rule 4); the error state is for no cache at all.
+        let fallback = cache.entry(for: key).map {
+            $0.reconciled(order: activities.map(\.id), merging: [], fingerprints: fingerprints)
+        }
+        if let fallback, !fallback.response.activities.isEmpty {
+            publish(fallback, for: active)
+        }
+
         do {
             let result = try await api.fetchRatings(lat: coordinate.latitude,
                                                     lon: coordinate.longitude,
@@ -317,11 +327,13 @@ final class DashboardViewModel: ObservableObject {
             return
         } catch let error as APIError {
             guard generation == loadGeneration else { return }
+            if keepsCacheOnFailure(fallback, for: active) { return }
             if keepsListOnFailure(showsLoading: showsLoading) { return }
             errorMessage = error.userMessage
             isTransientError = error.isTransient
         } catch {
             guard generation == loadGeneration else { return }
+            if keepsCacheOnFailure(fallback, for: active) { return }
             if keepsListOnFailure(showsLoading: showsLoading) { return }
             errorMessage = "Unable to reach the server. Check that it's running and try again."
             isTransientError = true
@@ -339,6 +351,26 @@ final class DashboardViewModel: ObservableObject {
         if preferences.lastResolvedLocation != active.savedLocation {
             preferences.lastResolvedLocation = active.savedLocation
         }
+    }
+
+    /// A failed refetch with a cached forecast for this location keeps it
+    /// on screen, aged by its own fetch instant; no error state.
+    private func keepsCacheOnFailure(_ fallback: ForecastCacheEntry?, for active: ActiveLocation) -> Bool {
+        guard let fallback, !fallback.response.activities.isEmpty else { return false }
+        publish(fallback, for: active)
+        return true
+    }
+
+    /// "Updated 10:43" — the drawn forecast's fetch instant on the device's
+    /// clock (owner rule 4; the location zone is not needed). Nil with no
+    /// forecast.
+    var updatedLabel: String? {
+        guard forecast != nil, let lastUpdated else { return nil }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = deviceTimeZone
+        formatter.dateFormat = "H:mm"
+        return "Updated \(formatter.string(from: lastUpdated))"
     }
 
     private static func fingerprints(_ inputs: [ActivityInput]) -> [String: String] {
