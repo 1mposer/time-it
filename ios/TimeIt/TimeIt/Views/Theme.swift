@@ -80,6 +80,10 @@ enum Theme {
         /// the dimmed fill.
         static let disabledFill = UIColor.dynamic(light: 0x48665c, dark: 0x444d41,
                                                   lightAlpha: 0.45, darkAlpha: 1)
+        /// The label on a disabled fill — white over light's dimmed fill,
+        /// the dark secondary over dark's "disabled" fill (3.09:1; disabled
+        /// controls are exempt from 4.5:1 but must stay legible).
+        static let disabledLabel = UIColor.dynamic(light: 0xffffff, dark: 0x8f9d8b)
         /// The accent tint behind chips and soft selections — 18% light, 16%
         /// dark (main text on it holds 5.71:1).
         static let accentTint = UIColor.dynamic(light: 0x48665c, dark: 0xb5beb2,
@@ -150,6 +154,7 @@ enum Theme {
     static let accentBrandFill = Color(uiColor: UIColors.accentBrandFill)   // Semantic accent/brand-fill
     static let accentBrandPressed = Color(uiColor: UIColors.accentBrandPressed)
     static let disabledFill = Color(uiColor: UIColors.disabledFill)
+    static let disabledLabel = Color(uiColor: UIColors.disabledLabel)
     static let accentTint = Color(uiColor: UIColors.accentTint)
     static let accentDestructive = Color(uiColor: UIColors.accentDestructive) // Semantic accent/destructive
     static let divider = Color(uiColor: UIColors.divider)

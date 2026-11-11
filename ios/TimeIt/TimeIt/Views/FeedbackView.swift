@@ -114,17 +114,19 @@ struct FeedbackView: View {
                     } else {
                         Text("Send")
                             .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(Theme.onFill)
+                            // Disabled reads as the "disabled" fill with a
+                            // legible secondary label — the dark label at
+                            // reduced opacity vanished on the dark ground.
+                            .foregroundStyle(viewModel.canSend ? Theme.onFill : Theme.disabledLabel)
                     }
                 }
                 .frame(maxWidth: .infinity)
                 .frame(height: 44)
-                .background(Capsule().fill(Theme.accentBrandFill))
+                .background(Capsule().fill(viewModel.canSend ? Theme.accentBrandFill : Theme.disabledFill))
                 .contentShape(Capsule())
             }
             .buttonStyle(.plain)
             .disabled(!viewModel.canSend)
-            .opacity(viewModel.canSend ? 1 : 0.4)
             .accessibilityIdentifier("feedback.send")
             Spacer(minLength: 0)
         }

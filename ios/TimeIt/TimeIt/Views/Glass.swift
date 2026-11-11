@@ -195,7 +195,7 @@ struct PrimaryGlassButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         let pressed = configuration.isPressed
         return configuration.label
-            .foregroundStyle(isEnabled ? Theme.onFill : Theme.secondaryText)
+            .foregroundStyle(isEnabled ? Theme.onFill : Theme.disabledLabel)
             .glassPrimarySurface(in: Capsule(), enabled: isEnabled, pressed: pressed)
             .scaleEffect(pressed && !reduceMotion ? Theme.Motion.pressScale : 1)
             .animation(pressed ? nil : Theme.Motion.pressRelease, value: pressed)
