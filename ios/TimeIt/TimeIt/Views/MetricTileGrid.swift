@@ -78,6 +78,9 @@ struct AddMetricTile: View {
     let action: () -> Void
 
     @ScaledMetric(relativeTo: .title2) private var glyphSize: CGFloat = 22
+    /// True while a finger is down on the tile (the press state).
+    @State private var pressed = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Offered while the catalog still has a metric the Activity lacks.
     static func isOffered(displayMetrics: [String], catalog: MetricCatalogProviding) -> Bool {
@@ -101,7 +104,16 @@ struct AddMetricTile: View {
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.lg))
         .cardLift(cornerRadius: Theme.Radius.lg)
         .contentShape(RoundedRectangle(cornerRadius: Theme.Radius.lg))
+        // The press state `PressStyle` gave the old `Button` (POLISH item 8):
+        // 0.97 on touch-down, the release spring back, nothing under Reduce
+        // Motion. A simultaneous never-completing long press only reports
+        // the touch (it fails past 10pt, so a scroll still wins) — the tap
+        // stays the action and no `Button` returns.
+        .scaleEffect(pressed && !reduceMotion ? Theme.Motion.pressScale : 1)
+        .animation(pressed ? nil : Theme.Motion.pressRelease, value: pressed)
         .onTapGesture(perform: action)
+        .onLongPressGesture(minimumDuration: .infinity, maximumDistance: 10,
+                            perform: {}, onPressingChanged: { pressed = $0 })
         .accessibilityElement(children: .ignore)
         .accessibilityAddTraits(.isButton)
         .accessibilityLabel("Add metric")
