@@ -71,7 +71,8 @@ struct ActivityDetailView: View {
     @State private var selectionTick = 0
     /// The slot a programmatic scroll (− / +, home, re-seed) is heading for:
     /// its arrival in `scrolledSlot` is not a user scroll, so no tick.
-    @State private var programmaticSlot: Int?
+    /// Single-use, so an interrupted scroll can never leave it stale.
+    @State private var scrollMarker = ProgrammaticScrollMarker()
     /// The open edit door: which Activity and which wizard tab it lands on.
     @State private var editing: EditRequest?
     /// The server's score for a span, keyed on exactly what it scored — the
@@ -254,7 +255,13 @@ struct ActivityDetailView: View {
                                  identifierPrefix: "detail.weekDot")
                 }
                 VStack(alignment: .leading, spacing: Layout.sectionGap) {
-                    heroCard
+                    // A minute tick scoped to the hero (build-8 deferral 5):
+                    // passed pills and "Time passed" grey on the minute, not
+                    // only on the next re-render. Nothing faster — a
+                    // constantly re-rendering pushed detail starves XCUI.
+                    TimelineView(.everyMinute) { _ in
+                        heroCard
+                    }
                     metricGrid
                 }
                 editCircles
@@ -280,10 +287,7 @@ struct ActivityDetailView: View {
         // A user scroll that lands the span on a new hour ticks; a
         // programmatic scroll's arrival does not.
         .onChange(of: scrolledSlot) { old, new in
-            if let target = programmaticSlot, new == target {
-                programmaticSlot = nil
-                return
-            }
+            if scrollMarker.consume(new) { return }
             guard let opening = openingCarousel, let old, let new,
                   opening.span(forScrollAnchor: old) != opening.span(forScrollAnchor: new) else { return }
             selectionTick += 1
@@ -788,7 +792,7 @@ struct ActivityDetailView: View {
     /// Scrolls the row to `slot`, marking it programmatic.
     private func scroll(to slot: Int, animation: Animation?) {
         guard slot != scrolledSlot else { return }
-        programmaticSlot = slot
+        scrollMarker.set(slot)
         withAnimation(reduceMotion ? nil : animation) {
             scrolledSlot = slot
         }
@@ -951,6 +955,26 @@ struct ActivityDetailView: View {
         guard let authored else { return }
         editTick += 1
         editing = EditRequest(activity: authored, step: step)
+    }
+}
+
+// MARK: The programmatic-scroll marker (build-8 deferral 9)
+
+/// Tells a programmatic scroll's arrival from a user scroll on the pill
+/// row. Single-use: the FIRST `scrolledSlot` change after `set` consumes it
+/// — the arrival (no selection haptic) or, when a user scroll interrupted
+/// the animation, a user move. The marker never outlives that change, so a
+/// later user scroll that happens to land on the old target still ticks.
+struct ProgrammaticScrollMarker: Equatable {
+    private(set) var target: Int?
+
+    mutating func set(_ slot: Int) { target = slot }
+
+    /// True when `new` is the programmatic arrival; always clears.
+    mutating func consume(_ new: Int?) -> Bool {
+        defer { target = nil }
+        guard let target else { return false }
+        return new == target
     }
 }
 
