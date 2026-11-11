@@ -308,4 +308,12 @@ final class EditorWizardTests: XCTestCase {
         XCTAssertEqual(MetricTile.rows(for: ["a", "b", "c"], opened: "b"),
                        [.pair("a", nil), .full("b"), .pair("c", nil)])
     }
+
+    // MARK: - Review reveal title
+
+    func testReviewTitleCelebratesOnlyTheFirstActivity() {
+        XCTAssertEqual(ActivityEditorView.reviewTitle(isNew: true, isFirstActivity: true), "First activity created")
+        XCTAssertEqual(ActivityEditorView.reviewTitle(isNew: true, isFirstActivity: false), "Activity created")
+        XCTAssertEqual(ActivityEditorView.reviewTitle(isNew: false, isFirstActivity: false), "Your activity")
+    }
 }

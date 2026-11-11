@@ -465,6 +465,13 @@ struct ActivityEditorView: View {
     }
 
     private var reviewTitle: String {
+        Self.reviewTitle(isNew: isNew, isFirstActivity: isFirstActivity)
+    }
+
+    /// The Review reveal's title (owner ruling 2026-11-11, frame `876:15364`):
+    /// the user's very first Activity is the achievement; later ones are
+    /// plainly created; an edit reveals the card without claiming either.
+    static func reviewTitle(isNew: Bool, isFirstActivity: Bool) -> String {
         guard isNew else { return "Your activity" }
         return isFirstActivity ? "First activity created" : "Activity created"
     }
