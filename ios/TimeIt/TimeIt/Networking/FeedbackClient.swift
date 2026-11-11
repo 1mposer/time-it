@@ -1,13 +1,24 @@
 import Foundation
 
-/// Body of the beta suggestion POST — all five fields required by the route;
-/// `build` is `CFBundleVersion`.
+/// Which in-app sheet a note came from — the ⓘ menu's "Send a suggestion" /
+/// "What have you liked?". The raw values are the wire contract (`kind`).
+enum FeedbackKind: String, Encodable, Identifiable, CaseIterable {
+    case suggestion
+    case liked
+
+    var id: String { rawValue }
+}
+
+/// Body of the beta feedback POST — five required strings plus `kind`
+/// (optional on the route, which defaults it to `suggestion`; this client
+/// always sends it). `build` is `CFBundleVersion`.
 struct FeedbackBody: Encodable, Equatable {
     let deviceId: String
     let message: String
     let appVersion: String
     let build: String
     let iosVersion: String
+    let kind: FeedbackKind
 }
 
 /// The feedback-route client (`POST /api/v1/feedback`). Success is `204` —

@@ -313,6 +313,18 @@ enum OpeningPolicy {
     /// The XCUI opt-out argument (the launch helper passes it on every run
     /// except the one test that watches the opening).
     static let uiTestSkipArgument = "UITEST_SKIP_OPENING"
+
+    /// XCUI only: hold the opening on its end frame until a tap, so the
+    /// screenshot walk captures it deterministically (wall-clock sleeps race
+    /// the launch). Always false outside DEBUG mock runs.
+    static var holdsEndFrame: Bool {
+        #if DEBUG
+        return ProcessInfo.processInfo.isUITestMockRun
+            && ProcessInfo.processInfo.arguments.contains("UITEST_HOLD_OPENING")
+        #else
+        return false
+        #endif
+    }
 }
 
 /// True while the opening sequence covers the app — the dashboard defers its
@@ -353,7 +365,7 @@ struct OpeningGate<App: View>: View {
                 .opacity(phase == .playing ? 0 : 1)
                 .environment(\.openingInProgress, phase != .done)
             if phase == .playing {
-                LogoConvergeAnimation(onFinished: reveal)
+                LogoConvergeAnimation(onFinished: OpeningPolicy.holdsEndFrame ? {} : reveal)
                     .contentShape(Rectangle())
                     .onTapGesture(perform: reveal)
                     .accessibilityAction(named: "Skip", reveal)

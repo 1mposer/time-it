@@ -11,6 +11,7 @@ A TestFlight tester must be able to send a suggestion **from inside the app** �
 `POST /api/v1/feedback` (`src/routes/feedback.js`, `createFeedbackRouter({ db })`; table + index in `initDb()`; mounted in `server.js`). Contract mirror (owner file: CLAUDE.md):
 
 - Body — all five required, non-empty strings: `deviceId`, `message`, `appVersion`, `build` (`CFBundleVersion` — so every suggestion reads in the context of the exact build that produced it), `iosVersion`.
+- Optional `kind`: `suggestion | liked` (added 2026-11-11, feedback inbox v2) — absent → `suggestion` (builds 7/8 never send it); anything else → `400` at `path: kind`. Stored in `suggestions.kind` (`NOT NULL DEFAULT 'suggestion'`, CHECK, re-runnable `ADD COLUMN IF NOT EXISTS`). Shares the 20/24h ceiling. Required-later is a ROADMAP deferred row.
 - Caps: `message` ≤ **1000** chars (trimmed before storage, whitespace-only rejected); the other four ≤ **64** chars.
 - `204` no body on success · `400` atomic structured validation · **`429`** over **20 suggestions per device per rolling 24h** · `500` otherwise. No `502` — no weather dependency.
 - `suggestions` table has **no FK to `devices`** — feedback must not require push opt-in. Read it with SQL (Railway data browser / `psql`): `SELECT * FROM suggestions ORDER BY created_at DESC;`
@@ -24,6 +25,8 @@ A TestFlight tester must be able to send a suggestion **from inside the app** �
 - *Flag (2026-08-19, implementer-reported, audit-confirmed):* `appStoreReceiptURL` is deprecated on current SDKs (StoreKit `AppTransaction` is the successor). Kept — it is the exact check this section locks — but the item-9 RC pass already touches the gate, so migrate the check there.
 
 ## §4 iOS client — TO BUILD (after owner approves the frames)
+
+> **Inbox v2 (owner rulings 2026-11-11, Lane B) supersedes the banner below:** the disclaimer card and its capsule are gone; a beta-only 44pt glass ⓘ at the dashboard's bottom-leading corner opens a system `Menu` — header line "Early test build. Full release to be announced.", rows "Send a suggestion" / "What have you liked?" — and each row opens `FeedbackView(kind:)` at the medium detent (system Liquid Glass sheet on iOS 26, glass ✕; the owner's note "Please explain what it is you like, dislike, or would suggest." above the editor) which POSTs `kind`. Frames: Mess around, `B/R2 Final — Opus` row + the `B/R3` owner fixes (FIGMA.md §12). Failure/success rules below are unchanged.
 
 - **Figma:** beta dashboard variant frames — light `340:3102`, dark `340:632` (banner + "Send a suggestion" button). Approval + geometry record: [FIGMA.md §7](../../design/FIGMA.md).
 - **Sheet:** text editor + Send. POSTs the §2 body. `deviceId` = the **same** Keychain install UUID `DeviceRegistration` uses (service `com.timeit.device`, mint-if-absent — push opt-in NOT required); `appVersion` = `CFBundleShortVersionString`; `build` = `CFBundleVersion`; `iosVersion` = `UIDevice.current.systemVersion`.

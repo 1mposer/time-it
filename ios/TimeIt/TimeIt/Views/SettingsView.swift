@@ -11,6 +11,7 @@ struct SettingsView: View {
     private let geocoder: GeocodingProviding?
 
     @State private var showCityPicker = false
+    @Environment(\.colorScheme) private var colorScheme
 
     @MainActor
     init(preferences: PreferencesStore? = nil,
@@ -27,6 +28,7 @@ struct SettingsView: View {
                 homeLocationSection
                 notificationsSection
                 unitsSection
+                appearanceSection
                 // Blurb pruned entirely — owner edit 2026-09-01.
                 Section("About") {
                     HStack {
@@ -138,6 +140,25 @@ struct SettingsView: View {
             .accessibilityIdentifier("settings.windSpeedUnit")
         } header: {
             Text("Units")
+        }
+    }
+
+    // MARK: appearance — two modes (owner ruling 2026-11-11)
+
+    /// Light / Dark only — no System. The same stored value the header's
+    /// toggle flips; `AppearanceController` applies it to the window.
+    private var appearanceSection: some View {
+        Section {
+            HStack {
+                Text("Appearance")
+                    .accessibilityHidden(true)
+                Spacer()
+                AppearanceSegment(selection: Binding(
+                    get: { preferences.appearance ?? (colorScheme == .dark ? .dark : .light) },
+                    set: { preferences.appearance = $0 }))
+            }
+        } header: {
+            Text("Appearance")
         }
     }
 

@@ -1,14 +1,23 @@
 import SwiftUI
 
-/// Beta suggestion sheet: type, Send. A non-204 keeps the typed text with
-/// Send as retry (never discarded); success briefly confirms, then dismisses.
+/// Beta feedback sheet, one per kind (the ⓘ menu's "Send a suggestion" /
+/// "What have you liked?" — owner rulings 2026-11-11): the owner's note,
+/// the editor, Send. Medium detent; on iOS 26 the sheet keeps the system
+/// Liquid Glass background and its close control is the glass ✕ — below
+/// iOS 26 it is opaque with a Cancel button. A non-204 keeps the typed text
+/// with Send as retry (never discarded); success briefly confirms, then
+/// dismisses.
 struct FeedbackView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel: FeedbackViewModel
 
+    /// The editor's height — about four lines at 15pt (the round-2 frames).
+    static let editorHeight: CGFloat = 112
+
     @MainActor
-    init(deviceId: String) {
-        _viewModel = StateObject(wrappedValue: FeedbackViewModel(sender: Self.makeSender(),
+    init(kind: FeedbackKind, deviceId: String) {
+        _viewModel = StateObject(wrappedValue: FeedbackViewModel(kind: kind,
+                                                                 sender: Self.makeSender(),
                                                                  deviceId: deviceId))
     }
 
@@ -21,16 +30,18 @@ struct FeedbackView: View {
                     editor
                 }
             }
-            .background(Theme.appBackground)
-            .navigationTitle("Send a suggestion")
+            .modifier(OpaqueBelowGlass())
+            .navigationTitle(viewModel.kind.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Cancel") { dismiss() }
+                ToolbarItem(placement: .cancellationAction) {
+                    closeButton
                         .disabled(viewModel.phase == .sending)
+                        .accessibilityIdentifier("feedback.cancel")
                 }
             }
         }
+        .presentationDetents([.medium])
         // Blocks swipe-to-dismiss mid-send — an orphaned in-flight POST would
         // have no visible outcome; editing text stays cancellable.
         .interactiveDismissDisabled(viewModel.phase == .sending)
@@ -43,15 +54,42 @@ struct FeedbackView: View {
         }
     }
 
+    /// iOS 26: the system glass ✕ (`Button(role: .close)`). Earlier: "Cancel".
+    @ViewBuilder private var closeButton: some View {
+        if #available(iOS 26, *) {
+            Button(role: .close) { dismiss() }
+        } else {
+            Button("Cancel") { dismiss() }
+        }
+    }
+
     private var editor: some View {
         VStack(alignment: .leading, spacing: 8) {
+            Text(FeedbackViewModel.note)
+                .font(.system(size: 15))
+                .foregroundStyle(Theme.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("feedback.note")
             TextEditor(text: $viewModel.message)
                 .font(.system(size: 15))
                 .foregroundStyle(Theme.primaryText)
                 .scrollContentBackground(.hidden)
                 .padding(8)
-                .frame(minHeight: 160)
-                .background(RoundedRectangle(cornerRadius: 16).fill(Theme.cardBackground))
+                .frame(height: Self.editorHeight)
+                .background(alignment: .topLeading) {
+                    ZStack(alignment: .topLeading) {
+                        RoundedRectangle(cornerRadius: 16).fill(Theme.cardBackground)
+                        if viewModel.message.isEmpty {
+                            Text(viewModel.kind.placeholder)
+                                .font(.system(size: 15))
+                                .foregroundStyle(Theme.secondaryText)
+                                .padding(.horizontal, 13)
+                                .padding(.vertical, 16)
+                                .accessibilityHidden(true)
+                        }
+                    }
+                }
+                .accessibilityLabel(viewModel.kind.title)
                 .accessibilityIdentifier("feedback.editor")
             HStack {
                 if let error = viewModel.errorMessage {
@@ -88,17 +126,19 @@ struct FeedbackView: View {
             .disabled(!viewModel.canSend)
             .opacity(viewModel.canSend ? 1 : 0.4)
             .accessibilityIdentifier("feedback.send")
-            Spacer()
+            Spacer(minLength: 0)
         }
-        .padding(14)
+        .padding(.horizontal, 16)
+        .padding(.top, 4)
     }
 
     private var confirmation: some View {
         VStack(spacing: 12) {
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 44))
-                .foregroundStyle(Theme.perfectGreen)
-            Text("Suggestion sent — thank you!")
+                .foregroundStyle(Theme.accentBrand)
+                .accessibilityHidden(true)
+            Text("Thanks, sent.")
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(Theme.primaryText)
                 .accessibilityIdentifier("feedback.success")
@@ -120,8 +160,29 @@ struct FeedbackView: View {
     }
 }
 
+/// Below iOS 26 the sheet content draws the app background; on iOS 26 it
+/// stays transparent so the system Liquid Glass sheet shows through.
+private struct OpaqueBelowGlass: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 26, *) {
+            content
+        } else {
+            content.background(Theme.appBackground)
+        }
+    }
+}
+
 #if DEBUG
 #Preview("Send a suggestion") {
-    FeedbackView(deviceId: "preview-device")
+    Color.clear.sheet(isPresented: .constant(true)) {
+        FeedbackView(kind: .suggestion, deviceId: "preview-device")
+    }
+}
+
+#Preview("What have you liked? — dark") {
+    Color.clear.sheet(isPresented: .constant(true)) {
+        FeedbackView(kind: .liked, deviceId: "preview-device")
+    }
+    .preferredColorScheme(.dark)
 }
 #endif

@@ -16,14 +16,19 @@ struct DashboardView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.openingInProgress) private var openingInProgress
     @Environment(\.scenePhase) private var scenePhase
+    /// What is on screen — the header toggle switches to its opposite.
+    @Environment(\.colorScheme) private var colorScheme
     @State private var showSettings = false
     @State private var showAdd = false
     @State private var showingCapAlert = false
     @State private var showCityPicker = false
-    @State private var showFeedback = false
+    /// The open feedback sheet's kind (the ⓘ menu row picked); nil = closed.
+    @State private var feedbackKind: FeedbackKind?
     @State private var editing: AuthoredActivity?
-    /// Dev/TestFlight installs get the disclaimer banner + suggestion entry
-    /// point on every dashboard state; App Store installs never do.
+    /// Dev/TestFlight installs get the ⓘ feedback menu (disclaimer line +
+    /// both feedback sheets) on every dashboard state; App Store installs
+    /// never do (owner ruling 2026-11-11: beta-only, moves to Settings at
+    /// release).
     private let isBetaBuild = BetaGate.isActive
     /// Value-based so a push tap can pop to the dashboard.
     @State private var navigationPath: [String] = []
@@ -40,10 +45,10 @@ struct DashboardView: View {
 
     /// The first list item's resting top below the header, per state: the
     /// card and dormant lists pad `Spacing.listBelowHeader`; the first-launch
-    /// hero (its own `Spacing.lg` padding, no banner above it) sits a further
-    /// `firstLaunchHeroTop` down.
+    /// hero (its own `Spacing.lg` padding) sits a further `firstLaunchHeroTop`
+    /// down.
     private var firstItemInset: CGFloat {
-        if !viewModel.hasActivities && !isBetaBuild {
+        if !viewModel.hasActivities {
             return Theme.Spacing.lg + Self.firstLaunchHeroTop
         }
         return Theme.Spacing.listBelowHeader
@@ -51,6 +56,12 @@ struct DashboardView: View {
 
     /// The Add-Activity hero's extra top padding (approved First Launch frame).
     private static let firstLaunchHeroTop: CGFloat = 84
+
+    /// The appearance on screen right now (the stored choice once applied;
+    /// the trait under a UI-test pin).
+    private var showingAppearance: AppAppearance {
+        colorScheme == .dark ? .dark : .light
+    }
 
     private var showsHeaderWeather: Bool {
         !viewModel.hasNoLocation && viewModel.hasLiveActivities
@@ -78,13 +89,27 @@ struct DashboardView: View {
                            currentHour: viewModel.forecast?.hours.first,
                            showsWeather: showsHeaderWeather,
                            timezoneIdentifier: viewModel.forecast?.timezone,
-                           windUnit: preferences.windSpeedUnit) { showSettings = true }
+                           windUnit: preferences.windSpeedUnit,
+                           appearance: showingAppearance,
+                           onAppearanceTap: { preferences.toggleAppearance(showing: showingAppearance) }) {
+                    showSettings = true
+                }
                 // The header is pinned (outside every ScrollView) — its
                 // bottom edge is where each state's list begins.
                 .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).maxY } action: {
                     if $0 != headerBottom { headerBottom = $0 }
                 }
                 content
+                    // Beta only: the ⓘ menu floats bottom-leading in the
+                    // safe-area inset, so every list scrolls under it and its
+                    // end (the Add Activity capsule) always clears it.
+                    .safeAreaInset(edge: .bottom, alignment: .leading, spacing: 0) {
+                        if isBetaBuild {
+                            feedbackMenu
+                                .padding(.leading, Self.feedbackMenuInset)
+                                .padding(.bottom, 4)
+                        }
+                    }
             }
             // The band + melt + glow blob, full-screen behind the header
             // text and the list (Final – Opus v1). A background of the whole
@@ -148,8 +173,8 @@ struct DashboardView: View {
                                        rangeHasPassedToday: { viewModel.rangeHasPassedToday($0) })
                 }
             }
-            .sheet(isPresented: $showFeedback) {
-                FeedbackView(deviceId: registration.installId)
+            .sheet(item: $feedbackKind) { kind in
+                FeedbackView(kind: kind, deviceId: registration.installId)
             }
             // One-time per chosen home (acknowledgement persists) — the
             // dashboard clock follows the home's zone, so a far-away home is
@@ -164,6 +189,9 @@ struct DashboardView: View {
             }
         }
         .task {
+            // Seeds the stored appearance from the system on first launch,
+            // then owns the window override (inert under a UI-test pin).
+            AppearanceController.shared.attachForCurrentProcess()
             await viewModel.loadForecast()
         }
         // The first-run location prompt waits for the opening sequence to
@@ -182,6 +210,7 @@ struct DashboardView: View {
         }
         .onReceive(router.$focusActivityId.compactMap { $0 }) { activityId in
             showSettings = false
+            feedbackKind = nil
             showAdd = false
             showCityPicker = false
             editing = nil
@@ -237,10 +266,6 @@ struct DashboardView: View {
     private var firstLaunchState: some View {
         ScrollView {
             VStack(spacing: 0) {
-                if isBetaBuild {
-                    betaBanner
-                        .padding(.bottom, 10)
-                }
                 // The glass Add Activity capsule (owner ruling 2026-11-04)
                 // replaces the dashed hero card, centred in the space the
                 // card's glyph + title used; the invitation copy stays below.
@@ -270,9 +295,6 @@ struct DashboardView: View {
     private var dormantList: some View {
         ScrollView {
             LazyVStack(spacing: Theme.Spacing.cardGap) {
-                if isBetaBuild {
-                    betaBanner
-                }
                 ForEach(store.activities) { authored in
                     dormantCard(for: authored)
                 }
@@ -332,10 +354,6 @@ struct DashboardView: View {
     private var noLocationState: some View {
         ScrollView {
             VStack(spacing: 0) {
-                if isBetaBuild {
-                    betaBanner
-                        .padding(.bottom, 10)
-                }
                 skeletonCard(0)
                     .padding(.bottom, 10)
                 skeletonCard(1)
@@ -433,9 +451,6 @@ struct DashboardView: View {
     private func errorView(_ message: String) -> some View {
         ScrollView {
             VStack(spacing: 0) {
-                if isBetaBuild {
-                    betaBanner
-                }
                 Image(systemName: "wifi.exclamationmark")
                     .font(.system(size: 44))
                     .foregroundStyle(Theme.secondaryText)
@@ -468,23 +483,34 @@ struct DashboardView: View {
     /// its showcase card inline. The one-time push callout tops the list.
     private func cardList(_ forecast: ForecastResponse) -> some View {
         let showsCallout = !preferences.pushCalloutDismissed && !registration.isEnabled
-        // Visual order for the pull-down stagger: callout, banner, cards,
-        // add card — every child moves, so no child slides over the next.
-        let leading = (showsCallout ? 1 : 0) + (isBetaBuild ? 1 : 0)
+        // Visual order for the pull-down stagger: callout, cards, add card —
+        // every child moves, so no child slides over the next.
+        let leading = showsCallout ? 1 : 0
         return ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: Theme.Spacing.cardGap) {
                     if showsCallout {
-                        pushCallout
-                            .transition(.deReveal(anchor: .topTrailing, reduceMotion: reduceMotion))
-                            .offset(y: staggerOffset(at: 0))
+                        // Full callout on first sight; after its ✕ it rests
+                        // as the glass bell, and the bell reveals it again,
+                        // every time (owner rulings 2026-11-11). Both share
+                        // one top-leading slot, so the bell never moves.
+                        ZStack(alignment: .topLeading) {
+                            if preferences.pushCalloutResting {
+                                calloutBellChip
+                                    .transition(.opacity)
+                            } else {
+                                pushCallout
+                                    .transition(.wipe(reduceMotion: reduceMotion))
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        // "Don't show again" (or turning notifications on)
+                        // removes the slot itself.
+                        .transition(.deReveal(anchor: .topLeading, reduceMotion: reduceMotion))
+                        .offset(y: staggerOffset(at: 0))
                             // Above its siblings, so the cards sliding up
                             // pass behind the shrinking callout, not over it.
                             .zIndex(1)
-                    }
-                    if isBetaBuild {
-                        betaBanner
-                            .offset(y: staggerOffset(at: showsCallout ? 1 : 0))
                     }
                     ForEach(Array(store.activities.enumerated()), id: \.element.id) { position, authored in
                         Group {
@@ -565,69 +591,77 @@ struct DashboardView: View {
         pendingFocusId = nil
     }
 
-    /// The beta disclaimer card: disclaimer copy plus the glass suggestion
-    /// capsule (44pt tall — the capsule is its own tap target).
-    private var betaBanner: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            disclaimerText
-                .font(.system(size: 14))
-                .foregroundStyle(Theme.secondaryText)
-                .fixedSize(horizontal: false, vertical: true)
-            GlassControl(presentsSheet: true, identifier: "betaBanner.suggest") {
-                showFeedback = true
+    /// The ⓘ button's leading inset (the round-2 frames: 16pt).
+    static let feedbackMenuInset: CGFloat = 16
+
+    /// The beta disclaimer — the ⓘ menu's header line (owner ruling
+    /// 2026-11-11: the banner's words fold into the menu).
+    static let betaDisclaimer = "Early test build. Full release to be announced."
+
+    /// The beta ⓘ: a 44pt glass circle opening a system `Menu` — the first
+    /// tap only opens it, and a scroll never fires it (the structural guard
+    /// against a stray thumb). Each row opens its own feedback sheet.
+    private var feedbackMenu: some View {
+        GlassGroup(spacing: 0) {
+            Menu {
+                Section(Self.betaDisclaimer) {
+                    ForEach(FeedbackKind.allCases) { kind in
+                        Button {
+                            feedbackKind = kind
+                        } label: {
+                            Label(kind.menuTitle, systemImage: kind.symbol)
+                        }
+                    }
+                }
             } label: {
-                Text("Send a suggestion")
-                    .glassCapsule(font: GlassCapsule.primaryFont)
+                Image(systemName: "info")
+                    .font(.system(size: 17, weight: .medium))
+                    .foregroundStyle(Theme.accentBrand)
+                    .frame(width: GlassCapsule.height, height: GlassCapsule.height)
+                    .glassPieceSurface(in: Circle(), enabled: true, fallback: .material)
+                    .contentShape(Circle())
             }
+            .accessibilityLabel("Feedback")
+            .accessibilityIdentifier("feedbackInfo")
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 16).fill(Theme.cardBackground))
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("betaBanner")
     }
 
-    /// Base weight Light, "Time it" in Regular.
-    private var disclaimerText: Text {
-        Text("This is an early build for ").fontWeight(.light)
-            + Text("Time it").fontWeight(.regular)
-            + Text(", full release will be announced. Give me your suggestions").fontWeight(.light)
-    }
-
-    /// The push opt-in callout: bell + two-line invitation opening Settings;
-    /// ✕ dismisses it for good. The headline's line break is hard-coded so
-    /// "window" doesn't orphan onto the second line.
+    /// The full push opt-in callout (the approved round-3 card): bell + the
+    /// two-line invitation, the whole card opening Settings; ✕ folds it back
+    /// into the resting bell. The bell sits in a 44pt top-leading column —
+    /// the same spot the resting chip occupies — so it is the fixed origin of
+    /// the wipe (ruling Q16a: level with line one). The headline's line break
+    /// is hard-coded so "window" doesn't orphan onto the second line.
     private var pushCallout: some View {
         ZStack(alignment: .topTrailing) {
             Button {
                 showSettings = true
             } label: {
-                HStack(spacing: 10) {
+                HStack(alignment: .top, spacing: 0) {
                     calloutBell
+                        .frame(width: Self.bellSlot, height: Self.bellSlot)
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Get a morning digest + Perfect window\nalerts")
                             .font(.system(size: 14))
                             .foregroundStyle(Theme.primaryText)
                             .frame(width: 272, alignment: .leading)
-                            .accessibilityLabel("Get a morning digest + Perfect window alerts")
+                            .accessibilityLabel(Self.calloutCopy)
                         Text("Turn on notifications")
                             .font(.system(size: 13))
                             .foregroundStyle(Theme.accentBrand)
                     }
+                    .padding(.vertical, 10)
                     Spacer(minLength: 0)
                 }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("pushCallout")
             Button {
-                // De-reveal: the callout shrinks back toward this ✕ and the
-                // whole list slides up on the same spring.
+                // Folds back to the bell on the reveal spring; the list
+                // follows on the same spring.
                 withAnimation(Theme.Motion.reveal(reduceMotion: reduceMotion)) {
-                    preferences.pushCalloutDismissed = true
+                    preferences.pushCalloutResting = true
                 }
             } label: {
                 Image(systemName: "xmark")
@@ -643,12 +677,53 @@ struct DashboardView: View {
         .background(RoundedRectangle(cornerRadius: 16).fill(Theme.cardBackground))
     }
 
+    /// The callout's copy, read in full by VoiceOver from the resting bell too.
+    private static let calloutCopy = "Get a morning digest + Perfect window alerts"
+
+    /// The bell's slot: the resting chip's diameter and the card's bell column.
+    private static let bellSlot: CGFloat = 44
+
+    /// The resting callout: a 44pt Liquid Glass bell. Tap reveals the full
+    /// callout, every time; long-press offers "Don't show again" (long-press
+    /// only, no swipe — owner ruling 2026-11-11).
+    private var calloutBellChip: some View {
+        GlassControl(identifier: "pushCallout.bell",
+                     accessibilityLabel: Self.calloutCopy,
+                     action: {
+                         withAnimation(Theme.Motion.reveal(reduceMotion: reduceMotion)) {
+                             preferences.pushCalloutResting = false
+                         }
+                     }) {
+            calloutBell
+                .frame(width: Self.bellSlot, height: Self.bellSlot)
+                .glassPieceSurface(in: Circle(), enabled: true, fallback: .material)
+                .contentShape(Circle())
+        }
+        .accessibilityHint("Shows the notification offer")
+        .contextMenu {
+            Button {
+                dismissCalloutForGood()
+            } label: {
+                Label("Don't show again", systemImage: "bell.slash")
+            }
+        }
+        .accessibilityAction(named: "Don't show again") { dismissCalloutForGood() }
+    }
+
+    private func dismissCalloutForGood() {
+        withAnimation(Theme.Motion.reveal(reduceMotion: reduceMotion)) {
+            preferences.pushCalloutDismissed = true
+        }
+    }
+
     /// A periodic wiggle on iOS 18+ (18-only API); static on iOS 17 and
     /// whenever Reduce Motion is on.
     @ViewBuilder private var calloutBell: some View {
+        // System blue, not the accent: the owner kept the bell "blue like
+        // before" when the accent moved to sage (ruling 2026-11-11).
         let bell = Image(systemName: "bell.fill")
             .font(.system(size: 17))
-            .foregroundStyle(Theme.accentBrand)
+            .foregroundStyle(Color.blue)
         if #available(iOS 18.0, *) {
             if reduceMotion {
                 bell
@@ -781,3 +856,31 @@ struct DashboardView: View {
                   router: PushRouter())
 }
 #endif
+
+// MARK: The callout's wipe (owner ruling 2026-11-11)
+
+/// Uncovers its content from the leading edge (the bell) toward the trailing
+/// edge; mirrored in right-to-left layouts.
+private struct LeadingWipe: ViewModifier, Animatable {
+    var progress: CGFloat
+
+    var animatableData: CGFloat {
+        get { progress }
+        set { progress = newValue }
+    }
+
+    func body(content: Content) -> some View {
+        content.mask(alignment: .leading) {
+            Rectangle().scaleEffect(x: max(progress, 0.001), y: 1, anchor: .leading)
+        }
+    }
+}
+
+private extension AnyTransition {
+    /// The callout's reveal and fold: a leading → trailing wipe both ways, or
+    /// a plain cross-fade under Reduce Motion.
+    static func wipe(reduceMotion: Bool) -> AnyTransition {
+        reduceMotion ? .opacity : .modifier(active: LeadingWipe(progress: 0),
+                                            identity: LeadingWipe(progress: 1))
+    }
+}
