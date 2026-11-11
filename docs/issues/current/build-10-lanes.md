@@ -38,6 +38,7 @@ Every bucket's done-when includes the ROADMAP row + STATUS line (+ FIGMA.md gate
 ---
 
 ## Lane RERUN (was A0) — Re-run the blind fresh-eyes test on build 9 against the real backend
+**Done 2026-11-11 (`6a13e15`, merged):** [ADDENDUM-build9.md](../../research/fresh-eyes-2026-11-11/ADDENDUM-build9.md) — Release build against production; 31 STILL-TRUE, 3 FIXED-BY-BUILD-9 (#12 #30 #32), 3 FIXTURE-ARTEFACT (#21 #22 #31), 1 NOT-REACHED (#34). Top three live faults: #18/#19 ("Perfect" on a mostly-red day reproduces with real data — e.g. 1 of 5 hours green shows "20 · Perfect"), #1–3/#8/#13 (location-denied first run), #6/#27 (notifications switch ignores taps). **New server-side finding for FIXES/owner:** from ~day 5 the provider stops sending `uv_index`; the adapter's `uv_index ?? 0` turns absent data into `uV: 0` at noon, which passes any `max` threshold — a false-Perfect path (the `?? 0` default is only correct at night). Side effects: one simulator test device row written to the production `devices` table (its token will fail APNs and be blanked by the never-erase path); a second simulator "RERUN 17 Pro" was created and left in place.
 Agent: one Opus agent, computer-use on the simulator (same harness as the first run), Release config or a local server with `DATABASE_URL`. Output: an addendum to `NOTES.md` marking each of the 38 notes still-true / fixed-by-build-9 / fixture-artefact. No code. Prerequisite for A-fix and A-spec.
 
 ## Lane FIXES (was A-fix) — Plain bugs from the tester record (iOS code, TDD, no frame)
