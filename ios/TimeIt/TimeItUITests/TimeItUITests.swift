@@ -627,6 +627,26 @@ final class TimeItUITests: XCTestCase {
         XCTAssertEqual(fetchCount.value as? String, "1", "reorder and delete never refetch")
     }
 
+    /// Delete from the detail: the editor's words, confirmed, then home.
+    func testDetailDeleteConfirmsThenPopsHome() {
+        let app = launchApp()
+        let card = app.buttons["card.cycling"]
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        card.tap()
+
+        let delete = app.buttons["detail.delete"]
+        scrollTo(delete, in: app)
+        XCTAssertTrue(delete.waitForExistence(timeout: 5))
+        delete.tap()
+        let confirm = app.buttons["detail.confirmDelete"].firstMatch
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5), "Delete asks first")
+        attachScreenshot(app, named: "manage-detail-delete-confirm")
+        confirm.tap()
+
+        XCTAssertTrue(app.buttons["card.fishing-lite"].waitForExistence(timeout: 5), "back on the dashboard")
+        XCTAssertFalse(app.buttons["card.cycling"].exists, "the deleted card is gone")
+    }
+
     /// The two-metric minimum (owner ruling 2026-11-11): one pick keeps Next
     /// off with the hint under the grid; the second turns it on.
     func testMetricsStepNeedsTwoMetrics() {

@@ -50,8 +50,8 @@ struct ActivityDetailView: View {
     var windUnit: WindSpeedUnit = .kmh
     /// The clock the passed-hour grey reads — injectable for previews/tests.
     var now: () -> Date = Date.init
-    /// Pops the detail once its Activity is deleted from the editor — the
-    /// dashboard owns the navigation path (an `@Environment(\.dismiss)` read
+    /// Pops the detail once its Activity is deleted (here or from the
+    /// editor) — the dashboard owns the navigation path (an `@Environment(\.dismiss)` read
     /// here kept the pushed detail re-rendering and starved XCUI).
     var onActivityDeleted: () -> Void = {}
 
@@ -91,6 +91,8 @@ struct ActivityDetailView: View {
     @State private var rangeLiftTick = 0
     @State private var metricsLiftTick = 0
     @State private var editTick = 0
+    /// The detail's Delete is awaiting its confirmation.
+    @State private var confirmingDelete = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Accessibility sizes stack the hero and single-column the grid.
@@ -257,6 +259,7 @@ struct ActivityDetailView: View {
                 }
                 editCircles
                     .padding(.top, Layout.editCirclesTop - Layout.dotsToHero)
+                deleteButton
             }
             .padding(.horizontal, Layout.sideMargin)
             .padding(.top, Layout.topPadding)
@@ -297,9 +300,9 @@ struct ActivityDetailView: View {
         .sensoryFeedback(.impact(weight: .light), trigger: editTick)
         .navigationTitle(current.label)
         .navigationBarTitleDisplayMode(.inline)
-        // The circles are the only edit door (the card gear is gone — owner
-        // ruling 2026-10-06 #2), so Delete lives here too. A deleted
-        // Activity pops the detail as the sheet closes: `authored` reads the
+        // The circles are the detail's edit doors (the card gear is gone —
+        // owner ruling 2026-10-06 #2); the editor keeps its Delete too. A
+        // Activity deleted there pops the detail as the sheet closes: `authored` reads the
         // store, so it is nil the moment the delete lands (no refetch wait).
         .sheet(item: $editing, onDismiss: {
             if authored == nil { onActivityDeleted() }
@@ -908,6 +911,32 @@ struct ActivityDetailView: View {
         .liftOnRelease(trigger: liftTick)
         .accessibilityIdentifier(identifier)
         .accessibilityLabel(label)
+    }
+
+    // MARK: Delete (build 10 — the editor's words, confirmed, then home)
+
+    /// A quiet destructive text button at the foot of the page; the
+    /// confirmation is the editor's own dialog. Confirming deletes from the
+    /// store (the dashboard drops the card through the forecast cache with
+    /// no POST) and pops to the dashboard via its navigation path — never
+    /// `dismiss` (the pushed detail must not read it — XCUI hang).
+    private var deleteButton: some View {
+        Button(ActivityDeletionCopy.button, role: .destructive) {
+            confirmingDelete = true
+        }
+        .scaledFont(size: 15, weight: .semibold)
+        .frame(minHeight: 44)
+        .frame(maxWidth: .infinity)
+        .disabled(authored == nil)
+        .accessibilityIdentifier("detail.delete")
+        .confirmationDialog(ActivityDeletionCopy.title, isPresented: $confirmingDelete,
+                            titleVisibility: .visible) {
+            Button(ActivityDeletionCopy.confirm, role: .destructive) {
+                viewModel.store.delete(id: activity.activityId)
+                onActivityDeleted()
+            }
+            .accessibilityIdentifier("detail.confirmDelete")
+        }
     }
 
     /// The light impact fires first, then the editor sheet opens on `step`.
