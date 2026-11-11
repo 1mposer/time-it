@@ -44,20 +44,41 @@ struct DashboardView: View {
     /// The pinned header's bottom edge in full-screen space — the melt's
     /// anchor (the first list item rests `firstItemInset` below it).
     @State private var headerBottom: CGFloat = 215
+    /// The screen's top safe-area inset — eye level is measured below it.
+    @State private var safeTop: CGFloat = 0
+    /// The push callout's slot height (full card or resting bell) — the
+    /// first card sits one slot + gap below it.
+    @State private var calloutSlotHeight: CGFloat = 0
 
-    /// The first list item's resting top below the header, per state: the
-    /// card and dormant lists pad `Spacing.listBelowHeader`; the first-launch
-    /// hero (its own `Spacing.lg` padding) sits a further `firstLaunchHeroTop`
-    /// down.
+    /// The first list item's resting top below the header, per state — the
+    /// melt's anchor. The card and dormant lists put the first Activity card
+    /// at eye level (`DashboardLayout`); the first-launch hero's top is its
+    /// capsule's eye level less the hero's own padding above the capsule.
     private var firstItemInset: CGFloat {
         if !viewModel.hasActivities {
-            return Theme.Spacing.lg + Self.firstLaunchHeroTop
+            return Theme.Spacing.lg + firstLaunchHeroTop
         }
-        return Theme.Spacing.listBelowHeader
+        return listTopInset
     }
 
-    /// The Add-Activity hero's extra top padding (approved First Launch frame).
-    private static let firstLaunchHeroTop: CGFloat = 84
+    /// The card / dormant list's top padding: the first Activity card at eye
+    /// level, never closer to the header than `Spacing.listBelowHeader`.
+    private var listTopInset: CGFloat {
+        DashboardLayout.listTopInset(headerBottom: headerBottom, safeTop: safeTop,
+                                     leadingHeight: showsCallout ? calloutSlotHeight + Theme.Spacing.cardGap : 0)
+    }
+
+    /// The Add-Activity hero's top padding: its capsule's glass top lands at
+    /// eye level — the same line the first card rests on once one exists
+    /// (owner, build 10 POLISH item 2). 84 on a default-size 17 Pro, the
+    /// approved First Launch frame's value.
+    private var firstLaunchHeroTop: CGFloat {
+        DashboardLayout.firstLaunchHeroTop(headerBottom: headerBottom, safeTop: safeTop)
+    }
+
+    private var showsCallout: Bool {
+        !preferences.pushCalloutDismissed && !registration.isEnabled
+    }
 
     /// The appearance on screen right now (the stored choice once applied;
     /// the trait under a UI-test pin).
@@ -138,6 +159,9 @@ struct DashboardView: View {
                              temp: HeaderView.bandTemp(currentHour: viewModel.forecast?.hours.first,
                                                        showsWeather: showsHeaderWeather))
                     .ignoresSafeArea()
+            }
+            .onGeometryChange(for: CGFloat.self) { $0.safeAreaInsets.top } action: {
+                if $0 != safeTop { safeTop = $0 }
             }
             #if DEBUG
             // XCUI only: the mock's fetch count (the pull-to-refresh test).
@@ -295,8 +319,8 @@ struct DashboardView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.horizontal, 20)
-                .padding(.vertical, 52)
-                .padding(.top, Self.firstLaunchHeroTop)
+                .padding(.vertical, DashboardLayout.firstLaunchHeroPadding)
+                .padding(.top, firstLaunchHeroTop)
             }
             .padding(14)
             .frame(maxWidth: .infinity)
@@ -317,7 +341,7 @@ struct DashboardView: View {
                 Spacer()
                     .frame(height: 12)
             }
-            .padding(.top, Theme.Spacing.listBelowHeader)
+            .padding(.top, listTopInset)
             .padding(.horizontal, 14)
         }
     }
@@ -497,7 +521,6 @@ struct DashboardView: View {
     /// renders its rated card from the echoed response; a dormant one renders
     /// its showcase card inline. The one-time push callout tops the list.
     private func cardList(_ forecast: ForecastResponse) -> some View {
-        let showsCallout = !preferences.pushCalloutDismissed && !registration.isEnabled
         // Visual order for the pull-down stagger: callout, cards, add card —
         // every child moves, so no child slides over the next.
         let leading = showsCallout ? 1 : 0
@@ -519,6 +542,11 @@ struct DashboardView: View {
                             }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
+                        // Its resting height sets how far above eye level
+                        // the list starts, so the first card stays put.
+                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: {
+                            if $0 != calloutSlotHeight { calloutSlotHeight = $0 }
+                        }
                         // "Don't show again" (or turning notifications on)
                         // removes the slot itself.
                         .transition(.deReveal(anchor: .topLeading, reduceMotion: reduceMotion))
@@ -566,7 +594,7 @@ struct DashboardView: View {
                     Spacer()
                         .frame(height: 12)
                 }
-                .padding(.top, Theme.Spacing.listBelowHeader)
+                .padding(.top, listTopInset)
                 .padding(.horizontal, 14)
                 // The top overscroll: the padded content's top in the scroll
                 // view's space rests at 0 and goes positive when pulled past
@@ -869,6 +897,38 @@ struct DashboardView: View {
             } ?? [],
             showsWeekDots: !preferences.collapsedCardIds.contains(authored.id)
         )
+    }
+}
+
+// MARK: Eye level (owner, build 10 POLISH item 2)
+
+/// Where the dashboard's first Activity card rests: at eye level — the line
+/// the first-launch Add Activity capsule sits on — instead of hugging the
+/// header. Pure, so the geometry is pinned by `DashboardLayoutTests`.
+enum DashboardLayout {
+    /// Eye level, below the top safe-area inset: the first-launch capsule's
+    /// glass top on a default-size iPhone 17 Pro as shipped in build 9
+    /// (header bottom 127 + 14 + 84 + 52 + 2 = 279 = 62 + 217).
+    static let eyeLevel: CGFloat = 217
+    /// The first-launch hero's own vertical padding around capsule + copy.
+    static let firstLaunchHeroPadding: CGFloat = 52
+    /// The first-launch hero sits in a ScrollView padded by `Spacing.lg`.
+    static let firstLaunchListPadding: CGFloat = Theme.Spacing.lg
+
+    /// The list's top padding below the header: the first Activity card at
+    /// eye level, with `leadingHeight` (the push callout slot + its gap)
+    /// sitting above it inside that room. Never under
+    /// `Spacing.listBelowHeader` — a tall header (large text) keeps the list
+    /// where it always was rather than pushing the cards further down.
+    static func listTopInset(headerBottom: CGFloat, safeTop: CGFloat, leadingHeight: CGFloat) -> CGFloat {
+        max(Theme.Spacing.listBelowHeader, safeTop + eyeLevel - headerBottom - leadingHeight)
+    }
+
+    /// The first-launch hero's top padding so its capsule's glass top lands
+    /// at eye level; never negative.
+    static func firstLaunchHeroTop(headerBottom: CGFloat, safeTop: CGFloat) -> CGFloat {
+        let above = firstLaunchListPadding + firstLaunchHeroPadding + GlassCapsule.addHitPadding
+        return max(0, safeTop + eyeLevel - headerBottom - above)
     }
 }
 
