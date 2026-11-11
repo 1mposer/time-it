@@ -483,9 +483,24 @@ struct DashboardView: View {
             ScrollView {
                 LazyVStack(spacing: Theme.Spacing.cardGap) {
                     if showsCallout {
-                        pushCallout
-                            .transition(.deReveal(anchor: .topTrailing, reduceMotion: reduceMotion))
-                            .offset(y: staggerOffset(at: 0))
+                        // Full callout on first sight; after its ✕ it rests
+                        // as the glass bell, and the bell reveals it again,
+                        // every time (owner rulings 2026-11-11). Both share
+                        // one top-leading slot, so the bell never moves.
+                        ZStack(alignment: .topLeading) {
+                            if preferences.pushCalloutResting {
+                                calloutBellChip
+                                    .transition(.opacity)
+                            } else {
+                                pushCallout
+                                    .transition(.wipe(reduceMotion: reduceMotion))
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        // "Don't show again" (or turning notifications on)
+                        // removes the slot itself.
+                        .transition(.deReveal(anchor: .topLeading, reduceMotion: reduceMotion))
+                        .offset(y: staggerOffset(at: 0))
                             // Above its siblings, so the cards sliding up
                             // pass behind the shrinking callout, not over it.
                             .zIndex(1)
@@ -604,39 +619,42 @@ struct DashboardView: View {
         }
     }
 
-    /// The push opt-in callout: bell + two-line invitation opening Settings;
-    /// ✕ dismisses it for good. The headline's line break is hard-coded so
-    /// "window" doesn't orphan onto the second line.
+    /// The full push opt-in callout (the approved round-3 card): bell + the
+    /// two-line invitation, the whole card opening Settings; ✕ folds it back
+    /// into the resting bell. The bell sits in a 44pt top-leading column —
+    /// the same spot the resting chip occupies — so it is the fixed origin of
+    /// the wipe (ruling Q16a: level with line one). The headline's line break
+    /// is hard-coded so "window" doesn't orphan onto the second line.
     private var pushCallout: some View {
         ZStack(alignment: .topTrailing) {
             Button {
                 showSettings = true
             } label: {
-                HStack(spacing: 10) {
+                HStack(alignment: .top, spacing: 0) {
                     calloutBell
+                        .frame(width: Self.bellSlot, height: Self.bellSlot)
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Get a morning digest + Perfect window\nalerts")
                             .font(.system(size: 14))
                             .foregroundStyle(Theme.primaryText)
                             .frame(width: 272, alignment: .leading)
-                            .accessibilityLabel("Get a morning digest + Perfect window alerts")
+                            .accessibilityLabel(Self.calloutCopy)
                         Text("Turn on notifications")
                             .font(.system(size: 13))
                             .foregroundStyle(Theme.accentInteractive)
                     }
+                    .padding(.vertical, 10)
                     Spacer(minLength: 0)
                 }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("pushCallout")
             Button {
-                // De-reveal: the callout shrinks back toward this ✕ and the
-                // whole list slides up on the same spring.
+                // Folds back to the bell on the reveal spring; the list
+                // follows on the same spring.
                 withAnimation(Theme.Motion.reveal(reduceMotion: reduceMotion)) {
-                    preferences.pushCalloutDismissed = true
+                    preferences.pushCalloutResting = true
                 }
             } label: {
                 Image(systemName: "xmark")
@@ -652,12 +670,53 @@ struct DashboardView: View {
         .background(RoundedRectangle(cornerRadius: 16).fill(Theme.cardBackground))
     }
 
+    /// The callout's copy, read in full by VoiceOver from the resting bell too.
+    private static let calloutCopy = "Get a morning digest + Perfect window alerts"
+
+    /// The bell's slot: the resting chip's diameter and the card's bell column.
+    private static let bellSlot: CGFloat = 44
+
+    /// The resting callout: a 44pt Liquid Glass bell. Tap reveals the full
+    /// callout, every time; long-press offers "Don't show again" (long-press
+    /// only, no swipe — owner ruling 2026-11-11).
+    private var calloutBellChip: some View {
+        GlassControl(identifier: "pushCallout.bell",
+                     accessibilityLabel: Self.calloutCopy,
+                     action: {
+                         withAnimation(Theme.Motion.reveal(reduceMotion: reduceMotion)) {
+                             preferences.pushCalloutResting = false
+                         }
+                     }) {
+            calloutBell
+                .frame(width: Self.bellSlot, height: Self.bellSlot)
+                .glassPieceSurface(in: Circle(), enabled: true, fallback: .material)
+                .contentShape(Circle())
+        }
+        .accessibilityHint("Shows the notification offer")
+        .contextMenu {
+            Button {
+                dismissCalloutForGood()
+            } label: {
+                Label("Don't show again", systemImage: "bell.slash")
+            }
+        }
+        .accessibilityAction(named: "Don't show again") { dismissCalloutForGood() }
+    }
+
+    private func dismissCalloutForGood() {
+        withAnimation(Theme.Motion.reveal(reduceMotion: reduceMotion)) {
+            preferences.pushCalloutDismissed = true
+        }
+    }
+
     /// A periodic wiggle on iOS 18+ (18-only API); static on iOS 17 and
     /// whenever Reduce Motion is on.
     @ViewBuilder private var calloutBell: some View {
+        // System blue, not the accent: the owner kept the bell "blue like
+        // before" when the accent moved to sage (ruling 2026-11-11).
         let bell = Image(systemName: "bell.fill")
             .font(.system(size: 17))
-            .foregroundStyle(Theme.accentInteractive)
+            .foregroundStyle(Color.blue)
         if #available(iOS 18.0, *) {
             if reduceMotion {
                 bell
@@ -790,3 +849,31 @@ struct DashboardView: View {
                   router: PushRouter())
 }
 #endif
+
+// MARK: The callout's wipe (owner ruling 2026-11-11)
+
+/// Uncovers its content from the leading edge (the bell) toward the trailing
+/// edge; mirrored in right-to-left layouts.
+private struct LeadingWipe: ViewModifier, Animatable {
+    var progress: CGFloat
+
+    var animatableData: CGFloat {
+        get { progress }
+        set { progress = newValue }
+    }
+
+    func body(content: Content) -> some View {
+        content.mask(alignment: .leading) {
+            Rectangle().scaleEffect(x: max(progress, 0.001), y: 1, anchor: .leading)
+        }
+    }
+}
+
+private extension AnyTransition {
+    /// The callout's reveal and fold: a leading → trailing wipe both ways, or
+    /// a plain cross-fade under Reduce Motion.
+    static func wipe(reduceMotion: Bool) -> AnyTransition {
+        reduceMotion ? .opacity : .modifier(active: LeadingWipe(progress: 0),
+                                            identity: LeadingWipe(progress: 1))
+    }
+}

@@ -1,18 +1,18 @@
 import SwiftUI
 
-/// Settings' Light / Dark control (owner ruling 2026-11-11, 8b: the wide
-/// segment with sun and moon). A system segmented `Picker` drops the icons
-/// (a segment is title OR image), so this draws the track and a glass thumb
-/// that glides between the two halves; VoiceOver and XCUI see a real
-/// segmented picker through `accessibilityRepresentation`.
+/// Settings' Light / Dark control (owner rulings 2026-11-11, 8b then 13b:
+/// a compact icon-only segment, sun | moon, trailing on the "Appearance"
+/// row, glass thumb, no words). Custom because a system segmented `Picker`
+/// cannot draw this; VoiceOver and XCUI see a real segmented picker with
+/// "Light" / "Dark" through `accessibilityRepresentation`.
 struct AppearanceSegment: View {
     @Binding var selection: AppAppearance
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Namespace private var thumb
 
-    /// The track's height and the thumb's inset inside it.
-    static let height: CGFloat = 44
-    static let thumbInset: CGFloat = 4
+    /// About a quarter of the full-width version (ruling 13b).
+    static let size = CGSize(width: 90, height: 32)
+    static let thumbInset: CGFloat = 3
 
     var body: some View {
         HStack(spacing: 0) {
@@ -21,7 +21,7 @@ struct AppearanceSegment: View {
             }
         }
         .padding(Self.thumbInset)
-        .frame(height: Self.height)
+        .frame(width: Self.size.width, height: Self.size.height)
         .background(Capsule().fill(Theme.timelineTrack))
         .accessibilityRepresentation {
             Picker("Appearance", selection: $selection) {
@@ -39,8 +39,8 @@ struct AppearanceSegment: View {
         return Button {
             withAnimation(Theme.Motion.reveal(reduceMotion: reduceMotion)) { selection = option }
         } label: {
-            Label(Self.title(option), systemImage: Self.symbol(option))
-                .font(.system(size: 15, weight: selected ? .semibold : .regular))
+            Image(systemName: Self.symbol(option))
+                .font(.system(size: 15, weight: .medium))
                 .foregroundStyle(selected ? Theme.primaryText : Theme.secondaryText)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background {
@@ -66,13 +66,15 @@ struct AppearanceSegment: View {
 }
 
 #if DEBUG
-#Preview("Appearance segment") {
+#Preview("Appearance row") {
     @Previewable @State var selection = AppAppearance.light
     List {
         Section("Appearance") {
-            AppearanceSegment(selection: $selection)
-                .listRowInsets(EdgeInsets())
-                .listRowBackground(Color.clear)
+            HStack {
+                Text("Appearance")
+                Spacer()
+                AppearanceSegment(selection: $selection)
+            }
         }
     }
 }

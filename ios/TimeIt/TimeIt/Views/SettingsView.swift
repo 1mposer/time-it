@@ -149,11 +149,14 @@ struct SettingsView: View {
     /// toggle flips; `AppearanceController` applies it to the window.
     private var appearanceSection: some View {
         Section {
-            AppearanceSegment(selection: Binding(
-                get: { preferences.appearance ?? (colorScheme == .dark ? .dark : .light) },
-                set: { preferences.appearance = $0 }))
-                .listRowInsets(EdgeInsets())
-                .listRowBackground(Color.clear)
+            HStack {
+                Text("Appearance")
+                    .accessibilityHidden(true)
+                Spacer()
+                AppearanceSegment(selection: Binding(
+                    get: { preferences.appearance ?? (colorScheme == .dark ? .dark : .light) },
+                    set: { preferences.appearance = $0 }))
+            }
         } header: {
             Text("Appearance")
         }
