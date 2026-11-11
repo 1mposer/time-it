@@ -1292,46 +1292,58 @@ final class TimeItUITests: XCTestCase {
         XCTAssertFalse(app.buttons["pushCallout"].exists, "the dismissal persists")
     }
 
-    // MARK: - Beta feedback — disclaimer banner + suggestion sheet
+    // MARK: - Beta feedback — the ⓘ menu + the two feedback sheets
 
-    func testBetaBannerAndSuggestionButtonRenderWhenGateOn() {
+    /// Opens the beta ⓘ menu and picks `row` ("Send a suggestion" /
+    /// "What have you liked?").
+    private func openFeedback(_ app: XCUIApplication, row: String) {
+        let info = app.buttons["feedbackInfo"]
+        XCTAssertTrue(info.waitForExistence(timeout: 5))
+        info.tap()
+        let item = app.buttons[row]
+        XCTAssertTrue(item.waitForExistence(timeout: 5), "the menu offers \(row)")
+        item.tap()
+    }
+
+    func testBetaFeedbackMenuRendersWhenGateOn() {
         // Pinned Light (absent = the simulator's appearance) so the shot below
-        // is the light glass: the header gear, the suggestion capsule, the
-        // add capsule after the list.
+        // is the light glass: the header gear, the ⓘ circle, the add capsule.
         let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_SEED_LIVE",
                                         "UITEST_LOCATION", "UITEST_BETA", "UITEST_APPEARANCE=light"])
 
         XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5))
         attachScreenshot(app, named: "dashboard-glass-light")
-        let banner = app.otherElements["betaBanner"]
-        XCTAssertTrue(banner.exists, "the disclaimer card renders on a beta (dev/TestFlight) install")
+        XCTAssertFalse(app.otherElements["betaBanner"].exists, "the disclaimer card is gone")
+        let info = app.buttons["feedbackInfo"]
+        XCTAssertTrue(info.exists, "the ⓘ renders on a beta (dev/TestFlight) install")
+        XCTAssertGreaterThanOrEqual(info.frame.width, 44, "HIG target")
+        info.tap()
         XCTAssertTrue(app.staticTexts.matching(
-            NSPredicate(format: "label CONTAINS 'early build for Time it'")).firstMatch.exists,
-                      "the owner's round-2 disclaimer copy")
-        XCTAssertTrue(app.buttons["betaBanner.suggest"].exists, "with its suggestion entry point")
-        // Stacking order: the push callout first, banner below.
-        XCTAssertLessThan(app.buttons["pushCallout"].frame.minY, banner.frame.minY)
+            NSPredicate(format: "label CONTAINS 'Early test build'")).firstMatch.waitForExistence(timeout: 5),
+                      "the disclaimer folds into the menu's header line")
+        XCTAssertTrue(app.buttons["Send a suggestion"].exists)
+        XCTAssertTrue(app.buttons["What have you liked?"].exists)
+        attachScreenshot(app, named: "feedback-menu-open")
+        XCTAssertFalse(app.textViews["feedback.editor"].exists, "a first tap only opens the menu")
     }
 
-    func testBetaBannerAbsentWhenGateOff() {
+    func testBetaFeedbackMenuAbsentWhenGateOff() {
         // No UITEST_BETA — the same archive's App Store face.
         let app = launchApp()
 
         XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5))
-        XCTAssertFalse(app.otherElements["betaBanner"].exists, "App Store installs never see beta surfaces")
-        XCTAssertFalse(app.buttons["betaBanner.suggest"].exists)
+        XCTAssertFalse(app.buttons["feedbackInfo"].exists, "App Store installs never see beta surfaces")
     }
 
     func testSuggestionSheetHappyPathSendsConfirmsAndDismisses() {
         let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_SEED_LIVE",
                                         "UITEST_LOCATION", "UITEST_BETA"])
 
-        let suggest = app.buttons["betaBanner.suggest"]
-        XCTAssertTrue(suggest.waitForExistence(timeout: 5))
-        suggest.tap()
+        openFeedback(app, row: "Send a suggestion")
 
         let editor = app.textViews["feedback.editor"]
         XCTAssertTrue(editor.waitForExistence(timeout: 5), "the sheet opens on a text editor")
+        XCTAssertTrue(app.staticTexts["feedback.note"].exists, "the owner's note sits above it")
         let send = app.buttons["feedback.send"]
         XCTAssertFalse(send.isEnabled, "an empty message cannot send")
         editor.tap()
@@ -1343,16 +1355,14 @@ final class TimeItUITests: XCTestCase {
                       "success shows a brief confirmation")
         XCTAssertTrue(app.staticTexts["feedback.success"].waitForNonExistence(timeout: 5),
                       "then the sheet dismisses itself")
-        XCTAssertTrue(suggest.isHittable, "back on the dashboard")
+        XCTAssertTrue(app.buttons["feedbackInfo"].isHittable, "back on the dashboard")
     }
 
-    func testSuggestionSendFailureKeepsTypedTextAndOffersRetry() {
+    func testLikedSendFailureKeepsTypedTextAndOffersRetry() {
         let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_SEED_LIVE",
                                         "UITEST_LOCATION", "UITEST_BETA", "UITEST_FEEDBACK_FAIL"])
 
-        let suggest = app.buttons["betaBanner.suggest"]
-        XCTAssertTrue(suggest.waitForExistence(timeout: 5))
-        suggest.tap()
+        openFeedback(app, row: "What have you liked?")
 
         let editor = app.textViews["feedback.editor"]
         XCTAssertTrue(editor.waitForExistence(timeout: 5))
@@ -1362,7 +1372,7 @@ final class TimeItUITests: XCTestCase {
 
         XCTAssertTrue(app.staticTexts["feedback.error"].waitForExistence(timeout: 5),
                       "the non-204 surfaces its error")
-        XCTAssertEqual(editor.value as? String, "Keep this text", "a typed suggestion is never discarded")
+        XCTAssertEqual(editor.value as? String, "Keep this text", "a typed note is never discarded")
         XCTAssertTrue(app.buttons["feedback.send"].isEnabled, "Send stays as the retry")
         XCTAssertFalse(app.staticTexts["feedback.success"].exists)
     }

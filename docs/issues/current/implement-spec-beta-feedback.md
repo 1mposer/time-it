@@ -26,6 +26,8 @@ A TestFlight tester must be able to send a suggestion **from inside the app** �
 
 ## §4 iOS client — TO BUILD (after owner approves the frames)
 
+> **Inbox v2 (owner rulings 2026-11-11, Lane B) supersedes the banner below:** the disclaimer card and its capsule are gone; a beta-only 44pt glass ⓘ at the dashboard's bottom-leading corner opens a system `Menu` — header line "Early test build. Full release to be announced.", rows "Send a suggestion" / "What have you liked?" — and each row opens `FeedbackView(kind:)` at the medium detent (system Liquid Glass sheet on iOS 26, glass ✕; the owner's note "Please explain what it is you like, dislike, or would suggest." above the editor) which POSTs `kind`. Frames: Mess around, `B/R2 Final — Opus` row + the `B/R3` owner fixes (FIGMA.md §12). Failure/success rules below are unchanged.
+
 - **Figma:** beta dashboard variant frames — light `340:3102`, dark `340:632` (banner + "Send a suggestion" button). Approval + geometry record: [FIGMA.md §7](../../design/FIGMA.md).
 - **Sheet:** text editor + Send. POSTs the §2 body. `deviceId` = the **same** Keychain install UUID `DeviceRegistration` uses (service `com.timeit.device`, mint-if-absent — push opt-in NOT required); `appVersion` = `CFBundleShortVersionString`; `build` = `CFBundleVersion`; `iosVersion` = `UIDevice.current.systemVersion`.
 - **Failure UX:** any non-204 **keeps the typed text** and offers retry — a typed suggestion is never discarded. `429` surfaces the throttle message.

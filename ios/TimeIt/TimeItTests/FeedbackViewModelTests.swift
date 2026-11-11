@@ -37,7 +37,7 @@ final class FeedbackViewModelTests: XCTestCase {
 
     // MARK: happy path
 
-    func testSendPostsTheFullFiveFieldBodyAndLandsSent() async {
+    func testSendPostsTheFullBodyWithItsKindAndLandsSent() async {
         let viewModel = makeViewModel()
         viewModel.message = "Add wind direction to the dashboard cards."
 
@@ -47,7 +47,8 @@ final class FeedbackViewModelTests: XCTestCase {
                                                  message: "Add wind direction to the dashboard cards.",
                                                  appVersion: "1.0",
                                                  build: "7",
-                                                 iosVersion: "17.5")])
+                                                 iosVersion: "17.5",
+                                                 kind: .suggestion)])
         XCTAssertEqual(viewModel.phase, .sent)
         XCTAssertNil(viewModel.errorMessage)
     }
@@ -64,7 +65,7 @@ final class FeedbackViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.message, "My typed suggestion", "a typed suggestion is never discarded")
         XCTAssertEqual(viewModel.phase, .editing, "back to editing — Send is the retry")
         XCTAssertEqual(viewModel.errorMessage,
-                       "Couldn't send your suggestion. Check your connection and try again.")
+                       "Couldn't send. Check your connection and try again.")
         XCTAssertTrue(viewModel.canSend, "the retained text is immediately re-sendable")
     }
 
@@ -114,6 +115,29 @@ final class FeedbackViewModelTests: XCTestCase {
         viewModel.message = String(repeating: "a", count: 1001)
         XCTAssertFalse(viewModel.canSend, "the mirror blocks what the server would 400")
         XCTAssertTrue(viewModel.isOverLimit)
+    }
+
+    func testTheLikedSheetSendsKindLiked() async {
+        let viewModel = FeedbackViewModel(kind: .liked,
+                                          sender: api,
+                                          deviceId: "install-uuid",
+                                          appVersion: "1.0",
+                                          build: "9",
+                                          iosVersion: "26.5")
+        viewModel.message = "The week dots."
+
+        await viewModel.send()
+
+        XCTAssertEqual(api.bodies.map(\.kind), [.liked])
+    }
+
+    func testEachKindHasItsOwnTitleAndPlaceholderButTheSameNote() {
+        XCTAssertEqual(FeedbackKind.suggestion.title, "Send a suggestion")
+        XCTAssertEqual(FeedbackKind.liked.title, "What have you liked?")
+        XCTAssertNotEqual(FeedbackKind.suggestion.placeholder, FeedbackKind.liked.placeholder)
+        XCTAssertEqual(FeedbackViewModel.note,
+                       "Please explain what it is you like, dislike, or would suggest.",
+                       "the owner's line, verbatim, on both sheets")
     }
 
     func testGuardedSendNeverHitsTheWire() async {
