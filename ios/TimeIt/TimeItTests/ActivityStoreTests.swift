@@ -222,4 +222,33 @@ final class ActivityStoreTests: XCTestCase {
 
         XCTAssertEqual(makeStore().activities.map(\.id), ["a"])
     }
+
+    // MARK: reorder (the card menu's Move — build 10)
+
+    func testMoveReordersAndPersists() {
+        let store = makeStore()
+        ["a", "b", "c"].forEach { store.add(makeActivity(id: $0)) }
+
+        store.move(id: "c", by: -1)
+        XCTAssertEqual(store.activities.map(\.id), ["a", "c", "b"])
+        store.move(id: "a", by: 1)
+        XCTAssertEqual(store.activities.map(\.id), ["c", "a", "b"])
+
+        XCTAssertEqual(makeStore().activities.map(\.id), ["c", "a", "b"], "the order persists")
+    }
+
+    func testMoveIsANoOpPastEitherEndOrForAnUnknownId() {
+        let store = makeStore()
+        ["a", "b"].forEach { store.add(makeActivity(id: $0)) }
+
+        XCTAssertFalse(store.canMove(id: "a", by: -1), "the first card cannot move up")
+        XCTAssertFalse(store.canMove(id: "b", by: 1), "the last card cannot move down")
+        XCTAssertFalse(store.canMove(id: "zzz", by: 1))
+        XCTAssertTrue(store.canMove(id: "a", by: 1))
+
+        store.move(id: "a", by: -1)
+        store.move(id: "b", by: 1)
+        store.move(id: "zzz", by: 1)
+        XCTAssertEqual(store.activities.map(\.id), ["a", "b"])
+    }
 }

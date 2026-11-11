@@ -274,6 +274,73 @@ private struct StripAxisNumerals: View {
     }
 }
 
+// MARK: - The card's long-press menu (owner ruling 2026-11-11, build 10)
+
+/// The delete copy every delete door shares — the editor's button and
+/// dialog words, reused by the card menu and the detail (one wording).
+enum ActivityDeletionCopy {
+    static let button = "Delete Activity"
+    static let title = "Delete this activity?"
+    static let confirm = "Delete"
+}
+
+/// What the dashboard card's long-press menu does. A nil move closure
+/// disables that direction (the first card cannot move up).
+struct CardMenuActions {
+    var viewDetails: () -> Void
+    var moveUp: (() -> Void)?
+    var moveDown: (() -> Void)?
+    /// Asks — the caller shows the confirmation before anything is deleted.
+    var delete: () -> Void
+}
+
+extension View {
+    /// The system context menu on a dashboard card (supersedes the
+    /// 2026-10-06 "no long press" ruling): press → lift preview of the card
+    /// → View details / Move ▸ Up · Down / Delete. Plain tap is untouched —
+    /// it still opens the detail. nil = no menu (the wizard's Review reveal).
+    /// The system supplies the press, the haptic at activation, the preview
+    /// collapse and VoiceOver's actions.
+    func cardContextMenu(_ actions: CardMenuActions?) -> some View {
+        modifier(CardContextMenu(actions: actions))
+    }
+}
+
+private struct CardContextMenu: ViewModifier {
+    let actions: CardMenuActions?
+
+    func body(content: Content) -> some View {
+        if let actions {
+            content
+                // The lift preview takes the card's own rounded shape.
+                .contentShape(.contextMenuPreview, RoundedRectangle(cornerRadius: 16))
+                .contextMenu {
+                    Button(action: actions.viewDetails) {
+                        Label("View details", systemImage: "info.circle")
+                    }
+                    Menu {
+                        Button { actions.moveUp?() } label: {
+                            Label("Move Up", systemImage: "arrow.up")
+                        }
+                        .disabled(actions.moveUp == nil)
+                        Button { actions.moveDown?() } label: {
+                            Label("Move Down", systemImage: "arrow.down")
+                        }
+                        .disabled(actions.moveDown == nil)
+                    } label: {
+                        Label("Move", systemImage: "arrow.up.arrow.down")
+                    }
+                    Divider()
+                    Button(role: .destructive, action: actions.delete) {
+                        Label("Delete", systemImage: "trash")
+                    }
+                }
+        } else {
+            content
+        }
+    }
+}
+
 #if DEBUG
 #Preview("Card v2 — rated + null") {
     let forecast = PreviewFixtures.forecast

@@ -25,6 +25,8 @@ struct DashboardView: View {
     /// The open feedback sheet's kind (the ⓘ menu row picked); nil = closed.
     @State private var feedbackKind: FeedbackKind?
     @State private var editing: AuthoredActivity?
+    /// The card whose long-press Delete is awaiting confirmation.
+    @State private var pendingDelete: AuthoredActivity?
     /// Dev/TestFlight installs get the ⓘ feedback menu (disclaimer line +
     /// both feedback sheets) on every dashboard state; App Store installs
     /// never do (owner ruling 2026-11-11: beta-only, moves to Settings at
@@ -535,12 +537,17 @@ struct DashboardView: View {
                                         card(for: activity, authored: authored)
                                     }
                                     .buttonStyle(.plain)
+                                    // Long-press → the system context menu
+                                    // (owner ruling 2026-11-11, superseding
+                                    // the 2026-10-06 "no long press"); a
+                                    // plain tap still opens the detail.
+                                    .cardContextMenu(menuActions(for: authored))
                                     .accessibilityIdentifier("card.\(activity.activityId)")
                                     // Outside the NavigationLink, so it never
                                     // pushes the detail. The card gear is gone
                                     // (owner ruling 2026-10-06 #2): a tap on
                                     // the card opens the detail, whose circles
-                                    // are the only edit door. The chevron is a
+                                    // are the edit doors. The chevron is a
                                     // plain inline control, not glass chrome.
                                     chevronButton(for: authored)
                                     // Centres the 34pt chevron on the frame's
@@ -577,6 +584,19 @@ struct DashboardView: View {
             // keeps the list mounted.
             .pullToRefresh(overscroll: pullOverscroll) { await viewModel.refresh() }
             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { listViewport = $0 }
+            // The card menu's Delete confirms first, in the editor's words.
+            .confirmationDialog(ActivityDeletionCopy.title,
+                                isPresented: Binding(get: { pendingDelete != nil },
+                                                     set: { if !$0 { pendingDelete = nil } }),
+                                titleVisibility: .visible,
+                                presenting: pendingDelete) { activity in
+                Button(ActivityDeletionCopy.confirm, role: .destructive) {
+                    withAnimation(Theme.Motion.reveal(reduceMotion: reduceMotion)) {
+                        store.delete(id: activity.id)
+                    }
+                }
+                .accessibilityIdentifier("card.confirmDelete")
+            }
             .onChange(of: pendingFocusId) { _, activityId in
                 scrollToPendingFocus(activityId, proxy: proxy)
             }
@@ -584,6 +604,21 @@ struct DashboardView: View {
                 scrollToPendingFocus(pendingFocusId, proxy: proxy)
             }
         }
+    }
+
+    /// The card menu's actions. Reorder and delete only mutate the store —
+    /// the forecast follows through the cache with no POST (lane CACHE's
+    /// rule); never `loadForecast()` from here.
+    private func menuActions(for authored: AuthoredActivity) -> CardMenuActions {
+        let id = authored.id
+        let motion = Theme.Motion.reveal(reduceMotion: reduceMotion)
+        return CardMenuActions(
+            viewDetails: { navigationPath.append(id) },
+            moveUp: store.canMove(id: id, by: -1)
+                ? { withAnimation(motion) { store.move(id: id, by: -1) } } : nil,
+            moveDown: store.canMove(id: id, by: 1)
+                ? { withAnimation(motion) { store.move(id: id, by: 1) } } : nil,
+            delete: { pendingDelete = authored })
     }
 
     /// The pull-down stagger's extra offset for the child at visual position

@@ -585,6 +585,48 @@ final class TimeItUITests: XCTestCase {
 
     // MARK: - Build 10 (lane MANAGE): long-press menu, detail delete, gates
 
+    /// Long-press a card → the system context menu (owner ruling 2026-11-11,
+    /// superseding the 2026-10-06 "no long press"): View details opens the
+    /// detail, Move ▸ Move Down reorders, Delete asks first — and none of it
+    /// refetches (the launch fetch stays the only one).
+    func testCardLongPressMenuViewsMovesAndDeletesWithoutARefetch() {
+        let app = launchApp()
+        let cycling = app.buttons["card.cycling"]
+        let fishing = app.buttons["card.fishing-lite"]
+        XCTAssertTrue(cycling.waitForExistence(timeout: 5))
+        let fetchCount = app.descendants(matching: .any)["uitest.fetchCount"]
+        XCTAssertTrue(waitForSwitchValue(fetchCount, "1"))
+
+        cycling.press(forDuration: 1.0)
+        XCTAssertTrue(app.buttons["View details"].waitForExistence(timeout: 5), "the menu is up")
+        XCTAssertTrue(app.buttons["Move"].exists)
+        XCTAssertTrue(app.buttons["Delete"].exists)
+        attachScreenshot(app, named: "manage-card-menu")
+        app.buttons["View details"].tap()
+        XCTAssertTrue(app.navigationBars["Cycling"].waitForExistence(timeout: 5), "View details opens the detail")
+        app.navigationBars.firstMatch.buttons.firstMatch.tap()
+
+        XCTAssertTrue(cycling.waitForExistence(timeout: 5))
+        XCTAssertLessThan(cycling.frame.minY, fishing.frame.minY, "seeded order: Cycling first")
+        cycling.press(forDuration: 1.0)
+        XCTAssertTrue(app.buttons["Move"].waitForExistence(timeout: 5))
+        app.buttons["Move"].tap()
+        XCTAssertTrue(app.buttons["Move Down"].waitForExistence(timeout: 5))
+        app.buttons["Move Down"].tap()
+        XCTAssertTrue(waitUntil(timeout: 5) { cycling.frame.minY > fishing.frame.minY },
+                      "Move Down puts Cycling under Fishing")
+
+        fishing.press(forDuration: 1.0)
+        XCTAssertTrue(app.buttons["Delete"].waitForExistence(timeout: 5))
+        app.buttons["Delete"].tap()
+        let confirm = app.buttons["card.confirmDelete"].firstMatch
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5), "Delete asks first")
+        confirm.tap()
+        XCTAssertTrue(fishing.waitForNonExistence(timeout: 5), "the deleted card is gone")
+        XCTAssertTrue(cycling.exists)
+        XCTAssertEqual(fetchCount.value as? String, "1", "reorder and delete never refetch")
+    }
+
     /// The two-metric minimum (owner ruling 2026-11-11): one pick keeps Next
     /// off with the hint under the grid; the second turns it on.
     func testMetricsStepNeedsTwoMetrics() {
@@ -615,6 +657,15 @@ final class TimeItUITests: XCTestCase {
         XCTAssertTrue(next.isEnabled, "two metrics turn Next on")
         XCTAssertFalse(hint.exists, "the hint goes once the gate is met")
         app.buttons["editor.cancel"].tap()
+    }
+
+    private func waitUntil(timeout: TimeInterval, _ condition: () -> Bool) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if condition() { return true }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+        }
+        return condition()
     }
 
     func testDeletingLastActivityLandsTheAddHeroNotADeadEnd() {

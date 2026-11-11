@@ -290,6 +290,22 @@ final class DashboardForecastCacheTests: XCTestCase {
         UserDefaults().removePersistentDomain(forName: "\(suiteName!)-reordered")
     }
 
+    /// The card menu's Move mutates the LIVE store (MANAGE, build 10): the
+    /// cards follow with no POST.
+    func testMovingACardOnTheLiveStoreReordersWithoutAPost() async {
+        let api = EchoRatingService()
+        let clock = TestClock("2026-06-19T12:10:00Z")
+        let (vm, store) = makeVM(api: api, clock: clock)
+        await vm.loadForecast()
+
+        store.move(id: "fishing-lite", by: -1)
+        await waitUntil { vm.forecast?.activities.map(\.activityId) == ["fishing-lite", "cycling"] }
+
+        XCTAssertEqual(api.fetchCount, 1, "reorder never refetches")
+        await vm.loadForecast()
+        XCTAssertEqual(api.fetchCount, 1, "the reordered cache is what a reload serves")
+    }
+
     // MARK: Rule 4 — the age is shown; offline keeps the cached forecast
 
     func testUpdatedLabelReadsTheFetchInstantOnTheDeviceClock() async {

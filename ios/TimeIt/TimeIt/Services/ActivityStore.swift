@@ -98,6 +98,25 @@ final class ActivityStore: ObservableObject {
         persist()
     }
 
+    /// True when `move(id:by:)` would land inside the list — the card
+    /// menu's Move Up / Move Down enable on it.
+    func canMove(id: String, by offset: Int) -> Bool {
+        guard let index = activities.firstIndex(where: { $0.id == id }) else { return false }
+        return offset != 0 && activities.indices.contains(index + offset)
+    }
+
+    /// Reorders one Activity by `offset` places (−1 = up) and persists —
+    /// store order is card order and request order. Past either end, or an
+    /// unknown id, is a no-op that never persists. The dashboard reloads
+    /// through the forecast cache with no POST (lane CACHE's rule).
+    func move(id: String, by offset: Int) {
+        guard canMove(id: id, by: offset),
+              let index = activities.firstIndex(where: { $0.id == id }) else { return }
+        let activity = activities.remove(at: index)
+        activities.insert(activity, at: index + offset)
+        persist()
+    }
+
     // MARK: persistence
 
     /// First launch (no stored data) and corrupt decodes land on the seam's
