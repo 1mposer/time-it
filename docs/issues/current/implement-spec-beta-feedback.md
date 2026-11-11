@@ -11,6 +11,7 @@ A TestFlight tester must be able to send a suggestion **from inside the app** �
 `POST /api/v1/feedback` (`src/routes/feedback.js`, `createFeedbackRouter({ db })`; table + index in `initDb()`; mounted in `server.js`). Contract mirror (owner file: CLAUDE.md):
 
 - Body — all five required, non-empty strings: `deviceId`, `message`, `appVersion`, `build` (`CFBundleVersion` — so every suggestion reads in the context of the exact build that produced it), `iosVersion`.
+- Optional `kind`: `suggestion | liked` (added 2026-11-11, feedback inbox v2) — absent → `suggestion` (builds 7/8 never send it); anything else → `400` at `path: kind`. Stored in `suggestions.kind` (`NOT NULL DEFAULT 'suggestion'`, CHECK, re-runnable `ADD COLUMN IF NOT EXISTS`). Shares the 20/24h ceiling. Required-later is a ROADMAP deferred row.
 - Caps: `message` ≤ **1000** chars (trimmed before storage, whitespace-only rejected); the other four ≤ **64** chars.
 - `204` no body on success · `400` atomic structured validation · **`429`** over **20 suggestions per device per rolling 24h** · `500` otherwise. No `502` — no weather dependency.
 - `suggestions` table has **no FK to `devices`** — feedback must not require push opt-in. Read it with SQL (Railway data browser / `psql`): `SELECT * FROM suggestions ORDER BY created_at DESC;`

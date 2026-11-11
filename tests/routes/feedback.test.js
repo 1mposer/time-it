@@ -21,8 +21,8 @@ function makeFakeDb({ recentCount = 0 } = {}) {
         return { rows: [{ count }] };
       }
       if (text.includes('INSERT INTO suggestions')) {
-        const [deviceId, message, appVersion, build, iosVersion] = params;
-        inserted.push({ device_id: deviceId, message, app_version: appVersion, build, ios_version: iosVersion });
+        const [deviceId, message, appVersion, build, iosVersion, kind] = params;
+        inserted.push({ device_id: deviceId, message, app_version: appVersion, build, ios_version: iosVersion, kind });
         count += 1;
         return { rows: [] };
       }
@@ -64,7 +64,54 @@ test('POST stores the suggestion: 204 no body, full row shape, message trimmed',
     app_version: '1.0',
     build: '7',
     ios_version: '17.5',
+    kind: 'suggestion',
   }]);
+});
+
+// --- kind: suggestion | liked (optional on the wire; absent = suggestion) ---
+test('kind "liked" is stored as liked', async () => {
+  const { app, db } = makeApp();
+  const res = await post(app, validBody({ kind: 'liked' }));
+  assert.equal(res.status, 204);
+  assert.equal(db.inserted[0].kind, 'liked');
+});
+
+test('kind "suggestion" is stored as suggestion', async () => {
+  const { app, db } = makeApp();
+  const res = await post(app, validBody({ kind: 'suggestion' }));
+  assert.equal(res.status, 204);
+  assert.equal(db.inserted[0].kind, 'suggestion');
+});
+
+test('absent kind stores suggestion — builds 7/8 never send it and must keep working', async () => {
+  const { app, db } = makeApp();
+  const body = validBody();
+  delete body.kind;
+  const res = await post(app, body);
+  assert.equal(res.status, 204);
+  assert.equal(db.inserted[0].kind, 'suggestion');
+});
+
+test('an unknown or non-string kind → 400 at path kind, nothing inserted', async () => {
+  const { app, db } = makeApp();
+  for (const bad of ['bug', '', 'Liked', 42, null, ['liked']]) {
+    const res = await post(app, validBody({ kind: bad }));
+    assert.equal(res.status, 400, `kind=${JSON.stringify(bad)}`);
+    assert.deepStrictEqual(res.body.errors, [
+      { path: 'kind', message: 'kind must be one of: suggestion, liked' },
+    ]);
+  }
+  assert.equal(db.inserted.length, 0);
+});
+
+test('a bad kind is collected atomically with the other field errors', async () => {
+  const { app } = makeApp();
+  const res = await post(app, { message: '', kind: 'bug' });
+  assert.equal(res.status, 400);
+  const paths = res.body.errors.map((e) => e.path);
+  for (const p of ['deviceId', 'message', 'appVersion', 'build', 'iosVersion', 'kind']) {
+    assert.ok(paths.includes(p), `collected ${p}`);
+  }
 });
 
 // --- validation 400s (uniform { errors[] } envelope, atomic collect) ---
@@ -138,6 +185,18 @@ test('the ceiling is a real sequence: 20 accepted, the 21st rejected', async () 
     assert.equal(res.status, 204, `suggestion ${i} accepted`);
   }
   const res = await post(app, validBody({ message: 'one too many' }));
+  assert.equal(res.status, 429);
+  assert.equal(db.inserted.length, 20);
+});
+
+test('the ceiling is shared across kinds: 10 suggestions + 10 likes, the 21st (either kind) rejected', async () => {
+  const { app, db } = makeApp();
+  for (let i = 0; i < 20; i++) {
+    const kind = i % 2 === 0 ? 'suggestion' : 'liked';
+    const res = await post(app, validBody({ message: `note ${i}`, kind }));
+    assert.equal(res.status, 204, `note ${i} accepted`);
+  }
+  const res = await post(app, validBody({ message: 'one too many', kind: 'liked' }));
   assert.equal(res.status, 429);
   assert.equal(db.inserted.length, 20);
 });
