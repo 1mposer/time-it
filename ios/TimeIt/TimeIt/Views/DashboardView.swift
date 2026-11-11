@@ -94,6 +94,19 @@ struct DashboardView: View {
                            onAppearanceTap: { preferences.toggleAppearance(showing: showingAppearance) }) {
                     showSettings = true
                 }
+                // The forecast's age (lane CACHE, owner rule 4): the
+                // dashboard may be drawn from the 3 h cache, so it says when
+                // the data was fetched. An overlay, so the header's measured
+                // bottom (where the list and melt begin) is unchanged.
+                .overlay(alignment: .bottomTrailing) {
+                    if let updated = viewModel.updatedLabel {
+                        Text(updated)
+                            .font(.caption2)
+                            .foregroundStyle(Theme.secondaryText)
+                            .padding(.trailing, 16)
+                            .accessibilityIdentifier("forecastUpdated")
+                    }
+                }
                 // The header is pinned (outside every ScrollView) — its
                 // bottom edge is where each state's list begins.
                 .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).maxY } action: {
@@ -200,10 +213,10 @@ struct DashboardView: View {
         .onChange(of: openingInProgress, initial: true) { _, inProgress in
             if !inProgress { viewModel.requestInitialLocationPermissionIfNeeded() }
         }
-        // A backgrounded app returns with a stale forecast — hours[0] and the
-        // passed-range signal (card fallback + save alert) all read it, so
-        // re-entering the foreground refetches. Launch is covered by .task;
-        // the generation guard makes an overlapping load harmless.
+        // Re-entering the foreground reloads through the forecast cache
+        // (lane CACHE): a forecast under 3 h old for this location is served
+        // without a POST, an older one is refetched. Launch is covered by
+        // .task; the generation guard makes an overlapping load harmless.
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active else { return }
             Task { await viewModel.loadForecast() }

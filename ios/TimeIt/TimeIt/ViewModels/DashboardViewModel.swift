@@ -4,7 +4,16 @@ import Foundation
 
 @MainActor
 final class DashboardViewModel: ObservableObject {
-    @Published private(set) var forecast: ForecastResponse?
+    @Published private(set) var forecast: ForecastResponse? {
+        didSet {
+            // One deriver per forecast (ROADMAP build-10 deferral 8): rebuilt
+            // only when the instant or zone changes — a merged single-Activity
+            // reply shares both, so it keeps the deriver.
+            guard forecast?.forecastStart != oldValue?.forecastStart
+                    || forecast?.timezone != oldValue?.timezone else { return }
+            timeDeriver = forecast.flatMap { TimeDeriver(forecastStart: $0.forecastStart, timezone: $0.timezone) }
+        }
+    }
     @Published private(set) var isLoading = false
     @Published private(set) var errorMessage: String?
     /// True when no location could be resolved — the dashboard shows the
@@ -41,6 +50,12 @@ final class DashboardViewModel: ObservableObject {
     /// Coordinate of the last POST; a new GPS fix reloads only when it moves
     /// meaningfully. nil = no POST yet, so any first fix triggers a load.
     private var lastFetchedCoordinate: CLLocationCoordinate2D?
+    /// The last /rating response on disk (lane CACHE, owner 2026-11-11):
+    /// launch, foreground return and re-entry are served from it while fresh.
+    private let cache: ForecastCache
+    /// Device-clock instant of the drawn forecast's full fetch — the
+    /// dashboard's "Updated 10:43" label. Nil with no forecast.
+    @Published private(set) var lastUpdated: Date?
 
     /// Where the location chain resolved: home → GPS → last-resolved cache.
     private enum ActiveLocation {
@@ -87,9 +102,11 @@ final class DashboardViewModel: ObservableObject {
          locationProvider: LocationProviding? = nil,
          store: ActivityStore? = nil,
          preferences: PreferencesStore? = nil,
+         cache: ForecastCache? = nil,
          deviceTimeZone: TimeZone = .current,
          now: @escaping () -> Date = Date.init) {
         self.api = api
+        self.cache = cache ?? ForecastCache.standard()
         self.deviceTimeZone = deviceTimeZone
         self.now = now
         self.locationProvider = locationProvider ?? LocationManager.shared
@@ -149,9 +166,9 @@ final class DashboardViewModel: ObservableObject {
         abs(a.latitude - b.latitude) > 0.01 || abs(a.longitude - b.longitude) > 0.01
     }
 
-    var timeDeriver: TimeDeriver? {
-        forecast.flatMap { TimeDeriver(forecastStart: $0.forecastStart, timezone: $0.timezone) }
-    }
+    /// Built once per forecast (see `forecast`'s didSet) — the detail
+    /// carousel reads it many times per step; profiled at ~64 µs per rebuild.
+    private(set) var timeDeriver: TimeDeriver?
 
     /// False once the last Activity is deleted — the dashboard shows the
     /// empty state instead of POSTing an empty activities[] (ADR-0005
@@ -207,20 +224,31 @@ final class DashboardViewModel: ObservableObject {
         await loadForecast(showsLoading: true)
     }
 
-    /// Pull-to-refresh: the same refetch (the app keeps no client cache, so
-    /// it always reaches the server), but with a forecast already on screen
+    /// Re-draws the forecast for the store's current Activity list through
+    /// the cache: a delete, reorder or dormancy drops/reorders the cached
+    /// ratings with NO request; an add/edit POSTs only that Activity. The
+    /// `store.$activities` sink already calls this on every store mutation,
+    /// so callers (MANAGE's delete/reorder) just mutate `ActivityStore`;
+    /// calling it directly as well is harmless.
+    func reconcileForecastWithStore() async {
+        await loadForecast()
+    }
+
+    /// Pull-to-refresh: always a full refetch — it bypasses a fresh cache
+    /// (owner rule 2026-11-11) — but with a forecast already on screen
     /// `isLoading` stays false — the dashboard's full-screen spinner would
     /// unmount the card list, and with it the refresh control mid-pull.
     func refresh() async {
-        await loadForecast(showsLoading: forecast == nil)
+        await loadForecast(showsLoading: forecast == nil, bypassCache: true)
     }
 
-    private func loadForecast(showsLoading: Bool) async {
+    private func loadForecast(showsLoading: Bool, bypassCache: Bool = false) async {
         loadGeneration += 1
         let generation = loadGeneration
 
         guard hasLiveActivities else {
             forecast = nil
+            lastUpdated = nil
             errorMessage = nil
             isTransientError = false
             isLoading = false
@@ -240,6 +268,7 @@ final class DashboardViewModel: ObservableObject {
 
         guard let active = resolveActiveLocation() else {
             forecast = nil
+            lastUpdated = nil
             hasNoLocation = true
             activeLocationName = nil
             isLoading = false
@@ -251,28 +280,121 @@ final class DashboardViewModel: ObservableObject {
         let coordinate = active.coordinate
         lastFetchedCoordinate = coordinate
         let activities = liveActivities.map(\.activityInput)
+        let key = ForecastCache.key(lat: coordinate.latitude, lon: coordinate.longitude)
+        let fingerprints = Self.fingerprints(activities)
+
+        // A fresh entry is reconciled with the store instead of refetched
+        // (owner rules 2026-11-11): unchanged Activities are replayed in the
+        // store's order — a delete, reorder or dormancy is a local drop or
+        // shuffle with no POST — and only added/edited Activities are POSTed.
+        // Their ratings merge in only when the reply shares the entry's
+        // `forecastStart` + `timezone` (one forecast, one set of indices);
+        // otherwise the whole entry is replaced by the full refetch below.
+        // Nothing is ever rated on the device (ADR-0002/0007).
+        if !bypassCache, let entry = cache.entry(for: key), entry.isFresh(now: now()) {
+            let cachedIds = Set(entry.response.activities.map(\.activityId))
+            let changed = activities.filter {
+                entry.fingerprints[$0.id] != fingerprints[$0.id] || !cachedIds.contains($0.id)
+            }
+            if changed.isEmpty {
+                let replayed = entry.reconciled(order: activities.map(\.id), merging: [], fingerprints: fingerprints)
+                if replayed.fingerprints != entry.fingerprints
+                    || replayed.response.activities.map(\.activityId) != entry.response.activities.map(\.activityId) {
+                    cache.store(replayed)
+                }
+                publish(replayed, for: active)
+                return
+            }
+            isLoading = showsLoading && forecast == nil
+            if let reply = try? await api.fetchRatings(lat: coordinate.latitude,
+                                                       lon: coordinate.longitude,
+                                                       activities: changed) {
+                guard generation == loadGeneration else { return }
+                if reply.forecastStart == entry.response.forecastStart,
+                   reply.timezone == entry.response.timezone {
+                    let merged = entry.reconciled(order: activities.map(\.id), merging: reply.activities,
+                                                  fingerprints: fingerprints)
+                    cache.store(merged)
+                    publish(merged, for: active)
+                    return
+                }
+            }
+            guard generation == loadGeneration else { return }
+            // Fall through: a mismatched (or failed) single POST becomes the
+            // full refetch, which replaces the entry wholesale.
+        }
+
+        // A stale (or bypassed) entry for this location is drawn at once and
+        // stays up if the refetch fails — offline shows the last forecast
+        // with its age (owner rule 4); the error state is for no cache at all.
+        let fallback = cache.entry(for: key).map {
+            $0.reconciled(order: activities.map(\.id), merging: [], fingerprints: fingerprints)
+        }
+        if let fallback, !fallback.response.activities.isEmpty {
+            publish(fallback, for: active)
+        }
+
         do {
             let result = try await api.fetchRatings(lat: coordinate.latitude,
                                                     lon: coordinate.longitude,
                                                     activities: activities)
             guard generation == loadGeneration else { return }
-            forecast = result
-            timezoneWarning = timezoneWarningIfNeeded(for: active, forecastTimezone: result.timezone)
-            if preferences.lastResolvedLocation != active.savedLocation {
-                preferences.lastResolvedLocation = active.savedLocation
-            }
+            let entry = ForecastCacheEntry(key: key, fetchedAt: now(), response: result,
+                                           fingerprints: fingerprints)
+            cache.store(entry)
+            publish(entry, for: active)
+            return
         } catch let error as APIError {
             guard generation == loadGeneration else { return }
+            if error.isTransient, keepsCacheOnFailure(fallback, for: active) { return }
             if keepsListOnFailure(showsLoading: showsLoading) { return }
             errorMessage = error.userMessage
             isTransientError = error.isTransient
         } catch {
             guard generation == loadGeneration else { return }
+            if keepsCacheOnFailure(fallback, for: active) { return }
             if keepsListOnFailure(showsLoading: showsLoading) { return }
             errorMessage = "Unable to reach the server. Check that it's running and try again."
             isTransientError = true
         }
         isLoading = false
+    }
+
+    /// Draws a cache entry: the forecast, its age, and the location side
+    /// effects a successful fetch has always had.
+    private func publish(_ entry: ForecastCacheEntry, for active: ActiveLocation) {
+        forecast = entry.response
+        lastUpdated = entry.fetchedAt
+        isLoading = false
+        timezoneWarning = timezoneWarningIfNeeded(for: active, forecastTimezone: entry.response.timezone)
+        if preferences.lastResolvedLocation != active.savedLocation {
+            preferences.lastResolvedLocation = active.savedLocation
+        }
+    }
+
+    /// A transient failure (offline, 502) with a cached forecast for this
+    /// location keeps it on screen, aged by its own fetch instant; no error
+    /// state. A rejection (400/500) still surfaces its message.
+    private func keepsCacheOnFailure(_ fallback: ForecastCacheEntry?, for active: ActiveLocation) -> Bool {
+        guard let fallback, !fallback.response.activities.isEmpty else { return false }
+        publish(fallback, for: active)
+        return true
+    }
+
+    /// "Updated 10:43" — the drawn forecast's fetch instant on the device's
+    /// clock (owner rule 4; the location zone is not needed). Nil with no
+    /// forecast.
+    var updatedLabel: String? {
+        guard forecast != nil, let lastUpdated else { return nil }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = deviceTimeZone
+        formatter.dateFormat = "H:mm"
+        return "Updated \(formatter.string(from: lastUpdated))"
+    }
+
+    private static func fingerprints(_ inputs: [ActivityInput]) -> [String: String] {
+        Dictionary(inputs.map { ($0.id, ForecastCache.fingerprint($0)) }, uniquingKeysWith: { first, _ in first })
     }
 
     /// A failed pull over a live list keeps the cards on screen: no
