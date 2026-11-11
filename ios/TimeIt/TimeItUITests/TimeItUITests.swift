@@ -475,7 +475,9 @@ final class TimeItUITests: XCTestCase {
                                 skipOpening: false)
             let splash = app.descendants(matching: .any)["opening.splash"]
             XCTAssertTrue(splash.waitForExistence(timeout: 5))
-            sleep(5) // let Converge settle on its end frame
+            // The end frame: circles land ~1.5s, the name is in by ~3.4s,
+            // the hand-over starts ~4.6s — capture in between.
+            Thread.sleep(forTimeInterval: 3.8)
             attachScreenshot(app, named: "laneA-opening-\(appearance)")
             if splash.exists { splash.tap() }
             XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 8))
@@ -490,19 +492,23 @@ final class TimeItUITests: XCTestCase {
             let icon = app.buttons["icon.figure.tennis"]
             scrollTo(icon, in: app)
             icon.tap()
+            Thread.sleep(forTimeInterval: 1) // springs settle
             attachScreenshot(app, named: "laneA-wizard-1-name-\(appearance)")
             app.buttons["editor.nextStep"].tap()
             XCTAssertTrue(app.buttons["metric.temp"].waitForExistence(timeout: 5))
             app.buttons["metric.temp"].tap()
             app.buttons["metric.windSpeed"].tap()
             app.buttons["metric.temp"].tap()
+            Thread.sleep(forTimeInterval: 1) // springs settle
             attachScreenshot(app, named: "laneA-wizard-2-metrics-\(appearance)")
             app.buttons["editor.nextStep"].tap()
             XCTAssertTrue(app.buttons["editor.priority.temp"].waitForExistence(timeout: 5))
             app.buttons["editor.priority.temp"].tap()
+            Thread.sleep(forTimeInterval: 1) // springs settle
             attachScreenshot(app, named: "laneA-wizard-3-priority-\(appearance)")
             app.buttons["editor.nextStep"].tap()
             XCTAssertTrue(app.pickers["editor.startHour"].waitForExistence(timeout: 5))
+            Thread.sleep(forTimeInterval: 1) // springs settle
             attachScreenshot(app, named: "laneA-wizard-4-range-\(appearance)")
             app.buttons["editor.nextStep"].tap()
             app.buttons["editor.nextStep"].tap()
