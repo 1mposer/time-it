@@ -46,9 +46,16 @@ struct HeaderView: View {
     /// the content's 20 inset) — the location label wraps inside it.
     private static let gearClearance: CGFloat = gearDiameter + 13 - 20
 
-    /// The meta line's glyphs scale with its footnote text (Dynamic Type,
-    /// owner ruling 8); the big numeral and the gear stay fixed.
-    @ScaledMetric(relativeTo: .footnote) private var metaGlyph: CGFloat = 11
+    /// The meta line's three readings (clock, wind, humidity) — grown from
+    /// 13 to fill the dead space above the first card (owner, build 10
+    /// POLISH item 1); scales as body text (Dynamic Type, owner ruling 8).
+    static let metaFontSize: CGFloat = 17
+    /// The meta glyphs grow with the readings (11 at the old 13pt).
+    static let metaGlyphSize: CGFloat = 14
+
+    /// The meta line's glyphs scale with its text (Dynamic Type, owner
+    /// ruling 8); the big numeral and the gear stay fixed.
+    @ScaledMetric(relativeTo: .body) private var metaGlyph: CGFloat = HeaderView.metaGlyphSize
 
     /// The clock text at `date` in the given zone (device zone when nil or
     /// unresolvable) — pinned by HeaderClockTests.
@@ -130,8 +137,8 @@ struct HeaderView: View {
                 }
 
                 // The meta line — clock, wind, humidity (Figma Meta row:
-                // 16pt between groups, 4pt icon → value, 13pt regular, no
-                // separator glyph). The clock is not weather, so it stays in
+                // 16pt between groups, 4pt icon → value, no separator
+                // glyph; 17pt regular since build 10, POLISH item 1). The clock is not weather, so it stays in
                 // the no-location state; it ticks in the forecast zone.
                 // One line while it fits; at large text sizes the segments
                 // stack rather than run off the screen.
@@ -150,7 +157,7 @@ struct HeaderView: View {
                         }
                     }
                 }
-                .scaledFont(size: 13)
+                .scaledFont(size: Self.metaFontSize)
                 .tracking(0.1)
                 .foregroundStyle(Theme.onGradient)
                 .padding(.top, showsWeather ? Theme.Spacing.headerNumeralToMeta : 6)

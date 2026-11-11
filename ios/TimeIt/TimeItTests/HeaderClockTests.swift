@@ -24,3 +24,14 @@ final class HeaderClockTests: XCTestCase {
                        "no forecast yet → the device's own wall clock")
     }
 }
+
+/// Build 10 POLISH item 1: the meta line's three readings grew from the
+/// 13pt footnote into the dead space above the first card.
+final class HeaderMetaSizeTests: XCTestCase {
+    func testTheMetaReadingsAreBodySizedNotFootnote() {
+        XCTAssertEqual(HeaderView.metaFontSize, 17)
+        XCTAssertEqual(Theme.Typography.textStyle(forFigmaSize: HeaderView.metaFontSize), .body,
+                       "the readings scale as body text under Dynamic Type")
+        XCTAssertGreaterThan(HeaderView.metaGlyphSize, 11, "the glyphs grow with the readings")
+    }
+}

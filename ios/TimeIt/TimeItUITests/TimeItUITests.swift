@@ -1583,6 +1583,73 @@ final class TimeItUITests: XCTestCase {
         attachScreenshot(app, named: "laneB-\(appearance)-7-settings")
     }
 
+    // MARK: - Lane POLISH screen tour (build 10, mini-edits lane)
+
+    func testPolishScreenTourLight() { polishScreenTour(appearance: "light") }
+    func testPolishScreenTourDark() { polishScreenTour(appearance: "dark") }
+
+    /// The surfaces the owner rules on from screenshots: home at the default
+    /// size and at AX-XXXL, the add slot after the list, and the detail page
+    /// (top and scrolled to its containers).
+    private func polishScreenTour(appearance: String) {
+        let base = ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_SEED_LIVE", "UITEST_LOCATION",
+                    "UITEST_APPEARANCE=\(appearance)"]
+        var app = launchApp(arguments: base)
+        XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5))
+        sleep(1)
+        attachScreenshot(app, named: "polish-\(appearance)-home")
+
+        app.swipeUp()
+        XCTAssertTrue(app.buttons["addActivityCard"].waitForExistence(timeout: 5))
+        sleep(1)
+        attachScreenshot(app, named: "polish-\(appearance)-add-slot")
+        app.swipeDown()
+
+        app.buttons["card.cycling"].tap()
+        XCTAssertTrue(app.navigationBars["Cycling"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.otherElements["detail.metric.temp"].waitForExistence(timeout: 5))
+        sleep(1)
+        attachScreenshot(app, named: "polish-\(appearance)-detail")
+        app.swipeUp()
+        sleep(1)
+        attachScreenshot(app, named: "polish-\(appearance)-detail-scrolled")
+        app.navigationBars["Cycling"].buttons.firstMatch.tap()
+
+        // A detail with red / amber values on the containers.
+        XCTAssertTrue(app.buttons["card.fishing-lite"].waitForExistence(timeout: 5))
+        app.buttons["card.fishing-lite"].tap()
+        XCTAssertTrue(app.otherElements["detail.metric.temp"].waitForExistence(timeout: 5))
+        sleep(1)
+        attachScreenshot(app, named: "polish-\(appearance)-detail-fishing")
+        app.navigationBars.buttons.firstMatch.tap()
+
+        // The callout folded to its resting bell: the first card at eye level.
+        XCTAssertTrue(app.buttons["pushCallout.dismiss"].waitForExistence(timeout: 5))
+        app.buttons["pushCallout.dismiss"].tap()
+        XCTAssertTrue(app.buttons["pushCallout.bell"].waitForExistence(timeout: 3))
+        sleep(1)
+        attachScreenshot(app, named: "polish-\(appearance)-home-bell")
+        app.terminate()
+
+        app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_LOCATION",
+                                    "UITEST_APPEARANCE=\(appearance)"])
+        XCTAssertTrue(app.buttons["addActivitiesButton"].waitForExistence(timeout: 5))
+        sleep(1)
+        attachScreenshot(app, named: "polish-\(appearance)-first-launch")
+        app.terminate()
+
+        app = launchApp(arguments: base, contentSize: .accessibilityExtraExtraExtraLarge)
+        XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5))
+        sleep(1)
+        attachScreenshot(app, named: "polish-\(appearance)-home-ax-xxxl")
+        app.terminate()
+
+        app = launchApp(arguments: base, contentSize: .extraExtraExtraLarge)
+        XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5))
+        sleep(1)
+        attachScreenshot(app, named: "polish-\(appearance)-home-xxxl")
+    }
+
     // MARK: - Light / Dark — one value, two controls
 
     func testHeaderToggleAndSettingsSegmentShareOneAppearance() {
