@@ -37,7 +37,7 @@ enum EditorStep: Int, CaseIterable {
             return !draft.label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                 && draft.iconSymbol != "questionmark.circle"
         case .metrics:
-            guard !draft.metrics.isEmpty else { return false }
+            guard MetricsGate.isMet(draft: draft) else { return false }
             // "Every threshold parses" = no build issue attributable to a
             // thresholded metric. Threshold issues all lead with the metric
             // key ("temp: min isn't a number", "temp needs at least one of
@@ -82,6 +82,23 @@ enum EditorStep: Int, CaseIterable {
             .last { $0.isUnlocked(draft: draft, catalog: catalog, rangeConfirmed: rangeConfirmed) }
             ?? .nameIcon
     }
+}
+
+// MARK: - MetricsGate — the two-metric minimum
+
+/// The Metrics step's floor (owner ruling 2026-11-11, build 10): Next stays
+/// off until at least two metrics are picked, on a new Activity and an
+/// edited one alike — no grandfathering (the build-10 purge removed every
+/// older single-metric Activity).
+enum MetricsGate {
+    static let minimum = 2
+
+    static func isMet(draft: ActivityDraft) -> Bool {
+        draft.metrics.count >= minimum
+    }
+
+    /// The gate's line under the grid.
+    static let hint = "Pick at least two"
 }
 
 // MARK: - WizardProgress — the progress bar's fill

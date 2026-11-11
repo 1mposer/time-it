@@ -52,17 +52,45 @@ final class EditorWizardTests: XCTestCase {
 
     // MARK: - Tab 1 — metrics
 
-    func testMetricsGateNeedsAtLeastOneSelectedMetric() {
+    func testMetricsGateNeedsAtLeastTwoSelectedMetrics() {
         XCTAssertFalse(complete(.metrics, blankDraft()))
 
         var draft = blankDraft()
+        draft.selectWithPreset(descriptor("temp"))
+        XCTAssertFalse(complete(.metrics, draft), "one metric is not enough (owner ruling 2026-11-11)")
+        XCTAssertFalse(MetricsGate.isMet(draft: draft))
+
         draft.selectWithPreset(descriptor("moon"))
-        XCTAssertTrue(complete(.metrics, draft), "a show-only metric with no threshold completes the tab")
+        XCTAssertTrue(complete(.metrics, draft), "a show-only metric with no threshold counts as the second")
+        XCTAssertEqual(MetricsGate.hint, "Pick at least two")
+    }
+
+    func testMetricsGateRevertsWhenTheSecondMetricIsUnpicked() {
+        var draft = blankDraft()
+        draft.selectWithPreset(descriptor("temp"))
+        draft.selectWithPreset(descriptor("windSpeed"))
+        XCTAssertTrue(complete(.metrics, draft))
+
+        draft.toggleMetric("windSpeed")
+        XCTAssertFalse(complete(.metrics, draft), "live validity — dropping to one re-locks Next")
+    }
+
+    func testAnEditedSingleMetricActivityIsHeldOnMetrics() {
+        var single = Fixtures.cycling
+        single.displayMetrics = ["temp"]
+        single.thresholds = ["temp": Threshold(min: 15, max: 35, required: true)]
+        let draft = ActivityDraft(from: single)
+
+        XCTAssertFalse(complete(.metrics, draft), "no grandfathering on the edit path")
+        XCTAssertEqual(EditorStep.landingStep(requested: .range, draft: draft, catalog: catalog,
+                                              rangeConfirmed: draft.hadWindow),
+                       .metrics, "Edit range on a one-metric Activity lands on Metrics")
     }
 
     func testMetricsGateFailsWhileAThresholdDoesNotParse() {
         var draft = blankDraft()
         draft.selectWithPreset(descriptor("temp"))
+        draft.selectWithPreset(descriptor("moon"))
         XCTAssertTrue(complete(.metrics, draft), "the preset threshold parses out of the box")
 
         draft.thresholds["temp"]?.minText = "abc"
@@ -76,6 +104,7 @@ final class EditorWizardTests: XCTestCase {
     func testMetricsGateIgnoresIssuesNotAttributableToThresholds() {
         var draft = blankDraft()
         draft.selectWithPreset(descriptor("temp"))
+        draft.selectWithPreset(descriptor("moon"))
         // Name still empty and icon still the sentinel — tab 0's problem, not tab 1's.
         XCTAssertTrue(complete(.metrics, draft))
     }
@@ -127,6 +156,9 @@ final class EditorWizardTests: XCTestCase {
                        "no metric yet — Priority stays locked")
 
         draft.selectWithPreset(descriptor("temp"))
+        XCTAssertFalse(EditorStep.priority.isUnlocked(draft: draft, catalog: catalog, rangeConfirmed: false),
+                       "one metric — Priority stays locked (the two-metric minimum)")
+        draft.selectWithPreset(descriptor("moon"))
         XCTAssertTrue(EditorStep.priority.isUnlocked(draft: draft, catalog: catalog, rangeConfirmed: false))
         XCTAssertFalse(EditorStep.range.isUnlocked(draft: draft, catalog: catalog, rangeConfirmed: false),
                        "nothing pressed on Priority — the Range step stays locked")

@@ -363,7 +363,8 @@ final class TimeItUITests: XCTestCase {
         XCTAssertTrue(metric.waitForExistence(timeout: 5))
         XCTAssertFalse(next.isEnabled, "no metric picked yet")
         metric.tap()
-        XCTAssertTrue(next.isEnabled, "picking auto-creates the preset bounds — zero typing")
+        XCTAssertFalse(next.isEnabled, "one metric is not enough (owner ruling 2026-11-11)")
+        XCTAssertTrue(app.staticTexts["editor.metricsGate"].exists, "the hint line under the grid")
 
         // The tap-the-label exact-entry path.
         app.buttons["editor.value.temp"].tap()
@@ -372,6 +373,11 @@ final class TimeItUITests: XCTestCase {
         XCTAssertEqual(minField.value as? String, "15", "the preset min prefills the field")
         minField.tap()
         minField.typeText("\n")
+        let moon = app.buttons["metric.moon"]
+        scrollTo(moon, in: app)
+        moon.tap()
+        XCTAssertTrue(next.isEnabled, "two picks, the presets parse — zero typing")
+        XCTAssertFalse(app.staticTexts["editor.metricsGate"].exists, "the hint goes once the gate is met")
         next.tap()
 
         // Priority: Next stays off until one tile is pressed.
@@ -575,6 +581,40 @@ final class TimeItUITests: XCTestCase {
         app.navigationBars.firstMatch.buttons.firstMatch.tap()
         XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5), "back on the dashboard")
         XCTAssertTrue(app.staticTexts["Cycling Pro"].waitForExistence(timeout: 5), "the card reflects the edit after refetch")
+    }
+
+    // MARK: - Build 10 (lane MANAGE): long-press menu, detail delete, gates
+
+    /// The two-metric minimum (owner ruling 2026-11-11): one pick keeps Next
+    /// off with the hint under the grid; the second turns it on.
+    func testMetricsStepNeedsTwoMetrics() {
+        let app = launchApp()
+        XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5))
+        app.swipeUp()
+        app.buttons["addActivityCard"].tap()
+        let name = app.textFields["editor.name"]
+        XCTAssertTrue(name.waitForExistence(timeout: 5))
+        name.tap()
+        name.typeText("Padel\n")
+        let icon = app.buttons["icon.figure.tennis"]
+        scrollTo(icon, in: app)
+        icon.tap()
+        let next = app.buttons["editor.nextStep"]
+        next.tap()
+
+        XCTAssertTrue(app.buttons["metric.temp"].waitForExistence(timeout: 5))
+        let hint = app.staticTexts["editor.metricsGate"]
+        XCTAssertTrue(hint.exists, "the hint shows before the gate is met")
+        XCTAssertEqual(hint.label, "Pick at least two")
+        app.buttons["metric.temp"].tap()
+        XCTAssertFalse(next.isEnabled, "one metric keeps Next off")
+        XCTAssertTrue(hint.exists)
+        let wind = app.buttons["metric.windSpeed"]
+        scrollTo(wind, in: app)
+        wind.tap()
+        XCTAssertTrue(next.isEnabled, "two metrics turn Next on")
+        XCTAssertFalse(hint.exists, "the hint goes once the gate is met")
+        app.buttons["editor.cancel"].tap()
     }
 
     func testDeletingLastActivityLandsTheAddHeroNotADeadEnd() {

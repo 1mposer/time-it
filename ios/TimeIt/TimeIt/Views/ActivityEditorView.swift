@@ -165,7 +165,7 @@ struct ActivityEditorView: View {
                 }
                 switch step {
                 case .nameIcon: nameStep
-                case .metrics: MetricTileGrid(draft: $draft, catalog: catalog, windUnit: windUnit)
+                case .metrics: metricsStep
                 case .priority: priorityStep
                 case .range: rangeStep
                 case .review: EmptyView()
@@ -380,6 +380,23 @@ struct ActivityEditorView: View {
         .accessibilityIdentifier("icon.\(symbol)")
         .accessibilityLabel(symbol)
         .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    // MARK: - Step 2 — Metrics
+
+    /// The grid, and under it the two-metric gate's one hint line while the
+    /// gate is unmet (the Priority step's gate-line pattern).
+    private var metricsStep: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            MetricTileGrid(draft: $draft, catalog: catalog, windUnit: windUnit)
+            if !MetricsGate.isMet(draft: draft) {
+                Text(MetricsGate.hint)
+                    .scaledFont(size: 13)
+                    .foregroundStyle(Theme.secondaryText)
+                    .frame(maxWidth: .infinity)
+                    .accessibilityIdentifier("editor.metricsGate")
+            }
+        }
     }
 
     // MARK: - Step 3 — Priority
