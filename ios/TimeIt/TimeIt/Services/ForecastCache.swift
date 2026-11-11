@@ -38,11 +38,19 @@ struct ForecastCacheEntry: Codable {
                                   fingerprints: fingerprints.filter { kept.contains($0.key) })
     }
 
-    /// Fresh while `now` is within the TTL of the fetch. A device clock set
-    /// back before the fetch reads stale — the age can't be trusted.
+    /// Fresh while `now` is within the TTL of the fetch AND still on the
+    /// location's local day of `forecastStart` — the dashboard reads
+    /// `days[0]`, so a forecast fetched at 23:30 is stale at 00:05 (the
+    /// `SpanScoring.replyDayZeroMatches` rule). A device clock set back
+    /// before the fetch reads stale — the age can't be trusted.
     func isFresh(now: Date) -> Bool {
         let age = now.timeIntervalSince(fetchedAt)
-        return age >= 0 && age < Self.ttl
+        guard age >= 0, age < Self.ttl,
+              let start = ISO8601DateFormatter().date(from: response.forecastStart),
+              let zone = TimeZone(identifier: response.timezone) else { return false }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = zone
+        return calendar.isDate(now, inSameDayAs: start)
     }
 }
 

@@ -224,6 +224,16 @@ final class DashboardViewModel: ObservableObject {
         await loadForecast(showsLoading: true)
     }
 
+    /// Re-draws the forecast for the store's current Activity list through
+    /// the cache: a delete, reorder or dormancy drops/reorders the cached
+    /// ratings with NO request; an add/edit POSTs only that Activity. The
+    /// `store.$activities` sink already calls this on every store mutation,
+    /// so callers (MANAGE's delete/reorder) just mutate `ActivityStore`;
+    /// calling it directly as well is harmless.
+    func reconcileForecastWithStore() async {
+        await loadForecast()
+    }
+
     /// Pull-to-refresh: always a full refetch — it bypasses a fresh cache
     /// (owner rule 2026-11-11) — but with a forecast already on screen
     /// `isLoading` stays false — the dashboard's full-screen spinner would
@@ -336,7 +346,7 @@ final class DashboardViewModel: ObservableObject {
             return
         } catch let error as APIError {
             guard generation == loadGeneration else { return }
-            if keepsCacheOnFailure(fallback, for: active) { return }
+            if error.isTransient, keepsCacheOnFailure(fallback, for: active) { return }
             if keepsListOnFailure(showsLoading: showsLoading) { return }
             errorMessage = error.userMessage
             isTransientError = error.isTransient
@@ -362,8 +372,9 @@ final class DashboardViewModel: ObservableObject {
         }
     }
 
-    /// A failed refetch with a cached forecast for this location keeps it
-    /// on screen, aged by its own fetch instant; no error state.
+    /// A transient failure (offline, 502) with a cached forecast for this
+    /// location keeps it on screen, aged by its own fetch instant; no error
+    /// state. A rejection (400/500) still surfaces its message.
     private func keepsCacheOnFailure(_ fallback: ForecastCacheEntry?, for active: ActiveLocation) -> Bool {
         guard let fallback, !fallback.response.activities.isEmpty else { return false }
         publish(fallback, for: active)

@@ -354,6 +354,34 @@ final class DashboardForecastCacheTests: XCTestCase {
         XCTAssertEqual(api.fetchCount, 1)
     }
 
+    func testAReloadPastLocalMidnightRefetchesAYoungCache() async {
+        let api = EchoRatingService()
+        api.forecastStart = "2026-06-19T19:00:00Z"
+        let clock = TestClock("2026-06-19T19:30:00Z")  // 23:30 Dubai
+        let (vm, _) = makeVM(api: api, clock: clock)
+        await vm.loadForecast()
+
+        clock.advance(hours: 1)  // 00:30 — day 0 is yesterday now
+        await vm.loadForecast()
+
+        XCTAssertEqual(api.fetchCount, 2)
+    }
+
+    /// Only a transient failure (offline, 502) falls back to the cache; a
+    /// rejected edit (400) still surfaces its message.
+    func testARejectedEditStillShowsItsErrorOverTheCache() async {
+        let api = EchoRatingService()
+        let clock = TestClock("2026-06-19T12:10:00Z")
+        let (vm, store) = makeVM(api: api, clock: clock)
+        await vm.loadForecast()
+
+        api.failure = APIError.serverError(statusCode: 400)
+        store.add(padel)
+        await waitUntil { vm.errorMessage != nil }
+
+        XCTAssertEqual(vm.errorMessage, APIError.serverError(statusCode: 400).userMessage)
+    }
+
     func testAFailureWithNoCacheStillShowsTheErrorState() async {
         let api = EchoRatingService()
         api.failure = APIError.providerUnavailable

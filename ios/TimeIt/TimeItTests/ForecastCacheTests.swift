@@ -103,6 +103,18 @@ final class ForecastCacheTests: XCTestCase {
                        "a clock set back behind the fetch can't vouch for the data")
     }
 
+    /// Anchored on `forecastStart` too: the dashboard reads `days[0]`, so a
+    /// forecast whose day 0 is no longer the location's today is stale
+    /// however young — 23:30 → 00:40 Dubai crosses local midnight.
+    func testStaleOnceTheLocationsLocalDayRollsPastForecastStart() {
+        let lateEvening = ForecastResponse(forecastStart: "2026-06-19T19:00:00Z", timezone: "Asia/Dubai",
+                                           activities: [], hours: [])
+        let fetched = ISO8601DateFormatter().date(from: "2026-06-19T19:30:00Z")!  // 23:30 Dubai
+        let entry = ForecastCacheEntry(key: "k", fetchedAt: fetched, response: lateEvening, fingerprints: [:])
+        XCTAssertTrue(entry.isFresh(now: fetched.addingTimeInterval(20 * 60)), "23:50 is still day 0")
+        XCTAssertFalse(entry.isFresh(now: fetched.addingTimeInterval(70 * 60)), "00:40 is a new local day")
+    }
+
     func testClearRemovesTheEntryFromDisk() throws {
         let cache = ForecastCache(fileURL: fileURL)
         cache.store(ForecastCacheEntry(key: "k", fetchedAt: fetchedAt, response: try wireResponse(), fingerprints: [:]))
