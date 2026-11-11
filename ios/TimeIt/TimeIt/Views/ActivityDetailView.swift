@@ -838,6 +838,13 @@ struct ActivityDetailView: View {
                     // full-width square would be mostly empty.
                     .atLeastSquare(squareFloor)
             }
+            // Last in the grid, the metric square's own geometry: opens the
+            // editor on Metrics (build 10).
+            if authored != nil,
+               AddMetricTile.isOffered(displayMetrics: metrics, catalog: catalog) {
+                AddMetricTile { openEditor(at: .metrics) }
+                    .atLeastSquare(squareFloor)
+            }
         }
     }
 

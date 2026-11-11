@@ -627,12 +627,20 @@ final class TimeItUITests: XCTestCase {
         XCTAssertEqual(fetchCount.value as? String, "1", "reorder and delete never refetch")
     }
 
-    /// Delete from the detail: the editor's words, confirmed, then home.
+    /// Delete from the detail: the editor's words, confirmed, then home. The
+    /// add-metric tile sits last in the grid and opens the wizard on Metrics.
     func testDetailDeleteConfirmsThenPopsHome() {
         let app = launchApp()
         let card = app.buttons["card.cycling"]
         XCTAssertTrue(card.waitForExistence(timeout: 5))
         card.tap()
+
+        let addMetric = app.buttons["detail.addMetric"]
+        scrollTo(addMetric, in: app)
+        XCTAssertTrue(addMetric.waitForExistence(timeout: 5), "the add-metric tile ends the grid")
+        addMetric.tap()
+        XCTAssertTrue(app.buttons["metric.temp"].waitForExistence(timeout: 5), "it opens the wizard on Metrics")
+        app.buttons["editor.cancel"].tap()
 
         let delete = app.buttons["detail.delete"]
         scrollTo(delete, in: app)

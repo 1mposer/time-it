@@ -64,6 +64,51 @@ private struct TileSurface: ViewModifier {
     }
 }
 
+// MARK: - The detail's "add metric" tile (build 10)
+
+/// The last cell of the detail's metric grid: the metric square's exact
+/// geometry — same card fill, `Theme.Radius.lg` corner, card lift and
+/// square floor as `MetricCardView` — holding a "+" and "Add metric". A tap
+/// opens the editor on the Metrics step. Shown only while some live metric
+/// is not yet on the Activity (`isOffered`). A tap-gesture view with the
+/// button trait, not a `Button`: the `Button` + `PressStyle` version kept
+/// the accessibility-size detail from ever going idle under XCUI (bisected
+/// 2026-11-11 on `testAccessibilityXXLStacksTheHeroAndNothingOverflows`).
+struct AddMetricTile: View {
+    let action: () -> Void
+
+    @ScaledMetric(relativeTo: .title2) private var glyphSize: CGFloat = 22
+
+    /// Offered while the catalog still has a metric the Activity lacks.
+    static func isOffered(displayMetrics: [String], catalog: MetricCatalogProviding) -> Bool {
+        catalog.metrics.contains { !displayMetrics.contains($0.key) }
+    }
+
+    var body: some View {
+        VStack(spacing: Theme.Spacing.sm) {
+            Image(systemName: "plus")
+                .font(.system(size: glyphSize, weight: .semibold))
+                .foregroundStyle(Theme.accentBrand)
+                .accessibilityHidden(true)
+            Text("Add metric")
+                .scaledFont(size: 15, weight: .medium)
+                .foregroundStyle(Theme.secondaryText)
+        }
+        .padding(.horizontal, Theme.Detail.metricInset)
+        .padding(.vertical, 24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Theme.cardBackground)
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.lg))
+        .cardLift(cornerRadius: Theme.Radius.lg)
+        .contentShape(RoundedRectangle(cornerRadius: Theme.Radius.lg))
+        .onTapGesture(perform: action)
+        .accessibilityElement(children: .ignore)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityLabel("Add metric")
+        .accessibilityIdentifier("detail.addMetric")
+    }
+}
+
 // MARK: - Metrics step
 
 /// The Metrics step: pick which metrics show. A tap selects (accent ring,

@@ -348,4 +348,12 @@ final class EditorWizardTests: XCTestCase {
         XCTAssertEqual(ActivityEditorView.reviewTitle(isNew: true, isFirstActivity: false), "Activity created")
         XCTAssertEqual(ActivityEditorView.reviewTitle(isNew: false, isFirstActivity: false), "Your activity")
     }
+
+    // MARK: - The detail's add-metric tile (build 10)
+
+    func testAddMetricTileIsOfferedUntilEveryMetricIsShown() {
+        XCTAssertTrue(AddMetricTile.isOffered(displayMetrics: ["temp", "windSpeed"], catalog: catalog))
+        XCTAssertFalse(AddMetricTile.isOffered(displayMetrics: catalog.metrics.map(\.key), catalog: catalog),
+                       "nothing left to add — no tile")
+    }
 }
