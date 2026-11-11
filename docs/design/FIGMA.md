@@ -210,5 +210,5 @@ Mess around (`179:5`), rows under the header `LANE A — 2026-11-11` (`864:7163`
 
 **Round 4 (owner rulings 17a 18a 19c + a new dark palette, 2026-11-11):** dark clones repainted to the owner's dark palette (it replaced ladder C, "it looks like AI green"; values in the frames and in `Theme.swift`), plus the chosen-tile outline on Priority (a 2pt accent ring 4pt outside the filled tile): `881:16526` Name · `881:16580` Metrics · `881:16644` Priority · `881:16687` Range · `881:16729` Review END · `881:16819` Opening · `881:16825` Dashboard (all dark) · `881:17056` Priority light; notes `881:16579`–`881:17098`. The `AccentColor` asset now carries the brand (system controls follow it), and Settings / its sheets sit on the app ground in dark.
 
-**Gate state (ADR-0008):** all Lane A frames approved 2026-11-11; code built on the Lane A worktree branch. **Not yet written:** the ruled values on the Color (`92:4`) / Typography (`92:5`) pages and the Semantic collection — held for the owner's word ("might be", 2026-11-11).
+**Gate state (ADR-0008):** all Lane A frames approved 2026-11-11; code merged to `main` and pushed 2026-11-11 (`6deaab8`, build 9). **Not yet written:** the ruled values on the Color (`92:4`) / Typography (`92:5`) pages and the Semantic collection — held for the owner's word ("might be", 2026-11-11).
 
