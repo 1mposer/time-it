@@ -137,6 +137,18 @@ final class HourSlotTests: XCTestCase {
                        "the injected 8:30am clock, not the real one (which would grey all four)")
     }
 
+    /// POLISH item 7 (deferral 5, card half): the card re-renders on a
+    /// minute tick, and each render re-reads the clock — so an hour that
+    /// ends while the dashboard is open greys on the next tick, no refetch.
+    func testCardStripRereadsTheClockOnEveryRender() async {
+        var clock = date("2026-06-19T04:30:00Z") // 8:30am
+        let vm = await makeLoadedVM(forecastStart: "2026-06-19T04:00:00Z", now: { clock })
+        let authored = activity(WindowSpec(startHour: 6, endHour: 10))
+        XCTAssertEqual(vm.rangeStripTiers(for: authored, dayIndex: 0), [nil, nil, .green, .green])
+        clock = date("2026-06-19T05:01:00Z") // 9:01am — the 8am hour just ended
+        XCTAssertEqual(vm.rangeStripTiers(for: authored, dayIndex: 0), [nil, nil, nil, .green])
+    }
+
     // MARK: Carousel walk
 
     func testWalkableCoversTheGoneRangeHoursAndTheRestOfTheDay() async {

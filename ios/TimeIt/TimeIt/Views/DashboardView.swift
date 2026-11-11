@@ -570,7 +570,15 @@ struct DashboardView: View {
                             } else if let activity = viewModel.rating(forActivityId: authored.id) {
                                 ZStack(alignment: .topTrailing) {
                                     NavigationLink(value: activity.activityId) {
-                                        card(for: activity, authored: authored)
+                                        // A minute tick (deferral 5, card half —
+                                        // the detail hero's twin, `aa3a28e`):
+                                        // passed strip hours grey on the minute.
+                                        // A re-render trigger only — the card
+                                        // reads `viewModel.now()`, never the
+                                        // timeline's date (the UI-test clock pin).
+                                        TimelineView(.everyMinute) { _ in
+                                            card(for: activity, authored: authored)
+                                        }
                                     }
                                     .buttonStyle(.plain)
                                     // Long-press → the system context menu
