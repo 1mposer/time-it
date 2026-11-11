@@ -1270,11 +1270,14 @@ final class TimeItUITests: XCTestCase {
         let card = app.buttons["card.cycling"]
         XCTAssertTrue(card.waitForExistence(timeout: 5))
         XCTAssertTrue(card.isHittable)
-        // The launch argument took effect: the 11pt location label (no
-        // minimum scale factor) is far taller than its default ~13pt line.
+        // The header's words stop at xxxLarge (note 36, POLISH item 6): the
+        // 11pt location label grows past its default ~13pt line but never
+        // to an accessibility size. The text size reaching the app is
+        // checked on the detail's range line below.
         let location = app.staticTexts["headerLocation"]
         XCTAssertTrue(location.exists)
-        XCTAssertGreaterThan(location.frame.height, 30, "the text size reached the app")
+        XCTAssertGreaterThan(location.frame.height, 16, "the header still scales up to its cap")
+        XCTAssertLessThan(location.frame.height, 30, "the header stops at xxxLarge")
         XCTAssertTrue(app.staticTexts["headerTime"].exists)
         XCTAssertTrue(app.buttons["settingsGear"].isHittable)
         assertNothingOverflowsHorizontally(app)
@@ -1286,6 +1289,9 @@ final class TimeItUITests: XCTestCase {
         let row = app.descendants(matching: .any)["detail.hourStrip"]
         let line = app.staticTexts["detail.rangeLine"]
         XCTAssertTrue(line.waitForExistence(timeout: 3))
+        // The launch argument took effect: the 13pt range line is far
+        // taller than its default ~16pt line.
+        XCTAssertGreaterThan(line.frame.height, 30, "the text size reached the app")
         XCTAssertTrue(score.exists)
         XCTAssertTrue(row.exists)
         XCTAssertTrue(row.isHittable)
