@@ -489,7 +489,7 @@ final class TimeItUITests: XCTestCase {
             let splash = app.descendants(matching: .any)["opening.splash"]
             XCTAssertTrue(splash.waitForExistence(timeout: 5))
             // Held on its end frame (UITEST_HOLD_OPENING): circles + name.
-            Thread.sleep(forTimeInterval: 5)
+            Thread.sleep(forTimeInterval: 6.5) // +1 s first-frame hold (POLISH item 5)
             XCTAssertTrue(splash.exists, "the held opening waits for a tap")
             attachScreenshot(app, named: "laneA-opening-\(appearance)")
             splash.tap()

@@ -88,8 +88,15 @@ struct LogoConvergeAnimation: View {
         LogoScreen { size in
             LogoLockup(size: size, poses: poses, risen: risen, nameShown: nameShown)
         }
-        // onAppear sits inside the fallback, so Reduce Motion never runs `play`.
-        .onAppear(perform: play)
+        // .task sits inside the fallback, so Reduce Motion never runs `play`.
+        // The first solid-colour frame holds `OpeningPolicy.firstFrameHold`
+        // before the circles move (owner, build 10 POLISH item 5): the app
+        // underneath mounts and pre-warms in that second, not mid-spring.
+        .task {
+            try? await Task.sleep(for: .seconds(OpeningPolicy.firstFrameHold))
+            guard !Task.isCancelled else { return }
+            play()
+        }
         .logoReduceMotionFallback(onFinished: onFinished)
     }
 
@@ -313,6 +320,11 @@ enum OpeningPolicy {
     /// The XCUI opt-out argument (the launch helper passes it on every run
     /// except the one test that watches the opening).
     static let uiTestSkipArgument = "UITEST_SKIP_OPENING"
+
+    /// How long the first solid-colour frame (the bare cream) holds before
+    /// the circles start to converge — +1.0 s on build 9's immediate start
+    /// (owner, build 10 POLISH item 5; ~5.5 s cold launch accepted).
+    static let firstFrameHold: TimeInterval = 1.0
 
     /// XCUI only: hold the opening on its end frame until a tap, so the
     /// screenshot walk captures it deterministically (wall-clock sleeps race
