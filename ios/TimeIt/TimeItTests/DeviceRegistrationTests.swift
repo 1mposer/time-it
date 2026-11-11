@@ -547,4 +547,72 @@ final class DeviceRegistrationTests: XCTestCase {
                        "an opted-out user must not keep receiving pushes")
         XCTAssertFalse(defaults.bool(forKey: DeviceRegistration.pendingDeleteKey))
     }
+
+    // MARK: build-10 purge — one empty snapshot for an opted-in device
+
+    /// A previous build's state: activities stored, opted in, token sent and
+    /// fresh — the dedupe that would normally send nothing on receipt.
+    private func persistPreviousBuild(enabled: Bool) {
+        defaults.set(try! JSONEncoder().encode([liveCycling(), nocturnalStargazing()]),
+                     forKey: ActivityStore.storageKey)
+        defaults.set(enabled, forKey: DeviceRegistration.enabledKey)
+        defaults.set("aabbcc00", forKey: DeviceRegistration.lastSentTokenKey)
+        defaults.set(nowDate, forKey: DeviceRegistration.lastUpsertAtKey)
+        preferences.homeLocation = SavedLocation(name: "Dubai Marina", lat: 25.08, lon: 55.14)
+    }
+
+    /// One app launch: the shared store's purge switch, then registration.
+    private func launch() -> DeviceRegistration {
+        store = ActivityStore(defaults: defaults, purgesForBuild10: true)
+        return makeRegistration(enabled: false)
+    }
+
+    func testBuild10PurgeSendsExactlyOneEmptySnapshotWhenOptedIn() async {
+        persistPreviousBuild(enabled: true)
+
+        let registration = launch()
+        registration.updateAPNsToken("aabbcc00")
+        await registration.awaitPendingOperations()
+
+        XCTAssertTrue(store.activities.isEmpty)
+        XCTAssertEqual(api.puts.count, 1, "one PUT although the token is unchanged and fresh")
+        XCTAssertEqual(api.puts.first?.body.activities.count, 0, "the server snapshot goes dormant")
+        XCTAssertTrue(api.deletes.isEmpty, "the device is never deleted (ADR-0010)")
+    }
+
+    func testBuild10PurgeOwesNothingOnTheSecondLaunch() async {
+        persistPreviousBuild(enabled: true)
+        let first = launch()
+        first.updateAPNsToken("aabbcc00")
+        await first.awaitPendingOperations()
+
+        let second = launch()
+        second.updateAPNsToken("aabbcc00")
+        await second.awaitPendingOperations()
+
+        XCTAssertEqual(api.puts.count, 1, "a second launch does nothing")
+    }
+
+    func testBuild10PurgeSendsNothingWhenNotOptedIn() async {
+        persistPreviousBuild(enabled: false)
+
+        let registration = launch()
+        registration.updateAPNsToken("aabbcc00")
+        await registration.awaitPendingOperations()
+
+        XCTAssertTrue(store.activities.isEmpty, "the purge itself still runs")
+        XCTAssertTrue(api.puts.isEmpty)
+    }
+
+    func testBuild10PurgeStillOwesTheEmptySnapshotWhenTheTokenNeverArrived() async {
+        persistPreviousBuild(enabled: true)
+        _ = launch()  // no token this launch
+
+        let next = makeRegistration(enabled: false)
+        next.updateAPNsToken("aabbcc00")
+        await next.awaitPendingOperations()
+
+        XCTAssertEqual(api.puts.count, 1, "the cleared dedupe carries the owed PUT to the next launch")
+        XCTAssertEqual(api.puts.first?.body.activities.count, 0)
+    }
 }

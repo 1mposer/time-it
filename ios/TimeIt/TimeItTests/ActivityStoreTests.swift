@@ -170,4 +170,56 @@ final class ActivityStoreTests: XCTestCase {
         XCTAssertEqual(store.activities.count, ActivityStore.softCap, "the soft cap is enforced")
         XCTAssertLessThan(ActivityStore.softCap, 50, "soft cap must stay under the ADR-0005 hard ceiling")
     }
+
+    // MARK: build-10 purge (owner ruling 2026-11-11 — every install starts empty)
+
+    private func makePurgingStore() -> ActivityStore {
+        ActivityStore(defaults: defaults, purgesForBuild10: true)
+    }
+
+    func testBuild10PurgeEmptiesASeededStoreAndItsPerCardState() {
+        persistDirectly([makeActivity(id: "a", label: "Padel"), makeActivity(id: "b", label: "Tennis")])
+        defaults.set(try! JSONEncoder().encode(["a"]), forKey: PreferencesStore.collapsedCardsKey)
+
+        let store = makePurgingStore()
+
+        XCTAssertTrue(store.activities.isEmpty, "every stored Activity is deleted, confirmed ones too")
+        XCTAssertTrue(store.purgedOnLoad)
+        XCTAssertNil(defaults.data(forKey: PreferencesStore.collapsedCardsKey),
+                     "per-card state keyed on the deleted ids goes with them")
+        XCTAssertTrue(ActivityStore(defaults: defaults).activities.isEmpty, "the purge persisted")
+    }
+
+    func testBuild10PurgeRunsOnceOnly() {
+        persistDirectly([makeActivity(id: "a")])
+        _ = makePurgingStore()
+        let store = makeStore()
+        store.add(makeActivity(id: "fresh", label: "Fresh"))
+
+        let second = makePurgingStore()
+
+        XCTAssertEqual(second.activities.map(\.id), ["fresh"], "a second launch does nothing")
+        XCTAssertFalse(second.purgedOnLoad)
+    }
+
+    func testBuild10PurgeStampsAFreshInstallSoItsNewActivitiesSurvive() {
+        let first = makePurgingStore()
+        XCTAssertFalse(first.purgedOnLoad, "nothing stored — nothing to purge")
+        first.add(makeActivity(id: "new"))
+
+        XCTAssertEqual(makePurgingStore().activities.map(\.id), ["new"],
+                       "the fresh install was stamped, so the next launch keeps its Activity")
+    }
+
+    func testAStoredEmptyListIsStampedWithoutCountingAsAPurge() {
+        persistDirectly([])
+
+        XCTAssertFalse(makePurgingStore().purgedOnLoad, "no Activities were deleted — no empty PUT owed")
+    }
+
+    func testTestStoresNeverPurgeByDefault() {
+        persistDirectly([makeActivity(id: "a")])
+
+        XCTAssertEqual(makeStore().activities.map(\.id), ["a"])
+    }
 }

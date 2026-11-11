@@ -126,6 +126,16 @@ final class DeviceRegistration: ObservableObject {
             installId = minted
         }
 
+        // The build-10 purge emptied the store before this sink existed, so
+        // no trigger sees it: an opted-in device owes the server ONE empty
+        // snapshot (dormant, never deleted — ADR-0010). Queued for the
+        // token's arrival, and the sent-token dedupe is cleared so a launch
+        // that never gets its token still owes the PUT next launch.
+        if self.store.purgedOnLoad, isEnabled {
+            upsertQueuedForToken = true
+            defaults.removeObject(forKey: Self.lastSentTokenKey)
+        }
+
         // The re-upsert triggers, gated on the toggle inside snapshotDidChange:
         // any ActivityStore mutation, a home change. dropFirst skips the seed/
         // initial publish. A home pick while an opt-in is pending on location

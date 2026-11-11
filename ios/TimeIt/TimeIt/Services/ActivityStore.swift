@@ -6,9 +6,15 @@ import Foundation
 /// removed 2026-09-01), persisted to UserDefaults on every mutation.
 @MainActor
 final class ActivityStore: ObservableObject {
-    static let shared = ActivityStore()
+    static let shared = ActivityStore(purgesForBuild10: true)
 
     static let storageKey = "authoredActivities"
+
+    /// The build-10 purge's stored marker (owner ruling 2026-11-11): set once
+    /// the purge has run, on every load path, so it runs exactly once per
+    /// install. A fixed key — never the bundle version, which App Store
+    /// Connect may assign differently.
+    static let build10PurgeKey = "activityPurge.build10"
 
     /// Soft quantity cap — must stay well under the server's ~50 hard
     /// ceiling (ADR-0005).
@@ -22,16 +28,45 @@ final class ActivityStore: ObservableObject {
 
     @Published private(set) var activities: [AuthoredActivity] = []
 
+    /// True when THIS load ran the build-10 purge over a stored list — the
+    /// push registration reads it to send one empty snapshot (the server
+    /// goes dormant; the device row is never deleted, ADR-0010).
+    private(set) var purgedOnLoad = false
+
     private let defaults: UserDefaults
     /// First-load contents when nothing is persisted. Production passes
     /// nothing (empty first launch) — this is a test/preview seam only.
     private let seeds: [AuthoredActivity]
 
+    /// `purgesForBuild10` is the production switch (the shared store only):
+    /// test stores default to off so a pre-persisted list loads as written.
     init(defaults: UserDefaults = .standard,
-         seeds: [AuthoredActivity] = []) {
+         seeds: [AuthoredActivity] = [],
+         purgesForBuild10: Bool = false) {
         self.defaults = defaults
         self.seeds = seeds
+        if purgesForBuild10 { runBuild10PurgeIfNeeded() }
         load()
+    }
+
+    /// The build-10 purge (owner ruling 2026-11-11 — every install starts
+    /// empty on this build): on the first launch that carries the marker
+    /// check, every stored Activity and the per-card state keyed on them
+    /// (the collapsed-card ids) are deleted. A fresh install has nothing to
+    /// purge and is only stamped. A UI-test mock run is stamped without
+    /// purging — its seeded store is the harness's starting state.
+    private func runBuild10PurgeIfNeeded() {
+        guard !defaults.bool(forKey: Self.build10PurgeKey) else { return }
+        defaults.set(true, forKey: Self.build10PurgeKey)
+        #if DEBUG
+        if ProcessInfo.processInfo.isUITestMockRun { return }
+        #endif
+        guard let data = defaults.data(forKey: Self.storageKey) else { return }
+        let hadActivities = (try? JSONDecoder().decode([AuthoredActivity].self, from: data))
+            .map { !$0.isEmpty } ?? true
+        defaults.set(try? JSONEncoder().encode([AuthoredActivity]()), forKey: Self.storageKey)
+        defaults.removeObject(forKey: PreferencesStore.collapsedCardsKey)
+        purgedOnLoad = hadActivities
     }
 
     var isAtCap: Bool { activities.count >= Self.softCap }
