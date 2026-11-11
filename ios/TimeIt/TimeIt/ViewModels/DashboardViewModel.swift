@@ -4,7 +4,16 @@ import Foundation
 
 @MainActor
 final class DashboardViewModel: ObservableObject {
-    @Published private(set) var forecast: ForecastResponse?
+    @Published private(set) var forecast: ForecastResponse? {
+        didSet {
+            // One deriver per forecast (ROADMAP build-10 deferral 8): rebuilt
+            // only when the instant or zone changes — a merged single-Activity
+            // reply shares both, so it keeps the deriver.
+            guard forecast?.forecastStart != oldValue?.forecastStart
+                    || forecast?.timezone != oldValue?.timezone else { return }
+            timeDeriver = forecast.flatMap { TimeDeriver(forecastStart: $0.forecastStart, timezone: $0.timezone) }
+        }
+    }
     @Published private(set) var isLoading = false
     @Published private(set) var errorMessage: String?
     /// True when no location could be resolved — the dashboard shows the
@@ -157,9 +166,9 @@ final class DashboardViewModel: ObservableObject {
         abs(a.latitude - b.latitude) > 0.01 || abs(a.longitude - b.longitude) > 0.01
     }
 
-    var timeDeriver: TimeDeriver? {
-        forecast.flatMap { TimeDeriver(forecastStart: $0.forecastStart, timezone: $0.timezone) }
-    }
+    /// Built once per forecast (see `forecast`'s didSet) — the detail
+    /// carousel reads it many times per step; profiled at ~64 µs per rebuild.
+    private(set) var timeDeriver: TimeDeriver?
 
     /// False once the last Activity is deleted — the dashboard shows the
     /// empty state instead of POSTing an empty activities[] (ADR-0005
