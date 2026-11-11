@@ -41,6 +41,12 @@ final class DashboardViewModel: ObservableObject {
     /// Coordinate of the last POST; a new GPS fix reloads only when it moves
     /// meaningfully. nil = no POST yet, so any first fix triggers a load.
     private var lastFetchedCoordinate: CLLocationCoordinate2D?
+    /// The last /rating response on disk (lane CACHE, owner 2026-11-11):
+    /// launch, foreground return and re-entry are served from it while fresh.
+    private let cache: ForecastCache
+    /// Device-clock instant of the drawn forecast's full fetch — the
+    /// dashboard's "Updated 10:43" label. Nil with no forecast.
+    @Published private(set) var lastUpdated: Date?
 
     /// Where the location chain resolved: home → GPS → last-resolved cache.
     private enum ActiveLocation {
@@ -87,9 +93,11 @@ final class DashboardViewModel: ObservableObject {
          locationProvider: LocationProviding? = nil,
          store: ActivityStore? = nil,
          preferences: PreferencesStore? = nil,
+         cache: ForecastCache? = nil,
          deviceTimeZone: TimeZone = .current,
          now: @escaping () -> Date = Date.init) {
         self.api = api
+        self.cache = cache ?? ForecastCache.standard()
         self.deviceTimeZone = deviceTimeZone
         self.now = now
         self.locationProvider = locationProvider ?? LocationManager.shared
@@ -207,20 +215,21 @@ final class DashboardViewModel: ObservableObject {
         await loadForecast(showsLoading: true)
     }
 
-    /// Pull-to-refresh: the same refetch (the app keeps no client cache, so
-    /// it always reaches the server), but with a forecast already on screen
+    /// Pull-to-refresh: always a full refetch — it bypasses a fresh cache
+    /// (owner rule 2026-11-11) — but with a forecast already on screen
     /// `isLoading` stays false — the dashboard's full-screen spinner would
     /// unmount the card list, and with it the refresh control mid-pull.
     func refresh() async {
-        await loadForecast(showsLoading: forecast == nil)
+        await loadForecast(showsLoading: forecast == nil, bypassCache: true)
     }
 
-    private func loadForecast(showsLoading: Bool) async {
+    private func loadForecast(showsLoading: Bool, bypassCache: Bool = false) async {
         loadGeneration += 1
         let generation = loadGeneration
 
         guard hasLiveActivities else {
             forecast = nil
+            lastUpdated = nil
             errorMessage = nil
             isTransientError = false
             isLoading = false
@@ -240,6 +249,7 @@ final class DashboardViewModel: ObservableObject {
 
         guard let active = resolveActiveLocation() else {
             forecast = nil
+            lastUpdated = nil
             hasNoLocation = true
             activeLocationName = nil
             isLoading = false
@@ -251,16 +261,26 @@ final class DashboardViewModel: ObservableObject {
         let coordinate = active.coordinate
         lastFetchedCoordinate = coordinate
         let activities = liveActivities.map(\.activityInput)
+        let key = ForecastCache.key(lat: coordinate.latitude, lon: coordinate.longitude)
+        let fingerprints = Self.fingerprints(activities)
+
+        if !bypassCache, let entry = cache.entry(for: key), entry.isFresh(now: now()),
+           entry.fingerprints == fingerprints,
+           entry.response.activities.map(\.activityId) == activities.map(\.id) {
+            publish(entry, for: active)
+            return
+        }
+
         do {
             let result = try await api.fetchRatings(lat: coordinate.latitude,
                                                     lon: coordinate.longitude,
                                                     activities: activities)
             guard generation == loadGeneration else { return }
-            forecast = result
-            timezoneWarning = timezoneWarningIfNeeded(for: active, forecastTimezone: result.timezone)
-            if preferences.lastResolvedLocation != active.savedLocation {
-                preferences.lastResolvedLocation = active.savedLocation
-            }
+            let entry = ForecastCacheEntry(key: key, fetchedAt: now(), response: result,
+                                           fingerprints: fingerprints)
+            cache.store(entry)
+            publish(entry, for: active)
+            return
         } catch let error as APIError {
             guard generation == loadGeneration else { return }
             if keepsListOnFailure(showsLoading: showsLoading) { return }
@@ -273,6 +293,22 @@ final class DashboardViewModel: ObservableObject {
             isTransientError = true
         }
         isLoading = false
+    }
+
+    /// Draws a cache entry: the forecast, its age, and the location side
+    /// effects a successful fetch has always had.
+    private func publish(_ entry: ForecastCacheEntry, for active: ActiveLocation) {
+        forecast = entry.response
+        lastUpdated = entry.fetchedAt
+        isLoading = false
+        timezoneWarning = timezoneWarningIfNeeded(for: active, forecastTimezone: entry.response.timezone)
+        if preferences.lastResolvedLocation != active.savedLocation {
+            preferences.lastResolvedLocation = active.savedLocation
+        }
+    }
+
+    private static func fingerprints(_ inputs: [ActivityInput]) -> [String: String] {
+        Dictionary(inputs.map { ($0.id, ForecastCache.fingerprint($0)) }, uniquingKeysWith: { first, _ in first })
     }
 
     /// A failed pull over a live list keeps the cards on screen: no
