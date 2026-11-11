@@ -25,6 +25,7 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             List {
+                Group {
                 homeLocationSection
                 notificationsSection
                 unitsSection
@@ -47,7 +48,10 @@ struct SettingsView: View {
                         Image(systemName: "location.fill")
                     }
                 }
+                }
+                .appCardRows()
             }
+            .appGroundedList()
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

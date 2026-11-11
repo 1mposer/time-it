@@ -14,6 +14,7 @@ struct DashboardView: View {
     @StateObject private var registration: DeviceRegistration
     @ObservedObject private var router: PushRouter
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.openingInProgress) private var openingInProgress
     @Environment(\.scenePhase) private var scenePhase
     /// What is on screen — the header toggle switches to its opposite.
     @Environment(\.colorScheme) private var colorScheme
@@ -142,13 +143,14 @@ struct DashboardView: View {
                 NavigationStack {
                     ActivityEditorView(existing: .blank(),
                                        isNew: true,
+                                       isFirstActivity: store.activities.isEmpty,
                                        windUnit: preferences.windSpeedUnit,
                                        onSave: { activity in
                                            if !store.add(activity) {
                                                showingCapAlert = true
                                            }
                                        },
-                                       reviewRangeStartHour: { viewModel.reviewRangeStartHour(for: $0) },
+                                       reviewPreview: { await viewModel.reviewPreview(for: $0) },
                                        rangeHasPassedToday: { viewModel.rangeHasPassedToday($0) })
                 }
             }
@@ -167,7 +169,7 @@ struct DashboardView: View {
                                        windUnit: preferences.windSpeedUnit,
                                        onSave: { store.update($0) },
                                        onDelete: { store.delete(id: activity.id) },
-                                       reviewRangeStartHour: { viewModel.reviewRangeStartHour(for: $0) },
+                                       reviewPreview: { await viewModel.reviewPreview(for: $0) },
                                        rangeHasPassedToday: { viewModel.rangeHasPassedToday($0) })
                 }
             }
@@ -190,8 +192,13 @@ struct DashboardView: View {
             // Seeds the stored appearance from the system on first launch,
             // then owns the window override (inert under a UI-test pin).
             AppearanceController.shared.attachForCurrentProcess()
-            viewModel.requestInitialLocationPermissionIfNeeded()
             await viewModel.loadForecast()
+        }
+        // The first-run location prompt waits for the opening sequence to
+        // hand over (owner ruling 2026-11-11, Q16) — the system alert must
+        // not land on the logo. The fetch above runs underneath it.
+        .onChange(of: openingInProgress, initial: true) { _, inProgress in
+            if !inProgress { viewModel.requestInitialLocationPermissionIfNeeded() }
         }
         // A backgrounded app returns with a stale forecast — hours[0] and the
         // passed-range signal (card fallback + save alert) all read it, so
@@ -323,7 +330,7 @@ struct DashboardView: View {
                     Image(systemName: "arrow.right")
                         .font(.system(size: 13, weight: .semibold))
                 }
-                .foregroundStyle(Theme.accentInteractive)
+                .foregroundStyle(Theme.accentBrand)
                 .frame(minHeight: 30)
                 .contentShape(Rectangle())
             }
@@ -383,7 +390,7 @@ struct DashboardView: View {
                 } label: {
                     Text("Place your own location")
                         .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(Theme.accentInteractive)
+                        .foregroundStyle(Theme.accentBrand)
                         .frame(minHeight: 44)
                         .contentShape(Rectangle())
                 }
@@ -609,7 +616,7 @@ struct DashboardView: View {
             } label: {
                 Image(systemName: "info")
                     .font(.system(size: 17, weight: .medium))
-                    .foregroundStyle(Theme.accentInteractive)
+                    .foregroundStyle(Theme.accentBrand)
                     .frame(width: GlassCapsule.height, height: GlassCapsule.height)
                     .glassPieceSurface(in: Circle(), enabled: true, fallback: .material)
                     .contentShape(Circle())
@@ -641,7 +648,7 @@ struct DashboardView: View {
                             .accessibilityLabel(Self.calloutCopy)
                         Text("Turn on notifications")
                             .font(.system(size: 13))
-                            .foregroundStyle(Theme.accentInteractive)
+                            .foregroundStyle(Theme.accentBrand)
                     }
                     .padding(.vertical, 10)
                     Spacer(minLength: 0)
@@ -766,7 +773,7 @@ struct DashboardView: View {
     private static let addSlotHeight: CGFloat = 64
 
     /// "⊕ Add Activity" — a 40pt glass capsule (plus.circle + 16pt Semibold
-    /// in `accentInteractive`) inside a 44pt hit target (2pt above and below,
+    /// in `accentBrand`) inside a 44pt hit target (2pt above and below,
     /// outside the glass) that opens the wizard; the first-launch hero
     /// and the add slot after the list are the same control. At the soft cap
     /// it reads "Activity limit reached (N)", disabled at 50%.

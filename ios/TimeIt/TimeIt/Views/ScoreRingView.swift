@@ -84,7 +84,7 @@ struct ScoreRingView: View {
         }
         HStack(spacing: 24) {
             ScoreRingView(score: 86, tint: Theme.perfectGreen, style: .hero)
-            ScoreRingView(score: 54, tint: Theme.accentOrange, style: .hero)
+            ScoreRingView(score: 54, tint: Theme.ratingGood, style: .hero)
             ScoreRingView(score: nil, tint: Theme.secondaryText, style: .hero)
         }
     }

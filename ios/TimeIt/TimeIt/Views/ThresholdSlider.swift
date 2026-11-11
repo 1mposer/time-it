@@ -209,8 +209,8 @@ struct ThresholdSlider: View {
     /// dangerBothEnds = red → green → red (settled Theme colors).
     private var gradientColors: [Color] {
         switch descriptor.gradient ?? .dangerHigh {
-        case .dangerHigh: return [Theme.perfectGreen, Theme.accentOrange, Theme.badRed]
-        case .dangerLow: return [Theme.badRed, Theme.accentOrange, Theme.perfectGreen]
+        case .dangerHigh: return [Theme.perfectGreen, Theme.ratingGood, Theme.badRed]
+        case .dangerLow: return [Theme.badRed, Theme.ratingGood, Theme.perfectGreen]
         case .dangerBothEnds: return [Theme.badRed, Theme.perfectGreen, Theme.badRed]
         }
     }

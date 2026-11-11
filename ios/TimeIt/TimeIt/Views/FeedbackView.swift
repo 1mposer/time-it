@@ -110,21 +110,23 @@ struct FeedbackView: View {
                 Group {
                     if viewModel.phase == .sending {
                         ProgressView()
-                            .tint(Theme.onGradient)
+                            .tint(Theme.onFill)
                     } else {
                         Text("Send")
                             .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(Theme.onGradient)
+                            // Disabled reads as the "disabled" fill with a
+                            // legible secondary label — the dark label at
+                            // reduced opacity vanished on the dark ground.
+                            .foregroundStyle(viewModel.canSend ? Theme.onFill : Theme.disabledLabel)
                     }
                 }
                 .frame(maxWidth: .infinity)
                 .frame(height: 44)
-                .background(Capsule().fill(Theme.accentInteractive))
+                .background(Capsule().fill(viewModel.canSend ? Theme.accentBrandFill : Theme.disabledFill))
                 .contentShape(Capsule())
             }
             .buttonStyle(.plain)
             .disabled(!viewModel.canSend)
-            .opacity(viewModel.canSend ? 1 : 0.4)
             .accessibilityIdentifier("feedback.send")
             Spacer(minLength: 0)
         }
@@ -136,7 +138,7 @@ struct FeedbackView: View {
         VStack(spacing: 12) {
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 44))
-                .foregroundStyle(Theme.accentInteractive)
+                .foregroundStyle(Theme.accentBrand)
                 .accessibilityHidden(true)
             Text("Thanks, sent.")
                 .font(.system(size: 15, weight: .semibold))
@@ -161,13 +163,17 @@ struct FeedbackView: View {
 }
 
 /// Below iOS 26 the sheet content draws the app background; on iOS 26 it
-/// stays transparent so the system Liquid Glass sheet shows through.
+/// stays transparent so the system Liquid Glass sheet shows through — except
+/// in dark, where every screen shares the app's ground (owner ruling 18a,
+/// 2026-11-11).
 private struct OpaqueBelowGlass: ViewModifier {
+    @Environment(\.colorScheme) private var colorScheme
+
     func body(content: Content) -> some View {
-        if #available(iOS 26, *) {
+        if #available(iOS 26, *), colorScheme != .dark {
             content
         } else {
-            content.background(Theme.appBackground)
+            content.background(Theme.appBackground.ignoresSafeArea())
         }
     }
 }

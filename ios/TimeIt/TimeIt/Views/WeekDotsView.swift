@@ -74,7 +74,7 @@ struct WeekDotsView: View {
                 dotShape(dot.tier)
                 if ringed {
                     Circle()
-                        .strokeBorder(Theme.accentInteractive, lineWidth: 1.5)
+                        .strokeBorder(Theme.accentBrand, lineWidth: 1.5)
                         .matchedGeometryEffect(id: "ring", in: ringSpace)
                 }
             }
@@ -88,7 +88,7 @@ struct WeekDotsView: View {
         case .perfect:
             Circle().fill(Theme.perfectGreen).frame(width: 10, height: 10)
         case .good:
-            Circle().fill(Theme.accentOrange).frame(width: 10, height: 10)
+            Circle().fill(Theme.ratingGood).frame(width: 10, height: 10)
         case .bad:
             Circle().fill(Theme.badRed).frame(width: 10, height: 10)
         case .noData:

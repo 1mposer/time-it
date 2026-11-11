@@ -80,7 +80,7 @@ extension View {
         }
     }
 
-    /// The shared glass capsule: a tinted one-line label (`accentInteractive`
+    /// The shared glass capsule: a tinted one-line label (`accentBrand`
     /// at `font`), `height` tall with `horizontalPadding` either side, on the
     /// glass capsule surface. Used by the detail's Score capsule (28pt, 13pt)
     /// and the dashboard's primary capsules (`GlassCapsule.height`, 44pt).
@@ -89,7 +89,7 @@ extension View {
                       horizontalPadding: CGFloat = GlassCapsule.horizontalPadding,
                       enabled: Bool = true) -> some View {
         self.font(font)
-            .foregroundStyle(Theme.accentInteractive)
+            .foregroundStyle(Theme.accentBrand)
             .lineLimit(1)
             .padding(.horizontal, horizontalPadding)
             .frame(height: height)
@@ -163,5 +163,41 @@ private struct OptionalAccessibilityLabel: ViewModifier {
         } else {
             content
         }
+    }
+}
+
+// MARK: Accent-tinted glass — the wizard's primary action (owner rulings 2026-11-11)
+
+extension View {
+    /// The primary glass button's surface (Figma `A/R2/Final`, Next / Save):
+    /// Liquid Glass tinted with the brand fill on iOS 26, the opaque fill
+    /// below it. Pressed takes the dark "buttonPressed" fill; disabled the
+    /// "disabled" fill (owner dark palette, round 4). The label is
+    /// `Theme.onFill` (white light, dark ink dark).
+    @ViewBuilder
+    func glassPrimarySurface<S: Shape>(in shape: S, enabled: Bool, pressed: Bool = false) -> some View {
+        let fill = !enabled ? Theme.disabledFill : (pressed ? Theme.accentBrandPressed : Theme.accentBrandFill)
+        if #available(iOS 26, *) {
+            let tinted = Glass.regular.tint(fill)
+            self.glassEffect(enabled ? tinted.interactive() : tinted, in: shape)
+        } else {
+            self.background(fill, in: shape)
+        }
+    }
+}
+
+/// The wizard's primary button: the tinted-glass capsule that swaps to the
+/// pressed fill on touch-down and keeps the shared press scale.
+struct PrimaryGlassButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func makeBody(configuration: Configuration) -> some View {
+        let pressed = configuration.isPressed
+        return configuration.label
+            .foregroundStyle(isEnabled ? Theme.onFill : Theme.disabledLabel)
+            .glassPrimarySurface(in: Capsule(), enabled: isEnabled, pressed: pressed)
+            .scaleEffect(pressed && !reduceMotion ? Theme.Motion.pressScale : 1)
+            .animation(pressed ? nil : Theme.Motion.pressRelease, value: pressed)
     }
 }

@@ -118,7 +118,7 @@ struct PullRefreshIndicator: View {
     let refreshing: Bool
 
     var body: some View {
-        SystemSpinner(animating: refreshing, color: Theme.UIColors.onGradient)
+        SystemSpinner(animating: refreshing, color: Theme.UIColors.onFill)
             .frame(width: PullRefresh.indicatorSize, height: PullRefresh.indicatorSize)
             .mask {
                 PieWedge(fraction: refreshing ? 1 : progress)

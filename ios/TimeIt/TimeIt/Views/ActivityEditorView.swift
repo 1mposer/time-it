@@ -1,37 +1,40 @@
 import SwiftUI
 
-/// The authoring wizard, used for both create and edit: a fixed 4-tab header
-/// (Name & Icon → Metrics → Range → Review) over a switched content area —
-/// no TabView, no swiping (gating makes swipe semantics ambiguous). Save
-/// lives on the Review tab and stays disabled until the draft builds a valid
+/// The authoring wizard, used for both create and edit (owner rulings
+/// 2026-11-11, Lane A item 4; Figma `A/R2/Final` + `A/R3`): five steps —
+/// Name → Metrics → Priority → Range → Review — walked with a glass Back and
+/// a tinted-glass Next under a progress bar that never starts at zero. No tab
+/// strip, no Form (the "settings list feel" the owner is escaping): opaque
+/// cards and tiles on the ground, every floating control Liquid Glass. Save
+/// lives on Review and stays disabled until the draft builds a valid
 /// Activity — one invalid Activity would 400 the whole dashboard request
-/// (ADR-0005 atomic validation), so an invalid one can never be saved.
+/// (ADR-0005 atomic validation).
 struct ActivityEditorView: View {
 
     // MARK: - Dependencies & state
 
     private let isNew: Bool
+    /// The very first Activity the user creates — the Review title says so.
+    private let isFirstActivity: Bool
     private let catalog: MetricCatalogProviding
     private let onSave: (AuthoredActivity) -> Void
     private let onDelete: (() -> Void)?
-    /// The forecast hour the review pills read for the draft's Range (today,
-    /// or tomorrow once today's Range has passed) — the pills must never sit
-    /// gray when live data exists (owner ruling 2026-09-01). Nil closure or
-    /// nil result → neutral name-only pills (no forecast to read).
-    private let reviewRangeStartHour: ((WindowSpec) -> HourlyWeather?)?
+    /// The Review reveal's computed card (the real score and colours);
+    /// nil closure or nil result → the empty-ring card.
+    private let reviewPreview: ((AuthoredActivity) async -> ReviewPreview?)?
     /// True when the draft's Range has already fully passed today — Save
     /// surfaces the "those hours have passed" alert before committing (the
     /// card is today-only since 2026-10-02; tomorrow lives in the week dots).
     private let rangeHasPassedToday: ((WindowSpec) -> Bool)?
-    /// Wind-speed display unit for the slider and the review card (#26);
-    /// the draft's bounds stay km/h.
+    /// Wind-speed display unit for the slider (#26); the draft's bounds stay
+    /// km/h.
     private let windUnit: WindSpeedUnit
 
     @State private var draft: ActivityDraft
-    @State private var step: Int
-    /// §6: an untouched template prefill is NOT a confirmed Range. Seeded
-    /// from the incoming activity's window; set by any wheel change and by
-    /// the warn-and-proceed path.
+    @State private var step: EditorStep
+    /// An untouched prefill is NOT a confirmed Range. Seeded from the
+    /// incoming activity's window; set by any wheel change and by the
+    /// warn-and-proceed path.
     @State private var rangeConfirmed: Bool
     @State private var showingRangeWarning = false
     @State private var confirmingDelete = false
@@ -39,41 +42,52 @@ struct ActivityEditorView: View {
     /// completes from the alert's OK.
     @State private var pendingPassedRangeSave: AuthoredActivity?
     @State private var expandedCategories: Set<String>
+    @State private var preview: ReviewPreview?
     @FocusState private var nameFocused: Bool
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    static let sideMargin: CGFloat = 16
+    static let topControl: CGFloat = 40
+    static let primaryHeight: CGFloat = 50
 
     // MARK: - Init
 
-    /// `initialStep`: the tab to open on — the detail screen's Edit range /
-    /// Edit metrics doors land on their own tab (#25); everything else starts
-    /// at Name & Icon. Resolved through `EditorStep.landingStep`, so a locked
-    /// request can never open a gated tab.
+    /// `initialStep`: the step to open on — the detail screen's Edit range /
+    /// Edit metrics doors land on their own step (#25); everything else
+    /// starts at Name. Resolved through `EditorStep.landingStep`, so a locked
+    /// request can never open a gated step.
     init(existing: AuthoredActivity,
          isNew: Bool,
+         isFirstActivity: Bool = false,
          initialStep: EditorStep = .nameIcon,
          catalog: MetricCatalogProviding = StaticMetricCatalog(),
          windUnit: WindSpeedUnit = .kmh,
          onSave: @escaping (AuthoredActivity) -> Void,
          onDelete: (() -> Void)? = nil,
-         reviewRangeStartHour: ((WindowSpec) -> HourlyWeather?)? = nil,
+         reviewPreview: ((AuthoredActivity) async -> ReviewPreview?)? = nil,
          rangeHasPassedToday: ((WindowSpec) -> Bool)? = nil) {
         self.isNew = isNew
+        self.isFirstActivity = isFirstActivity
         self.catalog = catalog
         self.windUnit = windUnit
         self.onSave = onSave
         self.onDelete = onDelete
-        self.reviewRangeStartHour = reviewRangeStartHour
+        self.reviewPreview = reviewPreview
         self.rangeHasPassedToday = rangeHasPassedToday
-        let draft = ActivityDraft(from: existing)
+        var draft = ActivityDraft(from: existing)
+        // "Show only" is retired (owner ruling 4a): a judged metric left
+        // without a threshold gets its preset, not prioritised, on open.
+        draft.adoptShowOnlyMetrics(catalog: catalog)
         _draft = State(initialValue: draft)
         _rangeConfirmed = State(initialValue: draft.hadWindow)
         _step = State(initialValue: EditorStep.landingStep(requested: initialStep, draft: draft,
                                                            catalog: catalog,
-                                                           rangeConfirmed: draft.hadWindow).rawValue)
+                                                           rangeConfirmed: draft.hadWindow))
         // The category holding the current icon starts expanded; the sentinel
-        // (from scratch) belongs to no category → all collapsed.
+        // (from scratch) opens the first category.
         _expandedCategories = State(initialValue:
-            IconCatalog.category(containing: draft.iconSymbol).map { [$0.id] } ?? [])
+            [IconCatalog.category(containing: draft.iconSymbol)?.id ?? IconCatalog.tree.first?.id ?? ""])
     }
 
     // MARK: - Body
@@ -83,67 +97,99 @@ struct ActivityEditorView: View {
     var body: some View {
         let buildResult = draft.result(against: catalog)
         VStack(spacing: 0) {
-            EditorTabBar(current: step,
-                         isComplete: { isComplete($0) },
-                         isUnlocked: { isUnlocked($0) },
-                         onTap: { tapTab($0) })
-            Theme.divider
-                .frame(height: 0.5)
-            tabContent(buildResult)
-        }
-        .background(Theme.appBackground)
-        .safeAreaInset(edge: .bottom) { bottomBar(buildResult) }
-        .navigationTitle(isNew ? "New Activity" : "Edit Activity")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button("Cancel") { dismiss() }
-                    .accessibilityIdentifier("editor.cancel")
+            topBar
+            GeometryReader { geo in
+                ScrollView {
+                    stepContent(buildResult, availableHeight: geo.size.height)
+                        .padding(.horizontal, Self.sideMargin)
+                        .padding(.top, 12)
+                        .padding(.bottom, 24)
+                }
+                .scrollDismissesKeyboard(.interactively)
             }
         }
+        .background(Theme.appBackground.ignoresSafeArea())
+        .safeAreaInset(edge: .bottom) { bottomBar(buildResult) }
+        .toolbar(.hidden, for: .navigationBar)
         .onChange(of: draft.startHour) { _, _ in confirmRange() }
         .onChange(of: draft.endHour) { _, _ in confirmRange() }
-    }
-
-    @ViewBuilder
-    private func tabContent(_ buildResult: (activity: AuthoredActivity?, issues: [String])) -> some View {
-        switch EditorStep(rawValue: step) ?? .nameIcon {
-        case .nameIcon: nameIconTab
-        case .metrics: metricsTab
-        case .range: rangeTab
-        case .review: reviewTab(buildResult)
+        .task(id: step) {
+            guard step == .review, let activity = buildResult.activity, let reviewPreview else { return }
+            preview = await reviewPreview(activity)
         }
     }
 
-    // MARK: - Step completion / gating (EditorStep owns the rules)
+    // MARK: - Top bar: glass Back · progress · glass ✕
 
-    private func isComplete(_ index: Int) -> Bool {
-        guard let tab = EditorStep(rawValue: index) else { return false }
-        return tab.isComplete(draft: draft, catalog: catalog, rangeConfirmed: rangeConfirmed)
+    private var topBar: some View {
+        HStack(spacing: 12) {
+            if step != .nameIcon {
+                glassCircle(symbol: "chevron.left", identifier: "editor.back", label: "Back") { goBack() }
+                    .transition(.opacity)
+            }
+            EditorProgressBar(fraction: WizardProgress.fraction(for: step))
+            glassCircle(symbol: "xmark", identifier: "editor.cancel", label: "Cancel") { dismiss() }
+        }
+        .padding(.horizontal, Self.sideMargin)
+        .padding(.top, 8)
+        .padding(.bottom, 4)
+        .animation(reduceMotion ? nil : EditorProgressBar.advance, value: step)
     }
 
-    private func isUnlocked(_ index: Int) -> Bool {
-        guard let tab = EditorStep(rawValue: index) else { return false }
-        return tab.isUnlocked(draft: draft, catalog: catalog, rangeConfirmed: rangeConfirmed)
+    private func glassCircle(symbol: String, identifier: String, label: String,
+                             action: @escaping () -> Void) -> some View {
+        GlassControl(identifier: identifier, accessibilityLabel: label, action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Theme.primaryText)
+                .frame(width: Self.topControl, height: Self.topControl)
+                .glassPieceSurface(in: Circle(), enabled: true, fallback: .material)
+                .padding(2)
+        }
     }
+
+    // MARK: - Step content
+
+    @ViewBuilder
+    private func stepContent(_ buildResult: (activity: AuthoredActivity?, issues: [String]),
+                             availableHeight: CGFloat) -> some View {
+        if step == .review {
+            reviewStep(buildResult, availableHeight: availableHeight)
+        } else {
+            VStack(alignment: .leading, spacing: 16) {
+                if let heading = step.heading {
+                    Text(heading)
+                        .scaledFont(size: 28, weight: .semibold)
+                        .foregroundStyle(Theme.primaryText)
+                        .accessibilityAddTraits(.isHeader)
+                }
+                switch step {
+                case .nameIcon: nameStep
+                case .metrics: MetricTileGrid(draft: $draft, catalog: catalog, windUnit: windUnit)
+                case .priority: priorityStep
+                case .range: rangeStep
+                case .review: EmptyView()
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    // MARK: - Navigation
 
     private var rangeIsValid: Bool { draft.startHour != draft.endHour }
 
-    private func tapTab(_ index: Int) {
-        if index <= step {
-            showingRangeWarning = false
-            step = index
-        } else if index == EditorStep.review.rawValue, rangeIsValid, !rangeConfirmed,
-                  isComplete(EditorStep.nameIcon.rawValue), isComplete(EditorStep.metrics.rawValue) {
-            // §6: tapping Review over a valid-but-unconfirmed range takes the
-            // warn-then-proceed path (shown on the Range tab, under the
-            // button) — warnThenProceed reads the warning flag to tell first
-            // press from second, so it must not be cleared before this call.
+    private func goBack() {
+        showingRangeWarning = false
+        guard let previous = EditorStep(rawValue: step.rawValue - 1) else { return }
+        step = previous
+    }
+
+    private func nextStep() {
+        if step == .range, !rangeConfirmed {
             warnThenProceed()
-        } else {
-            showingRangeWarning = false
-            if isUnlocked(index) { step = index }
-            // Locked tab: no-op.
+        } else if let next = EditorStep(rawValue: step.rawValue + 1) {
+            step = next
         }
     }
 
@@ -152,94 +198,90 @@ struct ActivityEditorView: View {
         showingRangeWarning = false
     }
 
-    /// First press surfaces the warning (jumping to the Range tab if needed);
-    /// the second press proceeds and confirms the range.
+    /// First press surfaces the warning; the second proceeds and confirms
+    /// the range (an untouched prefill is not a confirmed Range).
     private func warnThenProceed() {
-        if step == EditorStep.range.rawValue, showingRangeWarning {
+        if showingRangeWarning {
             rangeConfirmed = true
             showingRangeWarning = false
-            step = EditorStep.review.rawValue
+            step = .review
         } else {
-            step = EditorStep.range.rawValue
             showingRangeWarning = true
         }
     }
 
-    // MARK: - Bottom primary button (§8)
+    /// Next dims while the current step is incomplete — except on Range,
+    /// where it stays enabled to drive warn-then-proceed.
+    private var nextStepEnabled: Bool {
+        if step == .range { return rangeIsValid }
+        return step.isComplete(draft: draft, catalog: catalog, rangeConfirmed: rangeConfirmed)
+    }
+
+    // MARK: - Bottom: the tinted-glass primary action
 
     private func bottomBar(_ buildResult: (activity: AuthoredActivity?, issues: [String])) -> some View {
         VStack(spacing: 8) {
-            if step == EditorStep.review.rawValue {
-                Button("Save Activity") {
-                    guard let activity = buildResult.activity else { return }
-                    // A Range that already passed today still saves — but the
-                    // user is told the card stays on today and tomorrow is in
-                    // the week dots (today-only card, 2026-10-02).
-                    if let window = activity.window,
-                       rangeHasPassedToday?(window) == true {
-                        pendingPassedRangeSave = activity
-                    } else {
-                        onSave(activity)
-                        dismiss()
-                    }
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .tint(Theme.accentOrange)
-                .frame(maxWidth: .infinity)
-                .disabled(buildResult.activity == nil)
-                .accessibilityIdentifier("editor.save")
-                .alert("Those hours have passed for today",
-                       isPresented: Binding(get: { pendingPassedRangeSave != nil },
-                                            set: { if !$0 { pendingPassedRangeSave = nil } })) {
-                    Button("OK") {
-                        guard let activity = pendingPassedRangeSave else { return }
-                        pendingPassedRangeSave = nil
-                        onSave(activity)
-                        dismiss()
-                    }
-                    .accessibilityIdentifier("editor.passedRangeOK")
-                } message: {
-                    Text("Your card stays on today until midnight. Tomorrow is in the week dots.")
-                }
-            } else {
-                Button("Next Step") { nextStep() }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-                    .tint(Theme.accentOrange)
-                    .frame(maxWidth: .infinity)
-                    .disabled(!nextStepEnabled)
-                    .accessibilityIdentifier("editor.nextStep")
-            }
-            if showingRangeWarning, step == EditorStep.range.rawValue {
-                Text("Are you sure you want to proceed without adding a range?")
-                    .font(.system(size: 13))
+            if showingRangeWarning, step == .range {
+                Text("Are you sure you want to proceed without choosing hours?")
+                    .scaledFont(size: 13)
                     .foregroundStyle(Theme.secondaryText)
                     .multilineTextAlignment(.center)
                     .accessibilityIdentifier("editor.rangeWarning")
             }
+            if step == .review {
+                primaryButton("Save Activity", identifier: "editor.save",
+                              enabled: buildResult.activity != nil) { save(buildResult.activity) }
+                    .alert("Those hours have passed for today",
+                           isPresented: Binding(get: { pendingPassedRangeSave != nil },
+                                                set: { if !$0 { pendingPassedRangeSave = nil } })) {
+                        Button("OK") {
+                            guard let activity = pendingPassedRangeSave else { return }
+                            pendingPassedRangeSave = nil
+                            onSave(activity)
+                            dismiss()
+                        }
+                        .accessibilityIdentifier("editor.passedRangeOK")
+                    } message: {
+                        Text("Your card stays on today until midnight. Tomorrow is in the week dots.")
+                    }
+            } else {
+                primaryButton("Next", identifier: "editor.nextStep", enabled: nextStepEnabled) { nextStep() }
+            }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .background(.thinMaterial)
+        .padding(.horizontal, Self.sideMargin)
+        .padding(.top, 8)
+        .padding(.bottom, 8)
     }
 
-    /// Next Step dims while the current tab is incomplete — except the Range
-    /// tab's warning path, where it stays enabled to drive warn-then-proceed.
-    private var nextStepEnabled: Bool {
-        if step == EditorStep.range.rawValue { return rangeIsValid }
-        return isComplete(step)
+    private func primaryButton(_ title: String, identifier: String, enabled: Bool,
+                               action: @escaping () -> Void) -> some View {
+        GlassGroup(spacing: 0) {
+            Button(action: action) {
+                Text(title)
+                    .scaledFont(size: 17, weight: .semibold)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: Self.primaryHeight)
+                    .contentShape(Capsule())
+            }
+            .buttonStyle(PrimaryGlassButtonStyle())
+            .disabled(!enabled)
+            .accessibilityIdentifier(identifier)
+        }
     }
 
-    private func nextStep() {
-        if step == EditorStep.range.rawValue, !rangeConfirmed {
-            warnThenProceed()
+    private func save(_ activity: AuthoredActivity?) {
+        guard let activity else { return }
+        // A Range that already passed today still saves — but the user is
+        // told the card stays on today and tomorrow is in the week dots.
+        if let window = activity.window, rangeHasPassedToday?(window) == true {
+            pendingPassedRangeSave = activity
         } else {
-            step = min(step + 1, EditorStep.review.rawValue)
+            onSave(activity)
+            dismiss()
         }
     }
 
-    // MARK: - Tab 0 — Name & Icon (§3)
+    // MARK: - Step 1 — Name
 
     /// An edited activity may carry an icon that predates the catalog tree —
     /// it renders in a "Current" slot so editing can never lose it.
@@ -249,313 +291,222 @@ struct ActivityEditorView: View {
         return icon
     }
 
-    private var nameIconTab: some View {
-        Form {
-            Section("Name") {
-                // The whole row must raise the keyboard, not just the text's
+    private var nameStep: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Name")
+                    .scaledFont(size: 13)
+                    .foregroundStyle(Theme.secondaryText)
+                // The whole card raises the keyboard, not just the text's
                 // leading edge (device finding 2026-08-30).
                 TextField("Cycling...", text: $draft.label)
+                    .scaledFont(size: 17)
                     .textInputAutocapitalization(.sentences)
                     .focused($nameFocused)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .contentShape(Rectangle())
-                    .onTapGesture { nameFocused = true }
                     .accessibilityIdentifier("editor.name")
             }
-            Section("Icon") {
-                if let legacyIcon {
-                    HStack(spacing: 12) {
-                        Text("Current")
-                            .font(.system(size: 14))
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: 16))
+            .cardLift(cornerRadius: 16, light: .rest)
+            .contentShape(Rectangle())
+            .onTapGesture { nameFocused = true }
+
+            if let legacyIcon {
+                iconCard(title: "Current", icons: [legacyIcon], collapsible: false)
+            }
+            ForEach(IconCatalog.tree) { category in
+                iconCard(title: category.name, icons: IconCatalog.flatten([category]), collapsible: true)
+            }
+        }
+    }
+
+    private func iconCard(title: String, icons: [String], collapsible: Bool) -> some View {
+        let expanded = !collapsible || expandedCategories.contains(title)
+        return VStack(alignment: .leading, spacing: 10) {
+            Button {
+                guard collapsible else { return }
+                withAnimation(reduceMotion ? nil : MetricTile.selectSpring) {
+                    if expanded { expandedCategories.remove(title) } else { expandedCategories.insert(title) }
+                }
+            } label: {
+                HStack {
+                    Text(title)
+                        .scaledFont(size: 15, weight: .semibold)
+                        .foregroundStyle(Theme.primaryText)
+                    Spacer(minLength: 0)
+                    if collapsible {
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 13, weight: .semibold))
                             .foregroundStyle(Theme.secondaryText)
-                        iconButton(legacyIcon)
-                        Spacer()
+                            .rotationEffect(.degrees(expanded ? 0 : -90))
                     }
                 }
-                OutlineGroup(IconCatalog.tree, children: \.children) { category in
-                    DisclosureGroup(isExpanded: isExpandedBinding(category.id)) {
-                        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 5),
-                                  spacing: 12) {
-                            ForEach(category.icons, id: \.self) { symbol in
-                                iconButton(symbol)
-                            }
-                        }
-                        .padding(.vertical, 4)
-                    } label: {
-                        Text(category.name)
-                            .foregroundStyle(Theme.primaryText)
-                    }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityAddTraits(.isHeader)
+            if expanded {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 5), spacing: 10) {
+                    ForEach(icons, id: \.self) { symbol in iconButton(symbol) }
                 }
             }
         }
-        .scrollContentBackground(.hidden)
-    }
-
-    private func isExpandedBinding(_ id: String) -> Binding<Bool> {
-        Binding(get: { expandedCategories.contains(id) },
-                set: { expanded in
-                    if expanded { expandedCategories.insert(id) } else { expandedCategories.remove(id) }
-                })
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: 16))
+        .cardLift(cornerRadius: 16, light: .rest)
     }
 
     private func iconButton(_ symbol: String) -> some View {
-        Button {
+        let selected = draft.iconSymbol == symbol
+        return Button {
             draft.iconSymbol = symbol
         } label: {
-            ActivityIconView(identifier: symbol, size: 18)
-                .foregroundStyle(draft.iconSymbol == symbol ? Theme.onGradient : Theme.primaryText.opacity(0.75))
-                .frame(width: 40, height: 40)
-                .background(draft.iconSymbol == symbol ? Theme.accentOrange : Theme.appBackground,
-                            in: Circle())
+            ActivityIconView(identifier: symbol, size: 20)
+                .foregroundStyle(selected ? Theme.accentBrand : Theme.primaryText.opacity(0.75))
+                .frame(width: 48, height: 48)
+                .background(selected ? Theme.accentTint : Color.clear,
+                            in: RoundedRectangle(cornerRadius: 12))
+                .overlay {
+                    if selected {
+                        RoundedRectangle(cornerRadius: 12)
+                            .strokeBorder(Theme.accentBrand, lineWidth: MetricTile.ringWidth)
+                    }
+                }
+                .symbolEffect(.bounce, value: selected)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressStyle())
         .accessibilityIdentifier("icon.\(symbol)")
         .accessibilityLabel(symbol)
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
-    // MARK: - Tab 1 — Metrics (merged thresholds, §4)
+    // MARK: - Step 3 — Priority
 
-    private var metricsTab: some View {
-        Form {
-            Section {
-                DidYouKnowBox(key: "metricModes",
-                              body: "If 'Priority' is selected for a metric, it will be considered more in the calculation.")
-                    .listRowInsets(EdgeInsets())
-                    .listRowBackground(Color.clear)
-            }
-            Section {
-                ForEach(catalog.metrics) { descriptor in
-                    metricRow(descriptor)
-                }
-            } footer: {
-                Text("Each metric gets a card on the activity's detail.")
-            }
-        }
-        .scrollContentBackground(.hidden)
-    }
-
-    /// Collapsed = icon + name. Tapping the header selects AND expands with a
-    /// preset Must-have threshold (§4 — zero typing); tapping again deselects
-    /// and discards. `moon` (displayOnly) selects but never expands;
-    /// `dustAlert` (flag) expands to the mode menu only.
-    @ViewBuilder
-    private func metricRow(_ descriptor: MetricDescriptor) -> some View {
-        let selected = draft.isSelected(descriptor.key)
-        Button {
-            if selected {
-                draft.toggleMetric(descriptor.key)
-            } else {
-                draft.selectWithPreset(descriptor)
-            }
-        } label: {
-            HStack(spacing: 10) {
-                ActivityIconView(identifier: descriptor.iconSymbol, size: 15)
-                    .foregroundStyle(Theme.secondaryText)
-                    .frame(width: 22)
-                Text(descriptor.displayName)
-                    .foregroundStyle(Theme.primaryText)
-                Spacer()
-                if selected {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Theme.accentOrange)
-                }
-            }
-        }
-        .accessibilityIdentifier("metric.\(descriptor.key)")
-
-        if selected, descriptor.isThresholdable {
-            if descriptor.kind == .numeric, draft.thresholds[descriptor.key] != nil {
-                ThresholdSlider(descriptor: descriptor,
-                                minText: boundText(descriptor.key, \.minText),
-                                maxText: boundText(descriptor.key, \.maxText),
-                                windUnit: windUnit)
-            }
-            modeCheckboxes(descriptor)
-        }
-    }
-
-    /// The two-checkbox mode row
-    ///                      '   Priority: ☐                                 Show only: ☐    '
-    /// Semantics live in
-    /// `ThresholdCheckboxes`.
-    private func modeCheckboxes(_ descriptor: MetricDescriptor) -> some View {
-        VStack(
-                alignment: .leading, spacing: 4) {
-            checkbox("Priority:",
-                     checked: ThresholdCheckboxes.isPriority(for: descriptor.key, in: draft),
-                     identifier: "editor.priority.\(descriptor.key)") {
-                ThresholdCheckboxes.togglePriority(for: descriptor, in: &draft)
-            }
-            Text("  ")
+    private var priorityStep: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text(PriorityChoice.explainer)
+                .scaledFont(size: 15)
                 .foregroundStyle(Theme.secondaryText)
-            checkbox("Show only:",
-                     checked: ThresholdCheckboxes.isShowOnly(for: descriptor.key, in: draft),
-                     identifier: "editor.showOnly.\(descriptor.key)") {
-                ThresholdCheckboxes.toggleShowOnly(for: descriptor, in: &draft)
-            }
-            Spacer(minLength: 10)
-        }
-    }
-
-    private func checkbox(_ title: String, checked: Bool, identifier: String,
-                          action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 20) {
-                Text(title)
-                    .font(.system(size: 14))
+                .accessibilityIdentifier("editor.priorityExplainer")
+            PriorityStepView(draft: $draft, catalog: catalog)
+            if !PriorityChoice.gateIsMet(draft: draft) {
+                Text(PriorityChoice.gateHint)
+                    .scaledFont(size: 13)
                     .foregroundStyle(Theme.secondaryText)
-                    .frame(minWidth: 80, alignment: .leading)
-                Image(systemName: checked ? "checkmark.square.fill" : "square")
-                    .font(.system(size: 22))
-                    .foregroundStyle(checked ? Theme.accentOrange : Theme.secondaryText)
+                    .frame(maxWidth: .infinity)
+                    .accessibilityIdentifier("editor.priorityGate")
             }
         }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier(identifier)
-        .accessibilityAddTraits(checked ? .isSelected : [])
     }
 
-    /// Binding into one bound's text of the metric's threshold. The rows only
-    /// render while the entry exists; the fallback covers the removal frame.
-    private func boundText(_ key: String, _ path: WritableKeyPath<ThresholdDraft, String>) -> Binding<String> {
-        Binding(get: { draft.thresholds[key]?[keyPath: path] ?? "" },
-                set: { draft.thresholds[key]?[keyPath: path] = $0 })
-    }
+    // MARK: - Step 4 — Range (two wheels in opaque cards)
 
-    // MARK: - Tab 2 — Range (§6)
-
-    /// From and To are distinct boxes — one Form section each, so they render
-    /// as separate spaced cards (owner edit 2026-08-30).
-    private var rangeTab: some View {
-        Form {
-            Section {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("From:")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(Theme.secondaryText)
-                    hourWheel(selection: $draft.startHour, identifier: "editor.startHour")
-                }
-            }
-            Section {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("To:")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(Theme.secondaryText)
-                    hourWheel(selection: $draft.endHour, identifier: "editor.endHour")
-                }
+    private var rangeStep: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 10) {
+                wheelCard("From", selection: $draft.startHour, identifier: "editor.startHour")
+                wheelCard("To", selection: $draft.endHour, identifier: "editor.endHour")
             }
             if draft.startHour == draft.endHour {
-                Section {
-                    Text("Start and end can't be the same.")
-                        .font(.system(size: 13))
-                        .foregroundStyle(Theme.accentDestructive)
+                Text("Start and end can't be the same.")
+                    .scaledFont(size: 13)
+                    .foregroundStyle(Theme.accentDestructive)
+            }
+        }
+    }
+
+    private func wheelCard(_ title: String, selection: Binding<Int>, identifier: String) -> some View {
+        VStack(spacing: 4) {
+            Text(title)
+                .scaledFont(size: 13, weight: .semibold)
+                .foregroundStyle(Theme.secondaryText)
+            Picker(title, selection: selection) {
+                ForEach(0..<24, id: \.self) { hour in
+                    Text(Self.hourText(hour)).tag(hour)
                 }
-                .listRowBackground(Color.clear)
             }
+            .pickerStyle(.wheel)
+            .frame(height: 150)
+            .clipped()
+            .accessibilityIdentifier(identifier)
         }
-        .scrollContentBackground(.hidden)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity)
+        .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: 16))
+        .cardLift(cornerRadius: 16, light: .rest)
     }
 
-    private func hourWheel(selection: Binding<Int>, identifier: String) -> some View {
-        Picker("", selection: selection) {
-            ForEach(0..<24, id: \.self) { hour in
-                Text(Self.hourText(hour)).tag(hour)
-            }
-        }
-        .pickerStyle(.wheel)
-        .frame(height: 120)
-        .clipped()
-        .accessibilityIdentifier(identifier)
-    }
+    // MARK: - Step 5 — Review (the reveal)
 
-    // MARK: - Tab 3 — Review (§7)
-
-    private func reviewTab(_ buildResult: (activity: AuthoredActivity?, issues: [String])) -> some View {
-        Form {
-            Section {
-                reviewCard
-                    .accessibilityIdentifier("editor.reviewCard")
-                    .listRowInsets(EdgeInsets())
-                    .listRowBackground(Color.clear)
-            }
-            footer:
-            {
-                Text("This is how your activity will look on the home screen.")
-                    .font(.system(size: 16, weight: .medium, design: .rounded))
-                    .padding(.top, 10)
-            }
+    private func reviewStep(_ buildResult: (activity: AuthoredActivity?, issues: [String]),
+                            availableHeight: CGFloat) -> some View {
+        VStack(spacing: 16) {
+            Spacer(minLength: 0)
+            ReviewRevealView(title: reviewTitle,
+                             draftRating: draftRating,
+                             iconSymbol: draft.iconSymbol,
+                             rangeChipLabel: RangeText.chipLabel(window),
+                             rangeHourCount: rangeHourCount,
+                             stripStartLocalHour: draft.startHour,
+                             preview: preview)
             if !buildResult.issues.isEmpty {
-                Section {
+                VStack(alignment: .leading, spacing: 4) {
                     ForEach(buildResult.issues, id: \.self) { issue in
                         Text(issue)
-                            .font(.system(size: 13))
+                            .scaledFont(size: 13)
                             .foregroundStyle(Theme.accentDestructive)
                     }
                 }
             }
-            if !isNew, onDelete != nil {
-                deleteSection
-            }
+            Spacer(minLength: 0)
+            if !isNew, onDelete != nil { deleteButton }
         }
-        .scrollContentBackground(.hidden)
+        .frame(maxWidth: .infinity, minHeight: max(availableHeight - 36, 0))
     }
 
-    // MARK: - Review card
-
-    /// The actual dashboard card as a representative preview (owner edit
-    /// 2026-08-30): real icon, name, range chip, and metric chips from the
-    /// draft; the timeline slice and its green are illustrative — a real
-    /// rating exists only after the first fetch — but the metric pills read
-    /// live forecast values when the dashboard has them (owner ruling
-    /// 2026-09-01: pills never sit gray over live data). The fixed
-    /// UTC-midnight deriver makes hour index == clock hour, so the draft's
-    /// Range maps straight onto the axis.
-    private var reviewCard: some View {
-        let wrapped = draft.startHour > draft.endHour
-        let endExclusive = wrapped ? draft.endHour + 24 : draft.endHour
-        let duration = max(endExclusive - draft.startHour, 1)
-        let day = Day(dayIndex: 0, rating: .perfect,
-                      startIndex: draft.startHour,
-                      endIndex: draft.startHour + duration,
-                      duration: duration)
-        let rating = ActivityRating(activityId: draft.id,
-                                    label: ActivityDraft.finalLabel(draft.label),
-                                    displayMetrics: draft.metrics,
-                                    days: [day])
-        let window = WindowSpec(startHour: draft.startHour, endHour: draft.endHour)
-        return ActivityCardView(activity: rating,
-                                day: day,
-                                windowStartHour: reviewRangeStartHour?(window),
-                                deriver: TimeDeriver(forecastStart: "2026-06-01T00:00:00Z",
-                                                     timezone: "UTC"),
-                                hoursCount: max(24, draft.startHour + duration),
-                                iconSymbol: draft.iconSymbol,
-                                isNocturnal: wrapped,
-                                rangeChipLabel: RangeText.chipLabel(WindowSpec(startHour: draft.startHour,
-                                                                              endHour: draft.endHour)),
-                                sliceRange: draft.startHour..<(draft.startHour + duration),
-                                tiers: Array(repeating: .green, count: duration),
-                                catalog: catalog,
-                                windUnit: windUnit)
+    private var reviewTitle: String {
+        Self.reviewTitle(isNew: isNew, isFirstActivity: isFirstActivity)
     }
 
-    // MARK: - Delete (edit mode only)
+    /// The Review reveal's title (owner ruling 2026-11-11, frame `876:15364`):
+    /// the user's very first Activity is the achievement; later ones are
+    /// plainly created; an edit reveals the card without claiming either.
+    static func reviewTitle(isNew: Bool, isFirstActivity: Bool) -> String {
+        guard isNew else { return "Your activity" }
+        return isFirstActivity ? "First activity created" : "Activity created"
+    }
 
-    private var deleteSection: some View {
-        Section {
-            Button("Delete Activity", role: .destructive) {
-                confirmingDelete = true
+    private var window: WindowSpec { WindowSpec(startHour: draft.startHour, endHour: draft.endHour) }
+
+    private var rangeHourCount: Int {
+        let end = draft.startHour > draft.endHour ? draft.endHour + 24 : draft.endHour
+        return max(end - draft.startHour, 1)
+    }
+
+    /// The card's identity before the server answers: no days, so the ring
+    /// is empty and the strip grey (never a fake verdict).
+    private var draftRating: ActivityRating {
+        ActivityRating(activityId: draft.id,
+                       label: ActivityDraft.finalLabel(draft.label),
+                       displayMetrics: draft.metrics,
+                       days: [])
+    }
+
+    private var deleteButton: some View {
+        Button("Delete Activity", role: .destructive) {
+            confirmingDelete = true
+        }
+        .scaledFont(size: 15, weight: .semibold)
+        .frame(minHeight: 44)
+        .accessibilityIdentifier("editor.delete")
+        .confirmationDialog("Delete this activity?", isPresented: $confirmingDelete, titleVisibility: .visible) {
+            Button("Delete", role: .destructive) {
+                onDelete?()
+                dismiss()
             }
-            .frame(maxWidth: .infinity)
-            .accessibilityIdentifier("editor.delete")
-            .confirmationDialog("Delete this activity?", isPresented: $confirmingDelete, titleVisibility: .visible) {
-                Button("Delete", role: .destructive) {
-                    onDelete?()
-                    dismiss()
-                }
-                .accessibilityIdentifier("editor.confirmDelete")
-            }
+            .accessibilityIdentifier("editor.confirmDelete")
         }
     }
 
@@ -567,88 +518,19 @@ struct ActivityEditorView: View {
     }
 }
 
-// MARK: - Tab header (§2)
-
-/// The fixed 4-segment capsule header. States: current (accent fill),
-/// complete (perfectGreen outline + checkmark — live validity, never
-/// "visited"), incomplete (neutral gray, never red), locked (dimmed).
-private struct EditorTabBar: View {
-    let current: Int
-    let isComplete: (Int) -> Bool
-    let isUnlocked: (Int) -> Bool
-    let onTap: (Int) -> Void
-
-    var body: some View {
-        HStack(spacing: 8) {
-            ForEach(EditorStep.allCases, id: \.rawValue) { tab in
-                segment(tab)
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-    }
-
-    private func segment(_ tab: EditorStep) -> some View {
-        let index = tab.rawValue
-        let isCurrent = index == current
-        let complete = isComplete(index)
-        let locked = !isUnlocked(index) && index > current
-        return Button {
-            onTap(index)
-        } label: {
-            HStack(spacing: 4) {
-                if complete, !isCurrent {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 10, weight: .bold))
-                }
-                Text(tab.title)
-                    .font(.system(size: 13, weight: .semibold))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 8)
-            .foregroundStyle(foreground(isCurrent: isCurrent, complete: complete))
-            .background {
-                if isCurrent {
-                    Capsule().fill(Theme.accentOrange)
-                } else {
-                    Capsule().strokeBorder(border(complete: complete))
-                }
-            }
-            .opacity(locked ? 0.4 : 1)
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("editor.tab.\(index)")
-    }
-
-    private func foreground(isCurrent: Bool, complete: Bool) -> Color {
-        if isCurrent { return Theme.onGradient }
-        return complete ? Theme.perfectGreen : Theme.secondaryText
-    }
-
-    private func border(complete: Bool) -> Color {
-        complete ? Theme.perfectGreen : Theme.secondaryText.opacity(0.4)
-    }
-}
-
 // MARK: - Previews
 
 #if DEBUG
 #Preview("New (scratch)") {
     NavigationStack {
-        ActivityEditorView(existing: .blank(),
-                           isNew: true,
-                           onSave: { _ in })
+        ActivityEditorView(existing: .blank(), isNew: true, isFirstActivity: true, onSave: { _ in })
     }
 }
 
 #Preview("Edit (existing)") {
     NavigationStack {
-        ActivityEditorView(existing: PreviewFixtures.cycling,
-                           isNew: false,
-                           onSave: { _ in },
-                           onDelete: {})
+        ActivityEditorView(existing: PreviewFixtures.cycling, isNew: false,
+                           onSave: { _ in }, onDelete: {})
     }
 }
 #endif

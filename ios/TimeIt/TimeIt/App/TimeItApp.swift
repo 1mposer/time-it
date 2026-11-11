@@ -36,11 +36,30 @@ struct TimeItApp: App {
 
     var body: some Scene {
         WindowGroup {
-            DashboardView(viewModel: Self.makeViewModel(),
-                          registration: Self.makeRegistration())
-                .fontDesign(.rounded)
-                .preferredColorScheme(Self.uiTestAppearance)
+            // The opening sequence wraps the app (owner rulings 2026-11-11):
+            // inside the one appearance modifier, so the splash renders in the
+            // chosen appearance and never flips at the reveal, and inside the
+            // rounded design, so the wordmark is SF Pro Rounded too.
+            OpeningGate(plays: Self.playsOpening, router: PushRouter.shared) {
+                DashboardView(viewModel: Self.makeViewModel(),
+                              registration: Self.makeRegistration())
+            }
+            .fontDesign(.rounded)
+            .preferredColorScheme(Self.uiTestAppearance)
         }
+    }
+
+    /// Cold launch only (this runs once per process); a push tap already
+    /// routing skips it, as does a UI-test run that opts out.
+    @MainActor
+    private static var playsOpening: Bool {
+        var uiTestSkip = false
+        #if DEBUG
+        uiTestSkip = ProcessInfo.processInfo.arguments.contains(OpeningPolicy.uiTestSkipArgument)
+        #endif
+        return OpeningPolicy.shouldPlay(coldLaunch: true,
+                                        pushRoutePending: PushRouter.shared.focusActivityId != nil,
+                                        uiTestSkip: uiTestSkip)
     }
 
     /// `UITEST_APPEARANCE=dark|light` in a UI-test mock run; nil (the system

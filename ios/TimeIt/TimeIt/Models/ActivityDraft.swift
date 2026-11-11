@@ -50,19 +50,36 @@ struct ActivityDraft: Equatable {
         thresholds[descriptor.key] = ThresholdDraft(isFlag: descriptor.kind == .flag)
     }
 
-    /// §4's one-tap select: selects the metric AND pre-creates its preset
-    /// Must-have threshold (display-only metrics just select). A no-op when
-    /// already selected — re-tapping must not clobber authored values.
+    /// The one-tap select: selects the metric AND pre-creates its preset
+    /// threshold, not prioritised (`required: false` — the Priority step
+    /// presses it; owner ruling 2026-11-11). Display-only metrics just
+    /// select. A no-op when already selected — re-tapping must not clobber
+    /// authored values.
     mutating func selectWithPreset(_ descriptor: MetricDescriptor) {
         guard !isSelected(descriptor.key) else { return }
         metrics.append(descriptor.key)
         if descriptor.isThresholdable {
-            thresholds[descriptor.key] = ThresholdDraft(preset: descriptor)
+            var preset = ThresholdDraft(preset: descriptor)
+            preset.required = false
+            thresholds[descriptor.key] = preset
         }
     }
 
     mutating func removeThreshold(for key: String) {
         thresholds[key] = nil
+    }
+
+    /// The retired "Show only" mode left judged metrics without a threshold.
+    /// The wizard no longer has a place for that (owner ruling 4a): opening
+    /// an activity gives each such metric its preset, not prioritised — it
+    /// only persists if the user saves. Display-only metrics are untouched.
+    mutating func adoptShowOnlyMetrics(catalog: MetricCatalogProviding) {
+        for key in metrics where thresholds[key] == nil {
+            guard let descriptor = catalog.descriptor(for: key), descriptor.isThresholdable else { continue }
+            var preset = ThresholdDraft(preset: descriptor)
+            preset.required = false
+            thresholds[key] = preset
+        }
     }
 
     // MARK: build

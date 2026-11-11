@@ -310,7 +310,9 @@ struct ActivityDetailView: View {
                                    initialStep: request.step,
                                    windUnit: windUnit,
                                    onSave: { viewModel.store.update($0) },
-                                   onDelete: { viewModel.store.delete(id: request.activity.id) })
+                                   onDelete: { viewModel.store.delete(id: request.activity.id) },
+                                   reviewPreview: { await viewModel.reviewPreview(for: $0) },
+                                   rangeHasPassedToday: { viewModel.rangeHasPassedToday($0) })
             }
         }
     }
@@ -476,7 +478,7 @@ struct ActivityDetailView: View {
         Button(action: returnToRange) {
             Image(systemName: "arrow.uturn.backward")
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Theme.accentInteractive)
+                .foregroundStyle(Theme.accentBrand)
                 .frame(width: Layout.returnPiece, height: Layout.returnPiece)
                 .contentShape(Capsule())
                 .padding(Layout.hitPad)
@@ -629,7 +631,7 @@ struct ActivityDetailView: View {
         Button(action: action) {
             Image(systemName: systemName)
                 .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(Theme.accentInteractive)
+                .foregroundStyle(Theme.accentBrand)
                 .opacity(enabled ? 1 : 0.35)
                 .frame(width: Layout.stepPiece, height: Layout.stepPiece)
                 .stepPieceSurface(enabled: enabled)
@@ -889,7 +891,7 @@ struct ActivityDetailView: View {
             VStack(spacing: Layout.editCircleToCaption) {
                 Image(systemName: systemName)
                     .font(.system(size: Layout.editCircleGlyph, weight: .semibold))
-                    .foregroundStyle(Theme.accentInteractive)
+                    .foregroundStyle(Theme.accentBrand)
                     .frame(width: Layout.editCircleDiameter, height: Layout.editCircleDiameter)
                     .glassPieceSurface(in: Circle(), enabled: true, fallback: .material)
                 // The circle stays 44 (ruling 9a / HIG target); its caption

@@ -27,6 +27,7 @@ struct CityPickerView: View {
     var body: some View {
         NavigationStack {
             List {
+                Group {
                 Section {
                     HStack(spacing: 8) {
                         Image(systemName: "magnifyingglass")
@@ -69,7 +70,10 @@ struct CityPickerView: View {
                 } footer: {
                     Text("Choosing a city saves it as your home location.")
                 }
+                }
+                .appCardRows()
             }
+            .appGroundedList()
             .navigationTitle("Set Location")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
