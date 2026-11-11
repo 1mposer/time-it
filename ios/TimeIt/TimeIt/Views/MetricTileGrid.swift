@@ -97,7 +97,7 @@ struct AddMetricTile: View {
         .padding(.horizontal, Theme.Detail.metricInset)
         .padding(.vertical, 24)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Theme.cardBackground)
+        .background(Theme.detailContainer)
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.lg))
         .cardLift(cornerRadius: Theme.Radius.lg)
         .contentShape(RoundedRectangle(cornerRadius: Theme.Radius.lg))

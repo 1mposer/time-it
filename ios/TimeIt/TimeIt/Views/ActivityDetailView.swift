@@ -400,7 +400,7 @@ struct ActivityDetailView: View {
         .padding(EdgeInsets(top: Layout.heroInset, leading: Layout.heroInset,
                             bottom: Layout.heroBottom, trailing: Layout.heroInset))
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.cardBackground)
+        .background(Theme.detailContainer)
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.lg))
         .cardLift(cornerRadius: Theme.Radius.lg)
     }

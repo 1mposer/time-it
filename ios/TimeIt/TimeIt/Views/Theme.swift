@@ -54,6 +54,11 @@ enum Theme {
         static let appBackground = UIColor.dynamic(light: 0xf2f2f7, dark: 0x161915)
         /// surface/card — cards, sheets, tiles (dark "surface").
         static let cardBackground = UIColor.dynamic(light: 0xffffff, dark: 0x222721)
+        /// surface/detail-container — every container on the Activity
+        /// detail (hero, metric cards, add-metric tile): a darker, calmer
+        /// green than `cardBackground` in both modes (owner, build 10 POLISH
+        /// item 4). The page ground stays `appBackground`, as on the dashboard.
+        static let detailContainer = UIColor.dynamic(light: 0xe5ede7, dark: 0x1c231e)
         static let primaryText = UIColor.dynamic(light: 0x1c1c1e, dark: 0xd7dcd6)          // text/primary
         /// text/secondary — 6.22:1 on the dark ground, 5.34 on the card;
         /// only 4.29 on the dark track, so no secondary text sits on a well.
@@ -136,6 +141,7 @@ enum Theme {
 
     static let appBackground = Color(uiColor: UIColors.appBackground)
     static let cardBackground = Color(uiColor: UIColors.cardBackground)
+    static let detailContainer = Color(uiColor: UIColors.detailContainer)
     static let primaryText = Color(uiColor: UIColors.primaryText)
     static let secondaryText = Color(uiColor: UIColors.secondaryText)
     /// Text and glyphs on the temperature band — white in both modes.

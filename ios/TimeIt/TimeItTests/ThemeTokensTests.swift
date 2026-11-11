@@ -146,4 +146,24 @@ final class ThemeTokensTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(contrast(T.accentBrand, T.appBackground, .dark), 3, "the chosen outline against the ground")
         XCTAssertGreaterThanOrEqual(contrast(T.secondaryText, T.cardBackground, .dark), 4.5, "secondary on the dark card")
     }
+
+    /// POLISH item 4: the detail's containers take a darker, calmer green;
+    /// the page ground is the dashboard's, untouched.
+    func testDetailContainersAreADarkerCalmerGreenOverTheSameGround() {
+        typealias T = Theme.UIColors
+        assertToken(T.detailContainer, light: 0xe5ede7, dark: 0x1c231e, "surface/detail-container")
+        assertToken(T.appBackground, light: 0xf2f2f7, dark: 0x161915, "the ground stays the dashboard's")
+        for style in [UIUserInterfaceStyle.light, .dark] {
+            let fill = resolve(T.detailContainer, style), card = resolve(T.cardBackground, style)
+            XCTAssertLessThan(luminance(fill), luminance(card), "darker than the card \(style.rawValue)")
+            let r = (fill.hex >> 16) & 0xff, g = (fill.hex >> 8) & 0xff, b = fill.hex & 0xff
+            XCTAssertGreaterThan(g, r, "green-leaning \(style.rawValue)")
+            XCTAssertGreaterThan(g, b, "green-leaning \(style.rawValue)")
+            XCTAssertGreaterThanOrEqual(contrast(T.accentBrand, T.detailContainer, style), 4.5, "accent \(style.rawValue)")
+            XCTAssertGreaterThanOrEqual(contrast(T.primaryText, T.detailContainer, style), 4.5, "primary \(style.rawValue)")
+        }
+        // Dark keeps its lift off the ground (no shadow there).
+        XCTAssertGreaterThan(luminance(resolve(T.detailContainer, .dark)), luminance(resolve(T.appBackground, .dark)))
+        XCTAssertGreaterThanOrEqual(contrast(T.secondaryText, T.detailContainer, .dark), 4.5, "secondary on the dark container")
+    }
 }

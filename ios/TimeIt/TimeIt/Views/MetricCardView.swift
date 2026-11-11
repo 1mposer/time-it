@@ -91,7 +91,9 @@ struct MetricCardView: View {
         }
         .padding(.horizontal, Theme.Detail.metricInset)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Theme.cardBackground)
+        // The detail's container green (POLISH item 4) — this card only
+        // ever renders on the detail.
+        .background(Theme.detailContainer)
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.lg))
         .cardLift(cornerRadius: Theme.Radius.lg)
         .accessibilityElement(children: .ignore)
