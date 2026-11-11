@@ -72,16 +72,16 @@ struct FeedbackView: View {
                 Group {
                     if viewModel.phase == .sending {
                         ProgressView()
-                            .tint(Theme.onGradient)
+                            .tint(Theme.onFill)
                     } else {
                         Text("Send")
                             .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(Theme.onGradient)
+                            .foregroundStyle(Theme.onFill)
                     }
                 }
                 .frame(maxWidth: .infinity)
                 .frame(height: 44)
-                .background(Capsule().fill(Theme.accentInteractive))
+                .background(Capsule().fill(Theme.accentBrand))
                 .contentShape(Capsule())
             }
             .buttonStyle(.plain)

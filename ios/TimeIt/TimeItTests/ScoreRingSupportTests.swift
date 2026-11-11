@@ -220,7 +220,7 @@ final class ScoreRingSupportTests: XCTestCase {
 
     func testRingTintFollowsTheRatingTier() {
         XCTAssertEqual(Theme.ratingTint(.perfect), Theme.perfectGreen)
-        XCTAssertEqual(Theme.ratingTint(.good), Theme.accentOrange)
+        XCTAssertEqual(Theme.ratingTint(.good), Theme.ratingGood)
         XCTAssertEqual(Theme.ratingTint(nil), Theme.badRed)
         XCTAssertEqual(Theme.ratingTint(.unknown("legendary")), Theme.badRed,
                        "an unknown verdict must never paint favourably")

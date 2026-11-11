@@ -80,7 +80,7 @@ extension View {
         }
     }
 
-    /// The shared glass capsule: a tinted one-line label (`accentInteractive`
+    /// The shared glass capsule: a tinted one-line label (`accentBrand`
     /// at `font`), `height` tall with `horizontalPadding` either side, on the
     /// glass capsule surface. Used by the detail's Score capsule (28pt, 13pt)
     /// and the dashboard's primary capsules (`GlassCapsule.height`, 44pt).
@@ -89,7 +89,7 @@ extension View {
                       horizontalPadding: CGFloat = GlassCapsule.horizontalPadding,
                       enabled: Bool = true) -> some View {
         self.font(font)
-            .foregroundStyle(Theme.accentInteractive)
+            .foregroundStyle(Theme.accentBrand)
             .lineLimit(1)
             .padding(.horizontal, horizontalPadding)
             .frame(height: height)

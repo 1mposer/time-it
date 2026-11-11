@@ -476,7 +476,7 @@ struct ActivityDetailView: View {
         Button(action: returnToRange) {
             Image(systemName: "arrow.uturn.backward")
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Theme.accentInteractive)
+                .foregroundStyle(Theme.accentBrand)
                 .frame(width: Layout.returnPiece, height: Layout.returnPiece)
                 .contentShape(Capsule())
                 .padding(Layout.hitPad)
@@ -629,7 +629,7 @@ struct ActivityDetailView: View {
         Button(action: action) {
             Image(systemName: systemName)
                 .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(Theme.accentInteractive)
+                .foregroundStyle(Theme.accentBrand)
                 .opacity(enabled ? 1 : 0.35)
                 .frame(width: Layout.stepPiece, height: Layout.stepPiece)
                 .stepPieceSurface(enabled: enabled)
@@ -758,7 +758,7 @@ struct ActivityDetailView: View {
                 Text(RangeStripAxis.numeral(viewModel.localHour(at: index) ?? 0))
                     .font(compact ? .system(size: 9, weight: .semibold)
                                   : .system(size: 11, weight: chosen ? .semibold : .medium))
-                    .foregroundStyle(passed ? Theme.secondaryText : Theme.onGradient)
+                    .foregroundStyle(passed ? Theme.secondaryText : Theme.onFill)
             )
             .opacity(passed ? 1 : dim)
             .overlay(
@@ -889,7 +889,7 @@ struct ActivityDetailView: View {
             VStack(spacing: Layout.editCircleToCaption) {
                 Image(systemName: systemName)
                     .font(.system(size: Layout.editCircleGlyph, weight: .semibold))
-                    .foregroundStyle(Theme.accentInteractive)
+                    .foregroundStyle(Theme.accentBrand)
                     .frame(width: Layout.editCircleDiameter, height: Layout.editCircleDiameter)
                     .glassPieceSurface(in: Circle(), enabled: true, fallback: .material)
                 // The circle stays 44 (ruling 9a / HIG target); its caption

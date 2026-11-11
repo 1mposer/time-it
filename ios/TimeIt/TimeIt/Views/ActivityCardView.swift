@@ -77,10 +77,10 @@ struct ActivityCardView: View {
             if let rangeChipLabel {
                 Text("Range · \(rangeChipLabel)")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(Theme.accentInteractive)
+                    .foregroundStyle(Theme.accentBrand)
                     .padding(.horizontal, 7)
                     .padding(.vertical, 2)
-                    .background(Theme.accentInteractive.opacity(0.12), in: Capsule())
+                    .background(Theme.accentTint, in: Capsule())
                     .accessibilityLabel("Range \(rangeChipLabel)")
                     .accessibilityIdentifier("rangeChip.\(activity.activityId)")
             }

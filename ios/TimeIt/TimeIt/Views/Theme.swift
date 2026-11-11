@@ -48,31 +48,48 @@ extension UIColor {
 enum Theme {
     /// The tokens as resolvable `UIColor`s — the one table both modes read.
     enum UIColors {
-        static let appBackground = UIColor.dynamic(light: 0xf2f2f7, dark: 0x000000)        // surface/background
-        /// Cards: surface/card light, surface/card-elevated dark (owner ruling
-        /// 2026-10-06 #6 — in dark the lighter surface gives the lift).
-        static let cardBackground = UIColor.dynamic(light: 0xffffff, dark: 0x2c2c2e)
+        /// surface/background — Dark is ladder C, the sage-tinted ground
+        /// (owner ruling 2026-11-11, Q6c: "all the colours of the app need to
+        /// be synchronised" — no pure black anywhere in dark).
+        static let appBackground = UIColor.dynamic(light: 0xf2f2f7, dark: 0x161817)
+        /// surface/card — the one card token (item-2 prune R1a retired
+        /// card-elevated): white in light, the lifted sage card in dark.
+        static let cardBackground = UIColor.dynamic(light: 0xffffff, dark: 0x2a2e2c)
         static let primaryText = UIColor.dynamic(light: 0x1c1c1e, dark: 0xf2f2f7)          // text/primary
         static let secondaryText = UIColor.dynamic(light: 0x8e8e93, dark: 0x98989f)        // text/secondary
-        static let onGradient = UIColor.dynamic(light: 0xffffff, dark: 0xffffff)           // text/on-gradient
-        static let accentOrange = UIColor.dynamic(light: 0xff9500, dark: 0xff9f0a)         // rating/good
+        /// text/on-fill — the one white for labels on a filled surface: the
+        /// header band and every accent fill (owner ruling 2026-11-11: the
+        /// former text/on-gradient, which `text/on-accent` would only have
+        /// duplicated).
+        static let onFill = UIColor.dynamic(light: 0xffffff, dark: 0xffffff)
+        static let ratingGood = UIColor.dynamic(light: 0xff9500, dark: 0xff9f0a)           // rating/good
         static let perfectGreen = UIColor.dynamic(light: 0x34c759, dark: 0x30d158)         // rating/perfect
         static let badRed = UIColor.dynamic(light: 0xff3b30, dark: 0xff453a)               // rating/bad
         static let blendYellow = UIColor.dynamic(light: 0xffbe0a, dark: 0xffbe0a)          // rating/blend (same, intended)
-        static let accentInteractive = UIColor.dynamic(light: 0x007aff, dark: 0x0a84ff)    // accent/interactive
+        /// accent/brand — the app's one interactive colour (owner ruling
+        /// 2026-11-11, Q1a: app-wide). Text, icons, rings, selection. Dark is
+        /// the mint tint: 8.06:1 on the ground, 6.22 on the card, 4.77 on the
+        /// track.
+        static let accentBrand = UIColor.dynamic(light: 0x48665c, dark: 0x8ab8a6)
+        /// accent/brand-fill — filled controls (Q2b): the same green in light;
+        /// a deeper green in dark so the white label holds 4.78:1.
+        static let accentBrandFill = UIColor.dynamic(light: 0x48665c, dark: 0x557a6d)
+        /// The 1pt edge a dark accent fill carries (the fill is only 2.88:1
+        /// against the card) — mint at 55%; clear in light.
+        static let accentBrandEdge = UIColor.dynamic(light: 0x48665c, dark: 0x8ab8a6,
+                                                     lightAlpha: 0, darkAlpha: 0.55)
+        /// The accent tint behind chips and soft selections — 18% light, 16%
+        /// dark (24% would fail at 4.35:1 under mint text).
+        static let accentTint = UIColor.dynamic(light: 0x48665c, dark: 0x8ab8a6,
+                                                lightAlpha: 0.18, darkAlpha: 0.16)
         static let accentDestructive = UIColor.dynamic(light: 0xff3b30, dark: 0xff453a)    // accent/destructive
-        static let timelineTrack = UIColor.dynamic(light: 0xf2f2f7, dark: 0x3a3a3c)        // timeline/track
+        static let timelineTrack = UIColor.dynamic(light: 0xf2f2f7, dark: 0x3b403e)        // timeline/track
         static let divider = UIColor.dynamic(light: 0x3c3c43, dark: 0x545458,
                                              lightAlpha: 0.18, darkAlpha: 0.60)             // separator
         /// The cards' 0.5pt hairline — light only; in dark the Card Lift Dark
         /// top highlight replaces it.
         static let cardHairline = UIColor.dynamic(light: 0x000000, dark: 0x000000,
                                                   lightAlpha: 0.06, darkAlpha: 0)
-        /// No Figma token: the hero add-card's pressed blue. Light is the
-        /// approved #66B2FF; dark is the dark accent at 60% (the light value is
-        /// the light accent at ~60% over white — the same reading).
-        static let accentInteractivePressed = UIColor.dynamic(light: 0x66b2ff, dark: 0x0a84ff,
-                                                              darkAlpha: 0.6)
 
         /// chip/<tier>/text — light: a darker high-contrast variant; dark:
         /// the rating colour itself.
@@ -113,9 +130,10 @@ enum Theme {
     static let cardBackground = Color(uiColor: UIColors.cardBackground)
     static let primaryText = Color(uiColor: UIColors.primaryText)
     static let secondaryText = Color(uiColor: UIColors.secondaryText)
-    /// Text and glyphs on a gradient, tier or accent fill — white in both modes.
-    static let onGradient = Color(uiColor: UIColors.onGradient)
-    static let accentOrange = Color(uiColor: UIColors.accentOrange)   // Semantic rating/good
+    /// Labels on a filled surface (header band, accent fills) — white in
+    /// both modes (Semantic text/on-fill).
+    static let onFill = Color(uiColor: UIColors.onFill)
+    static let ratingGood = Color(uiColor: UIColors.ratingGood)       // Semantic rating/good
     static let perfectGreen = Color(uiColor: UIColors.perfectGreen)   // Semantic rating/perfect
     static let badRed = Color(uiColor: UIColors.badRed)               // Semantic rating/bad — gradient red; gray track = no data only
     /// The detail hero's "No Window" word — light red, Regular 12 (owner
@@ -123,8 +141,10 @@ enum Theme {
     static let noWindowTint = badRed.opacity(0.7)
     static let blendYellow = Color(uiColor: UIColors.blendYellow)     // Semantic rating/blend — G↔O waypoint only, never a tier fill
     static let timelineTrack = Color(uiColor: UIColors.timelineTrack)
-    static let accentInteractive = Color(uiColor: UIColors.accentInteractive) // Semantic accent/interactive
-    static let accentInteractivePressed = Color(uiColor: UIColors.accentInteractivePressed)
+    static let accentBrand = Color(uiColor: UIColors.accentBrand)           // Semantic accent/brand
+    static let accentBrandFill = Color(uiColor: UIColors.accentBrandFill)   // Semantic accent/brand-fill
+    static let accentBrandEdge = Color(uiColor: UIColors.accentBrandEdge)
+    static let accentTint = Color(uiColor: UIColors.accentTint)
     static let accentDestructive = Color(uiColor: UIColors.accentDestructive) // Semantic accent/destructive
     static let divider = Color(uiColor: UIColors.divider)
     /// The cards' 0.5pt hairline (light only — clear in dark).
@@ -135,7 +155,7 @@ enum Theme {
     static let shadowInk = Color.black
     /// The threshold slider's thumb — white in both modes (the system
     /// slider convention).
-    static let sliderThumb = onGradient
+    static let sliderThumb = onFill
 
     /// The Figma Layout collection's spacing scale (`space/*`) — the
     /// shipped-truth home for these values (ADR-0009).
@@ -405,7 +425,7 @@ enum Theme {
 
     /// The Range's "home" ghost outline on the detail pill row: 1pt
     /// interactive accent at 35%, inside the pill rect.
-    static let homeOutline = accentInteractive.opacity(0.35)
+    static let homeOutline = accentBrand.opacity(0.35)
     static let homeOutlineWidth: CGFloat = 1
 
     /// Metric-chip tier colors — text uses darker high-contrast variants so
@@ -446,7 +466,7 @@ enum Theme {
     static func ratingTint(_ rating: Rating?) -> Color {
         switch rating {
         case .perfect: return perfectGreen
-        case .good: return accentOrange
+        case .good: return ratingGood
         default: return badRed
         }
     }
@@ -456,7 +476,7 @@ enum Theme {
     static func tierColor(_ tier: HourTier) -> Color {
         switch tier {
         case .green: return perfectGreen
-        case .orange: return accentOrange
+        case .orange: return ratingGood
         case .red: return badRed
         }
     }

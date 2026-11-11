@@ -184,12 +184,12 @@ struct ScoreRingCardView: View {
         if let rangeChipLabel {
             Text(rangeChipLabel)
                 .scaledFont(size: 12, weight: .medium)
-                .foregroundStyle(Theme.accentInteractive)
+                .foregroundStyle(Theme.accentBrand)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
                 .padding(.horizontal, 9)
                 .padding(.vertical, 4)
-                .background(Theme.accentInteractive.opacity(0.12), in: Capsule())
+                .background(Theme.accentTint, in: Capsule())
                 .fixedSize(horizontal: !dynamicTypeSize.isAccessibilitySize, vertical: true)
                 .accessibilityIdentifier("rangeChip.\(activity.activityId)")
         }

@@ -301,7 +301,7 @@ struct DashboardView: View {
                     Image(systemName: "arrow.right")
                         .font(.system(size: 13, weight: .semibold))
                 }
-                .foregroundStyle(Theme.accentInteractive)
+                .foregroundStyle(Theme.accentBrand)
                 .frame(minHeight: 30)
                 .contentShape(Rectangle())
             }
@@ -365,7 +365,7 @@ struct DashboardView: View {
                 } label: {
                     Text("Place your own location")
                         .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(Theme.accentInteractive)
+                        .foregroundStyle(Theme.accentBrand)
                         .frame(minHeight: 44)
                         .contentShape(Rectangle())
                 }
@@ -606,7 +606,7 @@ struct DashboardView: View {
                             .accessibilityLabel("Get a morning digest + Perfect window alerts")
                         Text("Turn on notifications")
                             .font(.system(size: 13))
-                            .foregroundStyle(Theme.accentInteractive)
+                            .foregroundStyle(Theme.accentBrand)
                     }
                     Spacer(minLength: 0)
                 }
@@ -641,7 +641,7 @@ struct DashboardView: View {
     @ViewBuilder private var calloutBell: some View {
         let bell = Image(systemName: "bell.fill")
             .font(.system(size: 17))
-            .foregroundStyle(Theme.accentInteractive)
+            .foregroundStyle(Theme.accentBrand)
         if #available(iOS 18.0, *) {
             if reduceMotion {
                 bell
@@ -691,7 +691,7 @@ struct DashboardView: View {
     private static let addSlotHeight: CGFloat = 64
 
     /// "⊕ Add Activity" — a 40pt glass capsule (plus.circle + 16pt Semibold
-    /// in `accentInteractive`) inside a 44pt hit target (2pt above and below,
+    /// in `accentBrand`) inside a 44pt hit target (2pt above and below,
     /// outside the glass) that opens the wizard; the first-launch hero
     /// and the add slot after the list are the same control. At the soft cap
     /// it reads "Activity limit reached (N)", disabled at 50%.
