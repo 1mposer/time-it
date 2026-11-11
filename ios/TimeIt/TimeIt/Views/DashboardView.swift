@@ -837,16 +837,46 @@ struct DashboardView: View {
 
     /// The add slot after the card list: the glass Add Activity capsule,
     /// centred in the 64pt the dashed ghost card used (owner ruling
-    /// 2026-11-04). At the soft cap the same capsule reads the limit,
-    /// disabled at half strength.
-    private var addCard: some View {
-        addActivityCapsule(identifier: "addActivityCard")
-            .frame(maxWidth: .infinity)
-            .frame(height: Self.addSlotHeight)
+    /// 2026-11-04). Below the soft cap the capsule is a single enlarged "+"
+    /// (owner, build 10 POLISH item 3: the "Add Activity" words go, the
+    /// glyph takes their room); at the cap it reads the limit, disabled at
+    /// half strength, exactly as before.
+    @ViewBuilder private var addCard: some View {
+        Group {
+            if store.isAtCap {
+                addActivityCapsule(identifier: "addActivityCard")
+            } else {
+                addGlyphCapsule
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .frame(minHeight: Self.addSlotHeight)
     }
 
     /// The ghost add slot's height (the dashed card's old 64pt).
     private static let addSlotHeight: CGFloat = 64
+
+    /// The "+" capsule's glyph (scales as title2 — HIG: interface icons
+    /// scale with Dynamic Type) and its capsule: 4 glyphs wide, the glyph
+    /// plus 10 above and below, never under the HIG 44pt target.
+    @ScaledMetric(relativeTo: .title2) private var addGlyphSize: CGFloat = DashboardLayout.addGlyphSize
+
+    /// The add slot below the cap: one enlarged "+" on the glass capsule —
+    /// still "Add Activity" to VoiceOver, the same press feel and haptic.
+    private var addGlyphCapsule: some View {
+        GlassControl(presentsSheet: true,
+                     identifier: "addActivityCard",
+                     accessibilityLabel: "Add Activity",
+                     action: { showAdd = true }) {
+            Image(systemName: "plus")
+                .font(.system(size: addGlyphSize, weight: .semibold))
+                .foregroundStyle(Theme.accentBrand)
+                .frame(width: addGlyphSize * DashboardLayout.addCapsuleWidthInGlyphs,
+                       height: max(GlassCapsule.height, addGlyphSize + 2 * DashboardLayout.addGlyphInset))
+                .glassPieceSurface(in: Capsule(), enabled: true, fallback: .material)
+                .contentShape(Capsule())
+        }
+    }
 
     /// "⊕ Add Activity" — a 40pt glass capsule (plus.circle + 16pt Semibold
     /// in `accentBrand`) inside a 44pt hit target (2pt above and below,
@@ -914,6 +944,12 @@ enum DashboardLayout {
     static let firstLaunchHeroPadding: CGFloat = 52
     /// The first-launch hero sits in a ScrollView padded by `Spacing.lg`.
     static let firstLaunchListPadding: CGFloat = Theme.Spacing.lg
+
+    /// The add slot's "+" (POLISH item 3): 24pt at the default size, on a
+    /// capsule 4 glyphs wide (96) and 44 tall (10 above and below).
+    static let addGlyphSize: CGFloat = 24
+    static let addCapsuleWidthInGlyphs: CGFloat = 4
+    static let addGlyphInset: CGFloat = 10
 
     /// The list's top padding below the header: the first Activity card at
     /// eye level, with `leadingHeight` (the push callout slot + its gap)

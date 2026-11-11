@@ -328,6 +328,12 @@ final class TimeItUITests: XCTestCase {
         XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5))
         app.swipeUp()
         XCTAssertTrue(addCard.waitForExistence(timeout: 5), "ghost add-card renders after the card list")
+        // POLISH item 3: a single "+" — no words on screen, still named for
+        // VoiceOver, still the HIG 44pt target.
+        XCTAssertEqual(addCard.label, "Add Activity")
+        XCTAssertFalse(addCard.staticTexts["Add Activity"].exists, "the slot shows the glyph alone")
+        XCTAssertGreaterThanOrEqual(addCard.frame.height, 44)
+        XCTAssertGreaterThanOrEqual(addCard.frame.width, 44)
         addCard.tap()
 
         XCTAssertTrue(app.textFields["editor.name"].waitForExistence(timeout: 5),
