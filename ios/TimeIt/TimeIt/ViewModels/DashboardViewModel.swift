@@ -264,11 +264,45 @@ final class DashboardViewModel: ObservableObject {
         let key = ForecastCache.key(lat: coordinate.latitude, lon: coordinate.longitude)
         let fingerprints = Self.fingerprints(activities)
 
-        if !bypassCache, let entry = cache.entry(for: key), entry.isFresh(now: now()),
-           entry.fingerprints == fingerprints,
-           entry.response.activities.map(\.activityId) == activities.map(\.id) {
-            publish(entry, for: active)
-            return
+        // A fresh entry is reconciled with the store instead of refetched
+        // (owner rules 2026-11-11): unchanged Activities are replayed in the
+        // store's order — a delete, reorder or dormancy is a local drop or
+        // shuffle with no POST — and only added/edited Activities are POSTed.
+        // Their ratings merge in only when the reply shares the entry's
+        // `forecastStart` + `timezone` (one forecast, one set of indices);
+        // otherwise the whole entry is replaced by the full refetch below.
+        // Nothing is ever rated on the device (ADR-0002/0007).
+        if !bypassCache, let entry = cache.entry(for: key), entry.isFresh(now: now()) {
+            let cachedIds = Set(entry.response.activities.map(\.activityId))
+            let changed = activities.filter {
+                entry.fingerprints[$0.id] != fingerprints[$0.id] || !cachedIds.contains($0.id)
+            }
+            if changed.isEmpty {
+                let replayed = entry.reconciled(order: activities.map(\.id), merging: [], fingerprints: fingerprints)
+                if replayed.fingerprints != entry.fingerprints
+                    || replayed.response.activities.map(\.activityId) != entry.response.activities.map(\.activityId) {
+                    cache.store(replayed)
+                }
+                publish(replayed, for: active)
+                return
+            }
+            isLoading = showsLoading && forecast == nil
+            if let reply = try? await api.fetchRatings(lat: coordinate.latitude,
+                                                       lon: coordinate.longitude,
+                                                       activities: changed) {
+                guard generation == loadGeneration else { return }
+                if reply.forecastStart == entry.response.forecastStart,
+                   reply.timezone == entry.response.timezone {
+                    let merged = entry.reconciled(order: activities.map(\.id), merging: reply.activities,
+                                                  fingerprints: fingerprints)
+                    cache.store(merged)
+                    publish(merged, for: active)
+                    return
+                }
+            }
+            guard generation == loadGeneration else { return }
+            // Fall through: a mismatched (or failed) single POST becomes the
+            // full refetch, which replaces the entry wholesale.
         }
 
         do {

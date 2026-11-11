@@ -18,6 +18,26 @@ struct ForecastCacheEntry: Codable {
     /// so a client refetch sooner than that buys nothing.
     static let ttl: TimeInterval = 3 * 3600
 
+    /// This entry replayed in `order` (ids absent from it are dropped), with
+    /// `merging`'s ratings replacing or adding their ids. `fetchedAt` and
+    /// `hours` are kept — a merge never re-ages the response. Callers merge
+    /// only a reply sharing this entry's `forecastStart` + `timezone`.
+    func reconciled(order: [String], merging replies: [ActivityRating],
+                    fingerprints: [String: String]) -> ForecastCacheEntry {
+        let replyById = Dictionary(replies.map { ($0.activityId, $0) }, uniquingKeysWith: { first, _ in first })
+        let cachedById = Dictionary(response.activities.map { ($0.activityId, $0) },
+                                    uniquingKeysWith: { first, _ in first })
+        let activities = order.compactMap { replyById[$0] ?? cachedById[$0] }
+        let kept = Set(activities.map(\.activityId))
+        return ForecastCacheEntry(key: key,
+                                  fetchedAt: fetchedAt,
+                                  response: ForecastResponse(forecastStart: response.forecastStart,
+                                                             timezone: response.timezone,
+                                                             activities: activities,
+                                                             hours: response.hours),
+                                  fingerprints: fingerprints.filter { kept.contains($0.key) })
+    }
+
     /// Fresh while `now` is within the TTL of the fetch. A device clock set
     /// back before the fetch reads stale — the age can't be trusted.
     func isFresh(now: Date) -> Bool {
