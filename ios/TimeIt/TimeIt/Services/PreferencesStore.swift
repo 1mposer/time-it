@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 /// A geocoded place the user chose as home. When set, the dashboard fetches
 /// for these coords instead of GPS.
@@ -51,11 +52,41 @@ enum WindSpeedUnit: String, CaseIterable, Identifiable {
     func toKmh(_ value: Double) -> Double { value / factorFromKmh }
 }
 
+/// The app's two appearances (owner ruling 2026-11-11: no "System" mode —
+/// the first launch seeds the choice from the system, after that the stored
+/// choice rules). Both share the accent.
+enum AppAppearance: String, CaseIterable, Identifiable {
+    case light
+    case dark
+
+    var id: String { rawValue }
+
+    var opposite: AppAppearance { self == .light ? .dark : .light }
+
+    /// The seed at first launch: dark only when the system is dark.
+    init(systemStyle: UIUserInterfaceStyle) {
+        self = systemStyle == .dark ? .dark : .light
+    }
+
+    var interfaceStyle: UIUserInterfaceStyle { self == .dark ? .dark : .light }
+}
+
 /// User preferences that aren't the activity list: the optional home location
 /// plus the last-resolved cache. Persists locally; no cloud sync.
 @MainActor
 final class PreferencesStore: ObservableObject {
-    static let shared = PreferencesStore()
+    static let shared: PreferencesStore = {
+        #if DEBUG
+        // UITEST_RESET for the keys added by Lane B 2026-11-11 (the rest are
+        // cleared in TimeItApp.init); the singleton is first touched after
+        // App.init, so this still runs before anything reads them.
+        if ProcessInfo.processInfo.arguments.contains("UITEST_RESET") {
+            UserDefaults.standard.removeObject(forKey: appearanceKey)
+            UserDefaults.standard.removeObject(forKey: pushCalloutRestingKey)
+        }
+        #endif
+        return PreferencesStore()
+    }()
 
     static let homeLocationKey = "homeLocation"
     static let windSpeedUnitKey = "windSpeedUnit"
@@ -63,6 +94,8 @@ final class PreferencesStore: ObservableObject {
     static let pushCalloutDismissedKey = "pushCalloutDismissed"
     static let timezoneWarnedHomeKey = "timezoneWarnedHome"
     static let collapsedCardsKey = "collapsedCards"
+    static let appearanceKey = "appearance"
+    static let pushCalloutRestingKey = "pushCalloutResting"
 
     /// nil = follow the device location (then the last-resolved cache).
     @Published var homeLocation: SavedLocation? {
@@ -77,10 +110,26 @@ final class PreferencesStore: ObservableObject {
         didSet { persist(lastResolvedLocation, key: Self.lastResolvedLocationKey) }
     }
 
-    /// The dashboard callout is one-time — ✕ hides it for good (enabling
-    /// notifications hides it without setting this).
+    /// "Don't show again" on the resting bell's long-press menu — the callout
+    /// and its bell are gone for good (enabling notifications hides both
+    /// without setting this). Installs that dismissed the old one-time callout
+    /// carry `true` and never see the bell (owner ruling 2026-11-11).
     @Published var pushCalloutDismissed: Bool {
         didSet { defaults.set(pushCalloutDismissed, forKey: Self.pushCalloutDismissedKey) }
+    }
+
+    /// The callout's ✕ folds it to the bell (owner ruling 2026-11-11); a tap
+    /// on the bell reveals it again, every time.
+    @Published var pushCalloutResting: Bool {
+        didSet { defaults.set(pushCalloutResting, forKey: Self.pushCalloutRestingKey) }
+    }
+
+    /// Light or dark — nil only until the first launch seeds it from the
+    /// system (`seedAppearanceIfNeeded`). The header button and the Settings
+    /// segment both read and write this one value; `AppearanceController`
+    /// applies it to the window.
+    @Published var appearance: AppAppearance? {
+        didSet { defaults.set(appearance?.rawValue, forKey: Self.appearanceKey) }
     }
 
     /// The home whose different-clock alert was acknowledged — warned once
@@ -108,10 +157,23 @@ final class PreferencesStore: ObservableObject {
         homeLocation = Self.load(Self.homeLocationKey, from: defaults)
         lastResolvedLocation = Self.load(Self.lastResolvedLocationKey, from: defaults)
         pushCalloutDismissed = defaults.bool(forKey: Self.pushCalloutDismissedKey)
+        pushCalloutResting = defaults.bool(forKey: Self.pushCalloutRestingKey)
+        appearance = defaults.string(forKey: Self.appearanceKey).flatMap(AppAppearance.init(rawValue:))
         timezoneWarnedHome = Self.load(Self.timezoneWarnedHomeKey, from: defaults)
         windSpeedUnit = defaults.string(forKey: Self.windSpeedUnitKey)
             .flatMap(WindSpeedUnit.init(rawValue:)) ?? .kmh
         collapsedCardIds = Self.load(Self.collapsedCardsKey, from: defaults) ?? []
+    }
+
+    /// First launch only: adopt the system's appearance; a stored choice wins.
+    func seedAppearanceIfNeeded(systemStyle: UIUserInterfaceStyle) {
+        guard appearance == nil else { return }
+        appearance = AppAppearance(systemStyle: systemStyle)
+    }
+
+    /// The header button: switch to the opposite of what is showing.
+    func toggleAppearance(showing: AppAppearance) {
+        appearance = showing.opposite
     }
 
     /// The card chevron: hide ↔ show this card's week-dot row.

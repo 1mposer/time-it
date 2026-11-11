@@ -1292,6 +1292,43 @@ final class TimeItUITests: XCTestCase {
         XCTAssertFalse(app.buttons["pushCallout"].exists, "the dismissal persists")
     }
 
+    // MARK: - Light / Dark — one value, two controls
+
+    func testHeaderToggleAndSettingsSegmentShareOneAppearance() {
+        let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_SEED_LIVE",
+                                        "UITEST_LOCATION"])
+
+        let toggle = app.buttons["appearanceToggle"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 5), "the toggle mirrors the gear")
+        XCTAssertGreaterThanOrEqual(toggle.frame.width, 44, "HIG target")
+        let before = toggle.label
+        toggle.tap()
+        XCTAssertTrue(waitForLabelChange(toggle, from: before, timeout: 2),
+                      "the toggle now offers the other appearance")
+        let showingDark = toggle.label == "Switch to Light"
+
+        app.buttons["settingsGear"].tap()
+        let segment = app.segmentedControls["settings.appearance"]
+        XCTAssertTrue(segment.waitForExistence(timeout: 5), "Settings › Appearance")
+        XCTAssertTrue(segment.buttons[showingDark ? "Dark" : "Light"].isSelected,
+                      "the segment shows the same single value")
+        XCTAssertFalse(segment.buttons["System"].exists, "two modes only")
+
+        segment.buttons[showingDark ? "Light" : "Dark"].tap()
+        app.buttons["Done"].tap()
+        XCTAssertTrue(waitForLabel(toggle, NSPredicate(format: "label == %@", before), timeout: 3),
+                      "and the header follows the segment")
+    }
+
+    private func waitForLabelChange(_ element: XCUIElement, from old: String, timeout: TimeInterval) -> Bool {
+        waitForLabel(element, NSPredicate(format: "label != %@", old), timeout: timeout)
+    }
+
+    private func waitForLabel(_ element: XCUIElement, _ predicate: NSPredicate, timeout: TimeInterval) -> Bool {
+        XCTWaiter().wait(for: [expectation(for: predicate, evaluatedWith: element)],
+                         timeout: timeout) == .completed
+    }
+
     // MARK: - Beta feedback — the ⓘ menu + the two feedback sheets
 
     /// Opens the beta ⓘ menu and picks `row` ("Send a suggestion" /

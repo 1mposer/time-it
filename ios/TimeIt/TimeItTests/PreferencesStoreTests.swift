@@ -86,6 +86,61 @@ final class PreferencesStoreTests: XCTestCase {
 
     // MARK: the wind-speed unit (#26)
 
+    // MARK: appearance — two modes, seeded once from the system
+
+    func testAppearanceIsUnseededUntilTheFirstLaunchSeedsIt() {
+        XCTAssertNil(PreferencesStore(defaults: defaults).appearance)
+    }
+
+    func testSeedAdoptsTheSystemAppearanceAndPersists() {
+        let store = PreferencesStore(defaults: defaults)
+        store.seedAppearanceIfNeeded(systemStyle: .dark)
+
+        XCTAssertEqual(store.appearance, .dark)
+        XCTAssertEqual(PreferencesStore(defaults: defaults).appearance, .dark, "persisted across launches")
+    }
+
+    func testSeedNeverOverridesAStoredChoice() {
+        let store = PreferencesStore(defaults: defaults)
+        store.appearance = .light
+        store.seedAppearanceIfNeeded(systemStyle: .dark)
+
+        XCTAssertEqual(store.appearance, .light, "after the first launch the stored choice rules")
+    }
+
+    func testAnUnspecifiedSystemStyleSeedsLight() {
+        XCTAssertEqual(AppAppearance(systemStyle: .unspecified), .light)
+        XCTAssertEqual(AppAppearance(systemStyle: .light), .light)
+        XCTAssertEqual(AppAppearance(systemStyle: .dark), .dark)
+    }
+
+    func testToggleSwitchesToTheOppositeOfWhatIsShowing() {
+        let store = PreferencesStore(defaults: defaults)
+        store.toggleAppearance(showing: .light)
+        XCTAssertEqual(store.appearance, .dark)
+        store.toggleAppearance(showing: .dark)
+        XCTAssertEqual(store.appearance, .light)
+    }
+
+    func testAppearanceMapsToTheWindowStyle() {
+        XCTAssertEqual(AppAppearance.light.interfaceStyle, .light)
+        XCTAssertEqual(AppAppearance.dark.interfaceStyle, .dark)
+    }
+
+    func testAnUnknownStoredAppearanceReadsAsUnseeded() {
+        defaults.set("system", forKey: PreferencesStore.appearanceKey)
+        XCTAssertNil(PreferencesStore(defaults: defaults).appearance)
+    }
+
+    // MARK: push callout — resting bell
+
+    func testPushCalloutRestingDefaultsFalseAndPersists() {
+        let store = PreferencesStore(defaults: defaults)
+        XCTAssertFalse(store.pushCalloutResting, "first sight is the full callout")
+        store.pushCalloutResting = true
+        XCTAssertTrue(PreferencesStore(defaults: defaults).pushCalloutResting)
+    }
+
     func testWindSpeedUnitDefaultsToKmhAndPersists() {
         XCTAssertEqual(PreferencesStore(defaults: defaults).windSpeedUnit, .kmh,
                        "km/h is the wire unit and the default")

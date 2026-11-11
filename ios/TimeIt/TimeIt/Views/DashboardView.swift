@@ -15,6 +15,8 @@ struct DashboardView: View {
     @ObservedObject private var router: PushRouter
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
+    /// What is on screen — the header toggle switches to its opposite.
+    @Environment(\.colorScheme) private var colorScheme
     @State private var showSettings = false
     @State private var showAdd = false
     @State private var showingCapAlert = false
@@ -54,6 +56,12 @@ struct DashboardView: View {
     /// The Add-Activity hero's extra top padding (approved First Launch frame).
     private static let firstLaunchHeroTop: CGFloat = 84
 
+    /// The appearance on screen right now (the stored choice once applied;
+    /// the trait under a UI-test pin).
+    private var showingAppearance: AppAppearance {
+        colorScheme == .dark ? .dark : .light
+    }
+
     private var showsHeaderWeather: Bool {
         !viewModel.hasNoLocation && viewModel.hasLiveActivities
     }
@@ -80,7 +88,11 @@ struct DashboardView: View {
                            currentHour: viewModel.forecast?.hours.first,
                            showsWeather: showsHeaderWeather,
                            timezoneIdentifier: viewModel.forecast?.timezone,
-                           windUnit: preferences.windSpeedUnit) { showSettings = true }
+                           windUnit: preferences.windSpeedUnit,
+                           appearance: showingAppearance,
+                           onAppearanceTap: { preferences.toggleAppearance(showing: showingAppearance) }) {
+                    showSettings = true
+                }
                 // The header is pinned (outside every ScrollView) — its
                 // bottom edge is where each state's list begins.
                 .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).maxY } action: {
@@ -175,6 +187,9 @@ struct DashboardView: View {
             }
         }
         .task {
+            // Seeds the stored appearance from the system on first launch,
+            // then owns the window override (inert under a UI-test pin).
+            AppearanceController.shared.attachForCurrentProcess()
             viewModel.requestInitialLocationPermissionIfNeeded()
             await viewModel.loadForecast()
         }
