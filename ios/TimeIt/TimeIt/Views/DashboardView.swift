@@ -127,9 +127,17 @@ struct DashboardView: View {
                             .font(.caption2)
                             .foregroundStyle(Theme.secondaryText)
                             .padding(.trailing, 16)
+                            // Stays inside the header's 22pt bottom padding
+                            // so it never runs over the meta line (note 36).
+                            .dynamicTypeSize(...Self.updatedLabelTypeCap)
                             .accessibilityIdentifier("forecastUpdated")
                     }
                 }
+                // Note 36 (tester record): at the accessibility sizes the
+                // hero ate ~half the screen. The header is chrome, so its
+                // words stop growing at xxxLarge — the cards below keep the
+                // full Dynamic Type range (owner, build 10 POLISH item 6).
+                .dynamicTypeSize(...Self.headerTypeCap)
                 // The header is pinned (outside every ScrollView) — its
                 // bottom edge is where each state's list begins.
                 .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).maxY } action: {
@@ -853,13 +861,20 @@ struct DashboardView: View {
         .frame(minHeight: Self.addSlotHeight)
     }
 
+    /// The header's Dynamic Type ceiling (POLISH item 6) and the forecast
+    /// age's, which must fit the header's bottom padding.
+    static let headerTypeCap: DynamicTypeSize = .xxxLarge
+    static let updatedLabelTypeCap: DynamicTypeSize = .xLarge
+
     /// The ghost add slot's height (the dashed card's old 64pt).
     private static let addSlotHeight: CGFloat = 64
 
     /// The "+" capsule's glyph (scales as title2 — HIG: interface icons
     /// scale with Dynamic Type) and its capsule: 4 glyphs wide, the glyph
     /// plus 10 above and below, never under the HIG 44pt target.
-    @ScaledMetric(relativeTo: .title2) private var addGlyphSize: CGFloat = DashboardLayout.addGlyphSize
+    @ScaledMetric(relativeTo: .title2) private var scaledAddGlyph: CGFloat = DashboardLayout.addGlyphSize
+    /// Capped so the capsule stays a control, not a banner, at AX sizes.
+    private var addGlyphSize: CGFloat { min(scaledAddGlyph, DashboardLayout.addGlyphMax) }
 
     /// The add slot below the cap: one enlarged "+" on the glass capsule —
     /// still "Add Activity" to VoiceOver, the same press feel and haptic.
@@ -948,6 +963,7 @@ enum DashboardLayout {
     /// The add slot's "+" (POLISH item 3): 24pt at the default size, on a
     /// capsule 4 glyphs wide (96) and 44 tall (10 above and below).
     static let addGlyphSize: CGFloat = 24
+    static let addGlyphMax: CGFloat = 34
     static let addCapsuleWidthInGlyphs: CGFloat = 4
     static let addGlyphInset: CGFloat = 10
 

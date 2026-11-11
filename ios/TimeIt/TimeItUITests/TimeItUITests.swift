@@ -1591,6 +1591,28 @@ final class TimeItUITests: XCTestCase {
 
     // MARK: - Lane POLISH screen tour (build 10, mini-edits lane)
 
+    /// Note 36 / POLISH item 6: at AX-XXXL the header (location, numeral,
+    /// meta line, forecast age) stays inside the top 40% of the screen, the
+    /// age never overlaps the meta line, and the first card still renders.
+    func testHeaderStaysInTheTopFortyPercentAtAccessibilityXXXL() {
+        let app = launchApp(contentSize: .accessibilityExtraExtraExtraLarge)
+        let card = app.buttons["card.cycling"]
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        let screen = app.windows.firstMatch.frame.height
+        let meta = app.staticTexts["headerTime"]
+        let updated = app.staticTexts["forecastUpdated"]
+        XCTAssertTrue(meta.exists)
+        XCTAssertTrue(updated.exists)
+        let headerBottom = max(meta.frame.maxY, updated.frame.maxY)
+        XCTAssertLessThanOrEqual(headerBottom, screen * 0.4,
+                                 "header ends at \(headerBottom) of \(screen)")
+        let lowestMeta = ["headerTime", "headerTemp"].map { app.staticTexts[$0].frame.maxY }.max() ?? 0
+        let metaRows = app.staticTexts.matching(NSPredicate(format: "label CONTAINS '%'")).allElementsBoundByIndex
+        let humidityBottom = metaRows.map(\.frame.maxY).filter { $0 < screen * 0.5 }.max() ?? lowestMeta
+        XCTAssertGreaterThanOrEqual(updated.frame.minY, humidityBottom - 1,
+                                    "the forecast age sits below the meta line, not over it")
+    }
+
     func testPolishScreenTourLight() { polishScreenTour(appearance: "light") }
     func testPolishScreenTourDark() { polishScreenTour(appearance: "dark") }
 
