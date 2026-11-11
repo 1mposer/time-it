@@ -119,7 +119,7 @@ struct FeedbackView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .frame(height: 44)
-                .background(Capsule().fill(Theme.accentBrand))
+                .background(Capsule().fill(Theme.accentBrandFill))
                 .contentShape(Capsule())
             }
             .buttonStyle(.plain)
@@ -161,13 +161,17 @@ struct FeedbackView: View {
 }
 
 /// Below iOS 26 the sheet content draws the app background; on iOS 26 it
-/// stays transparent so the system Liquid Glass sheet shows through.
+/// stays transparent so the system Liquid Glass sheet shows through — except
+/// in dark, where every screen shares the app's ground (owner ruling 18a,
+/// 2026-11-11).
 private struct OpaqueBelowGlass: ViewModifier {
+    @Environment(\.colorScheme) private var colorScheme
+
     func body(content: Content) -> some View {
-        if #available(iOS 26, *) {
+        if #available(iOS 26, *), colorScheme != .dark {
             content
         } else {
-            content.background(Theme.appBackground)
+            content.background(Theme.appBackground.ignoresSafeArea())
         }
     }
 }

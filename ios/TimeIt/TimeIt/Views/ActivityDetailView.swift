@@ -760,7 +760,7 @@ struct ActivityDetailView: View {
                 Text(RangeStripAxis.numeral(viewModel.localHour(at: index) ?? 0))
                     .font(compact ? .system(size: 9, weight: .semibold)
                                   : .system(size: 11, weight: chosen ? .semibold : .medium))
-                    .foregroundStyle(passed ? Theme.secondaryText : Theme.onFill)
+                    .foregroundStyle(passed ? Theme.secondaryText : Theme.onGradient)
             )
             .opacity(passed ? 1 : dim)
             .overlay(

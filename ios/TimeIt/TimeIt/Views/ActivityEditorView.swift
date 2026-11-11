@@ -255,16 +255,18 @@ struct ActivityEditorView: View {
 
     private func primaryButton(_ title: String, identifier: String, enabled: Bool,
                                action: @escaping () -> Void) -> some View {
-        GlassControl(identifier: identifier, action: action) {
-            Text(title)
-                .scaledFont(size: 17, weight: .semibold)
-                .foregroundStyle(Theme.onFill)
-                .frame(maxWidth: .infinity)
-                .frame(height: Self.primaryHeight)
-                .glassPrimarySurface(in: Capsule(), enabled: enabled)
-                .opacity(enabled ? 1 : 0.45)
+        GlassGroup(spacing: 0) {
+            Button(action: action) {
+                Text(title)
+                    .scaledFont(size: 17, weight: .semibold)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: Self.primaryHeight)
+                    .contentShape(Capsule())
+            }
+            .buttonStyle(PrimaryGlassButtonStyle())
+            .disabled(!enabled)
+            .accessibilityIdentifier(identifier)
         }
-        .disabled(!enabled)
     }
 
     private func save(_ activity: AuthoredActivity?) {

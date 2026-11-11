@@ -170,19 +170,34 @@ private struct OptionalAccessibilityLabel: ViewModifier {
 
 extension View {
     /// The primary glass button's surface (Figma `A/R2/Final`, Next / Save):
-    /// Liquid Glass tinted with the brand fill on iOS 26 (interactive while
-    /// enabled); below iOS 26 the opaque brand fill. Both carry the 1pt mint
-    /// edge in dark (the fill alone is only 2.88:1 against the dark card;
-    /// the edge is clear in light). The label is `Theme.onFill`.
+    /// Liquid Glass tinted with the brand fill on iOS 26, the opaque fill
+    /// below it. Pressed takes the dark "buttonPressed" fill; disabled the
+    /// "disabled" fill (owner dark palette, round 4). The label is
+    /// `Theme.onFill` (white light, dark ink dark).
     @ViewBuilder
-    func glassPrimarySurface<S: Shape>(in shape: S, enabled: Bool) -> some View {
+    func glassPrimarySurface<S: Shape>(in shape: S, enabled: Bool, pressed: Bool = false) -> some View {
+        let fill = !enabled ? Theme.disabledFill : (pressed ? Theme.accentBrandPressed : Theme.accentBrandFill)
         if #available(iOS 26, *) {
-            let tinted = Glass.regular.tint(Theme.accentBrandFill)
+            let tinted = Glass.regular.tint(fill)
             self.glassEffect(enabled ? tinted.interactive() : tinted, in: shape)
-                .overlay(shape.stroke(Theme.accentBrandEdge, lineWidth: 1))
         } else {
-            self.background(Theme.accentBrandFill, in: shape)
-                .overlay(shape.stroke(Theme.accentBrandEdge, lineWidth: 1))
+            self.background(fill, in: shape)
         }
+    }
+}
+
+/// The wizard's primary button: the tinted-glass capsule that swaps to the
+/// pressed fill on touch-down and keeps the shared press scale.
+struct PrimaryGlassButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func makeBody(configuration: Configuration) -> some View {
+        let pressed = configuration.isPressed
+        return configuration.label
+            .foregroundStyle(isEnabled ? Theme.onFill : Theme.secondaryText)
+            .glassPrimarySurface(in: Capsule(), enabled: isEnabled, pressed: pressed)
+            .scaleEffect(pressed && !reduceMotion ? Theme.Motion.pressScale : 1)
+            .animation(pressed ? nil : Theme.Motion.pressRelease, value: pressed)
     }
 }

@@ -14,7 +14,7 @@ struct EditorProgressBar: View {
     /// The bar's track: gray/100 in light (the ground itself is gray/50, so
     /// `timeline/track` would vanish there — found on the simulator), the
     /// sage track in dark.
-    static let track = Color(uiColor: .dynamic(light: 0xe5e5ea, dark: 0x3b403e))
+    static let track = Color(uiColor: .dynamic(light: 0xe5e5ea, dark: 0x31372f))
     /// The advance spring (frame note): bouncy, settles under half a second.
     static let advance = Animation.spring(duration: 0.45, bounce: 0.35)
     static let advanceReduced = Animation.easeInOut(duration: 0.2)
@@ -33,7 +33,6 @@ struct EditorProgressBar: View {
                             .padding(.horizontal, 4)
                             .padding(.top, 2)
                     }
-                    .overlay(Capsule().stroke(Theme.accentBrandEdge, lineWidth: 1))
                     .frame(width: width)
             }
         }

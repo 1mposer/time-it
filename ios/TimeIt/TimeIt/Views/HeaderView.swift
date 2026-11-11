@@ -100,7 +100,7 @@ struct HeaderView: View {
                 Text((locationName ?? "No location").uppercased())
                     .scaledFont(size: 11, weight: .medium)
                     .tracking(1.4)
-                    .foregroundStyle(Theme.onFill.opacity(0.85))
+                    .foregroundStyle(Theme.onGradient.opacity(0.85))
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
                     // A long or scaled name wraps clear of the gear circle.
@@ -114,7 +114,7 @@ struct HeaderView: View {
                     Text(HeaderCopy.numeral(temp: currentHour?.temp))
                         .font(.system(size: 60, weight: .light))
                         .tracking(-2.5)
-                        .foregroundStyle(Theme.onFill)
+                        .foregroundStyle(Theme.onGradient)
                         .numeralLegibility()
                         .background {
                             Ellipse()
@@ -152,7 +152,7 @@ struct HeaderView: View {
                 }
                 .scaledFont(size: 13)
                 .tracking(0.1)
-                .foregroundStyle(Theme.onFill)
+                .foregroundStyle(Theme.onGradient)
                 .padding(.top, showsWeather ? Theme.Spacing.headerNumeralToMeta : 6)
             }
             .frame(maxWidth: .infinity)
@@ -169,7 +169,7 @@ struct HeaderView: View {
                          action: onGearTap) {
                 Image(systemName: "gearshape")
                     .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(Theme.onFill)
+                    .foregroundStyle(Theme.onGradient)
                     .frame(width: Self.gearDiameter, height: Self.gearDiameter)
                     .glassPieceSurface(in: Circle(), enabled: true, fallback: .band,
                                        style: Self.gearGlassStyle)
@@ -206,7 +206,7 @@ struct HeaderView: View {
                      }) {
             Image(systemName: "circle.lefthalf.filled")
                 .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(Theme.onFill)
+                .foregroundStyle(Theme.onGradient)
                 .rotationEffect(.degrees(toggleTurn))
                 .frame(width: Self.gearDiameter, height: Self.gearDiameter)
                 .glassPieceSurface(in: Circle(), enabled: true, fallback: .band,

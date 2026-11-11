@@ -31,13 +31,14 @@ final class ThemeTokensTests: XCTestCase {
 
     func testSurfaceAndTextTokens() {
         typealias T = Theme.UIColors
-        assertToken(T.appBackground, light: 0xf2f2f7, dark: 0x161817, "surface/background (ladder C)")
-        assertToken(T.cardBackground, light: 0xffffff, dark: 0x2a2e2c, "surface/card (ladder C)")
-        assertToken(T.primaryText, light: 0x1c1c1e, dark: 0xf2f2f7, "text/primary")
-        assertToken(T.secondaryText, light: 0x8e8e93, dark: 0x98989f, "text/secondary")
-        assertToken(T.onFill, light: 0xffffff, dark: 0xffffff, "text/on-fill")
-        assertToken(T.divider, light: 0x3c3c43, dark: 0x545458, lightAlpha: 18, darkAlpha: 60, "separator")
-        assertToken(T.timelineTrack, light: 0xf2f2f7, dark: 0x3b403e, "timeline/track (ladder C)")
+        assertToken(T.appBackground, light: 0xf2f2f7, dark: 0x161915, "surface/background (owner dark palette)")
+        assertToken(T.cardBackground, light: 0xffffff, dark: 0x222721, "surface/card (dark surface)")
+        assertToken(T.primaryText, light: 0x1c1c1e, dark: 0xd7dcd6, "text/primary")
+        assertToken(T.secondaryText, light: 0x8e8e93, dark: 0x8f9d8b, "text/secondary")
+        assertToken(T.onGradient, light: 0xffffff, dark: 0xffffff, "text/on-gradient")
+        assertToken(T.onFill, light: 0xffffff, dark: 0x161915, "text/on-fill (dark buttonLabel)")
+        assertToken(T.divider, light: 0x3c3c43, dark: 0x31372f, lightAlpha: 18, darkAlpha: 100, "separator (dark divider)")
+        assertToken(T.timelineTrack, light: 0xf2f2f7, dark: 0x31372f, "timeline/track (dark divider)")
     }
 
     func testRatingAndAccentTokens() {
@@ -46,10 +47,11 @@ final class ThemeTokensTests: XCTestCase {
         assertToken(T.ratingGood, light: 0xff9500, dark: 0xff9f0a, "rating/good")
         assertToken(T.badRed, light: 0xff3b30, dark: 0xff453a, "rating/bad")
         assertToken(T.blendYellow, light: 0xffbe0a, dark: 0xffbe0a, "rating/blend (same in both, intended)")
-        assertToken(T.accentBrand, light: 0x48665c, dark: 0x8ab8a6, "accent/brand")
-        assertToken(T.accentBrandFill, light: 0x48665c, dark: 0x557a6d, "accent/brand-fill")
-        assertToken(T.accentBrandEdge, light: 0x48665c, dark: 0x8ab8a6, lightAlpha: 0, darkAlpha: 55, "accent fill edge (dark only)")
-        assertToken(T.accentTint, light: 0x48665c, dark: 0x8ab8a6, lightAlpha: 18, darkAlpha: 16, "accent tint")
+        assertToken(T.accentBrand, light: 0x48665c, dark: 0xb5beb2, "accent/brand (dark main)")
+        assertToken(T.accentBrandFill, light: 0x48665c, dark: 0xb5beb2, "accent/brand-fill")
+        assertToken(T.accentBrandPressed, light: 0x48665c, dark: 0x8f9d8b, "accent pressed (dark buttonPressed)")
+        assertToken(T.disabledFill, light: 0x48665c, dark: 0x444d41, lightAlpha: 45, darkAlpha: 100, "disabled fill")
+        assertToken(T.accentTint, light: 0x48665c, dark: 0xb5beb2, lightAlpha: 18, darkAlpha: 16, "accent tint")
         assertToken(T.accentDestructive, light: 0xff3b30, dark: 0xff453a, "accent/destructive")
     }
 
@@ -58,11 +60,11 @@ final class ThemeTokensTests: XCTestCase {
         assertToken(T.chipText(.green), light: 0x1a7a35, dark: 0x30d158, "chip/green/text")
         assertToken(T.chipText(.orange), light: 0xb85c00, dark: 0xff9f0a, "chip/orange/text")
         assertToken(T.chipText(.red), light: 0xc0392b, dark: 0xff453a, "chip/red/text")
-        assertToken(T.chipText(.neutral), light: 0x636366, dark: 0x98989f, "chip/neutral/text")
+        assertToken(T.chipText(.neutral), light: 0x636366, dark: 0x8f9d8b, "chip/neutral/text")
         assertToken(T.chipBackground(.green), light: 0x34c759, dark: 0x30d158, lightAlpha: 12, darkAlpha: 20, "chip/green/bg")
         assertToken(T.chipBackground(.orange), light: 0xff9500, dark: 0xff9f0a, lightAlpha: 12, darkAlpha: 20, "chip/orange/bg")
         assertToken(T.chipBackground(.red), light: 0xff3b30, dark: 0xff453a, lightAlpha: 12, darkAlpha: 20, "chip/red/bg")
-        assertToken(T.chipBackground(.neutral), light: 0x8e8e93, dark: 0x98989f, lightAlpha: 12, darkAlpha: 20, "chip/neutral/bg")
+        assertToken(T.chipBackground(.neutral), light: 0x8e8e93, dark: 0x8f9d8b, lightAlpha: 12, darkAlpha: 20, "chip/neutral/bg")
     }
 
     /// The light hairline is drawn only in light; dark's Card Lift highlight
@@ -79,10 +81,10 @@ final class ThemeTokensTests: XCTestCase {
         light.colorScheme = .light
         var dark = EnvironmentValues()
         dark.colorScheme = .dark
-        assertSame(Theme.cardBackground.resolve(in: dark), Color(hex: 0x2a2e2c).resolve(in: dark), "card dark")
+        assertSame(Theme.cardBackground.resolve(in: dark), Color(hex: 0x222721).resolve(in: dark), "card dark")
         assertSame(Theme.cardBackground.resolve(in: light), Color(hex: 0xffffff).resolve(in: light), "card light")
-        assertSame(Theme.primaryText.resolve(in: dark), Color(hex: 0xf2f2f7).resolve(in: dark), "text dark")
-        assertSame(Theme.accentBrand.resolve(in: dark), Color(hex: 0x8ab8a6).resolve(in: dark), "accent dark")
+        assertSame(Theme.primaryText.resolve(in: dark), Color(hex: 0xd7dcd6).resolve(in: dark), "text dark")
+        assertSame(Theme.accentBrand.resolve(in: dark), Color(hex: 0xb5beb2).resolve(in: dark), "accent dark")
         assertSame(Theme.accentBrand.resolve(in: light), Color(hex: 0x48665c).resolve(in: light), "accent light")
     }
 
@@ -108,7 +110,7 @@ final class ThemeTokensTests: XCTestCase {
     /// The melt's ground is surface/background resolved per mode.
     func testMeltGroundIsSurfaceBackground() {
         let env = EnvironmentValues()
-        assertSame(Theme.Fade.ground(dark: true).resolve(in: env), Color(hex: 0x161817).resolve(in: env), "ground dark")
+        assertSame(Theme.Fade.ground(dark: true).resolve(in: env), Color(hex: 0x161915).resolve(in: env), "ground dark")
         assertSame(Theme.Fade.ground(dark: false).resolve(in: env), Color(hex: 0xf2f2f7).resolve(in: env), "ground light")
     }
 
@@ -139,7 +141,9 @@ final class ThemeTokensTests: XCTestCase {
             XCTAssertGreaterThanOrEqual(contrast(T.accentBrand, T.appBackground, style), 4.5, "accent on ground \(style.rawValue)")
             XCTAssertGreaterThanOrEqual(contrast(T.onFill, T.accentBrandFill, style), 4.5, "label on fill \(style.rawValue)")
         }
-        XCTAssertGreaterThanOrEqual(contrast(T.accentBrand, T.timelineTrack, .dark), 4.5, "mint on the dark track")
+        XCTAssertGreaterThanOrEqual(contrast(T.accentBrand, T.timelineTrack, .dark), 4.5, "main on the dark track")
+        XCTAssertGreaterThanOrEqual(contrast(T.onFill, T.accentBrandPressed, .dark), 4.5, "label on the pressed fill")
+        XCTAssertGreaterThanOrEqual(contrast(T.accentBrand, T.appBackground, .dark), 3, "the chosen outline against the ground")
         XCTAssertGreaterThanOrEqual(contrast(T.secondaryText, T.cardBackground, .dark), 4.5, "secondary on the dark card")
     }
 }

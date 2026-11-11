@@ -223,7 +223,7 @@ struct ThresholdSlider: View {
             for index in 0...steps {
                 let x = Self.thumbSize / 2 + usable * CGFloat(index) / CGFloat(steps)
                 let rect = CGRect(x: x - 0.5, y: midY - 3, width: 1, height: 6)
-                context.fill(Path(rect), with: .color(Theme.onFill.opacity(0.35)))
+                context.fill(Path(rect), with: .color(Theme.onGradient.opacity(0.35)))
             }
         }
         .allowsHitTesting(false)

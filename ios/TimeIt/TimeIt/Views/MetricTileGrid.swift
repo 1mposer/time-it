@@ -12,6 +12,9 @@ enum MetricTile {
     static let padding: CGFloat = 14
     static let glyph: CGFloat = 22
     static let ringWidth: CGFloat = 1.5
+    /// The Priority step's chosen outline: 2pt, 4pt outside the tile.
+    static let outlineWidth: CGFloat = 2
+    static let outlineGap: CGFloat = 4
     /// Select / open — a calm spring, no visible overshoot.
     static let selectSpring = Animation.spring(response: 0.38, dampingFraction: 0.82)
     static let reducedMotion = Animation.easeInOut(duration: 0.15)
@@ -288,10 +291,17 @@ struct PriorityStepView: View {
                 .frame(maxWidth: .infinity, minHeight: MetricTile.height, alignment: .topLeading)
                 .modifier(TileSurface(ringed: false,
                                       fill: chosen ? Theme.accentBrandFill : Theme.cardBackground))
+                // The chosen outline (owner ruling 19c): a 2pt accent ring
+                // 4pt OUTSIDE the fill. A stroke on the fill itself would need
+                // 3:1 against the fill, which no brand shade reaches, so the
+                // ring reads against the ground instead (5.65:1 light, 9.27:1
+                // dark), with a ground-coloured gap between ring and fill.
                 .overlay {
                     if chosen {
-                        RoundedRectangle(cornerRadius: MetricTile.corner)
-                            .strokeBorder(Theme.accentBrandEdge, lineWidth: 1)
+                        RoundedRectangle(cornerRadius: MetricTile.corner + MetricTile.outlineGap)
+                            .strokeBorder(Theme.accentBrand, lineWidth: MetricTile.outlineWidth)
+                            .padding(-MetricTile.outlineGap)
+                            .transition(.opacity)
                     }
                 }
                 .contentShape(RoundedRectangle(cornerRadius: MetricTile.corner))
