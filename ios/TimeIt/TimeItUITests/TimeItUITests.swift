@@ -1275,63 +1275,193 @@ final class TimeItUITests: XCTestCase {
                       "the callout deep-links to the Settings Notifications row")
     }
 
-    func testPushCalloutDismissIsRememberedAcrossRelaunch() {
+    func testPushCalloutFoldsToTheBellAndTheBellReopensIt() {
+        var app = launchApp()
+
+        let dismiss = app.buttons["pushCallout.dismiss"]
+        XCTAssertTrue(dismiss.waitForExistence(timeout: 5), "first sight is the full callout")
+        dismiss.tap()
+        // The callout folds on the 0.35s reveal spring, so within a second.
+        XCTAssertTrue(app.buttons["pushCallout"].waitForNonExistence(timeout: 1),
+                      "the ✕ folds the callout away")
+        let bell = app.buttons["pushCallout.bell"]
+        XCTAssertTrue(bell.waitForExistence(timeout: 2), "it rests as the glass bell")
+        XCTAssertEqual(bell.label, "Get a morning digest + Perfect window alerts",
+                       "VoiceOver hears the whole offer from the bell")
+
+        // Relaunch WITHOUT UITEST_RESET: the resting state is remembered.
+        app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_SEED_LIVE", "UITEST_LOCATION"])
+        XCTAssertTrue(app.buttons["pushCallout.bell"].waitForExistence(timeout: 5), "still resting")
+        XCTAssertFalse(app.buttons["pushCallout"].exists)
+
+        // Tapping the bell reopens it, every time.
+        for _ in 0..<2 {
+            app.buttons["pushCallout.bell"].tap()
+            XCTAssertTrue(app.buttons["pushCallout"].waitForExistence(timeout: 2), "the bell reveals the callout")
+            app.buttons["pushCallout.dismiss"].tap()
+            XCTAssertTrue(app.buttons["pushCallout.bell"].waitForExistence(timeout: 2), "and ✕ folds it back")
+        }
+    }
+
+    func testDontShowAgainRemovesTheBellForGood() {
         var app = launchApp()
 
         let dismiss = app.buttons["pushCallout.dismiss"]
         XCTAssertTrue(dismiss.waitForExistence(timeout: 5))
         dismiss.tap()
-        // The callout de-reveals on the 0.35s reveal spring (owner report
-        // 2026-11-05), so it is gone within a second, not on the same frame.
-        XCTAssertTrue(app.buttons["pushCallout"].waitForNonExistence(timeout: 1),
-                      "the ✕ de-reveals the callout within 1s")
+        let bell = app.buttons["pushCallout.bell"]
+        XCTAssertTrue(bell.waitForExistence(timeout: 2))
 
-        // Relaunch WITHOUT UITEST_RESET — one-time means gone for good.
+        bell.press(forDuration: 1.0)
+        let dontShow = app.buttons["Don't show again"]
+        XCTAssertTrue(dontShow.waitForExistence(timeout: 3), "long-press offers the way out")
+        dontShow.tap()
+        XCTAssertTrue(bell.waitForNonExistence(timeout: 2), "the bell is gone")
+
+        // Relaunch WITHOUT UITEST_RESET — gone for good.
         app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_SEED_LIVE", "UITEST_LOCATION"])
         XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5))
-        XCTAssertFalse(app.buttons["pushCallout"].exists, "the dismissal persists")
+        XCTAssertFalse(app.buttons["pushCallout"].exists, "no callout")
+        XCTAssertFalse(app.buttons["pushCallout.bell"].exists, "and no bell")
     }
 
-    // MARK: - Beta feedback — disclaimer banner + suggestion sheet
+    // MARK: - Lane B screen tour (evidence shots for the owner page)
 
-    func testBetaBannerAndSuggestionButtonRenderWhenGateOn() {
+    func testLaneBScreenTourLight() { laneBScreenTour(appearance: "light") }
+    func testLaneBScreenTourDark() { laneBScreenTour(appearance: "dark") }
+
+    /// Walks the Lane B states that need taps and attaches a screenshot of
+    /// each: first-sight callout, resting bell, its long-press menu, the ⓘ
+    /// menu, the liked sheet, Settings with the compact Appearance segment.
+    private func laneBScreenTour(appearance: String) {
+        let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_SEED_LIVE",
+                                        "UITEST_LOCATION", "UITEST_BETA",
+                                        "UITEST_NOW=2026-06-19T05:00:00Z",
+                                        "UITEST_APPEARANCE=\(appearance)"])
+        XCTAssertTrue(app.buttons["pushCallout.dismiss"].waitForExistence(timeout: 5))
+        attachScreenshot(app, named: "laneB-\(appearance)-1-first-sight")
+
+        app.buttons["pushCallout.dismiss"].tap()
+        let bell = app.buttons["pushCallout.bell"]
+        XCTAssertTrue(bell.waitForExistence(timeout: 2))
+        sleep(1)
+        attachScreenshot(app, named: "laneB-\(appearance)-2-resting-bell")
+
+        bell.press(forDuration: 1.0)
+        XCTAssertTrue(app.buttons["Don't show again"].waitForExistence(timeout: 3))
+        attachScreenshot(app, named: "laneB-\(appearance)-3-bell-long-press")
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap()
+        XCTAssertTrue(app.buttons["Don't show again"].waitForNonExistence(timeout: 3))
+
+        app.buttons["feedbackInfo"].tap()
+        XCTAssertTrue(app.buttons["What you liked"].waitForExistence(timeout: 3))
+        attachScreenshot(app, named: "laneB-\(appearance)-4-info-menu")
+        for (row, shot) in [("Send a suggestion", "5-suggestion-sheet"), ("What you liked", "6-liked-sheet")] {
+            if !app.buttons[row].exists { app.buttons["feedbackInfo"].tap() }
+            XCTAssertTrue(app.buttons[row].waitForExistence(timeout: 3))
+            app.buttons[row].tap()
+            XCTAssertTrue(app.textViews["feedback.editor"].waitForExistence(timeout: 5))
+            sleep(1)
+            attachScreenshot(app, named: "laneB-\(appearance)-\(shot)")
+            app.buttons["feedback.cancel"].tap()
+            XCTAssertTrue(app.textViews["feedback.editor"].waitForNonExistence(timeout: 3))
+        }
+
+        app.buttons["settingsGear"].tap()
+        XCTAssertTrue(app.segmentedControls["settings.appearance"].waitForExistence(timeout: 5))
+        sleep(1)
+        attachScreenshot(app, named: "laneB-\(appearance)-7-settings")
+    }
+
+    // MARK: - Light / Dark — one value, two controls
+
+    func testHeaderToggleAndSettingsSegmentShareOneAppearance() {
+        let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_SEED_LIVE",
+                                        "UITEST_LOCATION"])
+
+        let toggle = app.buttons["appearanceToggle"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 5), "the toggle mirrors the gear")
+        XCTAssertGreaterThanOrEqual(toggle.frame.width, 44, "HIG target")
+        let before = toggle.label
+        toggle.tap()
+        XCTAssertTrue(waitForLabelChange(toggle, from: before, timeout: 2),
+                      "the toggle now offers the other appearance")
+        let showingDark = toggle.label == "Switch to Light"
+
+        app.buttons["settingsGear"].tap()
+        let segment = app.segmentedControls["settings.appearance"]
+        XCTAssertTrue(segment.waitForExistence(timeout: 5), "Settings › Appearance")
+        XCTAssertTrue(segment.buttons[showingDark ? "Dark" : "Light"].isSelected,
+                      "the segment shows the same single value")
+        XCTAssertFalse(segment.buttons["System"].exists, "two modes only")
+
+        segment.buttons[showingDark ? "Light" : "Dark"].tap()
+        app.buttons["Done"].tap()
+        XCTAssertTrue(waitForLabel(toggle, NSPredicate(format: "label == %@", before), timeout: 3),
+                      "and the header follows the segment")
+    }
+
+    private func waitForLabelChange(_ element: XCUIElement, from old: String, timeout: TimeInterval) -> Bool {
+        waitForLabel(element, NSPredicate(format: "label != %@", old), timeout: timeout)
+    }
+
+    private func waitForLabel(_ element: XCUIElement, _ predicate: NSPredicate, timeout: TimeInterval) -> Bool {
+        XCTWaiter().wait(for: [expectation(for: predicate, evaluatedWith: element)],
+                         timeout: timeout) == .completed
+    }
+
+    // MARK: - Beta feedback — the ⓘ menu + the two feedback sheets
+
+    /// Opens the beta ⓘ menu and picks `row` ("Send a suggestion" /
+    /// "What you liked").
+    private func openFeedback(_ app: XCUIApplication, row: String) {
+        let info = app.buttons["feedbackInfo"]
+        XCTAssertTrue(info.waitForExistence(timeout: 5))
+        info.tap()
+        let item = app.buttons[row]
+        XCTAssertTrue(item.waitForExistence(timeout: 5), "the menu offers \(row)")
+        item.tap()
+    }
+
+    func testBetaFeedbackMenuRendersWhenGateOn() {
         // Pinned Light (absent = the simulator's appearance) so the shot below
-        // is the light glass: the header gear, the suggestion capsule, the
-        // add capsule after the list.
+        // is the light glass: the header gear, the ⓘ circle, the add capsule.
         let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_SEED_LIVE",
                                         "UITEST_LOCATION", "UITEST_BETA", "UITEST_APPEARANCE=light"])
 
         XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5))
         attachScreenshot(app, named: "dashboard-glass-light")
-        let banner = app.otherElements["betaBanner"]
-        XCTAssertTrue(banner.exists, "the disclaimer card renders on a beta (dev/TestFlight) install")
+        XCTAssertFalse(app.otherElements["betaBanner"].exists, "the disclaimer card is gone")
+        let info = app.buttons["feedbackInfo"]
+        XCTAssertTrue(info.exists, "the ⓘ renders on a beta (dev/TestFlight) install")
+        XCTAssertGreaterThanOrEqual(info.frame.width, 44, "HIG target")
+        info.tap()
         XCTAssertTrue(app.staticTexts.matching(
-            NSPredicate(format: "label CONTAINS 'early build for Time it'")).firstMatch.exists,
-                      "the owner's round-2 disclaimer copy")
-        XCTAssertTrue(app.buttons["betaBanner.suggest"].exists, "with its suggestion entry point")
-        // Stacking order: the push callout first, banner below.
-        XCTAssertLessThan(app.buttons["pushCallout"].frame.minY, banner.frame.minY)
+            NSPredicate(format: "label CONTAINS 'Early test build'")).firstMatch.waitForExistence(timeout: 5),
+                      "the disclaimer folds into the menu's header line")
+        XCTAssertTrue(app.buttons["Send a suggestion"].exists)
+        XCTAssertTrue(app.buttons["What you liked"].exists)
+        attachScreenshot(app, named: "feedback-menu-open")
+        XCTAssertFalse(app.textViews["feedback.editor"].exists, "a first tap only opens the menu")
     }
 
-    func testBetaBannerAbsentWhenGateOff() {
+    func testBetaFeedbackMenuAbsentWhenGateOff() {
         // No UITEST_BETA — the same archive's App Store face.
         let app = launchApp()
 
         XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5))
-        XCTAssertFalse(app.otherElements["betaBanner"].exists, "App Store installs never see beta surfaces")
-        XCTAssertFalse(app.buttons["betaBanner.suggest"].exists)
+        XCTAssertFalse(app.buttons["feedbackInfo"].exists, "App Store installs never see beta surfaces")
     }
 
     func testSuggestionSheetHappyPathSendsConfirmsAndDismisses() {
         let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_SEED_LIVE",
                                         "UITEST_LOCATION", "UITEST_BETA"])
 
-        let suggest = app.buttons["betaBanner.suggest"]
-        XCTAssertTrue(suggest.waitForExistence(timeout: 5))
-        suggest.tap()
+        openFeedback(app, row: "Send a suggestion")
 
         let editor = app.textViews["feedback.editor"]
         XCTAssertTrue(editor.waitForExistence(timeout: 5), "the sheet opens on a text editor")
+        XCTAssertTrue(app.staticTexts["feedback.note"].exists, "the owner's note sits above it")
         let send = app.buttons["feedback.send"]
         XCTAssertFalse(send.isEnabled, "an empty message cannot send")
         editor.tap()
@@ -1343,16 +1473,14 @@ final class TimeItUITests: XCTestCase {
                       "success shows a brief confirmation")
         XCTAssertTrue(app.staticTexts["feedback.success"].waitForNonExistence(timeout: 5),
                       "then the sheet dismisses itself")
-        XCTAssertTrue(suggest.isHittable, "back on the dashboard")
+        XCTAssertTrue(app.buttons["feedbackInfo"].isHittable, "back on the dashboard")
     }
 
-    func testSuggestionSendFailureKeepsTypedTextAndOffersRetry() {
+    func testLikedSendFailureKeepsTypedTextAndOffersRetry() {
         let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_SEED_LIVE",
                                         "UITEST_LOCATION", "UITEST_BETA", "UITEST_FEEDBACK_FAIL"])
 
-        let suggest = app.buttons["betaBanner.suggest"]
-        XCTAssertTrue(suggest.waitForExistence(timeout: 5))
-        suggest.tap()
+        openFeedback(app, row: "What you liked")
 
         let editor = app.textViews["feedback.editor"]
         XCTAssertTrue(editor.waitForExistence(timeout: 5))
@@ -1362,7 +1490,7 @@ final class TimeItUITests: XCTestCase {
 
         XCTAssertTrue(app.staticTexts["feedback.error"].waitForExistence(timeout: 5),
                       "the non-204 surfaces its error")
-        XCTAssertEqual(editor.value as? String, "Keep this text", "a typed suggestion is never discarded")
+        XCTAssertEqual(editor.value as? String, "Keep this text", "a typed note is never discarded")
         XCTAssertTrue(app.buttons["feedback.send"].isEnabled, "Send stays as the retry")
         XCTAssertFalse(app.staticTexts["feedback.success"].exists)
     }

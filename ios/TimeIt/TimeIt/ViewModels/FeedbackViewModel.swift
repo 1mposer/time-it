@@ -6,8 +6,8 @@ protocol SuggestionSending {
     func send(_ body: FeedbackBody) async throws
 }
 
-/// State machine for the suggestion sheet. The one hard rule: a typed
-/// suggestion is never discarded — any non-204 keeps `message` intact and
+/// State machine for the feedback sheet (either kind). The one hard rule: a
+/// typed note is never discarded — any non-204 keeps `message` intact and
 /// surfaces a retryable error (429 gets the throttle copy); success shows a
 /// brief confirmation, then the view dismisses.
 @MainActor
@@ -23,10 +23,15 @@ final class FeedbackViewModel: ObservableObject {
         case sent
     }
 
+    /// The note above the editor — the owner's line, the same on both sheets
+    /// (ruling 2026-11-11).
+    static let note = "Please explain what it is you like, dislike, or would suggest."
+
     @Published var message = ""
     @Published private(set) var phase: Phase = .editing
     @Published private(set) var errorMessage: String?
 
+    let kind: FeedbackKind
     private let sender: SuggestionSending
     private let deviceId: String
     private let appVersion: String
@@ -36,11 +41,13 @@ final class FeedbackViewModel: ObservableObject {
     /// `deviceId` is the same Keychain install UUID the push path uses (push
     /// opt-in is NOT required); passed in from the caller's DeviceRegistration
     /// so UI tests stay on the seamed Keychain.
-    init(sender: SuggestionSending,
+    init(kind: FeedbackKind = .suggestion,
+         sender: SuggestionSending,
          deviceId: String,
          appVersion: String? = nil,
          build: String? = nil,
          iosVersion: String? = nil) {
+        self.kind = kind
         self.sender = sender
         self.deviceId = deviceId
         self.appVersion = appVersion
@@ -71,7 +78,8 @@ final class FeedbackViewModel: ObservableObject {
                                                message: message,
                                                appVersion: appVersion,
                                                build: build,
-                                               iosVersion: iosVersion))
+                                               iosVersion: iosVersion,
+                                               kind: kind))
             phase = .sent
         } catch {
             // Non-204: text stays put, Send remains the retry.
@@ -85,6 +93,42 @@ final class FeedbackViewModel: ObservableObject {
             // Mirrors the route's own 429 message.
             return "Too many suggestions today — try again tomorrow."
         }
-        return "Couldn't send your suggestion. Check your connection and try again."
+        return "Couldn't send. Check your connection and try again."
+    }
+}
+
+extension FeedbackKind {
+    /// The sheet title — the ⓘ menu row that opened it.
+    var title: String {
+        switch self {
+        case .suggestion: return "Send a suggestion"
+        case .liked: return "What have you liked?"
+        }
+    }
+
+    /// The ⓘ menu row — short enough for one line in the native menu
+    /// (orchestrator nit 2026-11-11: "What have you liked?" wrapped); the
+    /// sheet keeps the owner-approved `title`.
+    var menuTitle: String {
+        switch self {
+        case .suggestion: return "Send a suggestion"
+        case .liked: return "What you liked"
+        }
+    }
+
+    /// The editor's placeholder.
+    var placeholder: String {
+        switch self {
+        case .suggestion: return "Type your suggestion…"
+        case .liked: return "Type what you liked…"
+        }
+    }
+
+    /// The ⓘ menu row's SF Symbol.
+    var symbol: String {
+        switch self {
+        case .suggestion: return "lightbulb"
+        case .liked: return "heart"
+        }
     }
 }

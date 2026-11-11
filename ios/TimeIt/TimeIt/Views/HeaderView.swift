@@ -7,7 +7,8 @@ import SwiftUI
 /// humidity drops its segment; in the no-location state the numeral and the
 /// weather segments hide entirely (`showsWeather`) — no fabricated
 /// conditions — and the meta line keeps only the clock. Top-right control is the
-/// Settings gear — no sign-in (ADR-0001).
+/// Settings gear — no sign-in (ADR-0001); top-left, mirroring it, the
+/// light/dark toggle (owner ruling 2026-11-11).
 struct HeaderView: View {
     /// Active location's display name (picked city, "Current location", or
     /// the cached name); nil renders "NO LOCATION".
@@ -24,7 +25,16 @@ struct HeaderView: View {
     var timezoneIdentifier: String? = nil
     /// Wind-speed display unit (#26); the hour's value is km/h.
     var windUnit: WindSpeedUnit = .kmh
+    /// The appearance on screen — the toggle switches to its opposite.
+    var appearance: AppAppearance = .light
+    /// The light/dark toggle's action; nil hides the toggle.
+    var onAppearanceTap: (() -> Void)? = nil
     let onGearTap: () -> Void
+
+    /// The toggle glyph's accumulated turn — 180° per tap, so it always
+    /// spins the same way.
+    @State private var toggleTurn: Double = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// The Settings gear's glass circle — the HIG 44pt target.
     static let gearDiameter: CGFloat = 44
@@ -167,12 +177,41 @@ struct HeaderView: View {
             .padding(.top, 3)
             .padding(.trailing, 13)
         }
+        .overlay(alignment: .topLeading) {
+            if let onAppearanceTap {
+                appearanceToggle(action: onAppearanceTap)
+                    .padding(.top, 3)
+                    .padding(.leading, 13)
+            }
+        }
         .fixedSize(horizontal: false, vertical: true)
         // No background of its own: the temperature band (cool blue / mid
         // amber / hot salmon) and its melt are the dashboard's backdrop
         // (`BandMeltView`), drawn full-screen behind this text and the card
         // list. Content stays in the safe area (a control under the status
         // bar is untappable).
+    }
+
+    /// The light/dark toggle: the gear's twin — 44pt CLEAR glass on the band,
+    /// a constant `circle.lefthalf.filled` that turns 180° per tap (no turn
+    /// under Reduce Motion); the window crossfades (`AppearanceController`).
+    private func appearanceToggle(action: @escaping () -> Void) -> some View {
+        GlassControl(identifier: "appearanceToggle",
+                     accessibilityLabel: appearance == .light ? "Switch to Dark" : "Switch to Light",
+                     action: {
+                         if !reduceMotion {
+                             withAnimation(Theme.Motion.reveal) { toggleTurn += 180 }
+                         }
+                         action()
+                     }) {
+            Image(systemName: "circle.lefthalf.filled")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(Theme.onGradient)
+                .rotationEffect(.degrees(toggleTurn))
+                .frame(width: Self.gearDiameter, height: Self.gearDiameter)
+                .glassPieceSurface(in: Circle(), enabled: true, fallback: .band,
+                                   style: Self.gearGlassStyle)
+        }
     }
 
     /// The temperature the band is coloured by — nil (Cool) when the

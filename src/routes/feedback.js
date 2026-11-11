@@ -2,7 +2,9 @@
 // into the suggestions table, read with SQL. No auth (accepted risk,
 // ADR-0001); abuse is bounded by the length caps and a per-device rolling-24h
 // ceiling. No FK to devices — feedback must not require push opt-in. 204 on
-// success.
+// success. `kind` (suggestion | liked) is optional on the wire and defaults
+// to 'suggestion': builds 7/8 never send it and must keep working (making it
+// required is a ROADMAP deferred row).
 
 const express = require('express');
 const defaultDb = require('../db');
@@ -14,6 +16,8 @@ const MAX_FIELD_CHARS = 64;
 const MAX_PER_DEVICE_PER_DAY = 20;
 
 const META_FIELDS = ['deviceId', 'appVersion', 'build', 'iosVersion'];
+const KINDS = ['suggestion', 'liked'];
+const DEFAULT_KIND = 'suggestion';
 
 // Returns { path, message } errors; empty array = valid.
 function validateFeedback(body) {
@@ -36,6 +40,10 @@ function validateFeedback(body) {
     } else if (value.length > MAX_FIELD_CHARS) {
       errors.push({ path: field, message: `${field} must be at most ${MAX_FIELD_CHARS} characters` });
     }
+  }
+
+  if (body.kind !== undefined && !KINDS.includes(body.kind)) {
+    errors.push({ path: 'kind', message: `kind must be one of: ${KINDS.join(', ')}` });
   }
 
   return errors;
@@ -61,9 +69,10 @@ function createFeedbackRouter({ db = defaultDb } = {}) {
       }
 
       await db.query(
-        `INSERT INTO suggestions (device_id, message, app_version, build, ios_version)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [body.deviceId, body.message.trim(), body.appVersion, body.build, body.iosVersion]
+        `INSERT INTO suggestions (device_id, message, app_version, build, ios_version, kind)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [body.deviceId, body.message.trim(), body.appVersion, body.build, body.iosVersion,
+          body.kind ?? DEFAULT_KIND]
       );
 
       res.status(204).end();

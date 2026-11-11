@@ -3,7 +3,8 @@
 // creates the tables: devices (one row per opted-in install; NULL apns_token =
 // deactivated for push — rows are never deleted, ADR-0010 never-erase),
 // notification_state (the detector's dedup ledger), and suggestions (beta
-// feedback inbox — deliberately no FK to devices).
+// feedback inbox — deliberately no FK to devices; `kind` suggestion | liked,
+// added by a re-runnable ALTER that backfills existing rows as 'suggestion').
 
 const { Pool } = require('pg');
 
@@ -53,6 +54,11 @@ async function initDb() {
       ios_version TEXT NOT NULL,
       created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
     );
+  `);
+  // Re-runnable: adds the feedback kind; every pre-existing row was a suggestion.
+  await query(`
+    ALTER TABLE suggestions ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'suggestion'
+      CHECK (kind IN ('suggestion', 'liked'));
   `);
   await query(`
     CREATE INDEX IF NOT EXISTS suggestions_device_created_idx
