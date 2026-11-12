@@ -83,6 +83,7 @@ final class PreferencesStore: ObservableObject {
         if ProcessInfo.processInfo.arguments.contains("UITEST_RESET") {
             UserDefaults.standard.removeObject(forKey: appearanceKey)
             UserDefaults.standard.removeObject(forKey: pushCalloutRestingKey)
+            UserDefaults.standard.removeObject(forKey: openingSeenKey)
         }
         #endif
         return PreferencesStore()
@@ -96,6 +97,7 @@ final class PreferencesStore: ObservableObject {
     static let collapsedCardsKey = "collapsedCards"
     static let appearanceKey = "appearance"
     static let pushCalloutRestingKey = "pushCalloutResting"
+    static let openingSeenKey = "openingSeen"
 
     /// nil = follow the device location (then the last-resolved cache).
     @Published var homeLocation: SavedLocation? {
@@ -150,6 +152,13 @@ final class PreferencesStore: ObservableObject {
         didSet { persist(collapsedCardIds, key: Self.collapsedCardsKey) }
     }
 
+    /// The full opening has played once (owner ruling Q2b, 2026-11-12):
+    /// every later cold launch is a plain fade. Stamped when the first
+    /// opening hands over to the app (run out or tapped through).
+    @Published var hasSeenOpening: Bool {
+        didSet { defaults.set(hasSeenOpening, forKey: Self.openingSeenKey) }
+    }
+
     private let defaults: UserDefaults
 
     init(defaults: UserDefaults = .standard) {
@@ -163,6 +172,7 @@ final class PreferencesStore: ObservableObject {
         windSpeedUnit = defaults.string(forKey: Self.windSpeedUnitKey)
             .flatMap(WindSpeedUnit.init(rawValue:)) ?? .kmh
         collapsedCardIds = Self.load(Self.collapsedCardsKey, from: defaults) ?? []
+        hasSeenOpening = defaults.bool(forKey: Self.openingSeenKey)
     }
 
     /// First launch only: adopt the system's appearance; a stored choice wins.
