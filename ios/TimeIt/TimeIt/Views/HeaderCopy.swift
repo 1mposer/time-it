@@ -12,11 +12,12 @@ enum HeaderCopy {
         case humidity(String)
     }
 
-    /// The big numeral — the rounded temperature with a degree sign and no
-    /// unit letter (the Figma numeral reads "34°"); "—°" with no reading.
+    /// The big numeral — the rounded temperature with its unit, "28°C"
+    /// (fresh-eyes row 18a, owner 2026-11-12, as the approved onboarding
+    /// dashboard frame draws it); "—°" with no reading.
     static func numeral(temp: Double?) -> String {
         guard let temp else { return "—°" }
-        return "\(Int(temp.rounded()))°"
+        return "\(Int(temp.rounded()))°C"
     }
 
     /// Clock, wind, humidity in that order; a missing metric drops its

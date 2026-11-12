@@ -144,16 +144,16 @@ final class TimeItUITests: XCTestCase {
         attachScreenshot(app, named: "header-light")
     }
 
-    /// Ruling 7: the temperature is the big numeral ("24°", no unit letter)
-    /// and the clock leads the meta line — on the wind/humidity row, below
-    /// the numeral.
+    /// Ruling 7: the temperature is the big numeral ("24°C" — the unit since
+    /// fresh-eyes 18a) and the clock leads the meta line — on the
+    /// wind/humidity row, below the numeral.
     private func assertHeaderNumeralSwap(_ app: XCUIApplication,
                                          file: StaticString = #filePath, line: UInt = #line) {
         let numeral = app.staticTexts["headerTemp"]
         let clock = app.staticTexts["headerTime"]
         let wind = app.staticTexts["10 km/h"]
         XCTAssertTrue(numeral.waitForExistence(timeout: 5), file: file, line: line)
-        XCTAssertEqual(numeral.label, "24°", "the numeral is the mock's temperature", file: file, line: line)
+        XCTAssertEqual(numeral.label, "24°C", "the numeral is the mock's temperature", file: file, line: line)
         XCTAssertFalse(clock.label.isEmpty, file: file, line: line)
         XCTAssertLessThan(abs(clock.frame.midY - wind.frame.midY), 2,
                           "the clock sits on the meta line with wind", file: file, line: line)
