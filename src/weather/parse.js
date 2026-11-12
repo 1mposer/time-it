@@ -18,6 +18,9 @@ function parseWeather(rawResponse, adapter) {
     const phase = moonByDay[adapter.localDate(row)];
     return phase ? [phase] : [];
   };
+  // Sunrise/sunset per local day — the uV extractor tells a night null (0)
+  // from a missing daylight reading (unknown → null).
+  const sunByDay = adapter.sunByDay(rawResponse);
   const timezone = adapter.timezone(rawResponse);
   const forecastStart = adapter.forecastStart(allHours[0], timezone);
 
@@ -29,7 +32,7 @@ function parseWeather(rawResponse, adapter) {
     cloudCover:   adapter.cloudCover(row),
     visibility:   adapter.visibility(row),
     moon:         moonFor(row),
-    uV:           adapter.uV(row),
+    uV:           adapter.uV(row, sunByDay[adapter.localDate(row)]),
     dustAlert:    adapter.dustAlert(row),
     darkness:     0,
     douglasScale: 0,

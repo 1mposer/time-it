@@ -20,6 +20,24 @@ const meteosourceAdapter = {
     }
     return byDay;
   },
+  // Sunrise/sunset per location-local day from daily.data[].astro.sun (local
+  // wall-time under timezone=auto, same as the hourly `date`) — the uV
+  // extractor's daylight test. A day without a sun object is left out.
+  sunByDay:         (res) => {
+    const byDay = {};
+    for (const day of res.daily?.data ?? []) {
+      const sun = day?.astro?.sun;
+      if (typeof day?.day === 'string' && sun && typeof sun === 'object') {
+        byDay[day.day.slice(0, 10)] = {
+          rise: sun.rise ?? null,
+          set: sun.set ?? null,
+          alwaysUp: sun.always_up === true,
+          alwaysDown: sun.always_down === true,
+        };
+      }
+    }
+    return byDay;
+  },
   // The hourly row's location-local calendar date (timezone=auto serves local
   // wall-time) — the join key against moonPhaseByDay.
   localDate:        (h) => (typeof h?.date === 'string' ? h.date.slice(0, 10) : null),
@@ -40,9 +58,26 @@ const meteosourceAdapter = {
   rainFall:   (h) => h.precipitation?.total ?? null,
   cloudCover: (h) => h.cloud_cover?.total ?? null,
   visibility: (h) => h.visibility,
-  // null at night — defaulted to 0 (nighttime UV genuinely is 0), so uV stays
-  // non-null on the wire unlike the nullable wind/rain/cloud trio.
-  uV:         (h) => h.uv_index ?? 0,
+  // uv_index is null at night (genuinely 0 — kept as 0), but the provider also
+  // stops sending it past its horizon (~day 5): a missing reading during full
+  // daylight is UNKNOWN → null, which fails a threshold like the nullable trio
+  // instead of passing any max as a fake 0 (the build-9 false-Perfect). `sun`
+  // is the hour's day entry from sunByDay; no sun data → unknown → null.
+  uV:         (h, sun) => {
+    if (typeof h.uv_index === 'number') return h.uv_index;
+    if (!sun) return null;
+    if (sun.alwaysDown) return 0;
+    if (sun.alwaysUp) return null;
+    const instant = (s) => (typeof s === 'string' ? Date.parse(`${s.slice(0, 19)}Z`) : NaN);
+    const start = instant(h.date);
+    const rise = instant(sun.rise);
+    const set = instant(sun.set);
+    if ([start, rise, set].some(Number.isNaN)) return null;
+    // Only an hour wholly inside sun-up is daylight: the twilight hours either
+    // side read ~0 UV anyway (the provider's own dawn values are ~0.1).
+    const fullDaylight = start >= rise && start + 3600_000 <= set;
+    return fullDaylight ? null : 0;
+  },
   dustAlert:  (h) => typeof h.weather === "string" && h.weather.includes("sandstorm"),
 };
 
