@@ -31,6 +31,10 @@ struct ActivityEditorView: View {
     private let windUnit: WindSpeedUnit
 
     @State private var draft: ActivityDraft
+    /// The draft as the editor opened (after the show-only adoption) — ✕
+    /// asks before discarding only when `draft` differs from it (row 13a).
+    private let initialDraft: ActivityDraft
+    @State private var confirmingDiscard = false
     @State private var step: EditorStep
     /// An untouched prefill is NOT a confirmed Range. Seeded from the
     /// incoming activity's window; set by any wheel change and by the
@@ -80,6 +84,7 @@ struct ActivityEditorView: View {
         // without a threshold gets its preset, not prioritised, on open.
         draft.adoptShowOnlyMetrics(catalog: catalog)
         _draft = State(initialValue: draft)
+        initialDraft = draft
         _rangeConfirmed = State(initialValue: draft.hadWindow)
         _step = State(initialValue: EditorStep.landingStep(requested: initialStep, draft: draft,
                                                            catalog: catalog,
@@ -111,6 +116,8 @@ struct ActivityEditorView: View {
         .background(Theme.appBackground.ignoresSafeArea())
         .safeAreaInset(edge: .bottom) { bottomBar(buildResult) }
         .toolbar(.hidden, for: .navigationBar)
+        // A changed draft never leaves silently by swipe either (row 13a).
+        .interactiveDismissDisabled(discardTitle != nil)
         .onChange(of: draft.startHour) { _, _ in confirmRange() }
         .onChange(of: draft.endHour) { _, _ in confirmRange() }
         .task(id: step) {
@@ -128,12 +135,27 @@ struct ActivityEditorView: View {
                     .transition(.opacity)
             }
             EditorProgressBar(fraction: WizardProgress.fraction(for: step))
-            glassCircle(symbol: "xmark", identifier: "editor.cancel", label: "Cancel") { dismiss() }
+            glassCircle(symbol: "xmark", identifier: "editor.cancel", label: "Cancel") { cancel() }
+                .confirmationDialog(discardTitle ?? "", isPresented: $confirmingDiscard,
+                                    titleVisibility: .visible) {
+                    Button("Discard", role: .destructive) { dismiss() }
+                        .accessibilityIdentifier("editor.confirmDiscard")
+                    Button("Keep Editing", role: .cancel) {}
+                }
         }
         .padding(.horizontal, Self.sideMargin)
         .padding(.top, 8)
         .padding(.bottom, 4)
         .animation(reduceMotion ? nil : EditorProgressBar.advance, value: step)
+    }
+
+    private var discardTitle: String? {
+        EditorDismiss.confirmationTitle(isNew: isNew, initial: initialDraft, current: draft)
+    }
+
+    /// ✕: a changed draft asks first (row 13a); a clean one closes at once.
+    private func cancel() {
+        if discardTitle != nil { confirmingDiscard = true } else { dismiss() }
     }
 
     private func glassCircle(symbol: String, identifier: String, label: String,

@@ -728,6 +728,34 @@ final class TimeItUITests: XCTestCase {
         app.buttons["editor.cancel"].tap()
     }
 
+    /// Fresh-eyes row 13a (owner 2026-11-12): ✕ on a clean draft closes at
+    /// once; on a changed one the stock dialog asks first.
+    func testWizardCancelAsksOnlyWhenTheDraftChanged() {
+        let app = launchApp()
+        XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5))
+        app.swipeUp()
+        let add = app.buttons["addActivityCard"]
+        add.tap()
+        let cancel = app.buttons["editor.cancel"]
+        XCTAssertTrue(cancel.waitForExistence(timeout: 5))
+        cancel.tap()
+        XCTAssertTrue(cancel.waitForNonExistence(timeout: 5), "a clean draft closes without asking")
+
+        add.tap()
+        let name = app.textFields["editor.name"]
+        XCTAssertTrue(name.waitForExistence(timeout: 5))
+        name.tap()
+        name.typeText("Padel")
+        cancel.tap()
+        let discard = app.buttons["editor.confirmDiscard"].firstMatch
+        XCTAssertTrue(discard.waitForExistence(timeout: 5), "a changed draft asks first")
+        XCTAssertTrue(app.staticTexts["Discard this activity?"].exists)
+        attachScreenshot(app, named: "wizard-discard-dialog")
+        discard.tap()
+        XCTAssertTrue(cancel.waitForNonExistence(timeout: 5), "Discard closes the wizard")
+        XCTAssertFalse(app.staticTexts["Padel"].exists, "nothing was saved")
+    }
+
     private func waitUntil(timeout: TimeInterval, _ condition: () -> Bool) -> Bool {
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {

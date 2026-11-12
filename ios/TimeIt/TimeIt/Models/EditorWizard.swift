@@ -104,6 +104,19 @@ enum NameIconGate {
     }
 }
 
+// MARK: - EditorDismiss — the ✕ confirmation
+
+/// The wizard ✕ (fresh-eyes row 13a, owner 2026-11-12): a stock
+/// confirmation only when the draft differs from the one the editor opened
+/// with; a clean draft closes at once. New and edit alike.
+enum EditorDismiss {
+    /// The dialog's title, or nil when ✕ should close without asking.
+    static func confirmationTitle(isNew: Bool, initial: ActivityDraft, current: ActivityDraft) -> String? {
+        guard initial != current else { return nil }
+        return isNew ? "Discard this activity?" : "Discard changes?"
+    }
+}
+
 // MARK: - MetricsGate — the two-metric minimum
 
 /// The Metrics step's floor (owner ruling 2026-11-11, build 10): Next stays
