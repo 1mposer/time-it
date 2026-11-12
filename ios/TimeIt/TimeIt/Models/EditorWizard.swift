@@ -27,6 +27,12 @@ enum EditorStep: Int, CaseIterable {
         }
     }
 
+    /// The secondary line under the heading — only When carries one
+    /// (fresh-eyes row 11a, owner 2026-11-12).
+    var helper: String? {
+        self == .range ? "We only check these hours, every day." : nil
+    }
+
     // MARK: Completion
 
     /// The step's completion rule.

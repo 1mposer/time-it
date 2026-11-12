@@ -351,6 +351,16 @@ final class EditorWizardTests: XCTestCase {
         }
     }
 
+    /// Fresh-eyes row 11a (owner 2026-11-12): the When step says what the
+    /// hours do; no other step carries a helper.
+    func testWhenStepHelperSaysOnlyTheseHoursAreChecked() {
+        XCTAssertEqual(EditorStep.range.helper, "We only check these hours, every day.")
+        for step in EditorStep.allCases where step != .range {
+            XCTAssertNil(step.helper, "\(step) has no helper line")
+        }
+        XCTAssertFalse(EditorStep.range.helper!.localizedCaseInsensitiveContains("range"), "no 'range' on screen")
+    }
+
     // MARK: - Tile rows
 
     func testTileRowsPairAndGiveTheOpenedTileAFullRow() {

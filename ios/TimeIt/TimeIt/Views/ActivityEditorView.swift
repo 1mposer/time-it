@@ -436,6 +436,12 @@ struct ActivityEditorView: View {
 
     private var rangeStep: some View {
         VStack(alignment: .leading, spacing: 12) {
+            if let helper = step.helper {
+                Text(helper)
+                    .scaledFont(size: 15)
+                    .foregroundStyle(Theme.secondaryText)
+                    .accessibilityIdentifier("editor.rangeHelper")
+            }
             HStack(spacing: 10) {
                 wheelCard("From", selection: $draft.startHour, identifier: "editor.startHour")
                 wheelCard("To", selection: $draft.endHour, identifier: "editor.endHour")
