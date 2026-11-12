@@ -103,3 +103,7 @@ Bump `CURRENT_PROJECT_VERSION` in the assembling merge, not in B. CLAUDE.md's ru
 - **Every brief carries a stop rule:** the lane's done-when, the files it may touch, and "report and stop if the suite is red twice or the task exceeds its scope" — the brief is the budget.
 - **Expensive surfaces are single-shot:** RERUN's computer-use session and SPEC's Figma session run once each, with a written deliverable, never re-driven for a second look.
 - Reference magnitude: the Opus critique in this session cost ~100k tokens in under two minutes. An implementer lane with a verifier runs several times that. Nine lanes over days is the expected spend; nine lanes in one hour is the burst to avoid.
+
+## Wave 5 (2026-11-12, after the owner's fresh-eyes rulings — ROADMAP row 21)
+
+- Lane **COPY** (Opus, TDD): spec rows 2a 5a 9a 10a 11a 13a 14a (mph only) 16a 18a 21a. Lane **CHIPS** (Opus, mini-edits sim lane): row 7b hour chips on the detail + Q2b opening on first launch only; owner rules from screenshots. Held: row 6 (owner: never an empty passed-day screen — conversation), row 12 (owner asked what "sheet" means). Parked: [docs/post-release](../../post-release/README.md). Q1b: [ADR-0011 amendment draft](../../adr/0011-day-score.md).

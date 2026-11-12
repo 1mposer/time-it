@@ -1,0 +1,23 @@
+id: PR-009
+title: Wordmark case — "Time it" or "Time It"
+type: Decision
+priority: Low
+status: Needs decision
+area: Opening
+owner: Yaas
+effort: S
+reported: 2026-11-12
+found_in: 1.0 (10)
+fixed_in: null
+source:
+  - spec Q2 (ruled b: opening on first launch only); the case half was not answered
+summary: |
+  The opening and the approved Welcome frame read "Time it"; the beta copy and
+  everything else read "Time It".
+proposal: |
+  Pick one; sweep the opening, Welcome frame, feedback sheets and App Store copy.
+acceptance: |
+  - one case everywhere; a unit test on HeaderCopy / opening copy pins it
+decision_needed: |
+  "Time it" or "Time It".
+links: []

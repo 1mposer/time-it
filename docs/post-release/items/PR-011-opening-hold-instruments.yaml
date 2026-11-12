@@ -1,0 +1,24 @@
+id: PR-011
+title: Opening sequence — on-device frame-drop check still owed
+type: Polish
+priority: Low
+status: Backlog
+area: Opening
+owner: Yaas
+effort: S
+reported: 2026-11-12
+found_in: 1.0 (10)
+fixed_in: null
+source:
+  - lane POLISH report (item 5): simulator windows could not judge the lag honestly
+summary: |
+  The 1 s first-frame hold moved the mount hitch out of the springs on the simulator;
+  whether the converge now plays clean on hardware is unmeasured. Q2b (opening on first
+  launch only) makes this a first-run-only concern.
+proposal: |
+  One Instruments (Animation Hitches) pass on the phone, cold launch, note the hitch
+  count; if non-zero, pre-warm the converge layers during the hold.
+acceptance: |
+  - a recorded hitch count on hardware before/after
+decision_needed: null
+links: []

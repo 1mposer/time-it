@@ -1,0 +1,27 @@
+id: PR-010
+title: A low score beside the word "Perfect" (ADR-0011 presentation amendment)
+type: Decision
+priority: High
+status: Needs decision
+area: Dashboard
+owner: Yaas
+effort: M
+reported: 2026-11-11
+found_in: 1.0 (9)
+fixed_in: null
+source:
+  - fresh-eyes notes 18/19, b9-13b (real data: "20 · Perfect" with one green hour in five); spec Q1, owner ruled b (open an ADR-0011 amendment)
+summary: |
+  The ring's number is the day's mean depth-in-band over every window hour; the word is
+  the best window's verdict. Both are correct and users read them as a contradiction.
+proposal: |
+  Amendment draft in docs/adr/0011-day-score.md (orchestrator, 2026-11-12) with the
+  presentation options; implementation follows the owner's pick.
+acceptance: |
+  - the amendment is accepted with one option; card + detail + Review preview follow it
+  - no engine change; the score never feeds the verdict (independence rule holds)
+decision_needed: |
+  Pick the amendment option (see the ADR).
+links:
+  - docs/adr/0011-day-score.md
+  - https://github.com/1mposer/time-it/issues/19

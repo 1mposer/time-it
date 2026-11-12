@@ -1,0 +1,34 @@
+id: PR-001
+title: Location picker never tells you where you are set or what to do
+type: Enhancement
+priority: High
+status: Needs decision
+area: Location
+owner: Yaas
+effort: M
+reported: 2026-11-12
+found_in: 1.0 (10)
+fixed_in: null
+source:
+  - owner, 2026-11-12 ("has always confused me")
+  - fresh-eyes notes 2, 3, 5, 8 (build 8) and b9-03 / b9-08 (build 9)
+  - fresh-eyes spec row 21 (glyph only shipped) and Map A
+summary: |
+  The owner never knows where the app's location is set (current fix, a picked city,
+  or nothing) or whether they need to act. Settings' Home row, "Use current location",
+  the picker and the header's location line each tell part of the story and none owns it.
+proposal: |
+  One location surface that states the resolved source in a sentence ("Using your
+  current location — Dubai" / "Home set to Paris" / "No location: allow access or pick a
+  city"), with the one action that changes it. The dashboard header's location line
+  links to it. Map A in the spec is the state machine; every state gets a sentence.
+acceptance: |
+  - every Map A state renders a sentence naming the source and the next action
+  - "Use current location" cannot silently drop a picked city (shipped in FIXES, keep)
+  - a UI test walks denied → picked → current and reads the sentence each time
+decision_needed: |
+  Owner to rule the shape: a redesigned Settings Home section, or a dedicated Location
+  screen reached from the header. Needs a frame (ADR-0008) or the mini-edits lane.
+links:
+  - docs/issues/current/implement-spec-fresh-eyes-ux.md
+  - https://github.com/1mposer/time-it/issues/17

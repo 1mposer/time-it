@@ -1,0 +1,28 @@
+id: PR-002
+title: Temperature unit (°F) as a Settings row
+type: Enhancement
+priority: Medium
+status: Backlog
+area: Settings
+owner: Yaas
+effort: M
+reported: 2026-11-12
+found_in: 1.0 (10)
+fixed_in: null
+source:
+  - fresh-eyes note 7; spec row 14, owner ruled 14a (mph now, °F later)
+summary: |
+  Wind has km/h, knots and (since Wave 5) mph; temperature is °C everywhere with no
+  choice. A US tester would be lost.
+proposal: |
+  A Settings "Temperature" row (°C / °F) in the WindSpeedUnit mold. Display-only:
+  stored limits, the wizard's slider bounds and the wire stay °C; every temperature
+  surface (header numeral, cards, detail tiles, wizard readouts, push copy stays
+  server-side °C until a later server change) converts at render.
+acceptance: |
+  - a PreferencesStore unit with a conversion helper and tests at the band edges
+  - every temperature surface converts; a UI test flips the unit and reads the header
+  - thresholds saved under °F round-trip unchanged in °C
+decision_needed: null
+links:
+  - docs/issues/current/implement-spec-fresh-eyes-ux.md

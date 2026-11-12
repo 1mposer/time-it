@@ -1,0 +1,27 @@
+id: PR-004
+title: Metrics step — the grid reflows under the finger when a tile opens its slider
+type: Polish
+priority: Medium
+status: Needs decision
+area: Wizard
+owner: Yaas
+effort: S
+reported: 2026-11-12
+found_in: 1.0 (10)
+fixed_in: null
+source:
+  - build-9 addendum item 2; spec row 12 (owner marked b, then asked what "sheet" means)
+summary: |
+  Tapping a metric tile expands a slider inline, so the tiles below jump down under the
+  finger. Option a keeps tile positions and docks the open slider below the grid; option
+  b opens the slider in a bottom sheet (a half-height modal over the grid).
+proposal: |
+  Pending the owner's answer: a = slider docked below the grid, grid fixed; b = slider
+  in a presented sheet (.presentationDetents([.medium])) with the tile highlighted.
+acceptance: |
+  - no tile moves when another tile's slider opens
+  - UI test opens two tiles in turn and reads the first tile's frame unchanged
+decision_needed: |
+  a or b — the owner asked "what sheet?" on 2026-11-12; explain and re-ask.
+links:
+  - docs/issues/current/implement-spec-fresh-eyes-ux.md

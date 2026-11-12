@@ -1,0 +1,23 @@
+id: PR-005
+title: At AX5 the disabled wizard Next button is see-through over the list before scrolling
+type: Polish
+priority: Low
+status: Backlog
+area: Wizard
+owner: Yaas
+effort: S
+reported: 2026-11-12
+found_in: 1.0 (10)
+fixed_in: null
+source:
+  - lane FIXES report (item 9 leftover), 2026-11-12
+summary: |
+  FIXES made the Next button grow with its label at accessibility sizes; while disabled
+  it is still translucent over the list until the user scrolls.
+proposal: |
+  Opaque material behind the disabled state at accessibility sizes, or a safe-area inset
+  that the list scrolls under.
+acceptance: |
+  - UI test at .accessibilityExtraExtraExtraLarge reads no list text through the button
+decision_needed: null
+links: []

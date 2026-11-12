@@ -1,0 +1,24 @@
+id: PR-007
+title: Dependabot alert — minimatch via nodemon (dev-only)
+type: Bug
+priority: Low
+status: Backlog
+area: Build
+owner: Yaas
+effort: S
+reported: 2026-11-11
+found_in: 1.0 (10)
+fixed_in: null
+source:
+  - lane LOCKDOWN report; Dependabot alert #13
+summary: |
+  The one alert left after npm audit fix is minimatch reached through nodemon, a dev
+  dependency; the fix is a breaking nodemon downgrade or a replacement.
+proposal: |
+  Replace nodemon with node --watch (Node 18+) in the dev script, or pin a nodemon
+  release that resolves minimatch; re-run npm audit.
+acceptance: |
+  - npm audit reports 0; Dependabot alert closes on rescan
+decision_needed: null
+links:
+  - https://github.com/1mposer/time-it/security/dependabot/13

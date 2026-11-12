@@ -1,0 +1,28 @@
+id: PR-012
+title: Partially-routed GitHub issues — the halves no lane built (#31, #23, #17)
+type: Enhancement
+priority: Low
+status: Backlog
+area: Docs
+owner: Yaas
+effort: M
+reported: 2026-11-12
+found_in: 1.0 (10)
+fixed_in: null
+source:
+  - lane TRIAGE report, 2026-11-12
+summary: |
+  #31: the detail metric-card tap/lift and the gesture audit were not built (MANAGE
+  shipped the menu, delete, reorder). #23: the Range-evaluation mirror was not extracted
+  (CACHE shipped the cache). #17: the country → city picking flow was not built (FIXES
+  shipped the multi-result search).
+proposal: |
+  Each half becomes its own PR-item or a ROADMAP row when scheduled; until then the
+  three issues stay open with their TRIAGE comments.
+acceptance: |
+  - each issue either closes with a citation or gets a row / PR-item
+decision_needed: null
+links:
+  - https://github.com/1mposer/time-it/issues/31
+  - https://github.com/1mposer/time-it/issues/23
+  - https://github.com/1mposer/time-it/issues/17

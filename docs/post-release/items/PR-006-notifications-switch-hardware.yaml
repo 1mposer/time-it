@@ -1,0 +1,26 @@
+id: PR-006
+title: Notifications switch ignores a plain tap (hardware check owed)
+type: Bug
+priority: Medium
+status: Needs decision
+area: Notifications
+owner: Yaas
+effort: S
+reported: 2026-11-11
+found_in: 1.0 (9)
+fixed_in: null
+source:
+  - fresh-eyes note 27 (build 8), b9-16 (build 9); lane FIXES item 6 — not reproducible under XCUI
+summary: |
+  The tester reported that tapping the Notifications switch never flips it and only
+  sliding the knob shows the iOS prompt. Under the UI tester a plain tap on track or knob
+  turns it on; a tap on the row's label does not (matches iOS). A guard test pins that.
+proposal: |
+  Owner checks on the phone. If it reproduces on hardware, make the whole row tappable
+  (Toggle label spans the row) and re-test.
+acceptance: |
+  - owner's phone: a single tap on the switch shows the system prompt
+decision_needed: |
+  Reproduce on hardware or close.
+links:
+  - docs/research/fresh-eyes-2026-11-11/ADDENDUM-build9.md

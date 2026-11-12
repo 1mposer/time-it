@@ -1,0 +1,25 @@
+id: PR-008
+title: Rate limit on POST /api/v1/rating (lane THROTTLE)
+type: Enhancement
+priority: Medium
+status: Backlog
+area: Server
+owner: Yaas
+effort: S
+reported: 2026-11-11
+found_in: 1.0 (10)
+fixed_in: null
+source:
+  - build-10 lane plan, lane THROTTLE — owner: "later"
+summary: |
+  The rating route has no per-client ceiling; the feedback route's 20-per-24h pattern is
+  the mold. The devices-route limit keeps its own deferred ROADMAP row.
+proposal: |
+  Per-IP (or per device id when sent) sliding-window limit in the feedback route's
+  shape, 429 in the uniform errors envelope, tests in tests/server/.
+acceptance: |
+  - a burst past the ceiling gets 429 with the envelope; under it, unchanged responses
+  - the iOS client treats 429 like a transient error (keeps the cached forecast)
+decision_needed: null
+links:
+  - docs/issues/current/build-10-lanes.md

@@ -1,0 +1,13 @@
+ID,Title,Type,Priority,Status,Area,Owner,Effort,Reported,Found in,Fixed in
+PR-001,Location picker never tells you where you are set or what to do,Enhancement,High,Needs decision,Location,Yaas,M,2026-11-12,1.0 (10),
+PR-002,Temperature unit (°F) as a Settings row,Enhancement,Medium,Backlog,Settings,Yaas,M,2026-11-12,1.0 (10),
+PR-003,Detail for a day whose window has passed shows nothing useful,Decision,High,Needs decision,Detail,Yaas,M,2026-11-12,1.0 (10),
+PR-004,Metrics step — the grid reflows under the finger when a tile opens its slider,Polish,Medium,Needs decision,Wizard,Yaas,S,2026-11-12,1.0 (10),
+PR-005,At AX5 the disabled wizard Next button is see-through over the list before scrolling,Polish,Low,Backlog,Wizard,Yaas,S,2026-11-12,1.0 (10),
+PR-006,Notifications switch ignores a plain tap (hardware check owed),Bug,Medium,Needs decision,Notifications,Yaas,S,2026-11-11,1.0 (9),
+PR-007,Dependabot alert — minimatch via nodemon (dev-only),Bug,Low,Backlog,Build,Yaas,S,2026-11-11,1.0 (10),
+PR-008,Rate limit on POST /api/v1/rating (lane THROTTLE),Enhancement,Medium,Backlog,Server,Yaas,S,2026-11-11,1.0 (10),
+PR-009,"Wordmark case — ""Time it"" or ""Time It",Decision,Low,Needs decision,Opening,Yaas,S,2026-11-12,1.0 (10),
+PR-010,"A low score beside the word ""Perfect"" (ADR-0011 presentation amendment)",Decision,High,Needs decision,Dashboard,Yaas,M,2026-11-11,1.0 (9),
+PR-011,Opening sequence — on-device frame-drop check still owed,Polish,Low,Backlog,Opening,Yaas,S,2026-11-12,1.0 (10),
+PR-012,"Partially-routed GitHub issues — the halves no lane built (#31, #23, #17)",Enhancement,Low,Backlog,Docs,Yaas,M,2026-11-12,1.0 (10),

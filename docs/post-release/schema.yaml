@@ -1,0 +1,19 @@
+# Schema for docs/post-release/items/*.yaml (the flat subset tools/post_release_export.py reads)
+# Required unless marked optional.
+id:          string, "PR-NNN", unique, never reused
+title:       string, one line, the spreadsheet title
+type:        enum [Bug, Enhancement, Polish, Decision]
+priority:    enum [Critical, High, Medium, Low]
+status:      enum [Backlog, Needs decision, In progress, Scheduled, Done]
+area:        enum [Dashboard, Detail, Wizard, Settings, Location, Notifications, Opening, Server, Build, Docs]
+owner:       string (default Yaas)
+effort:      enum [S, M, L]
+reported:    date YYYY-MM-DD
+found_in:    string, "1.0 (10)" = marketing version (build)
+fixed_in:    string | null (optional until Done)
+source:      list of strings — tester note / issue / ruling references
+summary:     block string — what rubs, in the user's terms
+proposal:    block string — the intended change, concrete enough to code from
+acceptance:  block string — how we know it is done (one line per check)
+decision_needed: block string | null (optional) — the question the owner still has to answer
+links:       list of strings (optional) — docs/ paths, GitHub issues, artifact URLs

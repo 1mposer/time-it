@@ -1,0 +1,34 @@
+id: PR-003
+title: Detail for a day whose window has passed shows nothing useful
+type: Decision
+priority: High
+status: Needs decision
+area: Detail
+owner: Yaas
+effort: M
+reported: 2026-11-12
+found_in: 1.0 (10)
+fixed_in: null
+source:
+  - build-9 addendum item 6 (red "No Window" on a passed day); spec row 6 (unruled)
+  - owner, 2026-11-12: "I never want the user to see this screen, an empty screen with no valuable information does nothing for the user"
+summary: |
+  Once today's window has passed, the detail shows a red "No Window" and little else —
+  a screen with no value. The owner wants that screen to never appear.
+proposal: |
+  Candidate shapes to rule between (conversation owed):
+  a) roll forward — a passed day's detail opens on the next day with a window, with a
+     one-line note "Today's 6 – 10am has passed · showing tomorrow";
+  b) keep today but fill it — what the hours did (the actual readings as a strip),
+     "best was 7 – 9am, Good", and tomorrow's verdict as the call to action;
+  c) the card itself advances to the next rated day after the window passes (dashboard
+     + detail agree), so the passed state is never a destination.
+acceptance: |
+  - no path reaches a detail whose only content is a verdict word for a passed window
+  - the card and the detail show the same day
+  - UI test with UITEST_NOW pinned past the window
+decision_needed: |
+  Owner to pick a, b or c (or a mix) — then it needs a frame or the mini-edits lane.
+links:
+  - docs/issues/current/implement-spec-fresh-eyes-ux.md
+  - docs/research/fresh-eyes-2026-11-11/ADDENDUM-build9.md

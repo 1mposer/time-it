@@ -24,3 +24,20 @@ Status: **Accepted** (owner, 2026-10-01 — as drafted, including the one-sided-
 **Why.** The card v2 brief (owner, 2026-09-21) makes the card wordless beyond name, numerals and colour — the ring needs one number that means "how confidently does the forecast fit what you asked for." Depth-in-band is that number: it degrades smoothly as conditions drift toward a threshold edge, unlike the three-tier rating which snaps. Computing it server-side in the engine keeps the two sides from drifting (the ADR-0007 lesson) and gives the push path the same number for free if a future digest wants it — while the independence rule keeps it from ever contaminating the verdict the way a placeholder-fed threshold would (the [ADR-0005](0005-custom-activity-request-schema.md) false-Perfect backstop, applied to derived numbers).
 
 **Consequences.** CLAUDE.md's wire-contract mirror gets the `score` field in the same change that ships the engine work (contract fact — sweep rule, [ADR-0009](0009-tiered-doc-truth.md)). Tests pin worked examples: two-sided centre/edge/outside, one-sided binary, flag, the amended required-miss behaviour (metric 0, hour still averages), the null rule on an empty-window bucket, and a hand-computed nocturnal bucket. `days[]` key order gains `score` after `duration`; the golden snapshot test updates in the same commit.
+
+---
+
+## Proposed amendment — how the score and the verdict are shown together (2026-11-12, **pending owner**)
+
+**Trigger.** The fresh-eyes re-run on build 9 against production (notes 18/19, `b9-13b`): "Stars tonight" shows **"20 · Perfect"** with one green hour in five. Both numbers are correct under this ADR — the word is the best Window's verdict, the ring is the mean depth over *every* window hour — and readers take them as a contradiction. The owner ruled Q1 **b** on 2026-11-12: open an amendment on presentation. The engine and the independence rule are **not** in question; every option below is display-only and uses fields already on the wire (`rating`, `startIndex`/`endIndex`/`duration`, `score`, `hours[]`).
+
+**Options.**
+
+- **A — name the Window beside the word.** Card and detail read "Perfect 10 – 11pm" (the `RangeText` mirror already formats it); the ring keeps the day mean. The gap is explained, not hidden: a short Perfect inside a poor day reads as exactly that. Copy plus a small frame on the card's verdict line. *Cost:* the card gains words (the 2026-09-21 wordless-card brief bends).
+- **B — the ring draws the rated Window's depth, the day mean moves to the detail.** An additive `windowScore` field (mean depth over `startIndex..<endIndex` only; `null` with a `null` rating) joins `score` on the wire; the card ring reads `windowScore`, the detail hero shows both ("Window 88 · Day 20"). The card then agrees with its word by construction. *Cost:* a server change (additive, same module, same tests mold) and a second number for users to learn.
+- **C — qualify the word by duration.** "Perfect · 1h" / "Perfect · 4h" from `duration`, ring unchanged. Cheapest; says *how much* Perfect without saying *when*. Pairs with A later.
+- **D — keep** (c on the page): accept the reading and teach it in onboarding v2's verdict reveal.
+
+**Recommendation.** **A** now (copy-first, the data is on the wire, closes 18/19 for testers), with **B** recorded as the follow-up if the ring still reads wrong once the Window is named. C is a fallback if the card must stay wordless.
+
+**If accepted:** the Status line above gains "Amended <date> (owner): <option>"; CLAUDE.md's wire-contract mirror changes only for B; card, detail and the wizard's Review preview change in one lane; `tests/fixtures/day-score-examples.json` is untouched (the formula does not move). Tracked as [post-release PR-010](../post-release/items/PR-010-score-beside-verdict.yaml) until ruled.
