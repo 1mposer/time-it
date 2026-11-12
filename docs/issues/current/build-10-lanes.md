@@ -64,6 +64,7 @@ Enable secret scanning, push protection, Dependabot alerts + security updates (`
 
 ## Lane TRIAGE (was C3) — Issue triage (after the new ROADMAP rows exist, Sonnet, by hand to four states)
 Sort all 15 open issues into done / parked / orphaned / superseded; create the four labels; label or close each with the AI-triage disclaimer. Overlaps to route rather than orphan: #19 → A, #31 → B1, #23 → D, #17 → A-fix (note 4), #18 → item 13. Then write the rule into ROADMAP §Rules: *an open issue must have a ROADMAP row or a triage label; a triage-labelled issue untouched for two months is stale* — reconciled with the existing "tree is the source of truth" rule.
+- [x] **Done 2026-11-12 (lane branch, not merged):** all 15 open issues sorted — 3 parked (#7 #8 #12), 7 orphaned (#20 #21 #22 #24 #29 #30 #32), 5 routed and left open (#17 #18 #19 #23 #31), 0 closed; `triage:parked`/`triage:orphaned` labels created, comments posted; rule + table in ROADMAP §Rules / §Issues.
 
 ## Lane THROTTLE (was C4) — Rate limit on `POST /api/v1/rating` (later)
 In the feedback route's mold, with tests. The deferred devices-route row keeps its own promote condition (stays deferred).
