@@ -55,9 +55,26 @@ struct ActivityDetailView: View {
     /// here kept the pushed detail re-rendering and starved XCUI).
     var onActivityDeleted: () -> Void = {}
 
-    /// The day the detail shows — opens on today; the week-dot row jumps it
-    /// (spec 05 day-jump, frame `508:417`).
-    @State private var selectedDayIndex = 0
+    /// The day the detail shows — opens on the day it was opened for (today
+    /// from a card tap, the tapped day from a card's week dot — note 16);
+    /// the week-dot row jumps it (spec 05 day-jump, frame `508:417`).
+    @State private var selectedDayIndex: Int
+
+    init(activity: ActivityRating,
+         viewModel: DashboardViewModel,
+         catalog: MetricCatalogProviding = StaticMetricCatalog(),
+         windUnit: WindSpeedUnit = .kmh,
+         now: @escaping () -> Date = Date.init,
+         initialDayIndex: Int = 0,
+         onActivityDeleted: @escaping () -> Void = {}) {
+        self.activity = activity
+        _viewModel = ObservedObject(wrappedValue: viewModel)
+        self.catalog = catalog
+        self.windUnit = windUnit
+        self.now = now
+        self.onActivityDeleted = onActivityDeleted
+        _selectedDayIndex = State(initialValue: initialDayIndex)
+    }
     /// The pill row's scroll position — the leading visible slot's id. The
     /// ONE piece of carousel state: the span derives from it
     /// (`HourCarousel.span(forScrollAnchor:)`). nil = the opening state.

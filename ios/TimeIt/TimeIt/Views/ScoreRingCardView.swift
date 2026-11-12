@@ -32,6 +32,9 @@ struct ScoreRingCardView: View {
     var weekDots: [WeekDot] = []
     /// The card chevron's state — false = exactly the pre-dots card.
     var showsWeekDots: Bool = false
+    /// A data dot's tap (note 16): the dashboard opens the detail on that
+    /// day. nil keeps the dots inert (the wizard's Review reveal).
+    var onDotTap: ((Int) -> Void)? = nil
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Accessibility sizes put the chip under the name (no squeeze).
@@ -113,6 +116,7 @@ struct ScoreRingCardView: View {
                     // collapsed card is exactly the pre-dots card.
                     WeekDotsView(dots: weekDots,
                                  ringedDayIndex: 0,
+                                 onTap: onDotTap,
                                  identifierPrefix: "weekDots.\(activity.activityId)")
                         .padding(.top, 8)
                         .transition(.unfold(reduceMotion: reduceMotion))

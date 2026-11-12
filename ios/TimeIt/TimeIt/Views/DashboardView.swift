@@ -33,7 +33,7 @@ struct DashboardView: View {
     /// release).
     private let isBetaBuild = BetaGate.isActive
     /// Value-based so a push tap can pop to the dashboard.
-    @State private var navigationPath: [String] = []
+    @State private var navigationPath: [DetailRoute] = []
     /// The card a tapped Perfect-window alert should bring into view —
     /// consumed by the card list's ScrollViewReader once it renders.
     @State private var pendingFocusId: String?
@@ -197,8 +197,8 @@ struct DashboardView: View {
             }
             #endif
             .toolbar(.hidden, for: .navigationBar)
-            .navigationDestination(for: String.self) { activityId in
-                detailDestination(for: activityId)
+            .navigationDestination(for: DetailRoute.self) { route in
+                detailDestination(for: route)
             }
             .sheet(isPresented: $showSettings) {
                 SettingsView(registration: registration)
@@ -290,12 +290,13 @@ struct DashboardView: View {
     /// If the rating vanished (activity deleted, forecast dropped), pop home
     /// rather than strand the user on a blank screen.
     @ViewBuilder
-    private func detailDestination(for activityId: String) -> some View {
-        if let activity = viewModel.rating(forActivityId: activityId) {
+    private func detailDestination(for route: DetailRoute) -> some View {
+        if let activity = viewModel.rating(forActivityId: route.activityId) {
             ActivityDetailView(activity: activity,
                                viewModel: viewModel,
                                windUnit: preferences.windSpeedUnit,
                                now: viewModel.now,
+                               initialDayIndex: route.dayIndex,
                                onActivityDeleted: { navigationPath = [] })
         } else {
             Color.clear
@@ -588,7 +589,7 @@ struct DashboardView: View {
                                 dormantCard(for: authored)
                             } else if let activity = viewModel.rating(forActivityId: authored.id) {
                                 ZStack(alignment: .topTrailing) {
-                                    NavigationLink(value: activity.activityId) {
+                                    NavigationLink(value: DetailRoute(activityId: activity.activityId)) {
                                         // A minute tick (deferral 5, card half —
                                         // the detail hero's twin, `aa3a28e`):
                                         // passed strip hours grey on the minute.
@@ -676,7 +677,7 @@ struct DashboardView: View {
         let id = authored.id
         let motion = Theme.Motion.reveal(reduceMotion: reduceMotion)
         return CardMenuActions(
-            viewDetails: { navigationPath.append(id) },
+            viewDetails: { navigationPath.append(DetailRoute(activityId: id)) },
             moveUp: store.canMove(id: id, by: -1)
                 ? { withAnimation(motion) { store.move(id: id, by: -1) } } : nil,
             moveDown: store.canMove(id: id, by: 1)
@@ -967,9 +968,21 @@ struct DashboardView: View {
                 WeekDots.dots(for: activity, deriver: $0,
                               nocturnal: viewModel.isNocturnal(activityId: activity.activityId))
             } ?? [],
-            showsWeekDots: !preferences.collapsedCardIds.contains(authored.id)
+            showsWeekDots: !preferences.collapsedCardIds.contains(authored.id),
+            // Note 16: a week dot opens the detail on THAT day; the rest of
+            // the card still opens today.
+            onDotTap: { day in
+                navigationPath.append(DetailRoute(activityId: activity.activityId, dayIndex: day))
+            }
         )
     }
+}
+
+/// A pushed detail: the Activity and the day it opens on (0 = today; a
+/// card's week dot pushes its own day — note 16).
+struct DetailRoute: Hashable {
+    let activityId: String
+    var dayIndex: Int = 0
 }
 
 // MARK: Eye level (owner, build 10 POLISH item 2)
