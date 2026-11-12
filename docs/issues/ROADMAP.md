@@ -58,8 +58,25 @@ Ship-loop items 1–7 (+ the built halves of 8–10): see the [archived 2026-08 
 
 ## Rules
 
-- The tree is the source of truth (the #5/#6 GitHub issues were removed; #7/#8/#11 remain on GitHub).
+- The tree is the source of truth (the #5/#6 GitHub issues were removed). GitHub issues are allowed only as pointers: **an open issue must either have a row in this ROADMAP or carry a `triage:` label** (`triage:parked` = a §Deferred row with a promote condition; `triage:orphaned` = no home, owner decision pending). A `triage:`-labelled issue untouched for two months is stale and gets closed on the next triage pass.
 - A spec moves to `completed/` — boxes ticked, one-line banner added — in the **same commit** that merges its build; completed bodies are never edited again.
 - `current/` holds only living work orders; handoffs carry a fold-in-by date at creation. **`deferred/`** holds stubs/specs for Deferred-table items (each linked from its row) — not living work, not historical record.
 - **UI is Figma-first** — frames precede code ([ADR-0008](../adr/0008-figma-first-ui-gate.md), the decision of record).
 - **Design lens (owner ruling, grill Q7 2026-08-22):** every screen is designed for the non-technical, technophobic user — the persona is a *chosen lens* ("designing around the outlier makes a good product for everyone"), not an evidence claim; the evidence itself lives in the [research note](../research/onboarding-tester-evidence-2026-08.md).
+
+## Issues — triage 2026-11-12 (AI pass, owner-instructed)
+
+Per the issue rule above. Open issues at the pass: 15 (0 done, 0 superseded, 3 parked, 7 orphaned, 5 routed).
+
+| # | State | Where it went |
+|---|---|---|
+| 7 | parked | §Deferred "Marine data" |
+| 8 | parked | §Deferred "#8 `requireTrue`" |
+| 12 | parked | §Deferred "WeatherKit provider abstraction" |
+| 17 | routed | row 20 lane FIXES (note 4, city search); the country→city two-step is wider and unscheduled |
+| 18 | routed | item 13 (onboarding v2 build; blocked on `welcome.riv`) |
+| 19 | routed | row 21 (fresh-eyes pass, Q1) |
+| 23 | routed | row 20 lane CACHE merged but did not extract the Range-evaluation mirror; stays open |
+| 31 | routed | row 20 lane MANAGE merged (long-press menu, delete, reorder); detail metric-card lift + gesture audit unbuilt; stays open |
+| 20, 21, 22, 24, 29, 30, 32 | orphaned | `triage:orphaned` — owner decision: schedule, defer with a condition, or close (#30 carries an April 2027 iOS 27 SDK deadline; #22 depends on #21) |
+
