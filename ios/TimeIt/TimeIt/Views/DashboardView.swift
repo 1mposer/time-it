@@ -421,9 +421,12 @@ struct DashboardView: View {
     private var noLocationState: some View {
         ScrollView {
             VStack(spacing: 0) {
-                skeletonCard(0)
-                    .padding(.bottom, 10)
-                skeletonCard(1)
+                // One per authored Activity, named (note 13).
+                VStack(spacing: 10) {
+                    ForEach(viewModel.noLocationPlaceholders) { activity in
+                        skeletonCard(for: activity)
+                    }
+                }
                 Image(systemName: "location.slash")
                     .font(.system(size: 44))
                     .foregroundStyle(Theme.secondaryText)
@@ -469,36 +472,41 @@ struct DashboardView: View {
         }
     }
 
-    /// One grayed skeleton card: the real card's anatomy as flat shapes — no
-    /// values. Collapsed to one accessibility element so its identifier is
-    /// reachable in UI tests.
-    private func skeletonCard(_ index: Int) -> some View {
+    /// One grayed skeleton card per authored Activity: its icon and name
+    /// (so the user sees what was saved — note 13) over the real card's
+    /// anatomy as flat shapes, no values. Collapsed to one accessibility
+    /// element named for the Activity.
+    private func skeletonCard(for activity: AuthoredActivity) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            RoundedRectangle(cornerRadius: 999)
-                .fill(Theme.timelineTrack)
-                .frame(width: 120, height: 14)
-            RoundedRectangle(cornerRadius: 999)
-                .fill(Theme.timelineTrack)
-                .frame(width: 60, height: 10)
-            RoundedRectangle(cornerRadius: 6)
-                .fill(Theme.timelineTrack)
-                .frame(maxWidth: .infinity)
-                .frame(height: 22)
             HStack(spacing: 8) {
-                ForEach(0..<3, id: \.self) { _ in
-                    RoundedRectangle(cornerRadius: 999)
-                        .fill(Theme.timelineTrack)
-                        .frame(width: 48, height: 20)
+                ActivityIconView(identifier: activity.iconSymbol)
+                Text(activity.label)
+                    .scaledFont(size: 17, weight: .semibold)
+                    .foregroundStyle(Theme.primaryText)
+                    .lineLimit(2)
+            }
+            Group {
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Theme.timelineTrack)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 22)
+                HStack(spacing: 8) {
+                    ForEach(0..<3, id: \.self) { _ in
+                        RoundedRectangle(cornerRadius: 999)
+                            .fill(Theme.timelineTrack)
+                            .frame(width: 48, height: 20)
+                    }
                 }
             }
+            .opacity(0.55)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 16).fill(Theme.cardBackground))
-        .opacity(0.55)
+        .background(RoundedRectangle(cornerRadius: 16).fill(Theme.cardBackground.opacity(0.55)))
         .accessibilityElement(children: .ignore)
-        .accessibilityIdentifier("skeletonCard.\(index)")
+        .accessibilityLabel(activity.label)
+        .accessibilityIdentifier("skeletonCard.\(activity.id)")
     }
 
     /// After a denial the system prompt can't be shown again — deep-link to

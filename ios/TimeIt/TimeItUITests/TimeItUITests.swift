@@ -914,8 +914,13 @@ final class TimeItUITests: XCTestCase {
         XCTAssertTrue(app.buttons["enableLocationButton"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["placeLocationButton"].exists)
         XCTAssertTrue(app.staticTexts["NO LOCATION"].exists, "the header is honest about the missing location")
-        XCTAssertTrue(app.otherElements["skeletonCard.0"].exists, "grayed skeleton cards render (spec §2)")
-        XCTAssertTrue(app.otherElements["skeletonCard.1"].exists)
+        // Note 13: one grayed placeholder per authored activity, named — the
+        // seed has two, so exactly two, each carrying its activity's name.
+        XCTAssertTrue(app.otherElements["skeletonCard.cycling"].exists, "grayed skeleton cards render (spec §2)")
+        XCTAssertTrue(app.otherElements["skeletonCard.fishing-lite"].exists)
+        XCTAssertEqual(app.otherElements.matching(NSPredicate(format: "identifier BEGINSWITH 'skeletonCard.'")).count, 2)
+        XCTAssertEqual(app.otherElements["skeletonCard.cycling"].label, "Cycling")
+        XCTAssertEqual(app.otherElements["skeletonCard.fishing-lite"].label, "Fishing Lite")
         XCTAssertEqual(cardCount(in: app), 0, "no rated cards")
         XCTAssertFalse(app.staticTexts["headerTemp"].exists,
                        "the header's weather rows are gone entirely — not just showing placeholders")
