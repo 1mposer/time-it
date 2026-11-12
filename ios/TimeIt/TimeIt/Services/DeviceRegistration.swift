@@ -331,6 +331,12 @@ final class DeviceRegistration: ObservableObject {
         isEnablePending = false
     }
 
+    /// The device-location access status — Settings' Home row reads it so
+    /// it never claims current location while access is off (notes 3 + 8).
+    var locationAuthorization: CLAuthorizationStatus {
+        locationProvider.authorizationStatus
+    }
+
     /// The `.needsLocation` doors: a not-yet-asked GPS gets the system prompt
     /// (the toggle is the CTA — prompts stay CTA-gated); anything else routes
     /// to the city picker.

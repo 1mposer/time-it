@@ -173,7 +173,8 @@ struct SettingsView: View {
             HStack {
                 Text("Home")
                 Spacer()
-                Text(preferences.homeLocation?.name ?? "Using current location")
+                Text(HomeLocationStatus.label(homeName: preferences.homeLocation?.name,
+                                              authorization: registration.locationAuthorization))
                     .foregroundStyle(.secondary)
             }
             Button {
@@ -183,9 +184,13 @@ struct SettingsView: View {
             }
             .accessibilityIdentifier("settings.setHome")
             if preferences.homeLocation != nil {
+                // Disabled while location is off: clearing the city then
+                // would leave no location at all (note 8).
                 Button("Use current location") {
                     preferences.homeLocation = nil
                 }
+                .disabled(!HomeLocationStatus.canUseCurrentLocation(
+                    authorization: registration.locationAuthorization))
                 .accessibilityIdentifier("settings.useCurrentLocation")
             }
         } header: {

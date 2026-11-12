@@ -858,6 +858,30 @@ final class TimeItUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Using current location"].waitForExistence(timeout: 5), "clearing returns to GPS")
     }
 
+    /// Notes 3 + 8: with location denied, Settings never claims "Using
+    /// current location", and "Use current location" can't wipe a picked
+    /// city it could not replace.
+    func testSettingsHomeRowIsHonestWhenLocationIsDenied() {
+        let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_SEED_LIVE",
+                                        "UITEST_LOCATION_DENIED"])
+        XCTAssertTrue(app.buttons["settingsGear"].waitForExistence(timeout: 5))
+        app.buttons["settingsGear"].tap()
+
+        XCTAssertTrue(app.staticTexts["Location off"].waitForExistence(timeout: 5),
+                      "denied + no city reads the truth")
+        XCTAssertFalse(app.staticTexts["Using current location"].exists)
+
+        app.buttons["settings.setHome"].tap()
+        pickCity("Dubai Marina", in: app)
+        XCTAssertTrue(app.staticTexts["Dubai Marina"].waitForExistence(timeout: 5))
+
+        let useCurrent = app.buttons["settings.useCurrentLocation"]
+        XCTAssertTrue(useCurrent.exists)
+        XCTAssertFalse(useCurrent.isEnabled, "no current location to fall back on while denied")
+        useCurrent.tap()
+        XCTAssertTrue(app.staticTexts["Dubai Marina"].exists, "the picked city survives the tap")
+    }
+
     // MARK: - No-location onboarding
 
     func testNoLocationShowsSkeletonsAndCTAsWithNoWeather() {
