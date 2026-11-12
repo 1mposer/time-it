@@ -84,6 +84,20 @@ enum EditorStep: Int, CaseIterable {
     }
 }
 
+// MARK: - NameIconGate — the Name step's hint
+
+/// The Name step's gate line (fresh-eyes row 10a, owner 2026-11-12): once a
+/// name is typed and no icon is picked, Next is off and says why. The icon
+/// stays required, no matter what — this is copy, never a relaxed gate.
+enum NameIconGate {
+    static let hint = "Pick an icon too."
+
+    static func hint(draft: ActivityDraft) -> String? {
+        let named = !draft.label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        return named && draft.iconSymbol == "questionmark.circle" ? hint : nil
+    }
+}
+
 // MARK: - MetricsGate — the two-metric minimum
 
 /// The Metrics step's floor (owner ruling 2026-11-11, build 10): Next stays

@@ -41,6 +41,27 @@ final class EditorWizardTests: XCTestCase {
         XCTAssertFalse(complete(.nameIcon, draft), "whitespace-only name is empty")
     }
 
+    /// Fresh-eyes row 10a (owner 2026-11-12): once a name is typed and no
+    /// icon is picked, the gate says so — the icon stays required.
+    func testNameStepHintWhenIconMissing() {
+        var draft = blankDraft()
+        XCTAssertNil(NameIconGate.hint(draft: draft), "nothing typed yet — no hint")
+
+        draft.label = "Padel"
+        XCTAssertEqual(NameIconGate.hint(draft: draft), "Pick an icon too.")
+        XCTAssertFalse(complete(.nameIcon, draft), "the hint never relaxes the gate")
+
+        draft.label = "  "
+        XCTAssertNil(NameIconGate.hint(draft: draft), "a whitespace name is not a typed name")
+    }
+
+    func testNameStepHintGoneOnceAnIconIsChosen() {
+        var draft = blankDraft()
+        draft.label = "Padel"
+        draft.iconSymbol = "figure.tennis"
+        XCTAssertNil(NameIconGate.hint(draft: draft))
+    }
+
     func testNameIconGateRevertsWhenTheNameIsCleared() {
         var draft = blankDraft()
         draft.label = "Padel"

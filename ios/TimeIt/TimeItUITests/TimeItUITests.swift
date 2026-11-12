@@ -388,12 +388,15 @@ final class TimeItUITests: XCTestCase {
         nameField.tap()
         nameField.typeText("Padel")
         XCTAssertFalse(next.isEnabled, "a name alone is not enough — an icon must be chosen (the sentinel is gated)")
+        XCTAssertEqual(app.staticTexts["editor.nameIconGate"].label, "Pick an icon too.",
+                       "fresh-eyes 10a: the silent icon gate says why Next is off")
 
         // From scratch the first category (Sports) starts open.
         let icon = app.buttons["icon.figure.tennis"]
         scrollTo(icon, in: app)
         icon.tap()
         XCTAssertTrue(next.isEnabled, "name + icon completes the Name step")
+        XCTAssertFalse(app.staticTexts["editor.nameIconGate"].exists, "the hint goes once an icon is chosen")
         next.tap()
 
         // Metrics: one tap picks and opens the tile to its slider.

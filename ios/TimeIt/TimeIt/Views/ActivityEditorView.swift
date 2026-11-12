@@ -228,6 +228,14 @@ struct ActivityEditorView: View {
                     .multilineTextAlignment(.center)
                     .accessibilityIdentifier("editor.rangeWarning")
             }
+            // Above Next, so it reads without scrolling past the icon list.
+            if step == .nameIcon, let hint = NameIconGate.hint(draft: draft) {
+                Text(hint)
+                    .scaledFont(size: 13)
+                    .foregroundStyle(Theme.secondaryText)
+                    .multilineTextAlignment(.center)
+                    .accessibilityIdentifier("editor.nameIconGate")
+            }
             if step == .review {
                 primaryButton("Save Activity", identifier: "editor.save",
                               enabled: buildResult.activity != nil) { save(buildResult.activity) }

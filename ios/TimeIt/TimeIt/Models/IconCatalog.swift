@@ -27,6 +27,7 @@ enum IconCatalog {
         IconCategory(name: "Beach & Water", icons: [
             "figure.surfing", "figure.sailing", "figure.pool.swim",
             "figure.outdoor.rowing", "figure.fishing", "figure.volleyball",
+            "beach.umbrella", "sun.max",
         ]),
         IconCategory(name: "Wellness", icons: [
             "figure.yoga", "figure.mind.and.body", "figure.hiking",
