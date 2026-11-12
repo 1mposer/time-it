@@ -575,6 +575,76 @@ final class TimeItUITests: XCTestCase {
         XCTAssertTrue(splash.waitForNonExistence(timeout: 5))
     }
 
+    /// Q2b (owner, 2026-11-12): the full opening plays on the first launch
+    /// only — a later cold launch (no UITEST_RESET, so the "seen" stamp
+    /// survives) fades straight into the app, no splash.
+    func testTheOpeningPlaysOnTheFirstLaunchOnlyThenFades() {
+        let first = launchApp(skipOpening: false)
+        let splash = first.descendants(matching: .any)["opening.splash"]
+        XCTAssertTrue(splash.waitForExistence(timeout: 5), "the first launch opens on the logo")
+        splash.tap()
+        XCTAssertTrue(first.buttons["card.cycling"].waitForExistence(timeout: 5))
+        first.terminate()
+
+        let second = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_SEED_LIVE", "UITEST_LOCATION"],
+                               skipOpening: false)
+        XCTAssertTrue(second.buttons["card.cycling"].waitForExistence(timeout: 5),
+                      "a later launch fades straight into the dashboard")
+        XCTAssertFalse(second.descendants(matching: .any)["opening.splash"].exists,
+                       "no converge on a later launch")
+        attachScreenshot(second, named: "opening-second-launch")
+    }
+
+    /// Row 7b (owner, 2026-11-12, redone after "very confusing"): the caption
+    /// says what the cards show; "Avg" leads the segmented row, selected; an
+    /// hour shows that hour; "Avg" (or the same hour again) returns.
+    func testDetailHourChipShowsThatHourAndReturnsToTheAverage() {
+        let app = launchApp()
+        let card = app.buttons["card.cycling"]
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        tapCardBody(card)
+        let caption = app.staticTexts["detail.chipsCaption"]
+        XCTAssertTrue(caption.waitForExistence(timeout: 5))
+        XCTAssertEqual(caption.label, "Average of 6 – 10am · tap an hour")
+        let average = app.buttons["detail.hourChipAvg"]
+        XCTAssertTrue(average.isSelected, "Avg is selected by default")
+
+        let chip = app.buttons["detail.hourChip.7am"]
+        XCTAssertTrue(chip.exists, "one segment per span hour")
+        chip.tap()
+        XCTAssertEqual(caption.label, "At 7am", "the caption reads the chosen hour")
+        XCTAssertTrue(chip.isSelected)
+        XCTAssertFalse(average.isSelected)
+
+        chip.tap()
+        XCTAssertTrue(average.isSelected, "the same hour again returns to the average")
+
+        chip.tap()
+        average.tap()
+        XCTAssertEqual(caption.label, "Average of 6 – 10am · tap an hour", "Avg returns to the average")
+        XCTAssertFalse(chip.isSelected)
+    }
+
+    /// The owner rules row 7b from these (screenshots only): the detail on
+    /// the average and with one chip chosen, light and dark.
+    func testDetailHourChipsScreensLightAndDark() {
+        for appearance in ["light", "dark"] {
+            let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_SEED_LIVE",
+                                            "UITEST_LOCATION", "UITEST_APPEARANCE=\(appearance)"])
+            let card = app.buttons["card.cycling"]
+            XCTAssertTrue(card.waitForExistence(timeout: 5))
+            tapCardBody(card)
+            let caption = app.staticTexts["detail.chipsCaption"]
+            XCTAssertTrue(caption.waitForExistence(timeout: 5))
+            Thread.sleep(forTimeInterval: 1) // the push settles
+            attachScreenshot(app, named: "chips-average-\(appearance)")
+            app.buttons["detail.hourChip.8am"].tap()
+            Thread.sleep(forTimeInterval: 1) // the fill settles
+            attachScreenshot(app, named: "chips-selected-\(appearance)")
+            app.terminate()
+        }
+    }
+
     func testNameFieldWholeRowActivatesTheKeyboard() {
         // Device finding 2026-08-30: only the leading edge of the name row
         // focused the field — the whole row must raise the keyboard.

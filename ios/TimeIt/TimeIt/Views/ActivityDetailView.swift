@@ -111,6 +111,10 @@ struct ActivityDetailView: View {
     @State private var editTick = 0
     /// The detail's Delete is awaiting its confirmation.
     @State private var confirmingDelete = false
+    /// Which hour the metric cards read: nil = the span's average (row 7b).
+    @State private var chipSelection = HourChipSelection()
+    /// Bumped on a chip or caption tap — the selection haptic.
+    @State private var chipTick = 0
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Accessibility sizes stack the hero and single-column the grid.
@@ -206,10 +210,15 @@ struct ActivityDetailView: View {
         carousel.map { viewModel.slots(in: $0.span) } ?? []
     }
 
-    /// The chosen hours folded into one reading (`HourAggregate`) — only the
-    /// slots with data count; an all-gone span is nil, so the cards show "—".
+    /// The hour chip the cards read, if one is selected and still in the span.
+    private var selectedChip: HourSlot? { chipSelection.hour(in: displayedSlots) }
+
+    /// What the cards read: the selected chip's hour, else the chosen hours
+    /// folded into one reading (`HourAggregate`) — only the slots with data
+    /// count; an all-gone span is nil, so the cards show "—".
     private var displayedHour: HourlyWeather? {
-        HourAggregate.aggregate(slots: displayedSlots, hours: viewModel.forecast?.hours ?? [])
+        HourChips.reading(slots: displayedSlots, hours: viewModel.forecast?.hours ?? [],
+                          selected: selectedChip)
     }
 
     /// Row 1 under the pill row: always "Your range …" (with "· Time passed"
@@ -279,7 +288,10 @@ struct ActivityDetailView: View {
                     TimelineView(.everyMinute) { _ in
                         heroCard
                     }
-                    metricGrid
+                    VStack(alignment: .leading, spacing: Layout.chipsToGrid) {
+                        hourChipRow
+                        metricGrid
+                    }
                 }
                 editCircles
                     .padding(.top, Layout.editCirclesTop - Layout.dotsToHero)
@@ -314,7 +326,9 @@ struct ActivityDetailView: View {
         // the ring falls back to the day score.
         .onChange(of: spanKey) { _, _ in
             clearSpanScore()
+            chipSelection.clear() // a new span or day opens on its average
         }
+        .sensoryFeedback(.selection, trigger: chipTick)
         .sensoryFeedback(.selection, trigger: selectionTick)
         .sensoryFeedback(.impact(weight: .light), trigger: homeTick)
         .sensoryFeedback(.impact(weight: .light), trigger: scoreTick)
@@ -830,6 +844,92 @@ struct ActivityDetailView: View {
         scroll(to: next.scrollAnchor, animation: Theme.Motion.home)
     }
 
+    // MARK: The hour chips — what the cards read (fresh-eyes row 7b)
+
+    /// Owner, seen live 2026-11-12: the row must explain itself. A plain
+    /// caption says what the cards show — "Average of 6 – 10am · tap an hour",
+    /// or "At 8am" — over ONE segmented row: a leading "Avg" segment
+    /// (selected by default), then one segment per span hour. A segment tap
+    /// shows that hour; "Avg", or the same hour again, returns to the
+    /// average. Gone hours (no data) are drawn but not tappable.
+    @ViewBuilder
+    private var hourChipRow: some View {
+        let slots = displayedSlots
+        if !slots.isEmpty {
+            let selected = selectedChip
+            VStack(alignment: .leading, spacing: Layout.captionToChips) {
+                Text(HourChips.caption(slots: slots, selected: selected))
+                    .scaledFont(size: 13, weight: .medium)
+                    .foregroundStyle(Theme.secondaryText)
+                    .accessibilityIdentifier("detail.chipsCaption")
+                // Fits the width when it can; a long span scrolls instead.
+                ViewThatFits(in: .horizontal) {
+                    segmentedRow(slots: slots, selected: selected, fills: true)
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        segmentedRow(slots: slots, selected: selected, fills: false)
+                    }
+                }
+            }
+        }
+    }
+
+    /// The one track: a card-coloured capsule, 44pt tall (the HIG target),
+    /// with the segments inset in it; the chosen one takes the accent fill
+    /// (the wizard's chosen-tile pairing). The fill swap crossfades — no
+    /// sliding thumb, so Reduce Motion has nothing to replace.
+    private func segmentedRow(slots: [HourSlot], selected: HourSlot?, fills: Bool) -> some View {
+        HStack(spacing: 0) {
+            segment(HourChips.averageLabel,
+                    selected: selected == nil,
+                    enabled: true,
+                    identifier: "detail.hourChipAvg",
+                    accessibilityLabel: "Average",
+                    fills: fills) {
+                chipSelection.clear()
+            }
+            ForEach(slots, id: \.position) { slot in
+                let label = HourChips.label(slot)
+                segment(label,
+                        selected: slot.position == selected?.position,
+                        enabled: slot.index != nil,
+                        identifier: "detail.hourChip.\(label)",
+                        accessibilityLabel: label,
+                        fills: fills) {
+                    chipSelection.tap(slot.position, in: displayedSlots)
+                }
+            }
+        }
+        .padding(Layout.segmentInset)
+        .background(Capsule().fill(Theme.cardBackground))
+    }
+
+    /// One segment. Touch-down = `PressStyle` (no scale under Reduce
+    /// Motion); a tap = the selection haptic.
+    private func segment(_ label: String, selected: Bool, enabled: Bool, identifier: String,
+                         accessibilityLabel: String, fills: Bool,
+                         action: @escaping () -> Void) -> some View {
+        Button {
+            withAnimation(fade) { action() }
+            chipTick += 1
+        } label: {
+            Text(label)
+                .scaledFont(size: 13, weight: selected ? .semibold : .medium, maxSize: 20)
+                .lineLimit(1)
+                .fixedSize()
+                .foregroundStyle(selected ? Theme.onFill : Theme.primaryText)
+                .padding(.horizontal, Layout.segmentPadding)
+                .frame(maxWidth: fills ? .infinity : nil, minHeight: Layout.segmentHeight)
+                .background(Capsule().fill(selected ? Theme.accentBrandFill : .clear))
+                .opacity(enabled ? 1 : 0.35)
+                .contentShape(Capsule())
+        }
+        .buttonStyle(PressStyle())
+        .disabled(!enabled)
+        .accessibilityIdentifier(identifier)
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
     // MARK: The metric cards — two per row, the chosen hours' average
 
     /// ONE card per display metric, in the Activity's own order. The frames
@@ -838,7 +938,10 @@ struct ActivityDetailView: View {
     /// chips), so a fourth metric gets a fourth card rather than vanishing.
     private var metricGrid: some View {
         let metrics = current.displayMetrics
-        let inRange = carousel?.overlapsRange ?? false
+        // A chosen hour is judged only if it is a Range hour; the average
+        // whenever the span overlaps the Range.
+        let inRange = selectedChip.map { rangeHours?.contains($0.position) ?? false }
+            ?? carousel?.overlapsRange ?? false
         let hour = displayedHour
         // Accessibility sizes: one column, so the scaled words have room.
         let columnCount = Layout.metricGridColumnCount(isAccessibilitySize: isStacked)
@@ -1117,3 +1220,16 @@ private let previewNow: @Sendable () -> Date = { ISO8601DateFormatter().date(fro
     .task { await viewModel.loadForecast() }
 }
 #endif
+
+// MARK: Hour chip geometry (fresh-eyes row 7b — simulator-ruled, no frame)
+
+extension Theme.Detail {
+    /// Chip row (caption + chips) to the metric grid.
+    static let chipsToGrid: CGFloat = 12
+    /// Caption to the segmented row.
+    static let captionToChips: CGFloat = 8
+    /// Segment height + 2 × inset = the HIG 44pt track.
+    static let segmentHeight: CGFloat = 36
+    static let segmentInset: CGFloat = 4
+    static let segmentPadding: CGFloat = 8
+}
