@@ -9,9 +9,11 @@ final class DashboardLayoutTests: XCTestCase {
     /// iPhone 17 Pro: 62pt top safe area.
     private let safeTop: CGFloat = 62
 
-    func testTheFirstLaunchCapsuleKeepsItsBuild9Spot() {
+    func testTheFirstLaunchCapsuleSitsTwelveAboveItsBuild9Spot() {
         // Build 9's empty-state header ended at 127; the hero padded 84.
-        XCTAssertEqual(L.firstLaunchHeroTop(headerBottom: 127, safeTop: safeTop), 84)
+        // Eye level moved up 12 after the owner's phone check (2026-11-12),
+        // so the capsule rides up with the first card.
+        XCTAssertEqual(L.firstLaunchHeroTop(headerBottom: 127, safeTop: safeTop), 72)
     }
 
     func testTheFirstCardTopIsTheCapsuleTop() {
@@ -29,8 +31,10 @@ final class DashboardLayoutTests: XCTestCase {
 
     func testTheCalloutSitsAboveTheCardInsideTheRoom() {
         // A 44pt resting bell + 10 gap fits; the card still lands at eye level.
-        let inset = L.listTopInset(headerBottom: 205, safeTop: safeTop, leadingHeight: 54)
-        XCTAssertEqual(205 + inset + 54, safeTop + L.eyeLevel)
+        // (Header bottom 195: with eye level at 205 the room above the card
+        // is 72, enough for the 54 and the 14 minimum inset.)
+        let inset = L.listTopInset(headerBottom: 195, safeTop: safeTop, leadingHeight: 54)
+        XCTAssertEqual(195 + inset + 54, safeTop + L.eyeLevel)
     }
 
     func testATallHeaderNeverPushesTheListFurtherDown() {

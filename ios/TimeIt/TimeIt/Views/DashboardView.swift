@@ -121,16 +121,35 @@ struct DashboardView: View {
                 // dashboard may be drawn from the 3 h cache, so it says when
                 // the data was fetched. An overlay, so the header's measured
                 // bottom (where the list and melt begin) is unchanged.
-                .overlay(alignment: .bottomTrailing) {
+                .overlay(alignment: .bottomLeading) {
                     if let updated = viewModel.updatedLabel {
-                        Text(updated)
-                            .font(.caption2)
-                            .foregroundStyle(Theme.secondaryText)
-                            .padding(.trailing, 16)
-                            // Stays inside the header's 22pt bottom padding
-                            // so it never runs over the meta line (note 36).
-                            .dynamicTypeSize(...Self.updatedLabelTypeCap)
-                            .accessibilityIdentifier("forecastUpdated")
+                        // Bottom-left, and a tap refetches (owner, 2026-11-12):
+                        // the same full refetch as a pull — a fresh cache is
+                        // bypassed and the card list stays mounted.
+                        Button {
+                            Task { await viewModel.refresh() }
+                        } label: {
+                            // Reads on the gradient like the location line
+                            // (morning page ruling 04, stronger) and shows
+                            // its refresh glyph so the tap is discoverable.
+                            HStack(spacing: 4) {
+                                Image(systemName: "arrow.clockwise")
+                                    .font(.system(size: 10, weight: .semibold))
+                                    .accessibilityHidden(true)
+                                Text(updated)
+                                    .scaledFont(size: 12, weight: .medium)
+                            }
+                            .foregroundStyle(Theme.onGradient.opacity(0.85))
+                            .padding(.leading, 16)
+                            .padding(.vertical, 4)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        // Stays inside the header's 22pt bottom padding
+                        // so it never runs over the meta line (note 36).
+                        .dynamicTypeSize(...Self.updatedLabelTypeCap)
+                        .accessibilityIdentifier("forecastUpdated")
+                        .accessibilityHint("Refreshes the forecast")
                     }
                 }
                 // Note 36 (tester record): at the accessibility sizes the
@@ -961,8 +980,10 @@ struct DashboardView: View {
 enum DashboardLayout {
     /// Eye level, below the top safe-area inset: the first-launch capsule's
     /// glass top on a default-size iPhone 17 Pro as shipped in build 9
-    /// (header bottom 127 + 14 + 84 + 52 + 2 = 279 = 62 + 217).
-    static let eyeLevel: CGFloat = 217
+    /// (header bottom 127 + 14 + 84 + 52 + 2 = 279 = 62 + 217), then 12
+    /// higher after the owner's phone check (2026-11-12): the readings grew
+    /// to 22pt and the card came up to meet them.
+    static let eyeLevel: CGFloat = 205
     /// The first-launch hero's own vertical padding around capsule + copy.
     static let firstLaunchHeroPadding: CGFloat = 52
     /// The first-launch hero sits in a ScrollView padded by `Spacing.lg`.

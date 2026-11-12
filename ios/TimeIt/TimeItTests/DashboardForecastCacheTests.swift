@@ -370,6 +370,42 @@ final class DashboardForecastCacheTests: XCTestCase {
         XCTAssertEqual(api.fetchCount, 1)
     }
 
+    /// Owner note, build 10 on the phone (2026-11-12): a foreground return
+    /// whose GPS fix lands on a new 2-dp key has nothing cached for it, and
+    /// the reload showed the full-screen spinner over a drawn dashboard.
+    /// The spinner is for an empty screen only — the cards stay up.
+    func testAForegroundReloadThatMissesTheCacheKeepsTheCardsUp() async {
+        let api = EchoRatingService()
+        let clock = TestClock("2026-06-19T12:10:00Z")
+        let provider = FakeLocationProvider(location: dubai)
+        let vm = DashboardViewModel(api: api,
+                                    locationProvider: provider,
+                                    store: ActivityStore(defaults: defaults, seeds: Fixtures.liveSeeds),
+                                    preferences: PreferencesStore(defaults: defaults),
+                                    cache: ForecastCache(fileURL: cacheFile),
+                                    deviceTimeZone: TimeZone(identifier: "Asia/Dubai")!,
+                                    now: { clock.now })
+        await vm.loadForecast()
+        XCTAssertNotNil(vm.forecast)
+
+        // ~2 km north: a different cache key, nothing stored under it.
+        provider.location = CLLocation(latitude: dubai.coordinate.latitude + 0.02,
+                                       longitude: dubai.coordinate.longitude)
+        var loadingMidFetch: Bool?
+        var forecastUpMidFetch: Bool?
+        api.onFetch = { [weak vm] in
+            loadingMidFetch = vm?.isLoading
+            forecastUpMidFetch = vm?.forecast != nil
+        }
+        await vm.loadForecast()
+
+        XCTAssertGreaterThanOrEqual(api.fetchCount, 2, "a new key is a full refetch")
+        XCTAssertEqual(loadingMidFetch, false, "no full-screen spinner over a drawn dashboard")
+        XCTAssertEqual(forecastUpMidFetch, true, "the cards stay up while it refetches")
+        XCTAssertNotNil(vm.forecast)
+        XCTAssertFalse(vm.isLoading)
+    }
+
     func testAReloadPastLocalMidnightRefetchesAYoungCache() async {
         let api = EchoRatingService()
         api.forecastStart = "2026-06-19T19:00:00Z"

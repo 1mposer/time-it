@@ -1200,7 +1200,7 @@ final class TimeItUITests: XCTestCase {
     func testDashboardShowsTheForecastAge() {
         let app = launchApp()
         XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5))
-        let updated = app.staticTexts["forecastUpdated"]
+        let updated = app.buttons["forecastUpdated"]
         XCTAssertTrue(updated.waitForExistence(timeout: 5))
         XCTAssertEqual(updated.label, "Updated 4:30")
     }
@@ -1606,7 +1606,7 @@ final class TimeItUITests: XCTestCase {
         XCTAssertTrue(card.waitForExistence(timeout: 5))
         let screen = app.windows.firstMatch.frame.height
         let meta = app.staticTexts["headerTime"]
-        let updated = app.staticTexts["forecastUpdated"]
+        let updated = app.buttons["forecastUpdated"]
         XCTAssertTrue(meta.exists)
         XCTAssertTrue(updated.exists)
         let headerBottom = max(meta.frame.maxY, updated.frame.maxY)

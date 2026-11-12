@@ -258,7 +258,11 @@ final class DashboardViewModel: ObservableObject {
             return
         }
 
-        isLoading = showsLoading
+        // The full-screen spinner is for an empty screen only (owner,
+        // 2026-11-12): a foreground reload that misses the cache — a GPS fix
+        // across a 2-dp key — keeps the cards up while it refetches, the
+        // posture a pull already had.
+        isLoading = showsLoading && forecast == nil
         errorMessage = nil
         isTransientError = false
 

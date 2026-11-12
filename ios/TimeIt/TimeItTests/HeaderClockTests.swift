@@ -26,12 +26,13 @@ final class HeaderClockTests: XCTestCase {
 }
 
 /// Build 10 POLISH item 1: the meta line's three readings grew from the
-/// 13pt footnote into the dead space above the first card.
+/// 13pt footnote into the dead space above the first card — 17 in the lane,
+/// then 22 after the owner's phone check (2026-11-12, still dead space).
 final class HeaderMetaSizeTests: XCTestCase {
-    func testTheMetaReadingsAreBodySizedNotFootnote() {
-        XCTAssertEqual(HeaderView.metaFontSize, 17)
-        XCTAssertEqual(Theme.Typography.textStyle(forFigmaSize: HeaderView.metaFontSize), .body,
-                       "the readings scale as body text under Dynamic Type")
+    func testTheMetaReadingsAreTitleSizedNotFootnote() {
+        XCTAssertEqual(HeaderView.metaFontSize, 22)
+        XCTAssertEqual(Theme.Typography.textStyle(forFigmaSize: HeaderView.metaFontSize), .title2,
+                       "the readings scale as title2 text under Dynamic Type")
         XCTAssertGreaterThan(HeaderView.metaGlyphSize, 11, "the glyphs grow with the readings")
     }
 }

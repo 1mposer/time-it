@@ -47,11 +47,11 @@ struct HeaderView: View {
     private static let gearClearance: CGFloat = gearDiameter + 13 - 20
 
     /// The meta line's three readings (clock, wind, humidity) — grown from
-    /// 13 to fill the dead space above the first card (owner, build 10
+    /// 13 → 17 → 22 to fill the dead space above the first card (owner, build 10
     /// POLISH item 1); scales as body text (Dynamic Type, owner ruling 8).
-    static let metaFontSize: CGFloat = 17
+    static let metaFontSize: CGFloat = 22
     /// The meta glyphs grow with the readings (11 at the old 13pt).
-    static let metaGlyphSize: CGFloat = 14
+    static let metaGlyphSize: CGFloat = 18
 
     /// The meta line's glyphs scale with its text (Dynamic Type, owner
     /// ruling 8); the big numeral and the gear stay fixed.
