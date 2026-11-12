@@ -361,6 +361,19 @@ final class EditorWizardTests: XCTestCase {
         XCTAssertFalse(EditorStep.range.helper!.localizedCaseInsensitiveContains("range"), "no 'range' on screen")
     }
 
+    /// Fresh-eyes row 16a (owner 2026-11-12): from later than to wraps
+    /// midnight — the When step says so.
+    func testOvernightLineWhenFromAfterTo() {
+        XCTAssertEqual(OvernightLine.text(startHour: 22, endHour: 2), "Ends next morning")
+        XCTAssertEqual(OvernightLine.text(startHour: 23, endHour: 0), "Ends next morning")
+    }
+
+    func testOvernightLineAbsentForSameDay() {
+        XCTAssertNil(OvernightLine.text(startHour: 6, endHour: 10))
+        XCTAssertNil(OvernightLine.text(startHour: 0, endHour: 23))
+        XCTAssertNil(OvernightLine.text(startHour: 8, endHour: 8), "equal hours get their own error line")
+    }
+
     // MARK: - Tile rows
 
     func testTileRowsPairAndGiveTheOpenedTileAFullRow() {

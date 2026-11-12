@@ -104,6 +104,17 @@ enum NameIconGate {
     }
 }
 
+// MARK: - OvernightLine — the When step's wrap note
+
+/// From later than To wraps midnight — the hours end the next morning
+/// (fresh-eyes row 16a, owner 2026-11-12). Nil for a same-day span; equal
+/// hours have their own error line.
+enum OvernightLine {
+    static func text(startHour: Int, endHour: Int) -> String? {
+        startHour > endHour ? "Ends next morning" : nil
+    }
+}
+
 // MARK: - EditorDismiss — the ✕ confirmation
 
 /// The wizard ✕ (fresh-eyes row 13a, owner 2026-11-12): a stock

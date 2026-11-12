@@ -48,7 +48,8 @@ final class IconCatalogTests: XCTestCase {
                         "beach.umbrella", "sun.max"],
                        "fresh-eyes 10a: Beach & Water gains a beach and a sun glyph (SF Symbols)")
         XCTAssertEqual(icons("Wellness"), ["figure.yoga", "figure.mind.and.body", "figure.hiking"])
-        XCTAssertEqual(icons("Night"), ["moon.stars.fill"])
+        XCTAssertEqual(icons("Night"), ["moon.stars.fill", "moon.zzz", "moon.haze", "sparkles"],
+                       "fresh-eyes 16a: more night glyphs (SF Symbols)")
     }
 
     func testCategoryContainingFindsTheIconsCategory() {

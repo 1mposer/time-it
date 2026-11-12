@@ -473,6 +473,12 @@ struct ActivityEditorView: View {
                     .scaledFont(size: 13)
                     .foregroundStyle(Theme.accentDestructive)
             }
+            if let overnight = OvernightLine.text(startHour: draft.startHour, endHour: draft.endHour) {
+                Text(overnight)
+                    .scaledFont(size: 13)
+                    .foregroundStyle(Theme.secondaryText)
+                    .accessibilityIdentifier("editor.overnightLine")
+            }
         }
     }
 

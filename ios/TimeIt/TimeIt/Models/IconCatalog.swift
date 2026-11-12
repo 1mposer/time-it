@@ -33,7 +33,7 @@ enum IconCatalog {
             "figure.yoga", "figure.mind.and.body", "figure.hiking",
         ]),
         IconCategory(name: "Night", icons: [
-            "moon.stars.fill",
+            "moon.stars.fill", "moon.zzz", "moon.haze", "sparkles",
         ]),
     ]
 
