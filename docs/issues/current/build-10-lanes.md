@@ -103,3 +103,6 @@ Bump `CURRENT_PROJECT_VERSION` in the assembling merge, not in B. CLAUDE.md's ru
 - **Every brief carries a stop rule:** the lane's done-when, the files it may touch, and "report and stop if the suite is red twice or the task exceeds its scope" — the brief is the budget.
 - **Expensive surfaces are single-shot:** RERUN's computer-use session and SPEC's Figma session run once each, with a written deliverable, never re-driven for a second look.
 - Reference magnitude: the Opus critique in this session cost ~100k tokens in under two minutes. An implementer lane with a verifier runs several times that. Nine lanes over days is the expected spend; nine lanes in one hour is the burst to avoid.
+
+## Lane CHIPS — fresh-eyes mini-edits (7b hour chips + Q2b opening once)
+- [x] **Done 2026-11-12 (lane branch, not merged):** Q2b `f50d348` — the opening plays on the first launch only (`PreferencesStore.hasSeenOpening`), every later cold launch a 0.4 s fade; 7b `024c7ae` — redone after the owner's live read: one segmented row ("Avg" selected, then the span's hours) under the caption "Average of 6 – 10am · tap an hour" / "At 8am". Unit 658, UI 63, all green on "POLISH 17 Pro". Owner rules both from screenshots.
