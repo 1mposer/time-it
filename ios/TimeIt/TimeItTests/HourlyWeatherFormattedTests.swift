@@ -29,6 +29,22 @@ final class HourlyWeatherFormattedTests: XCTestCase {
         XCTAssertEqual(hour.formatted(for: "visibility"), "10 km")
     }
 
+    // Note 21: the wire's lowercase phase reads in sentence case, like
+    // every other label — "New moon", not "new moon" (nor "New Moon").
+    func testMoonPhaseReadsInSentenceCase() {
+        let newMoon = HourlyWeather(index: 0, temp: 24, humidity: 40, visibility: 10, uV: 0,
+                                    windSpeed: 10, rainFall: 0, cloudCover: 15,
+                                    moon: ["new moon"], dustAlert: false, seaWarning: false,
+                                    darkness: 0, douglasScale: 0, swellHeight: 0, swellLength: 0, tide: 0)
+        XCTAssertEqual(newMoon.formatted(for: "moon"), "New moon")
+        XCTAssertEqual(Fixtures.makeHour(index: 0).formatted(for: "moon"), "Waxing crescent")
+        let none = HourlyWeather(index: 0, temp: 24, humidity: 40, visibility: 10, uV: 0,
+                                 windSpeed: 10, rainFall: 0, cloudCover: 15,
+                                 moon: [], dustAlert: false, seaWarning: false,
+                                 darkness: 0, douglasScale: 0, swellHeight: 0, swellLength: 0, tide: 0)
+        XCTAssertEqual(none.formatted(for: "moon"), "—")
+    }
+
     // #26: wind speed renders in the chosen unit; the value stays km/h.
     func testWindSpeedFormatsInKnotsWhenAsked() {
         let hour = Fixtures.makeHour(index: 0, windSpeed: 13)
