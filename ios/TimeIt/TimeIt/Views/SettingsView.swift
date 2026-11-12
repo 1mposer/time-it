@@ -191,8 +191,10 @@ struct SettingsView: View {
             if preferences.homeLocation != nil {
                 // Disabled while location is off: clearing the city then
                 // would leave no location at all (note 8).
-                Button("Use current location") {
+                Button {
                     preferences.homeLocation = nil
+                } label: {
+                    Label("Use current location", systemImage: SettingsCopy.useCurrentLocationSymbol)
                 }
                 .disabled(!HomeLocationStatus.canUseCurrentLocation(
                     authorization: registration.locationAuthorization))

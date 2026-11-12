@@ -6,6 +6,10 @@ enum SettingsCopy {
     /// Under the Notifications switch (row 2a): what arrives, and when.
     static let notificationsFooter =
         "A morning summary of your best hours, and an alert when a Perfect window opens."
+
+    /// The "Use current location" row's glyph (row 21a), aligned with the
+    /// iconed "Set home location" row above it.
+    static let useCurrentLocationSymbol = "location"
 }
 
 /// Why the city picker opened. Nil (the dashboard CTA, "Set home location")

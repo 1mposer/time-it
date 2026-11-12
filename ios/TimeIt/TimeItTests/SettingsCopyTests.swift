@@ -22,4 +22,11 @@ final class SettingsCopyTests: XCTestCase {
         XCTAssertEqual(CityPickerReason.headline(for: .notifications),
                        "Pick a city so alerts know where to look.")
     }
+
+    /// Fresh-eyes row 21a: the row carries the `location` glyph, aligned
+    /// with the iconed "Set home location" row above it.
+    func testUseCurrentLocationRowCarriesTheLocationGlyph() {
+        XCTAssertEqual(SettingsCopy.useCurrentLocationSymbol, "location")
+        XCTAssertNotNil(UIImage(systemName: SettingsCopy.useCurrentLocationSymbol))
+    }
 }
