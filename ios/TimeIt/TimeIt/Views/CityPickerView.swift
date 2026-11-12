@@ -7,6 +7,9 @@ struct CityPickerView: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var preferences: PreferencesStore
     private let geocoder: GeocodingProviding
+    /// Why the picker opened — the Notifications switch's detour names it in
+    /// a headline line (row 2a); nil shows none.
+    private let reason: CityPickerReason?
 
     /// The last completed search's outcome — `empty` (genuinely no results)
     /// and `errored` (geocoder threw) get different messages.
@@ -21,9 +24,11 @@ struct CityPickerView: View {
     @FocusState private var searchFocused: Bool
 
     @MainActor
-    init(preferences: PreferencesStore? = nil, geocoder: GeocodingProviding? = nil) {
+    init(preferences: PreferencesStore? = nil, geocoder: GeocodingProviding? = nil,
+         reason: CityPickerReason? = nil) {
         _preferences = ObservedObject(wrappedValue: preferences ?? PreferencesStore.shared)
         self.geocoder = geocoder ?? GeocoderFactory.makeDefault()
+        self.reason = reason
     }
 
     var body: some View {
@@ -31,6 +36,12 @@ struct CityPickerView: View {
             List {
                 Group {
                 Section {
+                    if let headline = CityPickerReason.headline(for: reason) {
+                        Text(headline)
+                            .font(.system(size: 15))
+                            .foregroundStyle(Theme.primaryText)
+                            .accessibilityIdentifier("cityPicker.reason")
+                    }
                     HStack(spacing: 8) {
                         Image(systemName: "magnifyingglass")
                             .font(.system(size: 15))
