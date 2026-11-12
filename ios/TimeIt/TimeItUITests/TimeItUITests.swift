@@ -858,6 +858,27 @@ final class TimeItUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Using current location"].waitForExistence(timeout: 5), "clearing returns to GPS")
     }
 
+    /// Note 4: the search field is focused on open (no extra tap) and every
+    /// result the geocoder returns is listed — not just the first.
+    func testCityPickerFocusesSearchAndListsEveryResult() {
+        let app = launchApp()
+        XCTAssertTrue(app.buttons["settingsGear"].waitForExistence(timeout: 5))
+        app.buttons["settingsGear"].tap()
+        let setHome = app.buttons["settings.setHome"]
+        XCTAssertTrue(setHome.waitForExistence(timeout: 5))
+        setHome.tap()
+
+        let search = app.textFields["cityPicker.search"]
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        let focused = NSPredicate(format: "hasKeyboardFocus == true")
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: focused, evaluatedWith: search)], timeout: 5),
+                       .completed, "the search field is focused on open")
+        search.typeText("Springfield")
+
+        XCTAssertTrue(app.buttons["cityPicker.result.0"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["cityPicker.result.1"].exists, "the second result is listed too")
+    }
+
     /// Notes 3 + 8: with location denied, Settings never claims "Using
     /// current location", and "Use current location" can't wipe a picked
     /// city it could not replace.
