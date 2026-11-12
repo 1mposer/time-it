@@ -1740,6 +1740,33 @@ final class TimeItUITests: XCTestCase {
         add(shot)
     }
 
+    /// Build-9 addendum new #8: at AX-XXXL the wizard's Next button stays on
+    /// screen, tall enough for its own label, and the step's last row scrolls
+    /// clear above it instead of showing through it.
+    func testWizardNextStaysOnScreenAndClearOfTheListAtAccessibilityXXXL() {
+        let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_LOCATION"],
+                            contentSize: .accessibilityExtraExtraExtraLarge)
+        let hero = app.buttons["addActivitiesButton"]
+        XCTAssertTrue(hero.waitForExistence(timeout: 5))
+        hero.tap()
+        let next = app.buttons["editor.nextStep"]
+        XCTAssertTrue(next.waitForExistence(timeout: 5))
+        let window = app.windows.firstMatch.frame
+        XCTAssertTrue(window.contains(next.frame), "Next is wholly on screen: \(next.frame)")
+        XCTAssertGreaterThanOrEqual(next.frame.height, 60, "the capsule grows with its AX5 label")
+
+        for _ in 0..<8 { app.swipeUp() }
+        let rows = app.staticTexts.allElementsBoundByIndex
+            .filter { $0.label != "Next" && $0.frame.height > 0 && $0.frame.minY < window.maxY }
+        let lowest = rows.map(\.frame.maxY).max() ?? 0
+        XCTAssertLessThanOrEqual(lowest, next.frame.minY + 1,
+                                 "the last row ends above Next (\(lowest) vs \(next.frame.minY))")
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "fixes-item9-wizard-ax5"
+        shot.lifetime = .keepAlways
+        add(shot)
+    }
+
     func testPolishScreenTourLight() { polishScreenTour(appearance: "light") }
     func testPolishScreenTourDark() { polishScreenTour(appearance: "dark") }
 
