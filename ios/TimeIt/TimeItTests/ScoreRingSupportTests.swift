@@ -166,6 +166,34 @@ final class ScoreRingSupportTests: XCTestCase {
         XCTAssertEqual(Set(boundaries).count, boundaries.count, "no duplicate boundary")
     }
 
+    // Note 36 (card half): at large text the numerals thin to what the
+    // strip's width holds, so "9 10" never prints as "910".
+
+    func testTheLabelBudgetIsWhatTheWidthHolds() {
+        // 30pt labels with their 6pt gap: 110pt holds three.
+        XCTAssertEqual(RangeStripAxis.maxLabels(fittingWidth: 110, labelWidth: 30), 3)
+        XCTAssertEqual(RangeStripAxis.maxLabels(fittingWidth: 40, labelWidth: 30), 2,
+                       "both ends always print")
+        XCTAssertEqual(RangeStripAxis.maxLabels(fittingWidth: 10_000, labelWidth: 10), RangeStripAxis.maxLabels,
+                       "never more than the default ceiling")
+    }
+
+    func testANarrowStripThinsTheFrameRangeToEveryOther() {
+        XCTAssertEqual(RangeStripAxis.labels(startLocalHour: 6, hourCount: 4, maxLabels: 3).map(\.text),
+                       ["6", "8", "10"])
+    }
+
+    func testTheLastNumeralNeverCrowdsItsNeighbour() {
+        // 5 hours, 3 labels: stride 2 gives 0, 2, 4 — and 5 is the end, one
+        // step from 4, so 4 gives way instead of printing "1011".
+        XCTAssertEqual(RangeStripAxis.visibleBoundaries(hourCount: 5, maxLabels: 3), [0, 2, 5])
+    }
+
+    func testTheCardScoreCaptionNeverOutgrowsTheRingNumeral() {
+        XCTAssertLessThan(ScoreRingCardView.captionMaxSize, ScoreRingView.Style.card.numeralSize,
+                          "the caption is a label; the ring numeral is the data (note 36)")
+    }
+
     func testAnEmptyStripHasNoNumerals() {
         XCTAssertTrue(RangeStripAxis.visibleBoundaries(hourCount: 0).isEmpty)
     }

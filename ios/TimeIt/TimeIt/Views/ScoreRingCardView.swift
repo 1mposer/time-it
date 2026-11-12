@@ -45,6 +45,10 @@ struct ScoreRingCardView: View {
     /// text outgrows it (Dynamic Type, owner ruling 8 — no fixed column).
     static let stripBlockFloor: CGFloat = 65
 
+    /// The "Score" caption's largest size — below the card ring's 15pt
+    /// numeral at every text size (note 36, card half).
+    static let captionMaxSize: CGFloat = 13
+
     private var dotsVisible: Bool { showsWeekDots && !weekDots.isEmpty }
 
     var body: some View {
@@ -71,7 +75,9 @@ struct ScoreRingCardView: View {
                           tint: Theme.ratingTint(day?.rating),
                           style: .card)
             Text("Score")
-                .scaledFont(size: 11, weight: .medium)
+                // Capped under the fixed 15pt ring numeral: the caption is a
+                // label and must never outrank the data (note 36).
+                .scaledFont(size: 11, weight: .medium, maxSize: Self.captionMaxSize)
                 .foregroundStyle(Theme.secondaryText)
                 .lineLimit(1)
                 .fixedSize()
@@ -244,9 +250,15 @@ private struct StripAxisNumerals: View {
 
     var body: some View {
         if let stripStartLocalHour, !tiers.isEmpty {
-            let labels = RangeStripAxis.labels(startLocalHour: stripStartLocalHour,
-                                               hourCount: tiers.count)
             GeometryReader { geo in
+                // Thinned to what the strip's width holds at this text size
+                // (note 36: "9 10" printed as "910"); the widest numeral is
+                // two digits, about two half-widths.
+                let labels = RangeStripAxis.labels(
+                    startLocalHour: stripStartLocalHour,
+                    hourCount: tiers.count,
+                    maxLabels: RangeStripAxis.maxLabels(fittingWidth: geo.size.width,
+                                                        labelWidth: 2 * halfWidth))
                 ForEach(labels, id: \.boundary) { label in
                     let fraction = CGFloat(label.boundary) / CGFloat(tiers.count)
                     Text(label.text)

@@ -22,19 +22,38 @@ enum RangeStripAxis {
     /// Which boundary ordinals (0...hourCount) carry a numeral. Always
     /// includes the first and the last; interior ones thin out evenly once
     /// the strip is longer than `maxLabels` boundaries.
-    static func visibleBoundaries(hourCount: Int) -> [Int] {
+    static func visibleBoundaries(hourCount: Int, maxLabels: Int = maxLabels) -> [Int] {
         guard hourCount > 0 else { return [] }
         let boundaries = hourCount + 1
-        let stride = Swift.max(1, Int((Double(boundaries) / Double(maxLabels)).rounded(.up)))
+        let stride = Swift.max(1, Int((Double(boundaries) / Double(Swift.max(2, maxLabels))).rounded(.up)))
         var result = Swift.stride(from: 0, through: hourCount, by: stride).map { $0 }
-        if result.last != hourCount { result.append(hourCount) }
+        if result.last != hourCount {
+            // The end always prints; an interior numeral closer to it than
+            // the stride gives way so the two never crowd (note 36).
+            if result.count > 1, let last = result.last, hourCount - last < stride {
+                result.removeLast()
+            }
+            result.append(hourCount)
+        }
         return result
+    }
+
+    /// The gap kept between two numerals.
+    static let labelGap: CGFloat = 6
+
+    /// How many numerals a strip of `width` holds when each is about
+    /// `labelWidth` wide — at least the two ends, at most `maxLabels`. At
+    /// large text sizes this thins the frame's every-hour axis (note 36).
+    static func maxLabels(fittingWidth width: CGFloat, labelWidth: CGFloat) -> Int {
+        let fits = Int((width + labelGap) / (labelWidth + labelGap))
+        return Swift.min(maxLabels, Swift.max(2, fits))
     }
 
     /// The drawn numerals as `(boundary ordinal, text)` for a strip of
     /// `hourCount` hours whose first hour is local hour `startLocalHour`.
-    static func labels(startLocalHour: Int, hourCount: Int) -> [(boundary: Int, text: String)] {
-        visibleBoundaries(hourCount: hourCount).map {
+    static func labels(startLocalHour: Int, hourCount: Int,
+                       maxLabels: Int = maxLabels) -> [(boundary: Int, text: String)] {
+        visibleBoundaries(hourCount: hourCount, maxLabels: maxLabels).map {
             (boundary: $0, text: numeral(startLocalHour + $0))
         }
     }

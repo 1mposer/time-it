@@ -1720,6 +1720,26 @@ final class TimeItUITests: XCTestCase {
                                     "the forecast age sits below the meta line, not over it")
     }
 
+    /// Note 36, card half: at AX-XXXL the card strip's hour numerals never
+    /// overprint each other ("9 10" read "910").
+    func testCardStripNumeralsNeverOverlapAtAccessibilityXXXL() {
+        let app = launchApp(contentSize: .accessibilityExtraExtraExtraLarge)
+        let card = app.buttons["card.cycling"]
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        let numerals = card.staticTexts.allElementsBoundByIndex
+            .filter { Int($0.label) != nil && $0.frame.width > 0 }
+            .sorted { $0.frame.minX < $1.frame.minX }
+        XCTAssertGreaterThanOrEqual(numerals.count, 2, "the strip prints its end numerals")
+        for (left, right) in zip(numerals, numerals.dropFirst()) {
+            XCTAssertLessThanOrEqual(left.frame.maxX, right.frame.minX,
+                                     "\(left.label) overlaps \(right.label): \(left.frame) vs \(right.frame)")
+        }
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "fixes-item7-card-ax5"
+        shot.lifetime = .keepAlways
+        add(shot)
+    }
+
     func testPolishScreenTourLight() { polishScreenTour(appearance: "light") }
     func testPolishScreenTourDark() { polishScreenTour(appearance: "dark") }
 
