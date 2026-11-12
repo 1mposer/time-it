@@ -88,3 +88,30 @@ test('every hour carries a non-empty moon phase from a live-shaped payload (#27)
     assert.deepStrictEqual(h.moon, ['full moon'], `hour ${h.localDay} ${h.localHour} has no moon phase`);
   }
 });
+
+// Build-9 addendum "New on build 9" #1: past ~day 5 the provider stops sending
+// uv_index. A missing DAYTIME reading is unknown (null — fails a threshold like
+// the nullable trio); a missing NIGHT reading is still a real 0.
+test('a missing daytime UV reaches the hour as null; a night null stays 0', async (t) => {
+  t.after(restore);
+  process.env.API_KEY = 'test-key';
+  const row = (date, extra) => ({ date, temperature: 25, humidity: 40, wind: { speed: 10 },
+    precipitation: { total: 0 }, cloud_cover: { total: 10 }, visibility: 10, weather: 'clear', ...extra });
+  global.fetch = async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({
+      timezone: 'Asia/Dubai',
+      hourly: { data: [
+        row('2026-11-16T03:00:00', { uv_index: null }),
+        row('2026-11-16T12:00:00', {}),
+        row('2026-11-16T13:00:00', { uv_index: 7 }),
+      ] },
+      daily: { data: [{ day: '2026-11-16', astro: {
+        sun: { rise: '2026-11-16T06:30:00', set: '2026-11-16T17:35:00', always_up: false, always_down: false },
+        moon: { phase: 'new_moon' } } }] },
+    }),
+  });
+  const { hours } = await getWeather(25.16, 55.20);
+  assert.deepStrictEqual(hours.map((h) => h.uV), [0, null, 7]);
+});

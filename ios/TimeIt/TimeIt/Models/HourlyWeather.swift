@@ -53,7 +53,9 @@ struct HourlyWeather: Decodable, Identifiable {
         case "windSpeed": return windSpeed.map { "\(Int(windUnit.fromKmh($0).rounded())) \(windUnit.label)" } ?? "—"
         case "cloudCover": return cloudCover.map { "\(Int($0.rounded()))%" } ?? "—"
         case "rainFall": return rainFall.map { Self.millimetres($0) } ?? "—"
-        case "moon": return moon.first ?? "—"
+        // Sentence case like every other label (note 21): the wire sends
+        // "new moon"; only the first letter rises.
+        case "moon": return moon.first.map { $0.prefix(1).uppercased() + $0.dropFirst() } ?? "—"
         case "dustAlert": return dustAlert ? "Dust" : "No dust"
         default: return "—"
         }

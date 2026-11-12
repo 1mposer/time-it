@@ -32,6 +32,9 @@ struct ScoreRingCardView: View {
     var weekDots: [WeekDot] = []
     /// The card chevron's state — false = exactly the pre-dots card.
     var showsWeekDots: Bool = false
+    /// A data dot's tap (note 16): the dashboard opens the detail on that
+    /// day. nil keeps the dots inert (the wizard's Review reveal).
+    var onDotTap: ((Int) -> Void)? = nil
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Accessibility sizes put the chip under the name (no squeeze).
@@ -41,6 +44,10 @@ struct ScoreRingCardView: View {
     /// size (the frame's collapsed card), its own height once the scaled
     /// text outgrows it (Dynamic Type, owner ruling 8 — no fixed column).
     static let stripBlockFloor: CGFloat = 65
+
+    /// The "Score" caption's largest size — below the card ring's 15pt
+    /// numeral at every text size (note 36, card half).
+    static let captionMaxSize: CGFloat = 13
 
     private var dotsVisible: Bool { showsWeekDots && !weekDots.isEmpty }
 
@@ -68,7 +75,9 @@ struct ScoreRingCardView: View {
                           tint: Theme.ratingTint(day?.rating),
                           style: .card)
             Text("Score")
-                .scaledFont(size: 11, weight: .medium)
+                // Capped under the fixed 15pt ring numeral: the caption is a
+                // label and must never outrank the data (note 36).
+                .scaledFont(size: 11, weight: .medium, maxSize: Self.captionMaxSize)
                 .foregroundStyle(Theme.secondaryText)
                 .lineLimit(1)
                 .fixedSize()
@@ -113,6 +122,7 @@ struct ScoreRingCardView: View {
                     // collapsed card is exactly the pre-dots card.
                     WeekDotsView(dots: weekDots,
                                  ringedDayIndex: 0,
+                                 onTap: onDotTap,
                                  identifierPrefix: "weekDots.\(activity.activityId)")
                         .padding(.top, 8)
                         .transition(.unfold(reduceMotion: reduceMotion))
@@ -240,9 +250,15 @@ private struct StripAxisNumerals: View {
 
     var body: some View {
         if let stripStartLocalHour, !tiers.isEmpty {
-            let labels = RangeStripAxis.labels(startLocalHour: stripStartLocalHour,
-                                               hourCount: tiers.count)
             GeometryReader { geo in
+                // Thinned to what the strip's width holds at this text size
+                // (note 36: "9 10" printed as "910"); the widest numeral is
+                // two digits, about two half-widths.
+                let labels = RangeStripAxis.labels(
+                    startLocalHour: stripStartLocalHour,
+                    hourCount: tiers.count,
+                    maxLabels: RangeStripAxis.maxLabels(fittingWidth: geo.size.width,
+                                                        labelWidth: 2 * halfWidth))
                 ForEach(labels, id: \.boundary) { label in
                     let fraction = CGFloat(label.boundary) / CGFloat(tiers.count)
                     Text(label.text)

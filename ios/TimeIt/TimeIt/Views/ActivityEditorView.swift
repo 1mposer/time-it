@@ -259,8 +259,14 @@ struct ActivityEditorView: View {
             Button(action: action) {
                 Text(title)
                     .scaledFont(size: 17, weight: .semibold)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
                     .frame(maxWidth: .infinity)
-                    .frame(height: Self.primaryHeight)
+                    // 50 at every regular size; at accessibility sizes the
+                    // capsule grows with its label instead of clipping it
+                    // (build-9 addendum new #8).
+                    .padding(.vertical, 8)
+                    .frame(minHeight: Self.primaryHeight)
                     .contentShape(Capsule())
             }
             .buttonStyle(PrimaryGlassButtonStyle())

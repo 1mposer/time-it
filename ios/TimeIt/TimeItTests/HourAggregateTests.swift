@@ -67,6 +67,6 @@ final class HourAggregateTests: XCTestCase {
     func testTheLabelMetricReadsTheSpansFirstHour() {
         let result = HourAggregate.aggregate([hour(0, moon: ["full moon"]), hour(1, moon: ["last quarter"])])
         XCTAssertEqual(result?.moon, ["full moon"])
-        XCTAssertEqual(result?.formatted(for: "moon"), "full moon")
+        XCTAssertEqual(result?.formatted(for: "moon"), "Full moon", "sentence case on display (note 21)")
     }
 }

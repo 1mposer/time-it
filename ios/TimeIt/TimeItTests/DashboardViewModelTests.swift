@@ -113,6 +113,26 @@ final class DashboardViewModelTests: XCTestCase {
         return (vm, api, locationProvider, store, preferences)
     }
 
+    // MARK: no-location placeholders (note 13)
+
+    func testNoLocationPlaceholdersAreOnePerActivityWithItsName() {
+        let (vm, _, _, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])),
+                                      location: nil, seeds: [Fixtures.liveSeeds[0]])
+        XCTAssertEqual(vm.noLocationPlaceholders.map(\.id), ["cycling"],
+                       "one activity → one placeholder, not a fixed two")
+        XCTAssertEqual(vm.noLocationPlaceholders.map(\.label), ["Cycling"])
+    }
+
+    func testNoLocationPlaceholdersFollowTheStoreOrderIncludingDormant() {
+        let dormant = AuthoredActivity(id: "dormant-one", label: "Stars", iconSymbol: "moon.stars.fill",
+                                       templateOrigin: nil, displayMetrics: ["cloudCover"],
+                                       thresholds: ["cloudCover": Threshold(max: 40, required: true)],
+                                       window: nil)
+        let (vm, _, _, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])),
+                                      location: nil, seeds: Fixtures.liveSeeds + [dormant])
+        XCTAssertEqual(vm.noLocationPlaceholders.map(\.label), ["Cycling", "Fishing Lite", "Stars"])
+    }
+
     // MARK: loadForecast
 
     func testLoadForecastSuccessSetsForecast() async throws {

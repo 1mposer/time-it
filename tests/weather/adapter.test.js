@@ -53,24 +53,57 @@ test('cloudCover returns null when cloud_cover is an object without .total (A3)'
   assert.equal(meteosourceAdapter.cloudCover({ cloud_cover: { low: 5, mid: 0 } }), null);
 });
 
-// ---------- uV (night-null guard) ----------
+// ---------- uV (night = 0, missing daylight UV = unknown) ----------
+//
+// Meteosource returns uv_index: null at night (genuinely 0), but it also stops
+// sending UV past its horizon (~day 5, build-9 addendum "New on build 9" #1) —
+// a `?? 0` there turned a missing noon reading into a 0 that passes any max
+// (a false Perfect). Daylight comes from the day's astro.sun.
+
+const dubaiSun = { rise: '2026-11-16T06:30:00', set: '2026-11-16T17:35:00', alwaysUp: false, alwaysDown: false };
 
 test('uV returns the value when uv_index is present', () => {
-  assert.equal(meteosourceAdapter.uV({ uv_index: 6 }), 6);
+  assert.equal(meteosourceAdapter.uV({ date: '2026-11-16T12:00:00', uv_index: 6 }, dubaiSun), 6);
 });
 
 test('uV preserves a real zero (daytime edge / dawn)', () => {
-  assert.equal(meteosourceAdapter.uV({ uv_index: 0 }), 0);
+  assert.equal(meteosourceAdapter.uV({ date: '2026-11-16T12:00:00', uv_index: 0 }, dubaiSun), 0);
 });
 
-test('uV defaults to 0 when uv_index is null (Meteosource returns null at night)', () => {
-  // The live bug: uv_index is null after dark; passing it through emitted a null
-  // that broke the iOS decoder (uV typed non-nullable) and blanked the dashboard.
-  assert.equal(meteosourceAdapter.uV({ uv_index: null }), 0);
+test('uV is 0 when uv_index is null at night (Meteosource returns null after dark)', () => {
+  // The 2026-07-12 decode bug: a night null must stay a real 0 reading.
+  assert.equal(meteosourceAdapter.uV({ date: '2026-11-16T22:00:00', uv_index: null }, dubaiSun), 0);
+  assert.equal(meteosourceAdapter.uV({ date: '2026-11-16T03:00:00' }, dubaiSun), 0);
 });
 
-test('uV defaults to 0 when uv_index is absent', () => {
-  assert.equal(meteosourceAdapter.uV({}), 0);
+test('uV is null (unknown) when uv_index is missing during full daylight', () => {
+  assert.equal(meteosourceAdapter.uV({ date: '2026-11-16T12:00:00', uv_index: null }, dubaiSun), null);
+  assert.equal(meteosourceAdapter.uV({ date: '2026-11-16T09:00:00' }, dubaiSun), null);
+  assert.equal(meteosourceAdapter.uV({ date: '2026-11-16T15:00:00' }, dubaiSun), null);
+});
+
+test('uV keeps 0 for the twilight hours the sun only partly covers', () => {
+  // 06:00–07:00 starts before the 06:30 sunrise; 17:00–18:00 ends after the
+  // 17:35 sunset — UV there is ~0 and the provider's own dawn readings are ~0.1.
+  assert.equal(meteosourceAdapter.uV({ date: '2026-11-16T06:00:00', uv_index: null }, dubaiSun), 0);
+  assert.equal(meteosourceAdapter.uV({ date: '2026-11-16T17:00:00', uv_index: null }, dubaiSun), 0);
+  assert.equal(meteosourceAdapter.uV({ date: '2026-11-16T06:30:00', uv_index: null }, dubaiSun), null,
+    'an hour fully inside sun-up is daylight');
+});
+
+test('uV is null when the day has no sun data, and follows polar day/night', () => {
+  assert.equal(meteosourceAdapter.uV({ date: '2026-11-16T03:00:00', uv_index: null }, undefined), null,
+    'no astro for the day → unknown, never a passing 0');
+  assert.equal(meteosourceAdapter.uV({ date: '2026-11-16T03:00:00' }, { rise: null, set: null, alwaysUp: true, alwaysDown: false }), null);
+  assert.equal(meteosourceAdapter.uV({ date: '2026-11-16T12:00:00' }, { rise: null, set: null, alwaysUp: false, alwaysDown: true }), 0);
+});
+
+test('sunByDay reads daily astro.sun keyed on the local day', () => {
+  const byDay = meteosourceAdapter.sunByDay({ daily: { data: [
+    { day: '2026-11-16', astro: { sun: { rise: '2026-11-16T06:30:00', set: '2026-11-16T17:35:00', always_up: false, always_down: false } } },
+    { day: '2026-11-17', astro: { moon: { phase: 'new_moon' } } },
+  ] } });
+  assert.deepEqual(byDay, { '2026-11-16': dubaiSun });
 });
 
 // ---------- timezone (ADR-0003 — location IANA zone) ----------

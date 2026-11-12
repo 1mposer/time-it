@@ -68,11 +68,18 @@ final class TimeItUITests: XCTestCase {
     private func openEditorFromDetail(_ activityId: String, in app: XCUIApplication) {
         let card = app.buttons["card.\(activityId)"]
         XCTAssertTrue(card.waitForExistence(timeout: 5))
-        card.tap()
+        tapCardBody(card)
         let editMetrics = app.buttons["detail.editMetrics"]
         XCTAssertTrue(editMetrics.waitForExistence(timeout: 5), "the detail's edit circles")
         editMetrics.tap()
         XCTAssertTrue(app.buttons["editor.cancel"].waitForExistence(timeout: 5), "the editor sheet is up")
+    }
+
+    /// Opens the detail through the card body (the ring's corner) — the
+    /// card's week dots are their own day-jump buttons (note 16), so a
+    /// centre tap can land on one and open a later day.
+    private func tapCardBody(_ card: XCUIElement) {
+        card.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.25)).tap()
     }
 
     /// Next until Review (edit mode passes every gate; an unconfirmed Range
@@ -258,12 +265,37 @@ final class TimeItUITests: XCTestCase {
 
         let card = app.buttons["card.cycling"]
         XCTAssertTrue(card.waitForExistence(timeout: 5))
-        card.tap()
+        tapCardBody(card)
 
         XCTAssertTrue(app.navigationBars["Cycling"].waitForExistence(timeout: 5), "detail uses the activity label as title")
 
         app.navigationBars["Cycling"].buttons.firstMatch.tap()
         XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5), "back returns to the dashboard")
+    }
+
+    /// Fresh-eyes note 16: a card's week dot opens the detail on THAT day,
+    /// not today. Mock cycling day 2 is rating-null with score 1; day 0 is
+    /// Perfect 86 — so the hero proves which day opened.
+    func testCardWeekDotOpensTheDetailOnThatDay() {
+        let app = launchApp()
+
+        let dot = app.buttons["weekDots.cycling.2"]
+        XCTAssertTrue(dot.waitForExistence(timeout: 5), "the card's data dots are buttons")
+        XCTAssertTrue(dot.isHittable)
+        dot.tap()
+
+        XCTAssertTrue(app.navigationBars["Cycling"].waitForExistence(timeout: 5), "the detail opened")
+        XCTAssertTrue(app.buttons["detail.weekDot.2"].isSelected, "the tapped day is the selected day")
+        XCTAssertEqual(app.otherElements["detail.score"].label, "No Window, score 1 out of 100",
+                       "the hero reads the tapped day, not today")
+
+        // A plain card tap (on the ring, away from the dots) still opens today.
+        app.navigationBars["Cycling"].buttons.firstMatch.tap()
+        let card = app.buttons["card.cycling"]
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        tapCardBody(card)
+        XCTAssertTrue(app.buttons["detail.weekDot.0"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["detail.weekDot.0"].isSelected, "a card tap opens today")
     }
 
     func testGearOpensSettingsSheetAndDismisses() {
@@ -639,7 +671,7 @@ final class TimeItUITests: XCTestCase {
         let app = launchApp()
         let card = app.buttons["card.cycling"]
         XCTAssertTrue(card.waitForExistence(timeout: 5))
-        card.tap()
+        tapCardBody(card)
 
         let addMetric = app.buttons["detail.addMetric"]
         scrollTo(addMetric, in: app)
@@ -826,6 +858,51 @@ final class TimeItUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Using current location"].waitForExistence(timeout: 5), "clearing returns to GPS")
     }
 
+    /// Note 4: the search field is focused on open (no extra tap) and every
+    /// result the geocoder returns is listed — not just the first.
+    func testCityPickerFocusesSearchAndListsEveryResult() {
+        let app = launchApp()
+        XCTAssertTrue(app.buttons["settingsGear"].waitForExistence(timeout: 5))
+        app.buttons["settingsGear"].tap()
+        let setHome = app.buttons["settings.setHome"]
+        XCTAssertTrue(setHome.waitForExistence(timeout: 5))
+        setHome.tap()
+
+        let search = app.textFields["cityPicker.search"]
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        let focused = NSPredicate(format: "hasKeyboardFocus == true")
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: focused, evaluatedWith: search)], timeout: 5),
+                       .completed, "the search field is focused on open")
+        search.typeText("Springfield")
+
+        XCTAssertTrue(app.buttons["cityPicker.result.0"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["cityPicker.result.1"].exists, "the second result is listed too")
+    }
+
+    /// Notes 3 + 8: with location denied, Settings never claims "Using
+    /// current location", and "Use current location" can't wipe a picked
+    /// city it could not replace.
+    func testSettingsHomeRowIsHonestWhenLocationIsDenied() {
+        let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_SEED_LIVE",
+                                        "UITEST_LOCATION_DENIED"])
+        XCTAssertTrue(app.buttons["settingsGear"].waitForExistence(timeout: 5))
+        app.buttons["settingsGear"].tap()
+
+        XCTAssertTrue(app.staticTexts["Location off"].waitForExistence(timeout: 5),
+                      "denied + no city reads the truth")
+        XCTAssertFalse(app.staticTexts["Using current location"].exists)
+
+        app.buttons["settings.setHome"].tap()
+        pickCity("Dubai Marina", in: app)
+        XCTAssertTrue(app.staticTexts["Dubai Marina"].waitForExistence(timeout: 5))
+
+        let useCurrent = app.buttons["settings.useCurrentLocation"]
+        XCTAssertTrue(useCurrent.exists)
+        XCTAssertFalse(useCurrent.isEnabled, "no current location to fall back on while denied")
+        useCurrent.tap()
+        XCTAssertTrue(app.staticTexts["Dubai Marina"].exists, "the picked city survives the tap")
+    }
+
     // MARK: - No-location onboarding
 
     func testNoLocationShowsSkeletonsAndCTAsWithNoWeather() {
@@ -837,8 +914,13 @@ final class TimeItUITests: XCTestCase {
         XCTAssertTrue(app.buttons["enableLocationButton"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["placeLocationButton"].exists)
         XCTAssertTrue(app.staticTexts["NO LOCATION"].exists, "the header is honest about the missing location")
-        XCTAssertTrue(app.otherElements["skeletonCard.0"].exists, "grayed skeleton cards render (spec §2)")
-        XCTAssertTrue(app.otherElements["skeletonCard.1"].exists)
+        // Note 13: one grayed placeholder per authored activity, named — the
+        // seed has two, so exactly two, each carrying its activity's name.
+        XCTAssertTrue(app.otherElements["skeletonCard.cycling"].exists, "grayed skeleton cards render (spec §2)")
+        XCTAssertTrue(app.otherElements["skeletonCard.fishing-lite"].exists)
+        XCTAssertEqual(app.otherElements.matching(NSPredicate(format: "identifier BEGINSWITH 'skeletonCard.'")).count, 2)
+        XCTAssertEqual(app.otherElements["skeletonCard.cycling"].label, "Cycling")
+        XCTAssertEqual(app.otherElements["skeletonCard.fishing-lite"].label, "Fishing Lite")
         XCTAssertEqual(cardCount(in: app), 0, "no rated cards")
         XCTAssertFalse(app.staticTexts["headerTemp"].exists,
                        "the header's weather rows are gone entirely — not just showing placeholders")
@@ -881,7 +963,7 @@ final class TimeItUITests: XCTestCase {
 
         let card = app.buttons["card.cycling"]
         XCTAssertTrue(card.waitForExistence(timeout: 5))
-        card.tap()
+        tapCardBody(card)
         XCTAssertTrue(app.navigationBars["Cycling"].waitForExistence(timeout: 5))
 
         app.buttons["detail.editRange"].tap()
@@ -912,7 +994,7 @@ final class TimeItUITests: XCTestCase {
 
         let card = app.buttons["card.cycling"]
         XCTAssertTrue(card.waitForExistence(timeout: 5))
-        card.tap()
+        tapCardBody(card)
         XCTAssertTrue(app.navigationBars["Cycling"].waitForExistence(timeout: 5))
 
         // Hero: the DAY score + the day's rating word, and the carousel's
@@ -1042,7 +1124,7 @@ final class TimeItUITests: XCTestCase {
         let app = launchApp()
         let card = app.buttons["card.cycling"]
         XCTAssertTrue(card.waitForExistence(timeout: 5))
-        card.tap()
+        tapCardBody(card)
         XCTAssertTrue(app.navigationBars["Cycling"].waitForExistence(timeout: 5))
 
         let row = app.descendants(matching: .any)["detail.hourStrip"]
@@ -1078,7 +1160,7 @@ final class TimeItUITests: XCTestCase {
                                         "UITEST_NOW=2026-06-19T08:00:00Z"])
         let card = app.buttons["card.cycling"]
         XCTAssertTrue(card.waitForExistence(timeout: 5))
-        card.tap()
+        tapCardBody(card)
         XCTAssertTrue(app.navigationBars["Cycling"].waitForExistence(timeout: 5))
 
         let line = app.staticTexts["detail.rangeLine"]
@@ -1100,7 +1182,7 @@ final class TimeItUITests: XCTestCase {
         let app = launchApp()
         let card = app.buttons["card.cycling"]
         XCTAssertTrue(card.waitForExistence(timeout: 5))
-        card.tap()
+        tapCardBody(card)
         XCTAssertTrue(app.navigationBars["Cycling"].waitForExistence(timeout: 5))
 
         let score = app.otherElements["detail.score"]
@@ -1189,7 +1271,7 @@ final class TimeItUITests: XCTestCase {
         XCTAssertTrue(app.buttons["card.fishing-lite"].exists)
         XCTAssertFalse(app.staticTexts["Checking conditions…"].exists,
                        "a pull never swaps the list for the full-screen spinner")
-        card.tap()
+        tapCardBody(card)
         XCTAssertTrue(app.navigationBars["Cycling"].waitForExistence(timeout: 5),
                       "the refreshed list is live")
     }
@@ -1238,7 +1320,7 @@ final class TimeItUITests: XCTestCase {
         attachScreenshot(app, named: "header-dark")
         attachScreenshot(app, named: "dashboard-dark")
 
-        card.tap()
+        tapCardBody(card)
         XCTAssertTrue(app.navigationBars["Cycling"].waitForExistence(timeout: 5))
         let row = app.descendants(matching: .any)["detail.hourStrip"]
         XCTAssertTrue(app.staticTexts["detail.rangeLine"].waitForExistence(timeout: 3))
@@ -1283,7 +1365,7 @@ final class TimeItUITests: XCTestCase {
         assertNothingOverflowsHorizontally(app)
         attachScreenshot(app, named: "dashboard-ax-xxl")
 
-        card.tap()
+        tapCardBody(card)
         XCTAssertTrue(app.navigationBars["Cycling"].waitForExistence(timeout: 5))
         let score = app.otherElements["detail.score"]
         let row = app.descendants(matching: .any)["detail.hourStrip"]
@@ -1347,7 +1429,7 @@ final class TimeItUITests: XCTestCase {
                             contentSize: .extraSmall)
         let card = app.buttons["card.cycling"]
         XCTAssertTrue(card.waitForExistence(timeout: 5))
-        card.tap()
+        tapCardBody(card)
         XCTAssertTrue(app.navigationBars["Cycling"].waitForExistence(timeout: 5))
         let score = app.otherElements["detail.score"]
         let row = app.descendants(matching: .any)["detail.hourStrip"]
@@ -1428,6 +1510,25 @@ final class TimeItUITests: XCTestCase {
         // The identifier sits on the whole Toggle row — tap the nested switch.
         let control = toggle.switches.firstMatch
         (control.exists ? control : toggle).tap()
+    }
+
+    /// Note 27 regression guard: a plain TAP on the switch — not a slide of
+    /// the knob, not XCUI's element tap — runs the opt-in. Coordinate taps on
+    /// the track (left half) and the knob (right half) both land it ON. This
+    /// passed before any change (the tester's taps were simulator mouse
+    /// clicks); the hardware check stays owed.
+    func testNotificationsSwitchFlipsOnAPlainTapOnTrackOrKnob() {
+        for dx in [0.3, 0.75] {
+            let app = launchApp()
+            XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5))
+            app.buttons["settingsGear"].tap()
+            let row = app.switches["settings.notifications"]
+            XCTAssertTrue(row.waitForExistence(timeout: 5))
+            let knob = row.switches.firstMatch.exists ? row.switches.firstMatch : row
+            knob.coordinate(withNormalizedOffset: CGVector(dx: dx, dy: 0.5)).tap()
+            XCTAssertTrue(waitForSwitchValue(row, "1"), "a tap at \(dx) of the switch turns it on")
+            app.terminate()
+        }
     }
 
     func testNotificationsToggleEnablesWhenPromptGranted() {
@@ -1619,6 +1720,53 @@ final class TimeItUITests: XCTestCase {
                                     "the forecast age sits below the meta line, not over it")
     }
 
+    /// Note 36, card half: at AX-XXXL the card strip's hour numerals never
+    /// overprint each other ("9 10" read "910").
+    func testCardStripNumeralsNeverOverlapAtAccessibilityXXXL() {
+        let app = launchApp(contentSize: .accessibilityExtraExtraExtraLarge)
+        let card = app.buttons["card.cycling"]
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        let numerals = card.staticTexts.allElementsBoundByIndex
+            .filter { Int($0.label) != nil && $0.frame.width > 0 }
+            .sorted { $0.frame.minX < $1.frame.minX }
+        XCTAssertGreaterThanOrEqual(numerals.count, 2, "the strip prints its end numerals")
+        for (left, right) in zip(numerals, numerals.dropFirst()) {
+            XCTAssertLessThanOrEqual(left.frame.maxX, right.frame.minX,
+                                     "\(left.label) overlaps \(right.label): \(left.frame) vs \(right.frame)")
+        }
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "fixes-item7-card-ax5"
+        shot.lifetime = .keepAlways
+        add(shot)
+    }
+
+    /// Build-9 addendum new #8: at AX-XXXL the wizard's Next button stays on
+    /// screen, tall enough for its own label, and the step's last row scrolls
+    /// clear above it instead of showing through it.
+    func testWizardNextStaysOnScreenAndClearOfTheListAtAccessibilityXXXL() {
+        let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_LOCATION"],
+                            contentSize: .accessibilityExtraExtraExtraLarge)
+        let hero = app.buttons["addActivitiesButton"]
+        XCTAssertTrue(hero.waitForExistence(timeout: 5))
+        hero.tap()
+        let next = app.buttons["editor.nextStep"]
+        XCTAssertTrue(next.waitForExistence(timeout: 5))
+        let window = app.windows.firstMatch.frame
+        XCTAssertTrue(window.contains(next.frame), "Next is wholly on screen: \(next.frame)")
+        XCTAssertGreaterThanOrEqual(next.frame.height, 60, "the capsule grows with its AX5 label")
+
+        for _ in 0..<8 { app.swipeUp() }
+        let rows = app.staticTexts.allElementsBoundByIndex
+            .filter { $0.label != "Next" && $0.frame.height > 0 && $0.frame.minY < window.maxY }
+        let lowest = rows.map(\.frame.maxY).max() ?? 0
+        XCTAssertLessThanOrEqual(lowest, next.frame.minY + 1,
+                                 "the last row ends above Next (\(lowest) vs \(next.frame.minY))")
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "fixes-item9-wizard-ax5"
+        shot.lifetime = .keepAlways
+        add(shot)
+    }
+
     func testPolishScreenTourLight() { polishScreenTour(appearance: "light") }
     func testPolishScreenTourDark() { polishScreenTour(appearance: "dark") }
 
@@ -1639,7 +1787,7 @@ final class TimeItUITests: XCTestCase {
         attachScreenshot(app, named: "polish-\(appearance)-add-slot")
         app.swipeDown()
 
-        app.buttons["card.cycling"].tap()
+        tapCardBody(app.buttons["card.cycling"])
         XCTAssertTrue(app.navigationBars["Cycling"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.otherElements["detail.metric.temp"].waitForExistence(timeout: 5))
         sleep(1)
@@ -1651,7 +1799,7 @@ final class TimeItUITests: XCTestCase {
 
         // A detail with red / amber values on the containers.
         XCTAssertTrue(app.buttons["card.fishing-lite"].waitForExistence(timeout: 5))
-        app.buttons["card.fishing-lite"].tap()
+        tapCardBody(app.buttons["card.fishing-lite"])
         XCTAssertTrue(app.otherElements["detail.metric.temp"].waitForExistence(timeout: 5))
         sleep(1)
         attachScreenshot(app, named: "polish-\(appearance)-detail-fishing")

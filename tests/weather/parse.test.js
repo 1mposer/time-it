@@ -8,6 +8,7 @@ function makeStubAdapter(overrides = {}) {
   return {
     extractHours:     (res) => res.hourly.data,
     moonPhaseByDay:   (res) => res.moonByDay ?? {},
+    sunByDay:         (res) => res.sunByDay ?? {},
     localDate:        (row) => row.date.slice(0, 10),
     timezone:         (res) => res.timezone ?? 'Asia/Dubai',
     forecastStart:    (row) => row.date,
@@ -86,6 +87,15 @@ test('moon is [] on every hour when the adapter finds no daily astro data (#27)'
   delete raw.moonByDay;
   const { hours } = parseWeather(raw, makeStubAdapter());
   assert.ok(hours.every((h) => Array.isArray(h.moon) && h.moon.length === 0));
+});
+
+test('uV receives its own local day\'s sun entry (undefined for an uncovered day)', () => {
+  const seen = [];
+  const raw = { ...makeRaw(48), sunByDay: { '2026-06-10': { rise: 'r', set: 's' } } };
+  parseWeather(raw, makeStubAdapter({ uV: (h, sun) => { seen.push(sun); return 0; } }));
+  assert.deepEqual(seen[0], { rise: 'r', set: 's' });
+  assert.deepEqual(seen[23], { rise: 'r', set: 's' });
+  assert.equal(seen[24], undefined, 'day 2 has no sun data');
 });
 
 test('marine placeholder fields are present with 0/false defaults', () => {

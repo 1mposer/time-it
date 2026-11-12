@@ -17,6 +17,8 @@ struct CityPickerView: View {
     @State private var query = ""
     @State private var results: [SavedLocation] = []
     @State private var outcome: SearchOutcome = .idle
+    /// The search field takes focus on open — no extra tap (note 4).
+    @FocusState private var searchFocused: Bool
 
     @MainActor
     init(preferences: PreferencesStore? = nil, geocoder: GeocodingProviding? = nil) {
@@ -36,6 +38,7 @@ struct CityPickerView: View {
                         TextField("Search for a city", text: $query)
                             .font(.system(size: 15))
                             .autocorrectionDisabled()
+                            .focused($searchFocused)
                             .accessibilityIdentifier("cityPicker.search")
                     }
                     if outcome == .empty {
@@ -83,6 +86,7 @@ struct CityPickerView: View {
                 }
             }
             .task(id: query) { await search() }
+            .onAppear { searchFocused = true }
         }
     }
 

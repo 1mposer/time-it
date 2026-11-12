@@ -181,6 +181,10 @@ final class DashboardViewModel: ObservableObject {
     /// False when nothing is live — no request is made.
     var hasLiveActivities: Bool { !liveActivities.isEmpty }
 
+    /// The no-location state's grayed cards: one per authored Activity, in
+    /// store order, carrying its name (note 13 — was a fixed two, nameless).
+    var noLocationPlaceholders: [AuthoredActivity] { store.activities }
+
     /// True when "Enable location" should deep-link to system Settings
     /// instead of firing the permission prompt.
     var locationPermissionDenied: Bool {
