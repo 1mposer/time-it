@@ -21,14 +21,17 @@ struct SavedLocation: Codable, Equatable {
 enum WindSpeedUnit: String, CaseIterable, Identifiable {
     case kmh
     case knots
+    /// Fresh-eyes row 14a (owner 2026-11-12) — display-only like knots.
+    case mph
 
     var id: String { rawValue }
 
-    /// Chip / label suffix in the app's unit dialect ("13 km/h", "7 kn").
+    /// Chip / label suffix in the app's unit dialect ("13 km/h", "7 kn", "8 mph").
     var label: String {
         switch self {
         case .kmh: return "km/h"
         case .knots: return "kn"
+        case .mph: return "mph"
         }
     }
 
@@ -37,14 +40,17 @@ enum WindSpeedUnit: String, CaseIterable, Identifiable {
         switch self {
         case .kmh: return "km/h"
         case .knots: return "Knots"
+        case .mph: return "mph"
         }
     }
 
-    /// Multiply a km/h value by this to get the display value (1 kn = 1.852 km/h exactly).
+    /// Multiply a km/h value by this to get the display value (1 kn = 1.852
+    /// km/h and 1 mph = 1.609344 km/h, both exact).
     var factorFromKmh: Double {
         switch self {
         case .kmh: return 1
         case .knots: return 1 / 1.852
+        case .mph: return 1 / 1.609344
         }
     }
 

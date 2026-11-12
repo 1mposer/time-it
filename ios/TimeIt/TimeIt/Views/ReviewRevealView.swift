@@ -20,6 +20,8 @@ struct ReviewPreview {
 /// Reduce Motion crossfades instead.
 struct ReviewRevealView: View {
     let title: String?
+    /// The one line under the card (`ActivityEditorView.reviewLine`).
+    let line: String
     let draftRating: ActivityRating
     let iconSymbol: String
     let rangeChipLabel: String
@@ -55,7 +57,7 @@ struct ReviewRevealView: View {
                 .scaleEffect(revealed || reduceMotion ? 1 : Self.startScale)
                 .opacity(revealed ? 1 : (reduceMotion ? 0 : Self.startOpacity))
                 .accessibilityIdentifier("editor.reviewCard")
-            Text("\(draftRating.label) is on your dashboard.")
+            Text(line)
                 .scaledFont(size: 15)
                 .foregroundStyle(Theme.secondaryText)
                 .multilineTextAlignment(.center)

@@ -2,27 +2,28 @@ import XCTest
 @testable import TimeIt
 
 /// Pins `HeaderCopy` — the header numeral swap (FIGMA.md §12 ruling 7): the
-/// temperature is the big numeral ("34°", no unit letter — the Figma
-/// numeral drops it), and the meta line reads clock, wind, humidity in that
-/// order. Figma draws no separator glyph: each metric is its own icon +
-/// value group, so a missing metric drops its whole segment.
+/// temperature is the big numeral, with its unit ("34°C" — fresh-eyes row
+/// 18a, owner 2026-11-12, as the approved onboarding dashboard frame draws
+/// it), and the meta line reads clock, wind, humidity in that order. Figma
+/// draws no separator glyph: each metric is its own icon + value group, so a
+/// missing metric drops its whole segment.
 final class HeaderCopyTests: XCTestCase {
 
     // MARK: - Numeral
 
-    func testNumeralRoundsTheTemperatureAndDropsTheUnitLetter() {
-        XCTAssertEqual(HeaderCopy.numeral(temp: 24), "24°")
-        XCTAssertEqual(HeaderCopy.numeral(temp: 33.6), "34°")
-        XCTAssertEqual(HeaderCopy.numeral(temp: 33.4), "33°")
+    func testUnitSuffix() {
+        XCTAssertEqual(HeaderCopy.numeral(temp: 28), "28°C")
+        XCTAssertEqual(HeaderCopy.numeral(temp: 33.6), "34°C")
+        XCTAssertEqual(HeaderCopy.numeral(temp: 33.4), "33°C")
     }
 
     func testNumeralKeepsTheSignOfANegativeTemperature() {
-        XCTAssertEqual(HeaderCopy.numeral(temp: -3.2), "-3°")
-        XCTAssertEqual(HeaderCopy.numeral(temp: -12.5), "-13°", "half away from zero, like the rest of the app")
+        XCTAssertEqual(HeaderCopy.numeral(temp: -3.2), "-3°C")
+        XCTAssertEqual(HeaderCopy.numeral(temp: -12.5), "-13°C", "half away from zero, like the rest of the app")
     }
 
     func testMissingTemperatureRendersADashNumeral() {
-        XCTAssertEqual(HeaderCopy.numeral(temp: nil), "—°")
+        XCTAssertEqual(HeaderCopy.numeral(temp: nil), "—°", "no reading claims no unit")
     }
 
     // MARK: - Meta line

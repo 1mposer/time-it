@@ -31,6 +31,10 @@ struct ActivityEditorView: View {
     private let windUnit: WindSpeedUnit
 
     @State private var draft: ActivityDraft
+    /// The draft as the editor opened (after the show-only adoption) — ✕
+    /// asks before discarding only when `draft` differs from it (row 13a).
+    private let initialDraft: ActivityDraft
+    @State private var confirmingDiscard = false
     @State private var step: EditorStep
     /// An untouched prefill is NOT a confirmed Range. Seeded from the
     /// incoming activity's window; set by any wheel change and by the
@@ -80,6 +84,7 @@ struct ActivityEditorView: View {
         // without a threshold gets its preset, not prioritised, on open.
         draft.adoptShowOnlyMetrics(catalog: catalog)
         _draft = State(initialValue: draft)
+        initialDraft = draft
         _rangeConfirmed = State(initialValue: draft.hadWindow)
         _step = State(initialValue: EditorStep.landingStep(requested: initialStep, draft: draft,
                                                            catalog: catalog,
@@ -111,6 +116,8 @@ struct ActivityEditorView: View {
         .background(Theme.appBackground.ignoresSafeArea())
         .safeAreaInset(edge: .bottom) { bottomBar(buildResult) }
         .toolbar(.hidden, for: .navigationBar)
+        // A changed draft never leaves silently by swipe either (row 13a).
+        .interactiveDismissDisabled(discardTitle != nil)
         .onChange(of: draft.startHour) { _, _ in confirmRange() }
         .onChange(of: draft.endHour) { _, _ in confirmRange() }
         .task(id: step) {
@@ -128,12 +135,27 @@ struct ActivityEditorView: View {
                     .transition(.opacity)
             }
             EditorProgressBar(fraction: WizardProgress.fraction(for: step))
-            glassCircle(symbol: "xmark", identifier: "editor.cancel", label: "Cancel") { dismiss() }
+            glassCircle(symbol: "xmark", identifier: "editor.cancel", label: "Cancel") { cancel() }
+                .confirmationDialog(discardTitle ?? "", isPresented: $confirmingDiscard,
+                                    titleVisibility: .visible) {
+                    Button("Discard", role: .destructive) { dismiss() }
+                        .accessibilityIdentifier("editor.confirmDiscard")
+                    Button("Keep Editing", role: .cancel) {}
+                }
         }
         .padding(.horizontal, Self.sideMargin)
         .padding(.top, 8)
         .padding(.bottom, 4)
         .animation(reduceMotion ? nil : EditorProgressBar.advance, value: step)
+    }
+
+    private var discardTitle: String? {
+        EditorDismiss.confirmationTitle(isNew: isNew, initial: initialDraft, current: draft)
+    }
+
+    /// ✕: a changed draft asks first (row 13a); a clean one closes at once.
+    private func cancel() {
+        if discardTitle != nil { confirmingDiscard = true } else { dismiss() }
     }
 
     private func glassCircle(symbol: String, identifier: String, label: String,
@@ -227,6 +249,14 @@ struct ActivityEditorView: View {
                     .foregroundStyle(Theme.secondaryText)
                     .multilineTextAlignment(.center)
                     .accessibilityIdentifier("editor.rangeWarning")
+            }
+            // Above Next, so it reads without scrolling past the icon list.
+            if step == .nameIcon, let hint = NameIconGate.hint(draft: draft) {
+                Text(hint)
+                    .scaledFont(size: 13)
+                    .foregroundStyle(Theme.secondaryText)
+                    .multilineTextAlignment(.center)
+                    .accessibilityIdentifier("editor.nameIconGate")
             }
             if step == .review {
                 primaryButton("Save Activity", identifier: "editor.save",
@@ -428,6 +458,12 @@ struct ActivityEditorView: View {
 
     private var rangeStep: some View {
         VStack(alignment: .leading, spacing: 12) {
+            if let helper = step.helper {
+                Text(helper)
+                    .scaledFont(size: 15)
+                    .foregroundStyle(Theme.secondaryText)
+                    .accessibilityIdentifier("editor.rangeHelper")
+            }
             HStack(spacing: 10) {
                 wheelCard("From", selection: $draft.startHour, identifier: "editor.startHour")
                 wheelCard("To", selection: $draft.endHour, identifier: "editor.endHour")
@@ -436,6 +472,12 @@ struct ActivityEditorView: View {
                 Text("Start and end can't be the same.")
                     .scaledFont(size: 13)
                     .foregroundStyle(Theme.accentDestructive)
+            }
+            if let overnight = OvernightLine.text(startHour: draft.startHour, endHour: draft.endHour) {
+                Text(overnight)
+                    .scaledFont(size: 13)
+                    .foregroundStyle(Theme.secondaryText)
+                    .accessibilityIdentifier("editor.overnightLine")
             }
         }
     }
@@ -468,6 +510,7 @@ struct ActivityEditorView: View {
         VStack(spacing: 16) {
             Spacer(minLength: 0)
             ReviewRevealView(title: reviewTitle,
+                             line: Self.reviewLine(isNew: isNew, label: ActivityDraft.finalLabel(draft.label)),
                              draftRating: draftRating,
                              iconSymbol: draft.iconSymbol,
                              rangeChipLabel: RangeText.chipLabel(window),
@@ -493,12 +536,18 @@ struct ActivityEditorView: View {
         Self.reviewTitle(isNew: isNew, isFirstActivity: isFirstActivity)
     }
 
-    /// The Review reveal's title (owner ruling 2026-11-11, frame `876:15364`):
-    /// the user's very first Activity is the achievement; later ones are
-    /// plainly created; an edit reveals the card without claiming either.
+    /// The Review reveal's title (fresh-eyes row 9a, owner 2026-11-12):
+    /// nothing is created before Save, so a new Activity is "Your first" /
+    /// "Your new activity"; an edit keeps "Your activity".
     static func reviewTitle(isNew: Bool, isFirstActivity: Bool) -> String {
         guard isNew else { return "Your activity" }
-        return isFirstActivity ? "First activity created" : "Activity created"
+        return isFirstActivity ? "Your first activity" : "Your new activity"
+    }
+
+    /// The line under the reveal's card (row 9a): a new Activity reaches the
+    /// dashboard on Save; an edited one is already there.
+    static func reviewLine(isNew: Bool, label: String) -> String {
+        isNew ? "Save to add it to your dashboard." : "\(label) is on your dashboard."
     }
 
     private var window: WindowSpec { WindowSpec(startHour: draft.startHour, endHour: draft.endHour) }

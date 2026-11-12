@@ -144,16 +144,16 @@ final class TimeItUITests: XCTestCase {
         attachScreenshot(app, named: "header-light")
     }
 
-    /// Ruling 7: the temperature is the big numeral ("24°", no unit letter)
-    /// and the clock leads the meta line — on the wind/humidity row, below
-    /// the numeral.
+    /// Ruling 7: the temperature is the big numeral ("24°C" — the unit since
+    /// fresh-eyes 18a) and the clock leads the meta line — on the
+    /// wind/humidity row, below the numeral.
     private func assertHeaderNumeralSwap(_ app: XCUIApplication,
                                          file: StaticString = #filePath, line: UInt = #line) {
         let numeral = app.staticTexts["headerTemp"]
         let clock = app.staticTexts["headerTime"]
         let wind = app.staticTexts["10 km/h"]
         XCTAssertTrue(numeral.waitForExistence(timeout: 5), file: file, line: line)
-        XCTAssertEqual(numeral.label, "24°", "the numeral is the mock's temperature", file: file, line: line)
+        XCTAssertEqual(numeral.label, "24°C", "the numeral is the mock's temperature", file: file, line: line)
         XCTAssertFalse(clock.label.isEmpty, file: file, line: line)
         XCTAssertLessThan(abs(clock.frame.midY - wind.frame.midY), 2,
                           "the clock sits on the meta line with wind", file: file, line: line)
@@ -388,12 +388,15 @@ final class TimeItUITests: XCTestCase {
         nameField.tap()
         nameField.typeText("Padel")
         XCTAssertFalse(next.isEnabled, "a name alone is not enough — an icon must be chosen (the sentinel is gated)")
+        XCTAssertEqual(app.staticTexts["editor.nameIconGate"].label, "Pick an icon too.",
+                       "fresh-eyes 10a: the silent icon gate says why Next is off")
 
         // From scratch the first category (Sports) starts open.
         let icon = app.buttons["icon.figure.tennis"]
         scrollTo(icon, in: app)
         icon.tap()
         XCTAssertTrue(next.isEnabled, "name + icon completes the Name step")
+        XCTAssertFalse(app.staticTexts["editor.nameIconGate"].exists, "the hint goes once an icon is chosen")
         next.tap()
 
         // Metrics: one tap picks and opens the tile to its slider.
@@ -442,7 +445,7 @@ final class TimeItUITests: XCTestCase {
         let save = app.buttons["editor.save"]
         XCTAssertTrue(save.waitForExistence(timeout: 5), "second press proceeds to Review")
         XCTAssertTrue(app.staticTexts["editor.reviewTitle"].waitForExistence(timeout: 5))
-        XCTAssertEqual(app.staticTexts["editor.reviewTitle"].label, "Activity created",
+        XCTAssertEqual(app.staticTexts["editor.reviewTitle"].label, "Your new activity",
                        "not the first Activity — the seeded store already has two")
         attachScreenshot(app, named: "wizard-review-reveal")
         XCTAssertTrue(save.isEnabled)
@@ -723,6 +726,34 @@ final class TimeItUITests: XCTestCase {
         XCTAssertTrue(next.isEnabled, "two metrics turn Next on")
         XCTAssertFalse(hint.exists, "the hint goes once the gate is met")
         app.buttons["editor.cancel"].tap()
+    }
+
+    /// Fresh-eyes row 13a (owner 2026-11-12): ✕ on a clean draft closes at
+    /// once; on a changed one the stock dialog asks first.
+    func testWizardCancelAsksOnlyWhenTheDraftChanged() {
+        let app = launchApp()
+        XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5))
+        app.swipeUp()
+        let add = app.buttons["addActivityCard"]
+        add.tap()
+        let cancel = app.buttons["editor.cancel"]
+        XCTAssertTrue(cancel.waitForExistence(timeout: 5))
+        cancel.tap()
+        XCTAssertTrue(cancel.waitForNonExistence(timeout: 5), "a clean draft closes without asking")
+
+        add.tap()
+        let name = app.textFields["editor.name"]
+        XCTAssertTrue(name.waitForExistence(timeout: 5))
+        name.tap()
+        name.typeText("Padel")
+        cancel.tap()
+        let discard = app.buttons["editor.confirmDiscard"].firstMatch
+        XCTAssertTrue(discard.waitForExistence(timeout: 5), "a changed draft asks first")
+        XCTAssertTrue(app.staticTexts["Discard this activity?"].exists)
+        attachScreenshot(app, named: "wizard-discard-dialog")
+        discard.tap()
+        XCTAssertTrue(cancel.waitForNonExistence(timeout: 5), "Discard closes the wizard")
+        XCTAssertFalse(app.staticTexts["Padel"].exists, "nothing was saved")
     }
 
     private func waitUntil(timeout: TimeInterval, _ condition: () -> Bool) -> Bool {

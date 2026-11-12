@@ -11,6 +11,9 @@ struct SettingsView: View {
     private let geocoder: GeocodingProviding?
 
     @State private var showCityPicker = false
+    /// Set only by the Notifications switch's detour, so the picker says why
+    /// it opened (row 2a); every other entry opens it without a reason.
+    @State private var cityPickerReason: CityPickerReason?
     @Environment(\.colorScheme) private var colorScheme
 
     @MainActor
@@ -65,8 +68,10 @@ struct SettingsView: View {
                 if preferences.homeLocation == nil {
                     registration.cancelPendingEnable()
                 }
+                cityPickerReason = nil
             }) {
-                CityPickerView(preferences: preferences, geocoder: geocoder)
+                CityPickerView(preferences: preferences, geocoder: geocoder,
+                               reason: cityPickerReason)
             }
             .onDisappear {
                 // Leaving Settings mid-detour (prompt ignored, no home yet)
@@ -91,9 +96,8 @@ struct SettingsView: View {
         } header: {
             Text("Notifications")
         } footer: {
-            // Owner copy 2026-09-01 (prune pass) — no hyphen, matching the
-            // push-callout UI-copy ruling.
-            Text("Perfect window alerts")
+            // Fresh-eyes row 2a (owner 2026-11-12): what arrives, and when.
+            Text(SettingsCopy.notificationsFooter)
         }
     }
 
@@ -125,6 +129,7 @@ struct SettingsView: View {
                 // Authorized-but-fixless also warms a fix — whichever
                 // resolves first, GPS or a picked city, continues.
                 registration.warmLocationFixIfAuthorized()
+                cityPickerReason = .notifications
                 showCityPicker = true
             }
         }
@@ -186,8 +191,10 @@ struct SettingsView: View {
             if preferences.homeLocation != nil {
                 // Disabled while location is off: clearing the city then
                 // would leave no location at all (note 8).
-                Button("Use current location") {
+                Button {
                     preferences.homeLocation = nil
+                } label: {
+                    Label("Use current location", systemImage: SettingsCopy.useCurrentLocationSymbol)
                 }
                 .disabled(!HomeLocationStatus.canUseCurrentLocation(
                     authorization: registration.locationAuthorization))

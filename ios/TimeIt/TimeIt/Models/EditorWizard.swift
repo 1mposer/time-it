@@ -27,6 +27,12 @@ enum EditorStep: Int, CaseIterable {
         }
     }
 
+    /// The secondary line under the heading — only When carries one
+    /// (fresh-eyes row 11a, owner 2026-11-12).
+    var helper: String? {
+        self == .range ? "We only check these hours, every day." : nil
+    }
+
     // MARK: Completion
 
     /// The step's completion rule.
@@ -81,6 +87,44 @@ enum EditorStep: Int, CaseIterable {
             .filter { $0.rawValue <= requested.rawValue }
             .last { $0.isUnlocked(draft: draft, catalog: catalog, rangeConfirmed: rangeConfirmed) }
             ?? .nameIcon
+    }
+}
+
+// MARK: - NameIconGate — the Name step's hint
+
+/// The Name step's gate line (fresh-eyes row 10a, owner 2026-11-12): once a
+/// name is typed and no icon is picked, Next is off and says why. The icon
+/// stays required, no matter what — this is copy, never a relaxed gate.
+enum NameIconGate {
+    static let hint = "Pick an icon too."
+
+    static func hint(draft: ActivityDraft) -> String? {
+        let named = !draft.label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        return named && draft.iconSymbol == "questionmark.circle" ? hint : nil
+    }
+}
+
+// MARK: - OvernightLine — the When step's wrap note
+
+/// From later than To wraps midnight — the hours end the next morning
+/// (fresh-eyes row 16a, owner 2026-11-12). Nil for a same-day span; equal
+/// hours have their own error line.
+enum OvernightLine {
+    static func text(startHour: Int, endHour: Int) -> String? {
+        startHour > endHour ? "Ends next morning" : nil
+    }
+}
+
+// MARK: - EditorDismiss — the ✕ confirmation
+
+/// The wizard ✕ (fresh-eyes row 13a, owner 2026-11-12): a stock
+/// confirmation only when the draft differs from the one the editor opened
+/// with; a clean draft closes at once. New and edit alike.
+enum EditorDismiss {
+    /// The dialog's title, or nil when ✕ should close without asking.
+    static func confirmationTitle(isNew: Bool, initial: ActivityDraft, current: ActivityDraft) -> String? {
+        guard initial != current else { return nil }
+        return isNew ? "Discard this activity?" : "Discard changes?"
     }
 }
 

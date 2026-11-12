@@ -28,6 +28,14 @@ enum SpanScoring {
         !isAtRange && slots.contains { $0.index != nil }
     }
 
+    /// The hero dims its ring and verdict word to secondary while a span
+    /// away from the Range is shown unscored (fresh-eyes row 5a): the day's
+    /// verdict does not describe the hours on screen. Colour only — the
+    /// numeral stays the day's score until the span is scored (ADR-0011).
+    static func dimsVerdict(isAtRange: Bool, spanScored: Bool) -> Bool {
+        !isAtRange && !spanScored
+    }
+
     // MARK: The request
 
     /// A request window, or nil for one the server would reject (`400`):

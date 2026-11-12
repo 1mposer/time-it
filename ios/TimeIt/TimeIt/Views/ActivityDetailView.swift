@@ -433,7 +433,7 @@ struct ActivityDetailView: View {
         VStack(spacing: Layout.ringToWord) {
             Button(action: returnToRange) {
                 ScoreRingView(score: ringScore,
-                              tint: Theme.ratingTint(ringRating),
+                              tint: heroDimmed ? Theme.secondaryText : Theme.ratingTint(ringRating),
                               style: .hero)
                     .contentShape(Circle())
             }
@@ -465,7 +465,14 @@ struct ActivityDetailView: View {
         let isRated = rating == .perfect || rating == .good
         return Text(Self.verdictText(rating))
             .scaledFont(size: 12, weight: isRated ? .semibold : .regular)
-            .foregroundStyle(isRated ? Theme.ratingTint(rating) : Theme.noWindowTint)
+            .foregroundStyle(heroDimmed ? Theme.secondaryText
+                             : (isRated ? Theme.ratingTint(rating) : Theme.noWindowTint))
+    }
+
+    /// Fresh-eyes 5a: an unscored previewed span dims the ring and word.
+    private var heroDimmed: Bool {
+        SpanScoring.dimsVerdict(isAtRange: carousel?.isAtRange ?? true,
+                                spanScored: shownSpanScore != nil)
     }
 
     /// `Day.ratingDisplay`'s words for any verdict (the day's or a span's).

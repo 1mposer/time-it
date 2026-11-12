@@ -41,6 +41,27 @@ final class EditorWizardTests: XCTestCase {
         XCTAssertFalse(complete(.nameIcon, draft), "whitespace-only name is empty")
     }
 
+    /// Fresh-eyes row 10a (owner 2026-11-12): once a name is typed and no
+    /// icon is picked, the gate says so — the icon stays required.
+    func testNameStepHintWhenIconMissing() {
+        var draft = blankDraft()
+        XCTAssertNil(NameIconGate.hint(draft: draft), "nothing typed yet — no hint")
+
+        draft.label = "Padel"
+        XCTAssertEqual(NameIconGate.hint(draft: draft), "Pick an icon too.")
+        XCTAssertFalse(complete(.nameIcon, draft), "the hint never relaxes the gate")
+
+        draft.label = "  "
+        XCTAssertNil(NameIconGate.hint(draft: draft), "a whitespace name is not a typed name")
+    }
+
+    func testNameStepHintGoneOnceAnIconIsChosen() {
+        var draft = blankDraft()
+        draft.label = "Padel"
+        draft.iconSymbol = "figure.tennis"
+        XCTAssertNil(NameIconGate.hint(draft: draft))
+    }
+
     func testNameIconGateRevertsWhenTheNameIsCleared() {
         var draft = blankDraft()
         draft.label = "Padel"
@@ -330,6 +351,29 @@ final class EditorWizardTests: XCTestCase {
         }
     }
 
+    /// Fresh-eyes row 11a (owner 2026-11-12): the When step says what the
+    /// hours do; no other step carries a helper.
+    func testWhenStepHelperSaysOnlyTheseHoursAreChecked() {
+        XCTAssertEqual(EditorStep.range.helper, "We only check these hours, every day.")
+        for step in EditorStep.allCases where step != .range {
+            XCTAssertNil(step.helper, "\(step) has no helper line")
+        }
+        XCTAssertFalse(EditorStep.range.helper!.localizedCaseInsensitiveContains("range"), "no 'range' on screen")
+    }
+
+    /// Fresh-eyes row 16a (owner 2026-11-12): from later than to wraps
+    /// midnight — the When step says so.
+    func testOvernightLineWhenFromAfterTo() {
+        XCTAssertEqual(OvernightLine.text(startHour: 22, endHour: 2), "Ends next morning")
+        XCTAssertEqual(OvernightLine.text(startHour: 23, endHour: 0), "Ends next morning")
+    }
+
+    func testOvernightLineAbsentForSameDay() {
+        XCTAssertNil(OvernightLine.text(startHour: 6, endHour: 10))
+        XCTAssertNil(OvernightLine.text(startHour: 0, endHour: 23))
+        XCTAssertNil(OvernightLine.text(startHour: 8, endHour: 8), "equal hours get their own error line")
+    }
+
     // MARK: - Tile rows
 
     func testTileRowsPairAndGiveTheOpenedTileAFullRow() {
@@ -343,10 +387,27 @@ final class EditorWizardTests: XCTestCase {
 
     // MARK: - Review reveal title
 
-    func testReviewTitleCelebratesOnlyTheFirstActivity() {
-        XCTAssertEqual(ActivityEditorView.reviewTitle(isNew: true, isFirstActivity: true), "First activity created")
-        XCTAssertEqual(ActivityEditorView.reviewTitle(isNew: true, isFirstActivity: false), "Activity created")
+    /// Fresh-eyes row 9a (owner 2026-11-12): nothing is "created" before
+    /// Save — the title names the activity, the line says Save adds it.
+    func testReviewTitleNamesTheActivityWithoutClaimingItIsCreated() {
+        XCTAssertEqual(ActivityEditorView.reviewTitle(isNew: true, isFirstActivity: true), "Your first activity")
+        XCTAssertEqual(ActivityEditorView.reviewTitle(isNew: true, isFirstActivity: false), "Your new activity")
         XCTAssertEqual(ActivityEditorView.reviewTitle(isNew: false, isFirstActivity: false), "Your activity")
+        for (isNew, isFirst) in [(true, true), (true, false), (false, false)] {
+            XCTAssertFalse(ActivityEditorView.reviewTitle(isNew: isNew, isFirstActivity: isFirst)
+                .lowercased().contains("created"))
+        }
+    }
+
+    func testReviewLineSaysSaveAddsANewActivity() {
+        XCTAssertEqual(ActivityEditorView.reviewLine(isNew: true, label: "Padel"),
+                       "Save to add it to your dashboard.")
+    }
+
+    /// An edited activity is already on the dashboard — the line stays true.
+    func testReviewLineForAnEditKeepsItsDashboardLine() {
+        XCTAssertEqual(ActivityEditorView.reviewLine(isNew: false, label: "Cycling"),
+                       "Cycling is on your dashboard.")
     }
 
     // MARK: - The detail's add-metric tile (build 10)
