@@ -1512,6 +1512,25 @@ final class TimeItUITests: XCTestCase {
         (control.exists ? control : toggle).tap()
     }
 
+    /// Note 27 regression guard: a plain TAP on the switch — not a slide of
+    /// the knob, not XCUI's element tap — runs the opt-in. Coordinate taps on
+    /// the track (left half) and the knob (right half) both land it ON. This
+    /// passed before any change (the tester's taps were simulator mouse
+    /// clicks); the hardware check stays owed.
+    func testNotificationsSwitchFlipsOnAPlainTapOnTrackOrKnob() {
+        for dx in [0.3, 0.75] {
+            let app = launchApp()
+            XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5))
+            app.buttons["settingsGear"].tap()
+            let row = app.switches["settings.notifications"]
+            XCTAssertTrue(row.waitForExistence(timeout: 5))
+            let knob = row.switches.firstMatch.exists ? row.switches.firstMatch : row
+            knob.coordinate(withNormalizedOffset: CGVector(dx: dx, dy: 0.5)).tap()
+            XCTAssertTrue(waitForSwitchValue(row, "1"), "a tap at \(dx) of the switch turns it on")
+            app.terminate()
+        }
+    }
+
     func testNotificationsToggleEnablesWhenPromptGranted() {
         let app = launchApp()
 
