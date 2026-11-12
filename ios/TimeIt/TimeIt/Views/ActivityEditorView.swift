@@ -468,6 +468,7 @@ struct ActivityEditorView: View {
         VStack(spacing: 16) {
             Spacer(minLength: 0)
             ReviewRevealView(title: reviewTitle,
+                             line: Self.reviewLine(isNew: isNew, label: ActivityDraft.finalLabel(draft.label)),
                              draftRating: draftRating,
                              iconSymbol: draft.iconSymbol,
                              rangeChipLabel: RangeText.chipLabel(window),
@@ -493,12 +494,18 @@ struct ActivityEditorView: View {
         Self.reviewTitle(isNew: isNew, isFirstActivity: isFirstActivity)
     }
 
-    /// The Review reveal's title (owner ruling 2026-11-11, frame `876:15364`):
-    /// the user's very first Activity is the achievement; later ones are
-    /// plainly created; an edit reveals the card without claiming either.
+    /// The Review reveal's title (fresh-eyes row 9a, owner 2026-11-12):
+    /// nothing is created before Save, so a new Activity is "Your first" /
+    /// "Your new activity"; an edit keeps "Your activity".
     static func reviewTitle(isNew: Bool, isFirstActivity: Bool) -> String {
         guard isNew else { return "Your activity" }
-        return isFirstActivity ? "First activity created" : "Activity created"
+        return isFirstActivity ? "Your first activity" : "Your new activity"
+    }
+
+    /// The line under the reveal's card (row 9a): a new Activity reaches the
+    /// dashboard on Save; an edited one is already there.
+    static func reviewLine(isNew: Bool, label: String) -> String {
+        isNew ? "Save to add it to your dashboard." : "\(label) is on your dashboard."
     }
 
     private var window: WindowSpec { WindowSpec(startHour: draft.startHour, endHour: draft.endHour) }

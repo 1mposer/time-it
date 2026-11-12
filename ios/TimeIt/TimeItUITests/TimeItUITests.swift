@@ -442,7 +442,7 @@ final class TimeItUITests: XCTestCase {
         let save = app.buttons["editor.save"]
         XCTAssertTrue(save.waitForExistence(timeout: 5), "second press proceeds to Review")
         XCTAssertTrue(app.staticTexts["editor.reviewTitle"].waitForExistence(timeout: 5))
-        XCTAssertEqual(app.staticTexts["editor.reviewTitle"].label, "Activity created",
+        XCTAssertEqual(app.staticTexts["editor.reviewTitle"].label, "Your new activity",
                        "not the first Activity — the seeded store already has two")
         attachScreenshot(app, named: "wizard-review-reveal")
         XCTAssertTrue(save.isEnabled)

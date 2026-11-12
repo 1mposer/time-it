@@ -343,10 +343,27 @@ final class EditorWizardTests: XCTestCase {
 
     // MARK: - Review reveal title
 
-    func testReviewTitleCelebratesOnlyTheFirstActivity() {
-        XCTAssertEqual(ActivityEditorView.reviewTitle(isNew: true, isFirstActivity: true), "First activity created")
-        XCTAssertEqual(ActivityEditorView.reviewTitle(isNew: true, isFirstActivity: false), "Activity created")
+    /// Fresh-eyes row 9a (owner 2026-11-12): nothing is "created" before
+    /// Save — the title names the activity, the line says Save adds it.
+    func testReviewTitleNamesTheActivityWithoutClaimingItIsCreated() {
+        XCTAssertEqual(ActivityEditorView.reviewTitle(isNew: true, isFirstActivity: true), "Your first activity")
+        XCTAssertEqual(ActivityEditorView.reviewTitle(isNew: true, isFirstActivity: false), "Your new activity")
         XCTAssertEqual(ActivityEditorView.reviewTitle(isNew: false, isFirstActivity: false), "Your activity")
+        for (isNew, isFirst) in [(true, true), (true, false), (false, false)] {
+            XCTAssertFalse(ActivityEditorView.reviewTitle(isNew: isNew, isFirstActivity: isFirst)
+                .lowercased().contains("created"))
+        }
+    }
+
+    func testReviewLineSaysSaveAddsANewActivity() {
+        XCTAssertEqual(ActivityEditorView.reviewLine(isNew: true, label: "Padel"),
+                       "Save to add it to your dashboard.")
+    }
+
+    /// An edited activity is already on the dashboard — the line stays true.
+    func testReviewLineForAnEditKeepsItsDashboardLine() {
+        XCTAssertEqual(ActivityEditorView.reviewLine(isNew: false, label: "Cycling"),
+                       "Cycling is on your dashboard.")
     }
 
     // MARK: - The detail's add-metric tile (build 10)
