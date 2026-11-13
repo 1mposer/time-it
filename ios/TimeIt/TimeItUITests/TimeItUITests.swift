@@ -1800,8 +1800,9 @@ final class TimeItUITests: XCTestCase {
     // MARK: - Lane POLISH screen tour (build 10, mini-edits lane)
 
     /// Note 36 / POLISH item 6: at AX-XXXL the header (location, numeral,
-    /// meta line, forecast age) stays inside the top 40% of the screen, the
-    /// age never overlaps the meta line, and the first card still renders.
+    /// meta line) stays inside the top 40% of the screen, the forecast age
+    /// sits in the screen's footer (owner, 2026-11-13), and the first card
+    /// still renders.
     func testHeaderStaysInTheTopFortyPercentAtAccessibilityXXXL() {
         let app = launchApp(contentSize: .accessibilityExtraExtraExtraLarge)
         let card = app.buttons["card.cycling"]
@@ -1811,14 +1812,11 @@ final class TimeItUITests: XCTestCase {
         let updated = app.buttons["forecastUpdated"]
         XCTAssertTrue(meta.exists)
         XCTAssertTrue(updated.exists)
-        let headerBottom = max(meta.frame.maxY, updated.frame.maxY)
+        let headerBottom = meta.frame.maxY
         XCTAssertLessThanOrEqual(headerBottom, screen * 0.4,
                                  "header ends at \(headerBottom) of \(screen)")
-        let lowestMeta = ["headerTime", "headerTemp"].map { app.staticTexts[$0].frame.maxY }.max() ?? 0
-        let metaRows = app.staticTexts.matching(NSPredicate(format: "label CONTAINS '%'")).allElementsBoundByIndex
-        let humidityBottom = metaRows.map(\.frame.maxY).filter { $0 < screen * 0.5 }.max() ?? lowestMeta
-        XCTAssertGreaterThanOrEqual(updated.frame.minY, humidityBottom - 1,
-                                    "the forecast age sits below the meta line, not over it")
+        XCTAssertGreaterThanOrEqual(updated.frame.minY, screen * 0.8,
+                                    "the forecast age sits in the footer, at \(updated.frame.minY) of \(screen)")
     }
 
     /// Note 36, card half: at AX-XXXL the card strip's hour numerals never

@@ -117,41 +117,6 @@ struct DashboardView: View {
                            onAppearanceTap: { preferences.toggleAppearance(showing: showingAppearance) }) {
                     showSettings = true
                 }
-                // The forecast's age (lane CACHE, owner rule 4): the
-                // dashboard may be drawn from the 3 h cache, so it says when
-                // the data was fetched. An overlay, so the header's measured
-                // bottom (where the list and melt begin) is unchanged.
-                .overlay(alignment: .bottomLeading) {
-                    if let updated = viewModel.updatedLabel {
-                        // Bottom-left, and a tap refetches (owner, 2026-11-12):
-                        // the same full refetch as a pull — a fresh cache is
-                        // bypassed and the card list stays mounted.
-                        Button {
-                            Task { await viewModel.refresh() }
-                        } label: {
-                            // Reads on the gradient like the location line
-                            // (morning page ruling 04, stronger) and shows
-                            // its refresh glyph so the tap is discoverable.
-                            HStack(spacing: 4) {
-                                Image(systemName: "arrow.clockwise")
-                                    .font(.system(size: 10, weight: .semibold))
-                                    .accessibilityHidden(true)
-                                Text(updated)
-                                    .scaledFont(size: 12, weight: .medium)
-                            }
-                            .foregroundStyle(Theme.onGradient.opacity(0.85))
-                            .padding(.leading, 16)
-                            .padding(.vertical, 4)
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        // Stays inside the header's 22pt bottom padding
-                        // so it never runs over the meta line (note 36).
-                        .dynamicTypeSize(...Self.updatedLabelTypeCap)
-                        .accessibilityIdentifier("forecastUpdated")
-                        .accessibilityHint("Refreshes the forecast")
-                    }
-                }
                 // Note 36 (tester record): at the accessibility sizes the
                 // hero ate ~half the screen. The header is chrome, so its
                 // words stop growing at xxxLarge — the cards below keep the
@@ -163,15 +128,11 @@ struct DashboardView: View {
                     if $0 != headerBottom { headerBottom = $0 }
                 }
                 content
-                    // Beta only: the ⓘ menu floats bottom-leading in the
-                    // safe-area inset, so every list scrolls under it and its
-                    // end (the Add Activity capsule) always clears it.
-                    .safeAreaInset(edge: .bottom, alignment: .leading, spacing: 0) {
-                        if isBetaBuild {
-                            feedbackMenu
-                                .padding(.leading, Self.feedbackMenuInset)
-                                .padding(.bottom, 4)
-                        }
+                    // The footer sits in the bottom safe-area inset, so every
+                    // list scrolls under it and its end (the Add Activity
+                    // capsule) always clears it.
+                    .safeAreaInset(edge: .bottom, spacing: 0) {
+                        dashboardFooter
                     }
             }
             // The band + melt + glow blob, full-screen behind the header
@@ -721,6 +682,48 @@ struct DashboardView: View {
     /// The beta ⓘ: a 44pt glass circle opening a system `Menu` — the first
     /// tap only opens it, and a scroll never fires it (the structural guard
     /// against a stray thumb). Each row opens its own feedback sheet.
+    /// The screen's footer: the beta ⓘ menu at the leading edge and the
+    /// forecast's age at the trailing edge — "Updated 4:30" belongs at the
+    /// bottom of the home screen (owner, 2026-11-13), not on the hero. The
+    /// age exists because the dashboard may be drawn from the 3 h cache
+    /// (lane CACHE, owner rule 4); a tap on it refetches — the same full
+    /// refetch as a pull, bypassing a fresh cache, the card list staying
+    /// mounted (owner, 2026-11-12).
+    private var dashboardFooter: some View {
+        HStack(spacing: 0) {
+            if isBetaBuild {
+                feedbackMenu
+                    .padding(.leading, Self.feedbackMenuInset)
+            }
+            Spacer(minLength: 0)
+            if let updated = viewModel.updatedLabel {
+                Button {
+                    Task { await viewModel.refresh() }
+                } label: {
+                    // The refresh glyph makes the tap discoverable.
+                    HStack(spacing: 4) {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 10, weight: .semibold))
+                            .accessibilityHidden(true)
+                        Text(updated)
+                            .scaledFont(size: 12, weight: .medium)
+                    }
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, Self.feedbackMenuInset)
+                    .padding(.vertical, 8)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                // Chrome: its words stop growing before the footer eats
+                // the last card's room.
+                .dynamicTypeSize(...Self.updatedLabelTypeCap)
+                .accessibilityIdentifier("forecastUpdated")
+                .accessibilityHint("Refreshes the forecast")
+            }
+        }
+        .padding(.bottom, 4)
+    }
+
     private var feedbackMenu: some View {
         GlassGroup(spacing: 0) {
             Menu {
