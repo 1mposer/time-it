@@ -7,7 +7,7 @@ PR-005,At AX5 the disabled wizard Next button is see-through over the list befor
 PR-006,Notifications switch ignores a plain tap (hardware check owed),Bug,Medium,Needs decision,Notifications,Yaas,S,2026-11-11,1.0 (9),
 PR-007,Dependabot alert — minimatch via nodemon (dev-only),Bug,Low,Backlog,Build,Yaas,S,2026-11-11,1.0 (10),
 PR-008,Rate limit on POST /api/v1/rating (lane THROTTLE),Enhancement,Medium,Backlog,Server,Yaas,S,2026-11-11,1.0 (10),
-PR-009,"Wordmark case — ""Time it"" or ""Time It",Decision,Low,Needs decision,Opening,Yaas,S,2026-11-12,1.0 (10),
+PR-009,"Wordmark case — ""Time it"" or ""Time It",Decision,Low,Done,Opening,Yaas,S,2026-11-12,1.0 (10),1.0 (10)
 PR-010,"A low score beside the word ""Perfect"" (ADR-0011 presentation amendment)",Decision,High,Needs decision,Dashboard,Yaas,M,2026-11-11,1.0 (9),
 PR-011,Opening sequence — on-device frame-drop check still owed,Polish,Low,Backlog,Opening,Yaas,S,2026-11-12,1.0 (10),
 PR-012,"Partially-routed GitHub issues — the halves no lane built (#31, #23, #17)",Enhancement,Low,Backlog,Docs,Yaas,M,2026-11-12,1.0 (10),

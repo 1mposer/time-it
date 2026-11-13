@@ -2,13 +2,13 @@ id: PR-009
 title: Wordmark case — "Time it" or "Time It"
 type: Decision
 priority: Low
-status: Needs decision
+status: Done
 area: Opening
 owner: Yaas
 effort: S
 reported: 2026-11-12
 found_in: 1.0 (10)
-fixed_in: null
+fixed_in: 1.0 (10)
 source:
   - spec Q2 (ruled b: opening on first launch only); the case half was not answered
 summary: |
@@ -19,5 +19,6 @@ proposal: |
 acceptance: |
   - one case everywhere; a unit test on HeaderCopy / opening copy pins it
 decision_needed: |
-  "Time it" or "Time It".
+  "Time it" or "Time It". Ruled 2026-11-13: "Time it" — swept (Info.plist display name
+  and location prompt, DashboardView, SettingsView) and pinned by WordmarkCaseTests.
 links: []

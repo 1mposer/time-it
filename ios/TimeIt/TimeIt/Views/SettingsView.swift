@@ -44,7 +44,7 @@ struct SettingsView: View {
                 }
                 Section("Location") {
                     Label {
-                        Text("Time It uses your home location when set, otherwise your device location. Without either, it shows the last place it rated — or asks you to pick one.")
+                        Text("Time it uses your home location when set, otherwise your device location. Without either, it shows the last place it rated — or asks you to pick one.")
                             .font(.system(size: 14))
                             .foregroundStyle(.secondary)
                     } icon: {

@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>Time It</string>
+	<string>Time it</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -28,7 +28,7 @@
 		<true/>
 	</dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Time It uses your location to fetch a local weather forecast.</string>
+	<string>Time it uses your location to fetch a local weather forecast.</string>
 	<key>UILaunchScreen</key>
 	<dict>
 		<key>UIColorName</key>

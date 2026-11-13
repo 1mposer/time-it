@@ -187,7 +187,7 @@ Sev = the tester's severity (B9 items carry the addendum's implied severity).
 | 4 | 1 (Sev 2) | Dashboard · T-A1 | system prompt before any welcome → Welcome, then the location ask with its why | needs a frame (**approved**) | item 13 | a: item 13 as drawn · b: interim one-line pre-prompt now | **a** |
 | 5 | 23 (Sev 2) | Detail · T-D2 | stale "Perfect" while previewing a span → in D2 the ring and word dim to secondary until scored (or until return) | copy-only (colour) | standalone | a: dim while unscored · b: score automatically when the row settles (one server call per settle) · c: keep | **a** · done 4056cbc |
 | 6 | B9-6 (Sev 2) | Detail · T-D4 | passed day = red "No Window" → word "Time passed" in secondary, no red; row 1 drops its suffix | copy-only | standalone | a: as proposed · b: keep red, enlarge "Time passed" · c: keep | **— (owner 2026-11-12: "never show an empty passed-day screen"; what to show when the time has passed is an open conversation)** |
-| 7 | 20 (Sev 2) | Detail · T-D5 | cards average unnamed hours → a caption above the cards: "Average, 6 – 10am" (follows the span) | copy-only | standalone | a: caption · b: caption + tappable hour chips (frame) · c: keep | **b (owner: "let's try to sim" — chips built in the mini-edits lane, owner rules from screenshots)** · built 024c7ae, owner to rule from screenshots |
+| 7 | 20 (Sev 2) | Detail · T-D5 | cards average unnamed hours → a caption above the cards: "Average, 6 – 10am" (follows the span) | copy-only | standalone | a: caption · b: caption + tappable hour chips (frame) · c: keep | **b (owner: "let's try to sim" — chips built in the mini-edits lane, owner rules from screenshots)** · built 024c7ae, **ruled a (ship the redo) 2026-11-13** from the [screenshot page](https://claude.ai/artifact/42CsnSD5hSiWUDfifQ7nxn), merged 6a9ee33 |
 | 8 | B9-3 (Sev 2) | Wizard · T-C3 | "Pressed ones matter most. The rest still show." → "Pressed ones can turn a day red. The rest can only take Perfect down to Good." + "Moon Phase shows on your card but isn't judged." when picked | copy-only | standalone | a: both lines · b: first line only · c: keep | **c** |
 | 9 | B9-4 (Sev 2) | Wizard · T-C5 | "created" before Save → new: "Your first activity" / "Your new activity". Line: "Save to add it to your dashboard." Edit keeps "Your activity". | copy-only | standalone | a: as proposed · b: keep titles, change the line only · c: keep | **a** · done 3d0110f |
 | 10 | 9 (Sev 2) | Wizard · T-C1 | silent icon gate → "Pick an icon too." (the gate-hint idiom) once a name is typed; add a beach/sun glyph to Beach & Water | copy-only | standalone | a: hint + glyph · b: hint only · c: keep | **a (owner: an icon is required no matter what; glyphs from SF Symbols)** · done f7c5584 |
@@ -204,7 +204,7 @@ Sev = the tester's severity (B9 items carry the addendum's implied severity).
 | 21 | 5 (Sev 1) | Settings · T-A3 | "Use current location" has no icon → `location` glyph, aligned with the row above | copy-only (glyph) | standalone | a: add glyph · b: keep | **a (the picker itself: parked in docs/post-release, owner 2026-11-12)** · done 24d308b |
 | 22 | B9-9 (Sev 1) | Header · T-F1 | unlabeled appearance control → keep Apple's half-circle glyph (VoiceOver already labels it) | copy-only | standalone | a: keep as is · b: add a small visible label | **a** |
 
-### Owner questions (no fault row) — **ruled 2026-11-12: Q1 b, Q2 b (wordmark case still open)**
+### Owner questions (no fault row) — **ruled 2026-11-12: Q1 b, Q2 b; 2026-11-13: Q2 built (f50d348) and ruled ship; wordmark case ruled "Time it"**
 
 - **Q1 — the score beside "Perfect" (18/19, B9-5; ADR-0011).** Real data shows "20 · Perfect" for one green hour in five, and the Review preview shows it during creation.
   - a: name the Window beside the verdict ("Perfect 10–11pm"). Copy plus a small frame, no engine change.
@@ -213,7 +213,7 @@ Sev = the tester's severity (B9 items carry the addendum's implied severity).
 - **Q2 — the opening (B9-7).**
   - a: keep it on every cold launch (as ruled).
   - b: play it on the first launch only, then a plain fade. · built f50d348, owner to rule from screenshots
-  - The same question asks the wordmark's case: "Time it" (the approved Welcome frame, the beta copy) or "Time It" (everywhere else).
+  - The same question asks the wordmark's case: "Time it" (the approved Welcome frame, the beta copy) or "Time It" (everywhere else). **Ruled 2026-11-13: "Time it"** — swept through the app copy (home-screen name, location prompt, empty-state and location-missing copy, Settings) and pinned by `WordmarkCaseTests` (post-release PR-009 closed).
 
 **Rulings 2026-11-12 (owner, from the page):** 1b 2a 3b 4a 5a 7b 8c 9a 10a 11a 12b 13a 14a 15c 16a 17a 18a 19b 20c 21a 22a Q1b Q2b; 6 unruled (conversation), 12 held on a question. Work: copy lane = 2, 5, 9, 10, 11, 13, 14 (mph), 16, 18, 21; mini-edits sim lane = 7 chips + Q2 opening-once; Q1 = ADR-0011 amendment draft (orchestrator); parked in `docs/post-release/` = °F, the location picker rethink, 12 (if b holds), 6.
 
@@ -250,7 +250,7 @@ Sev = the tester's severity (B9 items carry the addendum's implied severity).
 ## §5 Acceptance
 
 - [x] Re-run against the real backend — done 2026-11-11 by Lane RERUN ([ADDENDUM-build9.md](../../research/fresh-eyes-2026-11-11/ADDENDUM-build9.md)).
-- [ ] The owner rules every row in §3 and Q1/Q2 on the owner page; the rulings are recorded in this file.
+- [x] The owner rules every row in §3 and Q1/Q2 on the owner page; the rulings are recorded in this file (2026-11-12; CHIPS screenshots and the wordmark 2026-11-13). Still open: row 6 (conversation), row 12 (the owner's "what sheet?" question).
 - [ ] The needs-frame rows that are ruled in are drawn on Mess around and approved (ADR-0008).
 - [ ] The copy-only rows land test-first in one lane; both suites stay green.
 - [ ] The tester's route is re-walked on the phone for faults 1–13.

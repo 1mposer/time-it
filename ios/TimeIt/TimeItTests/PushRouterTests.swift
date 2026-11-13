@@ -20,7 +20,7 @@ final class PushRouterTests: XCTestCase {
     func testDigestPayloadWithoutTypeJustOpensTheDashboard() {
         let router = PushRouter()
 
-        router.handle(userInfo: ["aps": ["alert": ["title": "Your Time It digest"]]])
+        router.handle(userInfo: ["aps": ["alert": ["title": "Your Time it digest"]]])
 
         XCTAssertNil(router.focusActivityId, "default open — no deeper routing in v1")
     }

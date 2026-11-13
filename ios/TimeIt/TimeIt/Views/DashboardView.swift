@@ -338,7 +338,7 @@ struct DashboardView: View {
                 // card's glyph + title used; the invitation copy stays below.
                 VStack(spacing: 0) {
                     addActivityCapsule(identifier: "addActivitiesButton")
-                    Text("Time It checks weather conditions\nfor any activity you create.\n\nStart with your first one.")
+                    Text("Time it checks weather conditions\nfor any activity you create.\n\nStart with your first one.")
                         .font(.system(size: 14))
                         .foregroundStyle(Theme.secondaryText)
                         .multilineTextAlignment(.center)
@@ -435,7 +435,7 @@ struct DashboardView: View {
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(Theme.primaryText)
                     .padding(.top, 16)
-                Text("Time It needs a location to rate your activities. Enable access or pick a city.")
+                Text("Time it needs a location to rate your activities. Enable access or pick a city.")
                     .font(.system(size: 14))
                     .foregroundStyle(Theme.secondaryText)
                     .multilineTextAlignment(.center)
