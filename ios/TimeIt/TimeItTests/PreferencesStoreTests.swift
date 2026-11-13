@@ -204,6 +204,18 @@ final class PreferencesStoreTests: XCTestCase {
         XCTAssertEqual(store.homeLocation?.name, "Dubai Marina")
         XCTAssertNil(store.homeLocation?.region)
     }
+
+    // MARK: The opening, once (owner ruling Q2b, 2026-11-12)
+
+    func testTheOpeningHasNotBeenSeenOnAFreshInstall() {
+        XCTAssertFalse(PreferencesStore(defaults: defaults).hasSeenOpening)
+    }
+
+    func testMarkingTheOpeningSeenPersistsAcrossLaunches() {
+        PreferencesStore(defaults: defaults).hasSeenOpening = true
+        XCTAssertTrue(PreferencesStore(defaults: defaults).hasSeenOpening)
+    }
+
 }
 
 /// The unit is display-only (#26): a fixed factor over the km/h wire value,

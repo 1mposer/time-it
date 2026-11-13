@@ -107,3 +107,6 @@ Bump `CURRENT_PROJECT_VERSION` in the assembling merge, not in B. CLAUDE.md's ru
 ## Wave 5 (2026-11-12, after the owner's fresh-eyes rulings — ROADMAP row 21)
 
 - Lane **COPY** (Opus, TDD): spec rows 2a 5a 9a 10a 11a 13a 14a (mph only) 16a 18a 21a. Lane **CHIPS** (Opus, mini-edits sim lane): row 7b hour chips on the detail + Q2b opening on first launch only; owner rules from screenshots. Held: row 6 (owner: never an empty passed-day screen — conversation), row 12 (owner asked what "sheet" means). Parked: [docs/post-release](../../post-release/README.md). Q1b: [ADR-0011 amendment draft](../../adr/0011-day-score.md).
+
+## Lane CHIPS — fresh-eyes mini-edits (7b hour chips + Q2b opening once)
+- [x] **Done 2026-11-12, ruled 01a 02a and merged 2026-11-13:** Q2b `f50d348` — the opening plays on the first launch only (`PreferencesStore.hasSeenOpening`), every later cold launch a 0.4 s fade; 7b `024c7ae` — redone after the owner's live read: one segmented row ("Avg" selected, then the span's hours) under the caption "Average of 6 – 10am · tap an hour" / "At 8am". Unit 658, UI 63, all green on "POLISH 17 Pro". Owner ruled both "a" from the screenshot page 2026-11-13; wordmark ruled "Time it".

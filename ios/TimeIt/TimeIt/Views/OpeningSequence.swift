@@ -309,13 +309,32 @@ private extension View {
 
 // MARK: - Opening gate
 
-/// Whether the opening sequence plays — the owner's rules (2026-11-11, Q15a):
-/// only on a cold launch, never for a UI-test run that opts out, never once a
-/// push tap is already routing somewhere.
+/// What a launch opens on (owner ruling Q2b, 2026-11-12): the full Converge
+/// opening, a plain fade from the launch screen, or nothing at all.
+enum OpeningMode: Equatable {
+    case converge, fade, none
+}
+
+/// Which opening a launch gets — the owner's rules (2026-11-11, Q15a; Q2b
+/// 2026-11-12): only a cold launch opens at all, never for a UI-test run that
+/// opts out, never once a push tap is already routing somewhere; the full
+/// opening plays on the first launch only, every later one fades.
 enum OpeningPolicy {
+    /// Whether this launch opens at all (TimeItApp asks this).
     static func shouldPlay(coldLaunch: Bool, pushRoutePending: Bool, uiTestSkip: Bool) -> Bool {
         coldLaunch && !pushRoutePending && !uiTestSkip
     }
+
+    /// Which opening a launch that opens gets: the full one once per
+    /// install, a plain fade after.
+    static func mode(plays: Bool, hasSeenOpening: Bool) -> OpeningMode {
+        guard plays else { return .none }
+        return hasSeenOpening ? .fade : .converge
+    }
+
+    /// The later launches' fade from the launch screen into the app — no
+    /// converge, no hold.
+    static let fadeDuration: TimeInterval = 0.4
 
     /// The XCUI opt-out argument (the launch helper passes it on every run
     /// except the one test that watches the opening).
@@ -352,29 +371,45 @@ extension EnvironmentValues {
     }
 }
 
-/// The app root: Converge, then the zoom-through reveal into `app`. The app
-/// is mounted underneath from the first frame (its fetch hides behind the
+/// The app root: Converge, then the zoom-through reveal into `app` — or, once
+/// the opening has been seen (Q2b), a plain fade from the launch screen. The
+/// app is mounted underneath from the first frame (its fetch hides behind the
 /// logo); a tap or an arriving push route finishes the opening at once.
+/// The "seen" stamp lands in `preferences` once the full opening hands over
+/// (run out, tapped through, or a push route).
 struct OpeningGate<App: View>: View {
     @ObservedObject var router: PushRouter
+    private let preferences: PreferencesStore
     @ViewBuilder let app: () -> App
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var phase: Phase
 
-    enum Phase { case playing, revealing, done }
+    enum Phase { case playing, fading, revealing, done }
 
-    init(plays: Bool, router: PushRouter, @ViewBuilder app: @escaping () -> App) {
+    @MainActor
+    init(plays: Bool, router: PushRouter,
+         preferences: PreferencesStore = .shared,
+         @ViewBuilder app: @escaping () -> App) {
         self.router = router
+        self.preferences = preferences
         self.app = app
-        _phase = State(initialValue: plays ? .playing : .done)
+        switch OpeningPolicy.mode(plays: plays, hasSeenOpening: preferences.hasSeenOpening) {
+        case .converge: _phase = State(initialValue: .playing)
+        case .fade: _phase = State(initialValue: .fading)
+        case .none: _phase = State(initialValue: .done)
+        }
     }
 
     var body: some View {
         ZStack {
+            if phase == .fading {
+                // The launch screen's colour, so the fade starts where it ends.
+                LogoPalette.background.ignoresSafeArea()
+            }
             app()
                 .scaleEffect(phase == .playing && !reduceMotion ? Self.appStartScale : 1)
-                .opacity(phase == .playing ? 0 : 1)
+                .opacity(phase == .playing || phase == .fading ? 0 : 1)
                 .environment(\.openingInProgress, phase != .done)
             if phase == .playing {
                 LogoConvergeAnimation(onFinished: OpeningPolicy.holdsEndFrame ? {} : reveal)
@@ -391,6 +426,15 @@ struct OpeningGate<App: View>: View {
         .onChange(of: router.focusActivityId) { _, id in
             if id != nil { reveal() }
         }
+        .onAppear(perform: fadeIn)
+    }
+
+    /// The later launches' plain fade: launch-screen colour → the app.
+    private func fadeIn() {
+        guard phase == .fading else { return }
+        withAnimation(.easeOut(duration: OpeningPolicy.fadeDuration)) {
+            phase = .revealing
+        } completion: { phase = .done }
     }
 
     /// The app settles in from 106% as the splash flies past the viewer.
@@ -407,6 +451,7 @@ struct OpeningGate<App: View>: View {
         let animation: Animation = reduceMotion
             ? .easeInOut(duration: 0.35)
             : .spring(duration: 0.9, bounce: 0)
+        preferences.hasSeenOpening = true
         withAnimation(animation) { phase = .revealing } completion: { phase = .done }
     }
 }
@@ -432,7 +477,11 @@ private struct LogoReplayPreview<Content: View>: View {
 
 #Preview("Opening · Zoom through") {
     LogoReplayPreview {
-        OpeningGate(plays: true, router: PushRouter()) { RevealPreviewDashboard() }
+        // A throwaway store per replay, so every replay is a first launch.
+        OpeningGate(plays: true, router: PushRouter(),
+                    preferences: PreferencesStore(defaults: UserDefaults(suiteName: UUID().uuidString)!)) {
+            RevealPreviewDashboard()
+        }
     }
 }
 
