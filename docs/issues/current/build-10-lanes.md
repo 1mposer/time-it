@@ -106,7 +106,7 @@ Bump `CURRENT_PROJECT_VERSION` in the assembling merge, not in B. CLAUDE.md's ru
 
 ## Owner rulings 2026-11-15 (decisions page, first interactive owner page)
 
-- **04c** the "+" add slot is a round 56pt glass button, not a 96×44 capsule — mini edit by the orchestrator. **05a** detail containers + Add metric tile ship as is. **06b** the card's AX-size text parked as [PR-013](../../post-release/items/PR-013-card-text-at-ax-sizes.yaml). **07b** the opening still lags on the phone → [PR-011](../../post-release/items/PR-011-opening-instruments-check.yaml) becomes a scheduled Instruments lane. **08a** build 10 uploads after these rulings are built.
+- **04c** the "+" add slot is a round 56pt glass button, not a 96×44 capsule — mini edit by the orchestrator. **05a** detail containers + Add metric tile ship as is. **06b** the card's AX-size text parked as [PR-013](../../post-release/items/PR-013-card-text-at-ax-sizes.yaml). **07b** the opening still lags on the phone → [PR-011](../../post-release/items/PR-011-opening-hold-instruments.yaml) becomes a scheduled Instruments lane. **08a** build 10 uploads after these rulings are built.
 - **01, 02, 03 unruled.** 01 (passed-day detail) and 03 (score beside Perfect): the owner asked for "a genuine re-thinking of the score, range and what we present to the user" — three variations of the detail screen and the dashboard score, judged by an A/B loop of Sonnet agents (individual raters → a panel of three → filter down) → **[ROADMAP row 22](../ROADMAP.md)**. 02 (metrics slider): the build-9 screenshot read as "old"; re-asked with the current screen.
 
 ## Wave 5 (2026-11-12, after the owner's fresh-eyes rulings — ROADMAP row 21)
