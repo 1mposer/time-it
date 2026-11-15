@@ -23,5 +23,7 @@ acceptance: |
   - UI test opens two tiles in turn and reads the first tile's frame unchanged
 decision_needed: |
   a or b — the owner asked "what sheet?" on 2026-11-12; explain and re-ask.
+  2026-11-15: re-asked with a build-9 screenshot; owner: "this sheet is old, what is
+  this?" — re-ask once more with the current metrics-step screenshot.
 links:
   - docs/issues/current/implement-spec-fresh-eyes-ux.md

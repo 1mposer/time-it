@@ -1,8 +1,8 @@
 id: PR-011
 title: Opening sequence — on-device frame-drop check still owed
 type: Polish
-priority: Low
-status: Backlog
+priority: High
+status: Scheduled
 area: Opening
 owner: Yaas
 effort: S
@@ -12,6 +12,8 @@ fixed_in: null
 source:
   - lane POLISH report (item 5): simulator windows could not judge the lag honestly
 summary: |
+  2026-11-15: owner ruled 07b on the decisions page — the opening still lags on the
+  iPhone 15 Pro; the Instruments check is now a scheduled lane (ROADMAP row 20).
   The 1 s first-frame hold moved the mount hitch out of the springs on the simulator;
   whether the converge now plays clean on hardware is unmeasured. Q2b (opening on first
   launch only) makes this a first-run-only concern.

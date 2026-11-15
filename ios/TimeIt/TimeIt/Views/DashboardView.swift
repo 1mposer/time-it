@@ -908,27 +908,30 @@ struct DashboardView: View {
     /// The ghost add slot's height (the dashed card's old 64pt).
     private static let addSlotHeight: CGFloat = 64
 
-    /// The "+" capsule's glyph (scales as title2 — HIG: interface icons
-    /// scale with Dynamic Type) and its capsule: 4 glyphs wide, the glyph
-    /// plus 10 above and below, never under the HIG 44pt target.
+    /// The "+" button's glyph (scales as title2 — HIG: interface icons
+    /// scale with Dynamic Type) and its round face: the glyph plus 16 all
+    /// round, never under 56pt (owner, 2026-11-15: a round button, not a
+    /// capsule).
     @ScaledMetric(relativeTo: .title2) private var scaledAddGlyph: CGFloat = DashboardLayout.addGlyphSize
     /// Capped so the capsule stays a control, not a banner, at AX sizes.
     private var addGlyphSize: CGFloat { min(scaledAddGlyph, DashboardLayout.addGlyphMax) }
 
-    /// The add slot below the cap: one enlarged "+" on the glass capsule —
-    /// still "Add Activity" to VoiceOver, the same press feel and haptic.
+    /// The add slot below the cap: one enlarged "+" on a round glass
+    /// button (owner ruling 04c, 2026-11-15) — still "Add Activity" to
+    /// VoiceOver, the same press feel and haptic.
     private var addGlyphCapsule: some View {
-        GlassControl(presentsSheet: true,
-                     identifier: "addActivityCard",
-                     accessibilityLabel: "Add Activity",
-                     action: { showAdd = true }) {
+        let diameter = max(DashboardLayout.addRoundDiameter,
+                           addGlyphSize + 2 * DashboardLayout.addGlyphInset)
+        return GlassControl(presentsSheet: true,
+                            identifier: "addActivityCard",
+                            accessibilityLabel: "Add Activity",
+                            action: { showAdd = true }) {
             Image(systemName: "plus")
                 .font(.system(size: addGlyphSize, weight: .semibold))
                 .foregroundStyle(Theme.accentBrand)
-                .frame(width: addGlyphSize * DashboardLayout.addCapsuleWidthInGlyphs,
-                       height: max(GlassCapsule.height, addGlyphSize + 2 * DashboardLayout.addGlyphInset))
-                .glassPieceSurface(in: Capsule(), enabled: true, fallback: .material)
-                .contentShape(Capsule())
+                .frame(width: diameter, height: diameter)
+                .glassPieceSurface(in: Circle(), enabled: true, fallback: .material)
+                .contentShape(Circle())
         }
     }
 
@@ -1014,11 +1017,13 @@ enum DashboardLayout {
     static let firstLaunchListPadding: CGFloat = Theme.Spacing.lg
 
     /// The add slot's "+" (POLISH item 3): 24pt at the default size, on a
-    /// capsule 4 glyphs wide (96) and 44 tall (10 above and below).
+    /// round 56pt glass button (owner ruling 04c, 2026-11-15; was a 96×44
+    /// capsule).
     static let addGlyphSize: CGFloat = 24
     static let addGlyphMax: CGFloat = 34
-    static let addCapsuleWidthInGlyphs: CGFloat = 4
-    static let addGlyphInset: CGFloat = 10
+    /// The round add button's floor diameter (owner ruling 04c, 2026-11-15).
+    static let addRoundDiameter: CGFloat = 56
+    static let addGlyphInset: CGFloat = 16
 
     /// The list's top padding below the header: the first Activity card at
     /// eye level, with `leadingHeight` (the push callout slot + its gap)

@@ -1,0 +1,27 @@
+id: PR-013
+title: Card title and "Score" label outgrow the ring numeral at the accessibility sizes
+type: Polish
+priority: Low
+status: Backlog
+area: Dashboard
+owner: Yaas
+effort: S
+reported: 2026-11-15
+found_in: 1.0 (10)
+fixed_in: null
+source:
+  - tester note 36 (second half); morning page item 05; owner ruled 06b on the 2026-11-15 decisions page (park it)
+summary: |
+  The header stops growing at xxxLarge (POLISH item 6), but on the card the title and
+  the "Score" label keep the full Dynamic Type range while the ring numeral is capped,
+  so at AX3–AX5 the words outgrow the number they label.
+proposal: |
+  Cap the card title and the "Score" label at the same step as the ring numeral, or
+  scale the ring with them; one AX screenshot pass per step. Decide with the score/range
+  redesign (ROADMAP row 22) so the card is not touched twice.
+acceptance: |
+  - at AX5 the "Score" label never reads larger than the numeral
+  - the UI test testCardStripNumeralsNeverOverlapAtAccessibilityXXXL stays green
+decision_needed: null
+links:
+  - docs/issues/current/build-10-lanes.md

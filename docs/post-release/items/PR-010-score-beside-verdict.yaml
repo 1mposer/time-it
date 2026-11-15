@@ -2,7 +2,7 @@ id: PR-010
 title: A low score beside the word "Perfect" (ADR-0011 presentation amendment)
 type: Decision
 priority: High
-status: Needs decision
+status: In progress
 area: Dashboard
 owner: Yaas
 effort: M
@@ -21,6 +21,8 @@ acceptance: |
   - the amendment is accepted with one option; card + detail + Review preview follow it
   - no engine change; the score never feeds the verdict (independence rule holds)
 decision_needed: |
+  2026-11-15: owner ruled none of A–D ("explain it to me in brief"); folded with PR-003
+  into the score/range design loop (ROADMAP row 22).
   Pick the amendment option (see the ADR).
 links:
   - docs/adr/0011-day-score.md

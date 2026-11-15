@@ -2,7 +2,7 @@ id: PR-003
 title: Detail for a day whose window has passed shows nothing useful
 type: Decision
 priority: High
-status: Needs decision
+status: In progress
 area: Detail
 owner: Yaas
 effort: M
@@ -29,6 +29,9 @@ acceptance: |
   - UI test with UITEST_NOW pinned past the window
 decision_needed: |
   Owner to pick a, b or c (or a mix) — then it needs a frame or the mini-edits lane.
+  2026-11-15: owner ruled none; "a genuine re-thinking of the score, range and what we
+  present to the user is required" — folded into the score/range design loop
+  (ROADMAP row 22) with PR-010.
 links:
   - docs/issues/current/implement-spec-fresh-eyes-ux.md
   - docs/research/fresh-eyes-2026-11-11/ADDENDUM-build9.md
