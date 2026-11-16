@@ -472,7 +472,9 @@ final class DashboardViewModel: ObservableObject {
                                  tiers: rangeStripTiers(for: authored, dayIndex: dayIndex),
                                  stripStartLocalHour: rangeSlots(for: authored, dayIndex: dayIndex).first?.localHour,
                                  weekDots: WeekDots.dots(for: rating, deriver: deriver,
-                                                         nocturnal: authored.isNocturnal))
+                                                         nocturnal: authored.isNocturnal),
+                                 verdictLine: VerdictLine(day: rawDay(for: rating, dayIndex: dayIndex),
+                                                          deriver: deriver))
         } catch {
             return nil
         }
@@ -586,11 +588,13 @@ final class DashboardViewModel: ObservableObject {
 
     func dismissPassedOverlay(activityId: String) {
         guard let todayKey else { return }
+        objectWillChange.send()
         passedDays.dismissOverlay(activityId: activityId, date: todayKey)
     }
 
     func dismissHoursOverRow(activityId: String) {
         guard let todayKey else { return }
+        objectWillChange.send()
         passedDays.dismissRow(activityId: activityId, date: todayKey)
     }
 

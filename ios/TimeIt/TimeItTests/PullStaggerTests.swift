@@ -134,7 +134,8 @@ final class PullRefreshTests: XCTestCase {
 final class DashboardRhythmTests: XCTestCase {
     func testTheOriginalRhythmIsPinned() {
         XCTAssertEqual(Theme.Spacing.listBelowHeader, 14)
-        XCTAssertEqual(Theme.Spacing.cardGap, 10)
+        // Lane RETHINK (owner, 2026-11-15): one 16pt gap between containers.
+        XCTAssertEqual(Theme.Spacing.cardGap, 16)
         XCTAssertEqual(Theme.Spacing.headerLocationToNumeral, 2)
         XCTAssertEqual(Theme.Spacing.headerNumeralToMeta, 10)
     }

@@ -1,68 +1,86 @@
 import SwiftUI
 
-/// Dashboard card v2 — "Score ring" (Figma `458:394`, owner-approved
-/// 2026-09-30). Wordless beyond the name, the numerals and the colour: a 48pt
-/// score ring with its "Score" caption, the activity name, an hours-only blue
-/// Range chip, and a Range-SCOPED hour strip (one segment per Range hour,
-/// tinted by that hour's tier) under boundary numerals.
+/// Dashboard card — lane RETHINK (Figma Mess around "Final - Opus v2"
+/// `921:19890`, owner-approved 2026-11-16). Ring column (the 48pt day-score
+/// ring tinted by its SCORE band + the "Average" / "Tomorrow" caption) | text
+/// column: name row → the Range-scoped hour strip → the hour integers → the
+/// verdict line "7 – 10am · Perfect" in the verdict's tint ("No good time"
+/// in red on a null day) — then the week dots across the full card width.
+/// No Range pill, no "Best hours" words, no own-hours line (ruling 04 a).
+/// Every value lives in `RethinkLayout.Card`.
 ///
 /// The one card: the dashboard draws it, and the wizard's Review reveal draws
 /// the same view for the new Activity (owner ruling 2026-11-11 — an exact
-/// replica, not a look-alike). The chip is hours-only — "6 – 10am".
+/// replica, not a look-alike).
 struct ScoreRingCardView: View {
     let activity: ActivityRating
-    /// The day bucket the card shows — read RAW from `days[]`, never through
-    /// a has-window filter: a rating-null day still carries a real low score
-    /// (the frame's red 31 ring), and the ring is keyed on `score`, the strip
-    /// and tint on `rating`.
+    /// The day bucket the card shows (today, or tomorrow once today's hours
+    /// are over) — read RAW from `days[]`: a rating-null day still carries
+    /// its score, and the ring is keyed on `score`, the line on `rating`.
     let day: Day?
     /// Explicit icon from the authored Activity.
     var iconSymbol: String?
-    /// The authored Range as hours-only chip copy ("6 – 10am"); nil hides it.
-    var rangeChipLabel: String?
+    /// "7 – 10am · Perfect" / "No good time"; nil hides the line (no
+    /// forecast yet — the Review reveal before its reply).
+    var verdictLine: VerdictLine?
+    /// The ring's caption: "Average" (the day score's name, ruling 03 a) or
+    /// "Tomorrow" when the card shows tomorrow (02 b).
+    var caption: String = "Average"
     /// One strip segment per hour of the FULL authored Range (owner ruling
     /// 2026-11-04): a tier colours it; nil is a gone / no-data hour, drawn as
     /// the grey track. Empty renders the bare track.
     var tiers: [HourTier?] = []
-    /// Local hour of the strip's first segment — the boundary numerals count
-    /// up from here.
+    /// Local hour of the strip's first segment — the integers count up from it.
     var stripStartLocalHour: Int?
-    /// The week-dot row (spec 05, Figma `517:73` on the ring card `458:394`):
-    /// seven days in forecast order, ring on today.
+    /// The week-dot row: seven days in forecast order.
     var weekDots: [WeekDot] = []
-    /// The card chevron's state — false = exactly the pre-dots card.
+    /// The card chevron's state — false = no dots row.
     var showsWeekDots: Bool = false
-    /// A data dot's tap (note 16): the dashboard opens the detail on that
-    /// day. nil keeps the dots inert (the wizard's Review reveal).
+    /// The dot that carries the ring (the shown day).
+    var ringedDayIndex: Int = 0
+    /// Today's dot, greyed once its hours are over.
+    var dimmedDayIndex: Int? = nil
+    /// A data dot's tap: the dashboard opens the detail on that day. nil
+    /// keeps the dots inert (the wizard's Review reveal).
     var onDotTap: ((Int) -> Void)? = nil
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    /// Accessibility sizes put the chip under the name (no squeeze).
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    /// The name → strip → numerals block's floor: 65 at the default text
-    /// size (the frame's collapsed card), its own height once the scaled
-    /// text outgrows it (Dynamic Type, owner ruling 8 — no fixed column).
-    static let stripBlockFloor: CGFloat = 65
+    private typealias Layout = RethinkLayout.Card
 
-    /// The "Score" caption's largest size — below the card ring's 15pt
-    /// numeral at every text size (note 36, card half).
-    static let captionMaxSize: CGFloat = 13
+    /// The caption's largest size — a label never outranks the data.
+    static let captionMaxSize: CGFloat = 14
 
     private var dotsVisible: Bool { showsWeekDots && !weekDots.isEmpty }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            ringColumn
-            detailColumn
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .top, spacing: Layout.columnGap) {
+                ringColumn
+                textColumn
+            }
+            // The fold's mask: the row slides up under the text column when
+            // the chevron hides it; `.clipped()` hides it on the way.
+            VStack(spacing: 0) {
+                if dotsVisible {
+                    WeekDotsView(dots: weekDots,
+                                 ringedDayIndex: ringedDayIndex,
+                                 dimmedDayIndex: dimmedDayIndex,
+                                 onTap: onDotTap,
+                                 identifierPrefix: "weekDots.\(activity.activityId)")
+                        .padding(.top, Layout.verdictToDots)
+                        .transition(.unfold(reduceMotion: reduceMotion))
+                }
+            }
+            .clipped()
         }
-        .padding(EdgeInsets(top: 11.5, leading: 13.5, bottom: 11.5, trailing: 14.5))
+        .animation(Theme.Motion.reveal(reduceMotion: reduceMotion), value: dotsVisible)
+        .padding(RethinkLayout.inset)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Theme.cardBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .cardLift(cornerRadius: 16, light: .rest)
-        // .contain keeps the name/chip addressable (the dormant-card
-        // pattern); the ring owns its own spoken summary below.
+        .clipShape(RethinkLayout.shape())
+        .cardLift(cornerRadius: RethinkLayout.outerRadius, light: .rest)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("scoreCard.\(activity.activityId)")
     }
@@ -70,149 +88,83 @@ struct ScoreRingCardView: View {
     // MARK: ring + caption
 
     private var ringColumn: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: Layout.ringToCaption) {
             ScoreRingView(score: day?.score,
-                          tint: Theme.ratingTint(day?.rating),
+                          tint: Theme.scoreBandTint(day?.score),
                           style: .card)
-            Text("Score")
-                // Capped under the fixed 15pt ring numeral: the caption is a
-                // label and must never outrank the data (note 36).
-                .scaledFont(size: 11, weight: .medium, maxSize: Self.captionMaxSize)
+            Text(caption)
+                .scaledFont(size: Layout.captionFont, weight: .semibold, maxSize: Self.captionMaxSize)
                 .foregroundStyle(Theme.secondaryText)
                 .lineLimit(1)
                 .fixedSize()
+                .accessibilityIdentifier("ringCaption.\(activity.activityId)")
         }
-        // The ring is fixed at 48 (ruling 9a); the caption is a word and
-        // grows, so the column is a floor, not a width.
-        .frame(minWidth: 48)
-        // VoiceOver keeps the words the visual drops — verdict and score.
+        // A floor, not a width: the caption grows with the text size.
+        .frame(minWidth: Layout.ringColumnWidth)
         .accessibilityElement(children: .ignore)
         .accessibilityIdentifier("score.\(activity.activityId)")
         .accessibilityLabel(accessibilitySummary)
     }
 
-    // MARK: name + chip + Range-scoped strip
+    // MARK: name → strip → integers → verdict line
 
-    private var detailColumn: some View {
+    private var textColumn: some View {
         VStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: 0) {
-                topRow
-                Spacer(minLength: 10)
-                // The strip bars never scale (ruling 9a).
-                hourStrip
-                    .frame(height: 10)
-                StripAxisNumerals(tiers: tiers, stripStartLocalHour: stripStartLocalHour)
-                    // The numerals scale as text up to xxxLarge, then clamp
-                    // (ruling 9a: the strip's numerals may clamp) so they
-                    // never overprint each other on the fixed strip.
-                    .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
-                    .padding(.top, 4)
-            }
-            .minHeightFloor(Self.stripBlockFloor)
-            // The fold's mask: this wrapper's height springs 42 ↔ 0 with the
-            // row, and `.clipped()` hides the row while it slides up under
-            // the numerals (owner report 2026-11-05: the chevron de-reveals
-            // the row, the reverse of revealing it). The row's 8pt gap rides
-            // inside, so nothing at rest is cut.
-            VStack(spacing: 0) {
-                if dotsVisible {
-                    // Frame `458:394`: axis bottom → dots top = 8pt; the row
-                    // spans the strip's x and width; 34pt tall (12 label + 4 +
-                    // 18 slot). Removed — not hidden — when collapsed, so the
-                    // collapsed card is exactly the pre-dots card.
-                    WeekDotsView(dots: weekDots,
-                                 ringedDayIndex: 0,
-                                 onTap: onDotTap,
-                                 identifierPrefix: "weekDots.\(activity.activityId)")
-                        .padding(.top, 8)
-                        .transition(.unfold(reduceMotion: reduceMotion))
-                }
-            }
-            .clipped()
-        }
-        // 65 = name row → strip → numerals at the default text size; +42
-        // (8 gap + 34 row) with dots — the frame's 132 vs 90 delta. Both
-        // are intrinsic now: the content's height at any text size.
-        .animation(Theme.Motion.reveal(reduceMotion: reduceMotion), value: dotsVisible)
-    }
-
-    /// The name and the chip on one line; at accessibility sizes the chip
-    /// drops under the name and the name wraps (HIG: stack, don't truncate).
-    @ViewBuilder
-    private var topRow: some View {
-        if dynamicTypeSize.isAccessibilitySize {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    icon
-                    title
-                        .fixedSize(horizontal: false, vertical: true)
-                    Spacer(minLength: 0)
-                }
-                .padding(.trailing, Self.chevronClearance)
-                chip
-            }
-        } else {
-            HStack(spacing: 8) {
-                icon
-                title
-                    // One line at the default size and below (the frame);
-                    // a larger name wraps rather than truncates.
-                    .lineLimit(dynamicTypeSize > .large ? nil : 1)
+            nameRow
+            hourStrip
+                .frame(height: Layout.stripHeight)
+                .padding(.top, Layout.nameToStrip)
+            StripAxisNumerals(tiers: tiers, stripStartLocalHour: stripStartLocalHour)
+                // The integers scale as text up to xxxLarge, then clamp so
+                // they never overprint each other on the fixed strip.
+                .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                .padding(.top, Layout.stripToNumerals)
+            if let verdictLine {
+                Text(verdictLine.text)
+                    .scaledFont(size: Layout.verdictFont, weight: .semibold)
+                    .foregroundStyle(verdictLine.tint)
                     .fixedSize(horizontal: false, vertical: true)
-                chip
-                Spacer(minLength: 0)
+                    .padding(.top, Layout.numeralsToVerdict)
+                    .accessibilityIdentifier("verdictLine.\(activity.activityId)")
             }
-            .padding(.trailing, Self.chevronClearance)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// Clears the chevron the dashboard overlays on the card (a 34pt
-    /// button ending 4.5pt in from the card edge: 38.5 − the card's 14.5
-    /// trailing inset). The card gear is gone (owner ruling 2026-10-06 #2).
-    private static let chevronClearance: CGFloat = 24
+    /// Icon in a fixed slot, the name (wraps rather than truncates at large
+    /// sizes — HIG: stack, don't truncate), clear of the chevron.
+    private var nameRow: some View {
+        HStack(alignment: .firstTextBaseline, spacing: Layout.iconToName) {
+            icon
+            Text(activity.label)
+                .scaledFont(size: Layout.nameFont, weight: .semibold)
+                .foregroundStyle(Theme.primaryText)
+                .lineLimit(dynamicTypeSize > .large ? nil : 1)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .padding(.trailing, Self.chevronClearance)
+    }
+
+    /// Clears the chevron the dashboard overlays on the card.
+    static let chevronClearance: CGFloat = RethinkLayout.Grid.x6
 
     private var icon: some View {
-        ActivityIconView(identifier: iconSymbol ?? Self.iconName(for: activity), size: 18)
-            .foregroundStyle(Theme.primaryText.opacity(0.75))
-            .accessibilityHidden(true)
-    }
-
-    private var title: some View {
-        Text(activity.label)
-            .scaledFont(size: 15, weight: .medium)
-            .tracking(-0.1)
+        ActivityIconView(identifier: iconSymbol ?? Self.iconName(for: activity), size: Layout.iconSize)
             .foregroundStyle(Theme.primaryText)
-    }
-
-    /// Hours only — the "Range · " prefix is dropped on the v2 card by
-    /// owner ruling (FIGMA.md §11). One line that shrinks before it ever
-    /// truncates.
-    @ViewBuilder
-    private var chip: some View {
-        if let rangeChipLabel {
-            Text(rangeChipLabel)
-                .scaledFont(size: 12, weight: .medium)
-                .foregroundStyle(Theme.accentBrand)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-                .padding(.horizontal, 9)
-                .padding(.vertical, 4)
-                .background(Theme.accentTint, in: Capsule())
-                .fixedSize(horizontal: !dynamicTypeSize.isAccessibilitySize, vertical: true)
-                .accessibilityIdentifier("rangeChip.\(activity.activityId)")
-        }
+            .accessibilityHidden(true)
     }
 
     /// One rounded segment per Range hour, 2pt apart — the frame's strip.
     @ViewBuilder
     private var hourStrip: some View {
+        let segment = RoundedRectangle(cornerRadius: Layout.stripHeight / 2, style: .continuous)
         if tiers.isEmpty {
-            RoundedRectangle(cornerRadius: 3)
-                .fill(Theme.timelineTrack)
+            segment.fill(Theme.timelineTrack)
         } else {
-            HStack(spacing: 2) {
+            HStack(spacing: Layout.stripSegmentGap) {
                 ForEach(Array(tiers.enumerated()), id: \.offset) { _, tier in
-                    RoundedRectangle(cornerRadius: 3)
+                    segment
                         .fill(tier.map(Theme.tierColor) ?? Theme.timelineTrack)
                         .frame(maxWidth: .infinity)
                 }
@@ -229,10 +181,11 @@ struct ScoreRingCardView: View {
         return "questionmark.circle"
     }
 
+    /// "Tomorrow, Perfect 6 – 9am, average 91 out of 100".
     private var accessibilitySummary: String {
-        let verdict = day?.ratingDisplay ?? "No Window"
-        guard let score = day?.score else { return "\(verdict), no score" }
-        return "\(verdict), score \(score) out of 100"
+        let verdict = verdictLine?.text ?? VerdictLine.noGoodTime
+        guard let score = day?.score else { return "\(caption), \(verdict), no average" }
+        return "\(caption) \(score) out of 100, \(verdict)"
     }
 }
 
@@ -245,7 +198,7 @@ private struct StripAxisNumerals: View {
 
     /// The axis slot (14 at the default size) and the half-width estimate
     /// that anchors the end numerals, both scaling with the caption text.
-    @ScaledMetric(relativeTo: .caption) private var slotHeight: CGFloat = 14
+    @ScaledMetric(relativeTo: .caption) private var slotHeight: CGFloat = 13
     @ScaledMetric(relativeTo: .caption) private var halfWidth: CGFloat = 7
 
     var body: some View {
@@ -262,7 +215,7 @@ private struct StripAxisNumerals: View {
                 ForEach(labels, id: \.boundary) { label in
                     let fraction = CGFloat(label.boundary) / CGFloat(tiers.count)
                     Text(label.text)
-                        .scaledFont(size: 12)
+                        .scaledFont(size: RethinkLayout.Card.numeralFont, weight: .medium)
                         .foregroundStyle(Theme.secondaryText)
                         .fixedSize()
                         .position(x: geo.size.width * fraction
@@ -329,7 +282,7 @@ private struct CardContextMenu: ViewModifier {
         if let actions {
             content
                 // The lift preview takes the card's own rounded shape.
-                .contentShape(.contextMenuPreview, RoundedRectangle(cornerRadius: 16))
+                .contentShape(.contextMenuPreview, RethinkLayout.shape())
                 .contextMenu {
                     Button(action: actions.viewDetails) {
                         Label("View details", systemImage: "info.circle")
@@ -365,19 +318,19 @@ private struct CardContextMenu: ViewModifier {
                           day: Day(dayIndex: 0, rating: .perfect,
                                    startIndex: 2, endIndex: 6, duration: 4, score: 86),
                           iconSymbol: "figure.outdoor.cycle",
-                          rangeChipLabel: RangeText.chipLabel(WindowSpec(startHour: 6, endHour: 10)),
+                          verdictLine: VerdictLine(window: "7 – 10am", rating: .perfect),
                           tiers: [nil, .green, .green, .green],
                           stripStartLocalHour: 6)
         ScoreRingCardView(activity: forecast.activities[2],
                           day: Day(dayIndex: 0, rating: nil, score: 31),
                           iconSymbol: "figure.run",
-                          rangeChipLabel: RangeText.chipLabel(WindowSpec(startHour: 6, endHour: 9)),
+                          verdictLine: VerdictLine(window: nil, rating: nil),
                           tiers: [.red, .red, .red],
                           stripStartLocalHour: 6)
         ScoreRingCardView(activity: forecast.activities[0],
                           day: Day(dayIndex: 0, rating: nil),
                           iconSymbol: "figure.outdoor.cycle",
-                          rangeChipLabel: "6 – 10am")
+                          verdictLine: VerdictLine(window: nil, rating: nil))
     }
     .padding(14)
     .background(Theme.appBackground)
@@ -392,7 +345,7 @@ private struct CardContextMenu: ViewModifier {
                           day: Day(dayIndex: 0, rating: .perfect,
                                    startIndex: 2, endIndex: 6, duration: 4, score: 86),
                           iconSymbol: "figure.outdoor.cycle",
-                          rangeChipLabel: RangeText.chipLabel(WindowSpec(startHour: 6, endHour: 10)),
+                          verdictLine: VerdictLine(window: "7 – 10am", rating: .perfect),
                           tiers: [nil, .green, .green, .green],
                           stripStartLocalHour: 6)
     }
@@ -408,13 +361,13 @@ private struct CardContextMenu: ViewModifier {
                           day: Day(dayIndex: 0, rating: .perfect,
                                    startIndex: 2, endIndex: 6, duration: 4, score: 86),
                           iconSymbol: "figure.outdoor.cycle",
-                          rangeChipLabel: RangeText.chipLabel(WindowSpec(startHour: 6, endHour: 10)),
+                          verdictLine: VerdictLine(window: "7 – 10am", rating: .perfect),
                           tiers: [nil, .green, .green, .green],
                           stripStartLocalHour: 6)
         ScoreRingCardView(activity: forecast.activities[2],
                           day: Day(dayIndex: 0, rating: nil, score: 31),
                           iconSymbol: "figure.run",
-                          rangeChipLabel: RangeText.chipLabel(WindowSpec(startHour: 6, endHour: 9)),
+                          verdictLine: VerdictLine(window: nil, rating: nil),
                           tiers: [.red, .red, .red],
                           stripStartLocalHour: 6)
     }
