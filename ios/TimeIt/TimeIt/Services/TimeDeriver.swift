@@ -9,6 +9,8 @@ struct TimeDeriver {
     private let hourFormatter: DateFormatter
     private let weekdayFormatter: DateFormatter
     private let weekdayLetterFormatter: DateFormatter
+    private let shortWeekdayFormatter: DateFormatter
+    private let dateKeyFormatter: DateFormatter
 
     init?(forecastStart: String, timezone: String) {
         guard let date = ISO8601DateFormatter().date(from: forecastStart),
@@ -37,6 +39,33 @@ struct TimeDeriver {
         weekdayLetterFormatter.locale = Locale(identifier: "en_US_POSIX")
         weekdayLetterFormatter.timeZone = zone
         weekdayLetterFormatter.dateFormat = "EEEEE"
+
+        shortWeekdayFormatter = DateFormatter()
+        shortWeekdayFormatter.locale = Locale(identifier: "en_US_POSIX")
+        shortWeekdayFormatter.timeZone = zone
+        shortWeekdayFormatter.dateFormat = "EEE"
+
+        dateKeyFormatter = DateFormatter()
+        dateKeyFormatter.locale = Locale(identifier: "en_US_POSIX")
+        dateKeyFormatter.calendar = cal
+        dateKeyFormatter.timeZone = zone
+        dateKeyFormatter.dateFormat = "yyyy-MM-dd"
+    }
+
+    /// A day bucket's calendar date in the LOCATION's zone, "2026-06-19" —
+    /// the passed-day store's key (the server keys its dedup on the same
+    /// bucket date, never on indices).
+    func dateKey(forDayIndex dayIndex: Int) -> String {
+        let day = calendar.date(byAdding: .day, value: dayIndex, to: calendar.startOfDay(for: start)) ?? start
+        return dateKeyFormatter.string(from: day)
+    }
+
+    /// "Thu" — the Coming days list's day names.
+    func shortWeekday(forDayIndex dayIndex: Int) -> String {
+        guard let day = calendar.date(byAdding: .day, value: dayIndex, to: calendar.startOfDay(for: start)) else {
+            return ""
+        }
+        return shortWeekdayFormatter.string(from: day)
     }
 
     /// The UTC instant of `hours[index]`.

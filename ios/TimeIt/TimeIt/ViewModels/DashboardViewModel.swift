@@ -44,6 +44,9 @@ final class DashboardViewModel: ObservableObject {
     let store: ActivityStore
     /// Shared with the city-picker sheet for the same reason as `store`.
     let preferences: PreferencesStore
+    /// The passed-day memory (lane RETHINK): retained morning results and
+    /// the overlay / hours-over dismissals, per Activity per local date.
+    let passedDays: PassedDayStore
     private var cancellables: Set<AnyCancellable> = []
     /// Monotonic guard — only the newest in-flight load may publish its result.
     private var loadGeneration = 0
@@ -103,6 +106,7 @@ final class DashboardViewModel: ObservableObject {
          store: ActivityStore? = nil,
          preferences: PreferencesStore? = nil,
          cache: ForecastCache? = nil,
+         passedDays: PassedDayStore? = nil,
          deviceTimeZone: TimeZone = .current,
          now: @escaping () -> Date = Date.init) {
         self.api = api
@@ -112,6 +116,7 @@ final class DashboardViewModel: ObservableObject {
         self.locationProvider = locationProvider ?? LocationManager.shared
         self.store = store ?? ActivityStore.shared
         self.preferences = preferences ?? PreferencesStore.shared
+        self.passedDays = passedDays ?? PassedDayStore.shared
 
         self.store.$activities
             .dropFirst()
@@ -372,6 +377,7 @@ final class DashboardViewModel: ObservableObject {
     /// effects a successful fetch has always had.
     private func publish(_ entry: ForecastCacheEntry, for active: ActiveLocation) {
         forecast = entry.response
+        recordMorningResults()
         lastUpdated = entry.fetchedAt
         isLoading = false
         timezoneWarning = timezoneWarningIfNeeded(for: active, forecastTimezone: entry.response.timezone)
@@ -466,7 +472,9 @@ final class DashboardViewModel: ObservableObject {
                                  tiers: rangeStripTiers(for: authored, dayIndex: dayIndex),
                                  stripStartLocalHour: rangeSlots(for: authored, dayIndex: dayIndex).first?.localHour,
                                  weekDots: WeekDots.dots(for: rating, deriver: deriver,
-                                                         nocturnal: authored.isNocturnal))
+                                                         nocturnal: authored.isNocturnal),
+                                 verdictLine: VerdictLine(day: rawDay(for: rating, dayIndex: dayIndex),
+                                                          deriver: deriver))
         } catch {
             return nil
         }
@@ -553,6 +561,53 @@ final class DashboardViewModel: ObservableObject {
     func rawDay(for activity: ActivityRating, dayIndex: Int = 0) -> Day? {
         guard activity.days.indices.contains(dayIndex) else { return nil }
         return activity.days[dayIndex]
+    }
+
+    // MARK: Passed day (lane RETHINK, owner ruling 05 a)
+
+    /// True once today's chosen hours are over for this Activity — the card
+    /// then shows tomorrow and the detail opens on it.
+    func hasPassedToday(activityId: String) -> Bool {
+        guard let authored = authoredActivity(forActivityId: activityId),
+              let rating = rating(forActivityId: activityId) else { return false }
+        return PassedDay.hasPassed(window: authored.window, days: rating.days,
+                                   deriver: timeDeriver, now: now())
+    }
+
+    /// The day the card shows, its ring caption and its greyed dot.
+    func shownCardDay(forActivityId activityId: String) -> PassedDay.CardDay {
+        PassedDay.CardDay(passed: hasPassedToday(activityId: activityId))
+    }
+
+    /// Day 0's bucket date in the location's zone — the passed-day key.
+    var todayKey: String? { timeDeriver?.dateKey(forDayIndex: 0) }
+
+    func passedDayEntry(activityId: String) -> PassedDayStore.Entry {
+        todayKey.map { passedDays.entry(activityId: activityId, date: $0) } ?? .init()
+    }
+
+    func dismissPassedOverlay(activityId: String) {
+        guard let todayKey else { return }
+        objectWillChange.send()
+        passedDays.dismissOverlay(activityId: activityId, date: todayKey)
+    }
+
+    func dismissHoursOverRow(activityId: String) {
+        guard let todayKey else { return }
+        objectWillChange.send()
+        passedDays.dismissRow(activityId: activityId, date: todayKey)
+    }
+
+    /// Retains every rated day 0 seen before its hours are over — the
+    /// hours-over row's "Best was …" (owner ruling 06 a). Last seen wins;
+    /// a null or passed day 0 writes nothing.
+    func recordMorningResults() {
+        guard let forecast, let deriver = timeDeriver, let todayKey else { return }
+        for rating in forecast.activities where !hasPassedToday(activityId: rating.activityId) {
+            guard let day = rating.days.first(where: { $0.dayIndex == 0 }),
+                  let result = MorningResult(VerdictLine(day: day, deriver: deriver)) else { continue }
+            passedDays.recordMorning(result, activityId: rating.activityId, date: todayKey)
+        }
     }
 
     /// The current response's rating for an authored id — keeps a pushed

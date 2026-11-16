@@ -53,10 +53,10 @@ private struct TileSurface: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .background(fill, in: RoundedRectangle(cornerRadius: MetricTile.corner))
+            .background(fill, in: RoundedRectangle(cornerRadius: MetricTile.corner, style: .continuous))
             .overlay {
                 if ringed {
-                    RoundedRectangle(cornerRadius: MetricTile.corner)
+                    RoundedRectangle(cornerRadius: MetricTile.corner, style: .continuous)
                         .strokeBorder(Theme.accentBrand, lineWidth: MetricTile.ringWidth)
                 }
             }
@@ -101,9 +101,9 @@ struct AddMetricTile: View {
         .padding(.vertical, 24)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.detailContainer)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.lg))
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.lg, style: .continuous))
         .cardLift(cornerRadius: Theme.Radius.lg)
-        .contentShape(RoundedRectangle(cornerRadius: Theme.Radius.lg))
+        .contentShape(RoundedRectangle(cornerRadius: Theme.Radius.lg, style: .continuous))
         // The press state `PressStyle` gave the old `Button` (POLISH item 8):
         // 0.97 on touch-down, the release spring back, nothing under Reduce
         // Motion. A simultaneous never-completing long press only reports
@@ -207,7 +207,7 @@ struct MetricTileGrid: View {
                 .padding(MetricTile.padding)
                 .frame(maxWidth: .infinity, minHeight: MetricTile.height, alignment: .topLeading)
                 .modifier(TileSurface(ringed: selected, fill: Theme.cardBackground))
-                .contentShape(RoundedRectangle(cornerRadius: MetricTile.corner))
+                .contentShape(RoundedRectangle(cornerRadius: MetricTile.corner, style: .continuous))
             }
             .buttonStyle(PressStyle())
             .sensoryFeedback(.selection, trigger: selected)
@@ -355,13 +355,13 @@ struct PriorityStepView: View {
                 // dark), with a ground-coloured gap between ring and fill.
                 .overlay {
                     if chosen {
-                        RoundedRectangle(cornerRadius: MetricTile.corner + MetricTile.outlineGap)
+                        RoundedRectangle(cornerRadius: MetricTile.corner + MetricTile.outlineGap, style: .continuous)
                             .strokeBorder(Theme.accentBrand, lineWidth: MetricTile.outlineWidth)
                             .padding(-MetricTile.outlineGap)
                             .transition(.opacity)
                     }
                 }
-                .contentShape(RoundedRectangle(cornerRadius: MetricTile.corner))
+                .contentShape(RoundedRectangle(cornerRadius: MetricTile.corner, style: .continuous))
             }
             .buttonStyle(PressStyle())
             .sensoryFeedback(.selection, trigger: chosen)

@@ -190,7 +190,7 @@ enum Theme {
         static let listBelowHeader: CGFloat = 14
         /// The gap between cards in the list (the 10pt md token; a 12pt
         /// try on 2026-11-05 was returned).
-        static let cardGap: CGFloat = 10
+        static let cardGap: CGFloat = 16 // lane RETHINK: one 16pt gap between containers
         /// The header's vertical rhythm: location → numeral, numeral → meta
         /// row (the original values; wider tries on 2026-11-05 were returned).
         static let headerLocationToNumeral: CGFloat = 2
@@ -199,10 +199,11 @@ enum Theme {
 
     /// The Figma corner radii.
     enum Radius {
-        static let sm: CGFloat = 6
-        static let md: CGFloat = 10
-        /// Cards and the detail hero.
-        static let lg: CGFloat = 16
+        /// Inner containers (lane RETHINK: r8 inner → r24 outer).
+        static let sm: CGFloat = RethinkLayout.innerRadius
+        static let md: CGFloat = 12
+        /// Cards, the detail hero, the metric cards: inner + padding.
+        static let lg: CGFloat = RethinkLayout.outerRadius
         static let full: CGFloat = 999
     }
 
@@ -210,15 +211,15 @@ enum Theme {
     /// Values off the scale above are the frame's own measured gaps.
     enum Detail {
         /// Side margin for the hero and the cards.
-        static let sideMargin: CGFloat = Spacing.lg
+        static let sideMargin: CGFloat = RethinkLayout.margin
         /// Nav bar → week-dot row.
         static let topPadding: CGFloat = 12
         /// Week-dot row → hero.
         static let dotsToHero: CGFloat = Spacing.md
         /// Hero → metric grid, and the grid's own row gap.
         static let sectionGap: CGFloat = 12
-        static let gridRowGap: CGFloat = 12
-        static let gridColumnGap: CGFloat = 13
+        static let gridRowGap: CGFloat = RethinkLayout.gap
+        static let gridColumnGap: CGFloat = RethinkLayout.gap
 
         // The hero (owner ruling 2026-11-04): ring 64 inset 16 from the
         // top/left, the rating word 12 under it, 16 to the bottom
@@ -372,7 +373,7 @@ enum Theme {
         static let editCircleBlend: CGFloat = 8
 
         /// The metric card's inner inset.
-        static let metricInset: CGFloat = 20
+        static let metricInset: CGFloat = RethinkLayout.inset
 
         /// The metric grid: two columns, one at accessibility sizes (owner
         /// ruling 5's surviving part — reduce columns, don't truncate).
@@ -637,7 +638,7 @@ private struct CardLift: ViewModifier {
     @Environment(\.colorScheme) private var colorScheme
 
     func body(content: Content) -> some View {
-        let shape = RoundedRectangle(cornerRadius: cornerRadius)
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
         if colorScheme == .dark {
             content
                 .overlay {

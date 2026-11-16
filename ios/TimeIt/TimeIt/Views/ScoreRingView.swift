@@ -2,8 +2,9 @@ import SwiftUI
 
 /// The day-score ring — Figma "Score ring" (card v2 `458:394`, detail v3 hero
 /// `464:2301`). A full track circle with an arc whose sweep is `score`/100,
-/// drawn clockwise from 12 o'clock with butt caps, and the numeral inside in
-/// the day's rating-tier colour.
+/// drawn clockwise from 12 o'clock with butt caps, and the numeral centred on
+/// the ring's centre, both in the SCORE band's colour (`Theme.scoreBandTint`,
+/// owner ruling 02 a — the verdict keeps its own tint on its own line).
 ///
 /// `score == nil` renders the track alone: no arc and NO numeral — a score the
 /// server did not send is never fabricated (ADR-0011 null rule).
@@ -55,7 +56,7 @@ struct ScoreRingView: View {
                     // SwiftUI trims from 3 o'clock; the frame starts at 12.
                     .rotationEffect(.degrees(-90))
                 Text("\(score ?? 0)")
-                    .font(.system(size: numeralSize, weight: .semibold))
+                    .font(.system(size: numeralSize, weight: .semibold).monospacedDigit())
                     .tracking(style.numeralTracking)
                     .foregroundStyle(tint)
                     // The guard under the cap: a numeral never overprints

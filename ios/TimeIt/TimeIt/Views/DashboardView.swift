@@ -331,7 +331,7 @@ struct DashboardView: View {
                     .frame(height: 12)
             }
             .padding(.top, listTopInset)
-            .padding(.horizontal, 14)
+            .padding(.horizontal, RethinkLayout.margin)
         }
     }
 
@@ -368,8 +368,8 @@ struct DashboardView: View {
         .padding(EdgeInsets(top: 12, leading: 14, bottom: 10, trailing: 14))
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Theme.cardBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .cardLift(cornerRadius: 16, light: .rest)
+        .clipShape(RethinkLayout.shape())
+        .cardLift(cornerRadius: RethinkLayout.outerRadius, light: .rest)
         // .contain creates a named CONTAINER — a bare identifier on the
         // stack would clobber the button's own XCUI identifier.
         .accessibilityElement(children: .contain)
@@ -447,13 +447,13 @@ struct DashboardView: View {
                     .lineLimit(2)
             }
             Group {
-                RoundedRectangle(cornerRadius: 6)
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
                     .fill(Theme.timelineTrack)
                     .frame(maxWidth: .infinity)
                     .frame(height: 22)
                 HStack(spacing: 8) {
                     ForEach(0..<3, id: \.self) { _ in
-                        RoundedRectangle(cornerRadius: 999)
+                        RoundedRectangle(cornerRadius: 999, style: .continuous)
                             .fill(Theme.timelineTrack)
                             .frame(width: 48, height: 20)
                     }
@@ -461,10 +461,9 @@ struct DashboardView: View {
             }
             .opacity(0.55)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
+        .padding(RethinkLayout.inset)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 16).fill(Theme.cardBackground.opacity(0.55)))
+        .background(RethinkLayout.shape().fill(Theme.cardBackground.opacity(0.55)))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(activity.label)
         .accessibilityIdentifier("skeletonCard.\(activity.id)")
@@ -557,38 +556,7 @@ struct DashboardView: View {
                             if authored.isDormant {
                                 dormantCard(for: authored)
                             } else if let activity = viewModel.rating(forActivityId: authored.id) {
-                                ZStack(alignment: .topTrailing) {
-                                    NavigationLink(value: DetailRoute(activityId: activity.activityId)) {
-                                        // A minute tick (deferral 5, card half —
-                                        // the detail hero's twin, `aa3a28e`):
-                                        // passed strip hours grey on the minute.
-                                        // A re-render trigger only — the card
-                                        // reads `viewModel.now()`, never the
-                                        // timeline's date (the UI-test clock pin).
-                                        TimelineView(.everyMinute) { _ in
-                                            card(for: activity, authored: authored)
-                                        }
-                                    }
-                                    .buttonStyle(.plain)
-                                    // Long-press → the system context menu
-                                    // (owner ruling 2026-11-11, superseding
-                                    // the 2026-10-06 "no long press"); a
-                                    // plain tap still opens the detail.
-                                    .cardContextMenu(menuActions(for: authored))
-                                    .accessibilityIdentifier("card.\(activity.activityId)")
-                                    // Outside the NavigationLink, so it never
-                                    // pushes the detail. The card gear is gone
-                                    // (owner ruling 2026-10-06 #2): a tap on
-                                    // the card opens the detail, whose circles
-                                    // are the edit doors. The chevron is a
-                                    // plain inline control, not glass chrome.
-                                    chevronButton(for: authored)
-                                    // Centres the 34pt chevron on the frame's
-                                    // glyph (`458:394` Chevron x336–351,
-                                    // y13–29 → centre 343.5, 21 on a 365 card).
-                                    .padding(.top, 4)
-                                    .padding(.trailing, 4.5)
-                                }
+                                liveCard(for: activity, authored: authored)
                             }
                         }
                         .offset(y: staggerOffset(at: leading + position))
@@ -600,7 +568,7 @@ struct DashboardView: View {
                         .frame(height: 12)
                 }
                 .padding(.top, listTopInset)
-                .padding(.horizontal, 14)
+                .padding(.horizontal, RethinkLayout.margin)
                 // The top overscroll: the padded content's top in the scroll
                 // view's space rests at 0 and goes positive when pulled past
                 // the top. Clamped and deduplicated, so normal scrolling never
@@ -797,7 +765,7 @@ struct DashboardView: View {
             .accessibilityLabel("Dismiss")
             .accessibilityIdentifier("pushCallout.dismiss")
         }
-        .background(RoundedRectangle(cornerRadius: 16).fill(Theme.cardBackground))
+        .background(RethinkLayout.shape().fill(Theme.cardBackground))
     }
 
     /// The callout's copy, read in full by VoiceOver from the resting bell too.
@@ -963,32 +931,111 @@ struct DashboardView: View {
     /// name, the numerals and the colour: the sublabel and the metric chips
     /// are not on the v2 frame, so they no longer render
     /// here; the "why" moved to the detail's metric cards.
-    private func card(for activity: ActivityRating, authored: AuthoredActivity) -> ScoreRingCardView {
-        // Today-only (owner ruling 2026-10-02): always day 0; the week is
-        // visible in the card's dot row.
-        let dayIndex = viewModel.cardDayIndex(for: authored)
+    private func card(for activity: ActivityRating, authored: AuthoredActivity,
+                      shown: PassedDay.CardDay) -> ScoreRingCardView {
+        // Today, or tomorrow once today's hours are over (lane RETHINK,
+        // owner ruling 05 a) — caption "Tomorrow", today's dot greyed.
+        let dayIndex = shown.dayIndex
         // The FULL Range, gone hours included (owner ruling 2026-11-04).
         let slots = viewModel.rangeSlots(for: authored, dayIndex: dayIndex)
+        let day = viewModel.rawDay(for: activity, dayIndex: dayIndex)
         return ScoreRingCardView(
-            // RAW day: a rating-null day still carries its score (ADR-0011),
-            // and the frame draws exactly that (the red 31 ring).
+            // RAW day: a rating-null day still carries its score (ADR-0011).
             activity: activity,
-            day: viewModel.rawDay(for: activity, dayIndex: dayIndex),
+            day: day,
             iconSymbol: authored.iconSymbol,
-            rangeChipLabel: authored.window.map(RangeText.chipLabel),
+            verdictLine: VerdictLine(day: day, deriver: viewModel.timeDeriver),
+            caption: shown.caption,
             tiers: viewModel.rangeStripTiers(for: authored, dayIndex: dayIndex),
             stripStartLocalHour: slots.first?.localHour,
-            weekDots: viewModel.timeDeriver.map {
-                WeekDots.dots(for: activity, deriver: $0,
-                              nocturnal: viewModel.isNocturnal(activityId: activity.activityId))
-            } ?? [],
+            weekDots: weekDots(for: activity, shown: shown),
             showsWeekDots: !preferences.collapsedCardIds.contains(authored.id),
+            ringedDayIndex: dayIndex,
+            dimmedDayIndex: shown.dimmedDayIndex,
             // Note 16: a week dot opens the detail on THAT day; the rest of
-            // the card still opens today.
+            // the card opens the shown day.
             onDotTap: { day in
                 navigationPath.append(DetailRoute(activityId: activity.activityId, dayIndex: day))
             }
         )
+    }
+
+    /// One live card with its chevron, overlay and route. The minute tick
+    /// (deferral 5) wraps ALL of it, so the card, the overlay, the blur and
+    /// the route flip together the minute today's hours end (lane RETHINK).
+    /// A re-render trigger only — everything reads `viewModel.now()`, never
+    /// the timeline's date (the UI-test clock pin).
+    private func liveCard(for activity: ActivityRating, authored: AuthoredActivity) -> some View {
+        TimelineView(.everyMinute) { _ in
+            // The shown day: tomorrow once today's hours
+            // are over (ruling 05 a).
+            let shown = viewModel.shownCardDay(forActivityId: activity.activityId)
+            ZStack(alignment: .topTrailing) {
+                NavigationLink(value: DetailRoute(activityId: activity.activityId,
+                                                  dayIndex: shown.dayIndex)) {
+                    card(for: activity, authored: authored, shown: shown)
+                }
+                .buttonStyle(.plain)
+                // Long-press → the system context menu
+                // (owner ruling 2026-11-11, superseding
+                // the 2026-10-06 "no long press"); a
+                // plain tap still opens the detail.
+                .cardContextMenu(menuActions(for: authored))
+                .accessibilityIdentifier("card.\(activity.activityId)")
+                // Outside the NavigationLink, so it never
+                // pushes the detail. The card gear is gone
+                // (owner ruling 2026-10-06 #2): a tap on
+                // the card opens the detail, whose circles
+                // are the edit doors. The chevron is a
+                // plain inline control, not glass chrome.
+                chevronButton(for: authored)
+                // Centres the 34pt chevron on the frame's
+                // glyph (`458:394` Chevron x336–351,
+                // y13–29 → centre 343.5, 21 on a 365 card).
+                .padding(.top, 4)
+                .padding(.trailing, 4.5)
+            }
+            // The glass: the card itself blurs under the
+            // overlay's tints (Figma backdrop blur 20).
+            .blur(radius: showsOverlay(shown, authored) ? RethinkLayout.Overlay.blur : 0)
+            // Over the link AND the chevron, so a tap
+            // dismisses it instead of pushing (lane
+            // RETHINK, card overlay — that card only).
+            .overlay {
+                if showsOverlay(shown, authored), let window = authored.window {
+                    PassedCardOverlay(rangeLabel: RangeText.chipLabel(window),
+                                      activityId: authored.id) {
+                        withAnimation(reduceMotion ? .easeInOut(duration: 0.2)
+                                                   : Theme.Motion.value) {
+                            viewModel.dismissPassedOverlay(activityId: authored.id)
+                        }
+                    }
+                    .transition(.opacity)
+                }
+            }
+        }
+    }
+
+    /// The passed-day overlay covers this card until tapped away today.
+    private func showsOverlay(_ shown: PassedDay.CardDay, _ authored: AuthoredActivity) -> Bool {
+        shown.passed && authored.window != nil
+            && !viewModel.passedDayEntry(activityId: authored.id).overlayDismissed
+    }
+
+    /// The card's dots; once today's hours are over its greyed dot keeps the
+    /// retained morning verdict's colour (a refetch leaves day 0 with no
+    /// hours, which would otherwise read "no data").
+    private func weekDots(for activity: ActivityRating, shown: PassedDay.CardDay) -> [WeekDot] {
+        guard let deriver = viewModel.timeDeriver else { return [] }
+        let dots = WeekDots.dots(for: activity, deriver: deriver,
+                                 nocturnal: viewModel.isNocturnal(activityId: activity.activityId))
+        guard shown.passed,
+              let morning = viewModel.passedDayEntry(activityId: activity.activityId).morning else { return dots }
+        return dots.map { dot in
+            guard dot.dayIndex == 0, dot.tier == .noData else { return dot }
+            return WeekDot(dayIndex: 0, letter: dot.letter, name: dot.name,
+                           tier: morning.verdict == .perfect ? .perfect : .good)
+        }
     }
 }
 

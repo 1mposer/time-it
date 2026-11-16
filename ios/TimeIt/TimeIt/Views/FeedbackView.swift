@@ -78,7 +78,7 @@ struct FeedbackView: View {
                 .frame(height: Self.editorHeight)
                 .background(alignment: .topLeading) {
                     ZStack(alignment: .topLeading) {
-                        RoundedRectangle(cornerRadius: 16).fill(Theme.cardBackground)
+                        RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Theme.cardBackground)
                         if viewModel.message.isEmpty {
                             Text(viewModel.kind.placeholder)
                                 .font(.system(size: 15))

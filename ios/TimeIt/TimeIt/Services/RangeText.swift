@@ -18,8 +18,15 @@ enum RangeText {
     /// The card's range chip: "6 – 10am" / "3 – 7pm" / "10pm – 4am" — same-
     /// meridiem collapse like `TimeDeriver.rangeLabel`, spaced dash.
     static func chipLabel(_ window: WindowSpec) -> String {
-        let start = hourText(window.startHour)
-        let end = hourText(window.endHour)
+        spanLabel(startHour: window.startHour, endHour: window.endHour)
+    }
+
+    /// Any two clock hours in the chip style — "7 – 10am", "11pm – 12am"
+    /// (the verdict line's Window, end exclusive). Deliberately NOT
+    /// `TimeDeriver.rangeLabel`, whose unspaced form is the server mirror.
+    static func spanLabel(startHour: Int, endHour: Int) -> String {
+        let start = hourText(startHour)
+        let end = hourText(endHour)
         guard start.suffix(2) == end.suffix(2) else { return "\(start) – \(end)" }
         return "\(start.dropLast(2)) – \(end)"
     }

@@ -8,6 +8,8 @@ struct ReviewPreview {
     let tiers: [HourTier?]
     let stripStartLocalHour: Int?
     let weekDots: [WeekDot]
+    /// The card's verdict line for the shown day (lane RETHINK).
+    var verdictLine: VerdictLine? = nil
 }
 
 /// The Review step (owner ruling 2026-11-11, item 5; Figma `A/R3` frames
@@ -84,7 +86,7 @@ struct ReviewRevealView: View {
                                                    days: preview?.rating.days ?? []),
                           day: preview?.day,
                           iconSymbol: iconSymbol,
-                          rangeChipLabel: rangeChipLabel,
+                          verdictLine: preview?.verdictLine,
                           tiers: preview?.tiers ?? Array(repeating: nil, count: rangeHourCount),
                           stripStartLocalHour: preview?.stripStartLocalHour ?? stripStartLocalHour,
                           weekDots: preview?.weekDots ?? [],

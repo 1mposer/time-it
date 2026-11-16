@@ -12,6 +12,9 @@ import SwiftUI
 struct WeekDotsView: View {
     let dots: [WeekDot]
     let ringedDayIndex: Int?
+    /// Today's dot once its hours are over (lane RETHINK): drawn at
+    /// `dimmedOpacity`, and still a jump target — today stays reachable.
+    var dimmedDayIndex: Int? = nil
     var onTap: ((Int) -> Void)? = nil
     let identifierPrefix: String
 
@@ -35,7 +38,7 @@ struct WeekDotsView: View {
 
     @ViewBuilder
     private func cellContainer(for dot: WeekDot) -> some View {
-        if let onTap, dot.isJumpable {
+        if let onTap, dot.isJumpable || dot.dayIndex == dimmedDayIndex {
             Button {
                 onTap(dot.dayIndex)
             } label: {
@@ -72,6 +75,7 @@ struct WeekDotsView: View {
                 .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
             ZStack {
                 dotShape(dot.tier)
+                    .opacity(dot.dayIndex == dimmedDayIndex ? Self.dimmedOpacity : 1)
                 if ringed {
                     Circle()
                         .strokeBorder(Theme.accentBrand, lineWidth: 1.5)
@@ -81,6 +85,9 @@ struct WeekDotsView: View {
             .frame(width: 18, height: 18)
         }
     }
+
+    /// The greyed today dot (Figma v2 frame 5: the dot at 30%).
+    static let dimmedOpacity: Double = 0.3
 
     @ViewBuilder
     private func dotShape(_ tier: WeekDotTier) -> some View {
