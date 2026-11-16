@@ -90,6 +90,7 @@ final class PreferencesStore: ObservableObject {
             UserDefaults.standard.removeObject(forKey: appearanceKey)
             UserDefaults.standard.removeObject(forKey: pushCalloutRestingKey)
             UserDefaults.standard.removeObject(forKey: openingSeenKey)
+            UserDefaults.standard.removeObject(forKey: exploreModeKey)
         }
         #endif
         return PreferencesStore()
@@ -104,6 +105,7 @@ final class PreferencesStore: ObservableObject {
     static let appearanceKey = "appearance"
     static let pushCalloutRestingKey = "pushCalloutResting"
     static let openingSeenKey = "openingSeen"
+    static let exploreModeKey = "exploreModeActivities"
 
     /// nil = follow the device location (then the last-resolved cache).
     @Published var homeLocation: SavedLocation? {
@@ -165,6 +167,23 @@ final class PreferencesStore: ObservableObject {
         didSet { defaults.set(hasSeenOpening, forKey: Self.openingSeenKey) }
     }
 
+    /// Activities whose detail hero rests on Explore (lane RETHINK — the
+    /// Report / Explore switch, remembered per Activity; default Report).
+    @Published private(set) var exploreModeIds: Set<String> {
+        didSet { persist(exploreModeIds, key: Self.exploreModeKey) }
+    }
+
+    func heroMode(for activityId: String) -> HeroMode {
+        exploreModeIds.contains(activityId) ? .explore : .report
+    }
+
+    func setHeroMode(_ mode: HeroMode, for activityId: String) {
+        switch mode {
+        case .explore: exploreModeIds.insert(activityId)
+        case .report: exploreModeIds.remove(activityId)
+        }
+    }
+
     private let defaults: UserDefaults
 
     init(defaults: UserDefaults = .standard) {
@@ -179,6 +198,7 @@ final class PreferencesStore: ObservableObject {
             .flatMap(WindSpeedUnit.init(rawValue:)) ?? .kmh
         collapsedCardIds = Self.load(Self.collapsedCardsKey, from: defaults) ?? []
         hasSeenOpening = defaults.bool(forKey: Self.openingSeenKey)
+        exploreModeIds = Self.load(Self.exploreModeKey, from: defaults) ?? []
     }
 
     /// First launch only: adopt the system's appearance; a stored choice wins.
@@ -206,6 +226,8 @@ final class PreferencesStore: ObservableObject {
     func pruneCollapsedCards(keeping ids: Set<String>) {
         let kept = collapsedCardIds.intersection(ids)
         if kept != collapsedCardIds { collapsedCardIds = kept }
+        let explore = exploreModeIds.intersection(ids)
+        if explore != exploreModeIds { exploreModeIds = explore }
     }
 
     private static func load<Value: Decodable>(_ key: String, from defaults: UserDefaults) -> Value? {
