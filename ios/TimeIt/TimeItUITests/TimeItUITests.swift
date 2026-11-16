@@ -278,7 +278,7 @@ final class TimeItUITests: XCTestCase {
 
         XCTAssertTrue(app.navigationBars["Cycling"].waitForExistence(timeout: 5), "the detail opened")
         XCTAssertTrue(app.buttons["detail.weekDot.2"].isSelected, "the tapped day is the selected day")
-        XCTAssertEqual(app.otherElements["detail.score"].label, "No Window, score 1 out of 100",
+        XCTAssertEqual(app.otherElements["detail.score"].label, "Average 1 out of 100, No good time",
                        "the hero reads the tapped day, not today")
 
         // A plain card tap (on the ring, away from the dots) still opens today.
