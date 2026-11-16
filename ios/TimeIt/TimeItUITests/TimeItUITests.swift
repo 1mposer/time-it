@@ -1495,6 +1495,50 @@ final class TimeItUITests: XCTestCase {
         XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5), "back returns to the dashboard")
     }
 
+    /// AX5 (lane RETHINK, done-when): the passed-day overlay, the hours-over
+    /// row, Coming days and the Explore rows never run off the screen;
+    /// screenshots of each for the by-eye clip check.
+    func testPassedDaySurfacesHoldAtAccessibilityXXXL() {
+        let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_SEED_LIVE", "UITEST_LOCATION",
+                                        "UITEST_APPEARANCE=light", "UITEST_NOW=2026-06-19T07:20:00Z"],
+                            contentSize: .accessibilityExtraExtraExtraLarge)
+        let card = app.buttons["card.cycling"]
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        let overlay = app.buttons["card.overlay.cycling"]
+        scrollTo(overlay, in: app)
+        XCTAssertTrue(overlay.isHittable)
+        XCTAssertLessThanOrEqual(overlay.frame.height, card.frame.height + 0.5, "the overlay covers that card only")
+        assertNothingOverflowsHorizontally(app)
+        attachScreenshot(app, named: "ax5-overlay")
+        overlay.tap()
+        XCTAssertTrue(overlay.waitForNonExistence(timeout: 2))
+        attachScreenshot(app, named: "ax5-card-tomorrow")
+
+        tapCardBody(card)
+        let row = app.buttons["detail.hoursOver"]
+        XCTAssertTrue(row.waitForExistence(timeout: 5))
+        assertNothingOverflowsHorizontally(app)
+        attachScreenshot(app, named: "ax5-hours-over")
+        let coming = app.descendants(matching: .any)["detail.comingDays"]
+        scrollTo(coming, in: app)
+        assertNothingOverflowsHorizontally(app)
+        attachScreenshot(app, named: "ax5-coming-days")
+
+        app.swipeDown()
+        app.swipeDown()
+        let explore = app.buttons["detail.modeSwitch.explore"]
+        scrollTo(explore, in: app)
+        explore.tap()
+        let forward = app.buttons["detail.stepForward"]
+        XCTAssertTrue(forward.waitForExistence(timeout: 3))
+        forward.tap()
+        let lookingAt = app.otherElements["detail.row.lookingAt"]
+        XCTAssertTrue(lookingAt.waitForExistence(timeout: 3))
+        Thread.sleep(forTimeInterval: 0.6)
+        assertNothingOverflowsHorizontally(app)
+        attachScreenshot(app, named: "ax5-explore-rows")
+    }
+
     /// The smallest size: the hero keeps its side-by-side layout and the
     /// text shrinks from the Figma defaults.
     func testExtraSmallKeepsTheSideBySideHero() {

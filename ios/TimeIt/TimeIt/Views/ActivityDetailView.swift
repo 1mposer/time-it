@@ -517,22 +517,7 @@ struct ActivityDetailView: View {
     private var exploreRowsView: some View {
         VStack(spacing: 0) {
             ForEach(exploreRows) { row in
-                HStack(spacing: 0) {
-                    Text(row.label)
-                        .scaledFont(size: Hero.rowFont)
-                        .foregroundStyle(Theme.secondaryText)
-                        .frame(minWidth: Hero.valueColumn, alignment: .leading)
-                    Text(row.value)
-                        .scaledFont(size: Hero.rowFont)
-                        .foregroundStyle(Theme.primaryText)
-                    Spacer(minLength: RethinkLayout.Grid.x2)
-                    Text(row.result)
-                        .scaledFont(size: Hero.rowFont, weight: row.resultIsVerdict ? .semibold : .regular)
-                        .foregroundStyle(row.resultIsVerdict ? Theme.ratingTint(row.resultRating)
-                                                             : Theme.primaryText)
-                        .contentTransition(.numericText())
-                }
-                .lineLimit(2)
+                exploreRowContent(row)
                 .padding(.horizontal, Hero.bandHorizontalInset)
                 .padding(.vertical, RethinkLayout.Grid.x2)
                 .frame(minHeight: Hero.rowHeight)
@@ -549,6 +534,39 @@ struct ActivityDetailView: View {
             }
         }
         .animation(fade, value: exploreRows)
+    }
+
+    /// One row's words: label · value · result on one line, or at
+    /// accessibility sizes the label above the value and result (HIG:
+    /// stack, don't truncate).
+    @ViewBuilder
+    private func exploreRowContent(_ row: ExploreRows.Row) -> some View {
+        let label = Text(row.label)
+            .scaledFont(size: Hero.rowFont)
+            .foregroundStyle(Theme.secondaryText)
+        let value = Text(row.value)
+            .scaledFont(size: Hero.rowFont)
+            .foregroundStyle(Theme.primaryText)
+        let result = Text(row.result)
+            .scaledFont(size: Hero.rowFont, weight: row.resultIsVerdict ? .semibold : .regular)
+            .foregroundStyle(row.resultIsVerdict ? Theme.ratingTint(row.resultRating) : Theme.primaryText)
+            .contentTransition(.numericText())
+        if isStacked {
+            VStack(alignment: .leading, spacing: RethinkLayout.Grid.x1) {
+                label
+                value
+                result
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        } else {
+            HStack(spacing: 0) {
+                label.frame(minWidth: Hero.valueColumn, alignment: .leading)
+                value
+                Spacer(minLength: RethinkLayout.Grid.x2)
+                result
+            }
+            .lineLimit(1)
+        }
     }
 
     /// "Back to 6 – 10am" — full width, 36 tall, r8; springs the row home.

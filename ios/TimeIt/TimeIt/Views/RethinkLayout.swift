@@ -77,6 +77,10 @@ enum RethinkLayout {
         static let hintFont: CGFloat = 13
         static let copyToHint = Grid.x2
         static let rimWidth: CGFloat = 1
+        /// The copy's Dynamic Type ceiling and shrink floor — the overlay
+        /// can never be taller than the card it covers.
+        static let typeCap: DynamicTypeSize = .accessibility1
+        static let minimumScale: CGFloat = 0.5
         /// Raw tints — no Semantic token exists for dark glass (FIGMA note).
         static let lightFill = Color.white.opacity(0.62)
         static let darkFill = Color(red: 22 / 255, green: 24 / 255, blue: 23 / 255).opacity(0.62)

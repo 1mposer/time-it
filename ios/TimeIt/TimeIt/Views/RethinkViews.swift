@@ -28,11 +28,16 @@ struct PassedCardOverlay: View {
                     .lineSpacing(Layout.copyLineSpacing)
                     .foregroundStyle(Theme.primaryText)
                     .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
+                    // The overlay is the card's size: at the largest text
+                    // sizes the copy shrinks to fit rather than clip.
+                    .minimumScaleFactor(Layout.minimumScale)
                 Text(HoursOverCopy.overlayHint)
                     .scaledFont(size: Layout.hintFont, weight: .medium)
                     .foregroundStyle(Theme.secondaryText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(Layout.minimumScale)
             }
+            .dynamicTypeSize(...Layout.typeCap)
             .padding(RethinkLayout.inset)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             // The frame's two tints over the card, which the dashboard
@@ -99,7 +104,7 @@ struct HoursOverRow: View {
             }
             .padding(RethinkLayout.inset)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Theme.cardBackground, in: shape)
+            .background(Theme.detailContainer, in: shape)
             .overlay(shape.strokeBorder(Theme.perfectGreen, lineWidth: Layout.pressedBorder)
                 .opacity(pressed ? 1 : 0))
             .contentShape(shape)
@@ -168,25 +173,42 @@ struct ComingDaysCard: View {
         .accessibilityIdentifier("detail.comingDays")
     }
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     private func rowView(_ row: ComingDays.Row) -> some View {
-        HStack(spacing: Layout.dotToName) {
-            Circle()
-                .fill(dotColor(row.tier))
-                .frame(width: Layout.dotSize, height: Layout.dotSize)
-            Text(row.dayName)
-                .scaledFont(size: Layout.nameFont)
-                .foregroundStyle(Theme.primaryText)
-                .frame(minWidth: nameColumn, alignment: .leading)
-            Text(row.line.text)
-                .scaledFont(size: Layout.lineFont, weight: .semibold)
-                .foregroundStyle(row.line.tint)
-                .fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: RethinkLayout.Grid.x2)
-            if let average = row.average {
-                Text(average)
-                    .scaledFont(size: Layout.averageFont, weight: .medium)
-                    .foregroundStyle(Theme.secondaryText)
-                    .fixedSize()
+        let dot = Circle()
+            .fill(dotColor(row.tier))
+            .frame(width: Layout.dotSize, height: Layout.dotSize)
+        let name = Text(row.dayName)
+            .scaledFont(size: Layout.nameFont)
+            .foregroundStyle(Theme.primaryText)
+        let line = Text(row.line.text)
+            .scaledFont(size: Layout.lineFont, weight: .semibold)
+            .foregroundStyle(row.line.tint)
+            .fixedSize(horizontal: false, vertical: true)
+        let average = row.average.map {
+            Text($0)
+                .scaledFont(size: Layout.averageFont, weight: .medium)
+                .foregroundStyle(Theme.secondaryText)
+        }
+        return Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                // Stack, don't truncate (HIG).
+                VStack(alignment: .leading, spacing: RethinkLayout.Grid.x1) {
+                    HStack(spacing: Layout.dotToName) { dot; name }
+                    line
+                    average
+                }
+                .padding(.vertical, RethinkLayout.Grid.x1)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                HStack(spacing: Layout.dotToName) {
+                    dot
+                    name.frame(minWidth: nameColumn, alignment: .leading)
+                    line
+                    Spacer(minLength: RethinkLayout.Grid.x2)
+                    average?.fixedSize()
+                }
             }
         }
         .frame(minHeight: rowHeight)
