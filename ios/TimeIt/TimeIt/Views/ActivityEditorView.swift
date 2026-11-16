@@ -343,7 +343,7 @@ struct ActivityEditorView: View {
             }
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: 16))
+            .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             .cardLift(cornerRadius: 16, light: .rest)
             .contentShape(Rectangle())
             .onTapGesture { nameFocused = true }
@@ -390,7 +390,7 @@ struct ActivityEditorView: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: 16))
+        .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .cardLift(cornerRadius: 16, light: .rest)
     }
 
@@ -403,10 +403,10 @@ struct ActivityEditorView: View {
                 .foregroundStyle(selected ? Theme.accentBrand : Theme.primaryText.opacity(0.75))
                 .frame(width: 48, height: 48)
                 .background(selected ? Theme.accentTint : Color.clear,
-                            in: RoundedRectangle(cornerRadius: 12))
+                            in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .overlay {
                     if selected {
-                        RoundedRectangle(cornerRadius: 12)
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
                             .strokeBorder(Theme.accentBrand, lineWidth: MetricTile.ringWidth)
                     }
                 }
@@ -499,7 +499,7 @@ struct ActivityEditorView: View {
         }
         .padding(.vertical, 10)
         .frame(maxWidth: .infinity)
-        .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: 16))
+        .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .cardLift(cornerRadius: 16, light: .rest)
     }
 

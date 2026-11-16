@@ -94,7 +94,7 @@ struct MetricCardView: View {
         // The detail's container green (POLISH item 4) — this card only
         // ever renders on the detail.
         .background(Theme.detailContainer)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.lg))
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.lg, style: .continuous))
         .cardLift(cornerRadius: Theme.Radius.lg)
         .accessibilityElement(children: .ignore)
         .accessibilityIdentifier("detail.metric.\(metric)")
@@ -114,11 +114,11 @@ struct MetricCardView: View {
         } else if let domain {
             VStack(spacing: 4) {
                 ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 2)
+                    RoundedRectangle(cornerRadius: 2, style: .continuous)
                         .fill(Theme.timelineTrack)
                         .frame(width: Self.trackWidth, height: Self.trackHeight)
                     if let threshold, let span = MetricGauge.bandSpan(threshold: threshold, in: domain) {
-                        RoundedRectangle(cornerRadius: 3)
+                        RoundedRectangle(cornerRadius: 3, style: .continuous)
                             // Always the "your band" green tint, whatever the
                             // verdict — the band is the ASK, not the answer.
                             .fill(Theme.perfectGreen.opacity(0.18))
