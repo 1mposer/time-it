@@ -1,44 +1,26 @@
 import SwiftUI
 
-/// Activity Detail v3 (Figma `456:358` / `464:2348`, owner-approved
-/// 2026-09-30; day-jump `508:417`, owner-approved 2026-10-02; hero carousel —
-/// depth & polish pass build 8, owner rulings 2026-10-31 / 2026-11-01 /
-/// 2026-11-03 / 2026-11-04). Opens on TODAY. Top to bottom: the week-dot row
-/// (the day-jump control — ring on the selected day), the hero (the 64pt
-/// day-score ring + rating word, and beside it the hour row: `−` · a
-/// natively scrolling strip of tier-coloured hour pills · `+`, and under it
-/// row 1 — the fixed Range line — and, away from the Range, row 2 — the span
-/// action row), square metric cards two per row AVERAGING the chosen hours,
-/// then the two captioned edit circles — Range / Metrics (owner rulings
-/// 2026-11-04; they replaced the list card).
+/// Activity Detail — lane RETHINK (Figma Mess around "Final - Opus v2",
+/// owner-approved 2026-11-16; detail v3 lineage `456:358`). Top to bottom:
+/// the week-dot row (the day-jump control), on the tomorrow detail after
+/// today's hours passed the "Today's hours are over" row, the HERO with its
+/// Report / Explore switch, the metric cards averaging the shown hours, the
+/// Coming days list (tomorrow detail only), then the Range / Metrics edit
+/// circles and Delete.
 ///
-/// The one-place rule (owner rulings 2026-11-04): the user's chosen Range
-/// lives in exactly ONE place on the detail and never changes — row 1 always
-/// reads "Your range 6 – 10am" (" · Time passed" once the shown day's whole
-/// Range has ended), wherever the carousel is. It never names the span.
-///
-/// Hero wording (owner rulings 2026-11-04): a day with no rating reads
-/// "No Window" under the ring in Regular 12 light red (`Theme.noWindowTint`)
-/// — Perfect / Good stay Semibold in their tint.
-///
-/// The row always shows the FULL Range: hours of it before the forecast
-/// start are drawn grey with no data. No Calculate button: the cards
-/// recompute live as the row settles, the Range's home slots keep a faint
-/// ghost outline while the span drifts, and the return button at row 1's end
-/// (present only away from the Range) or a tap on the ring springs the row
-/// home.
-///
-/// The hero ring shows the selected DAY's score (`days[selectedDayIndex]
-/// .score` from the wire) — the ring, the rating word and the day selection
-/// never move with the carousel, EXCEPT for a scored span (owner rulings
-/// 2026-11-04): away from the Range, row 2's glass "Score 7 – 11am" capsule
-/// asks the SERVER to score the shown hours (`DashboardViewModel.scoreSpan`
-/// — no client formula); the ring then counts to that score, the word takes
-/// the span's verdict, and the capsule becomes the quiet "Scored 7 – 11am" —
-/// the one place the span is named (no caption under the word). The span
-/// score is detail-only and cleared the moment the span, the day or the
-/// forecast changes, so the ring shows the day score or the CURRENT span's,
-/// never a stale span's; a new span brings the capsule back.
+/// Report (default, remembered per Activity): the day-score ring + caption
+/// ("Average", "Tomorrow" on the passed-day tomorrow), the verdict line
+/// "7 – 10am · Perfect", the Range strip with its integers and "Your hours
+/// 6 – 10am". Explore: the ring, `−` hour pills `+` (the carousel — the
+/// Best hours window marked by a green bar under its pills), then the rows
+/// Your hours (range · Average N) / Best hours (window · verdict) / Looking
+/// at (span · Average N, only off the Range, highlighted) and a full-width
+/// "Back to 6 – 10am" pill. The looked-at span's score is the SERVER's
+/// (`DashboardViewModel.scoreSpan`, fetched as the row settles — no client
+/// formula); it is keyed on exactly what it scored and cleared the moment
+/// the span, the day or the forecast changes, so a stale reply never lands.
+/// The ring shows the looked-at span's score while there is one, else the
+/// day's — always tinted by its score band (owner ruling 02 a).
 struct ActivityDetailView: View {
     /// The rating captured at navigation time — a fallback; the body
     /// re-resolves from the live forecast so a refetch updates in place.
@@ -74,6 +56,7 @@ struct ActivityDetailView: View {
         self.now = now
         self.onActivityDeleted = onActivityDeleted
         _selectedDayIndex = State(initialValue: initialDayIndex)
+        _heroMode = State(initialValue: viewModel.preferences.heroMode(for: activity.activityId))
     }
     /// The pill row's scroll position — the leading visible slot's id. The
     /// ONE piece of carousel state: the span derives from it
@@ -95,48 +78,29 @@ struct ActivityDetailView: View {
     /// The server's score for a span, keyed on exactly what it scored — the
     /// ring reads it only while that key is the one on screen.
     @State private var scoredSpan: ScoredSpan?
-    /// The span whose score is in flight (its button is disabled, dimmed).
-    @State private var scoringKey: SpanKey?
-    /// The span whose score just failed — its row reads the failure note.
-    @State private var failedKey: SpanKey?
-    @State private var failureTask: Task<Void, Never>?
-    /// Bumped on the score button's release: the lift animation (skipped
-    /// under Reduce Motion) and the impact haptic (always).
-    @State private var liftTick = 0
-    @State private var scoreTick = 0
     /// The edit circles' own lift ticks (one each, so only the tapped circle
     /// lifts) and their shared impact haptic.
     @State private var rangeLiftTick = 0
     @State private var metricsLiftTick = 0
     @State private var editTick = 0
+    /// Report / Explore — remembered per Activity (PreferencesStore).
+    @State private var heroMode: HeroMode
+    /// The looked-at span's server score in flight.
+    @State private var scoringTask: Task<Void, Never>?
+    /// The hours-over row has been tapped away (it then stays away for the
+    /// rest of the local day — PassedDayStore).
+    @State private var hoursOverGone = false
     /// The detail's Delete is awaiting its confirmation.
     @State private var confirmingDelete = false
-    /// Which hour the metric cards read: nil = the span's average (row 7b).
-    @State private var chipSelection = HourChipSelection()
-    /// Bumped on a chip or caption tap — the selection haptic.
-    @State private var chipTick = 0
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Accessibility sizes stack the hero and single-column the grid.
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    // Dynamic Type (owner ruling 8): the text rows' heights scale with the
-    // style their text scales with (`scaledFont`), from the Figma defaults.
-    @ScaledMetric(relativeTo: .caption) private var wordHeight = Theme.Detail.wordHeight
-    @ScaledMetric(relativeTo: .footnote) private var lineHeight = Theme.Detail.lineHeight
-    @ScaledMetric(relativeTo: .footnote) private var spanRowHeight = Theme.Detail.spanRowHeight
-    @ScaledMetric(relativeTo: .footnote) private var spanRowFont = Theme.Detail.spanRowFont
-    @ScaledMetric(relativeTo: .footnote) private var spanCapsulePadding = Theme.Detail.spanCapsulePadding
-
     private typealias Layout = Theme.Detail
+    private typealias Hero = RethinkLayout.Hero
 
-    /// The hero's text rows at the user's text size (`.standard` at default).
-    private var heroMetrics: Layout.HeroMetrics {
-        .scaled(wordHeight: wordHeight, lineHeight: lineHeight, spanRowHeight: spanRowHeight)
-    }
-
-    /// Ruling 5 (the surviving part): at accessibility sizes the hour
-    /// cluster drops under the ring instead of squeezing beside it.
+    /// Accessibility sizes put the hero's text column under the ring.
     private var isStacked: Bool { dynamicTypeSize.isAccessibilitySize }
 
     private struct EditRequest: Identifiable {
@@ -158,15 +122,6 @@ struct ActivityDetailView: View {
     private struct ScoredSpan: Equatable {
         let key: SpanKey
         let result: SpanScore
-    }
-
-    /// Row 2 under the Range line: the score capsule, the quiet "Scored …"
-    /// text once the shown span has a result, or for ~2 s after a failed
-    /// call the note that takes the capsule's place.
-    private enum SpanRow: Equatable {
-        case button(WindowSpec)
-        case scored(WindowSpec)
-        case failure
     }
 
     private var deriver: TimeDeriver? { viewModel.timeDeriver }
@@ -210,28 +165,11 @@ struct ActivityDetailView: View {
         carousel.map { viewModel.slots(in: $0.span) } ?? []
     }
 
-    /// The hour chip the cards read, if one is selected and still in the span.
-    private var selectedChip: HourSlot? { chipSelection.hour(in: displayedSlots) }
-
-    /// What the cards read: the selected chip's hour, else the chosen hours
-    /// folded into one reading (`HourAggregate`) — only the slots with data
+    /// What the cards read: the shown hours folded into one reading (`HourAggregate`) — only the slots with data
     /// count; an all-gone span is nil, so the cards show "—".
     private var displayedHour: HourlyWeather? {
         HourChips.reading(slots: displayedSlots, hours: viewModel.forecast?.hours ?? [],
-                          selected: selectedChip)
-    }
-
-    /// Row 1 under the pill row: always "Your range …" (with "· Time passed"
-    /// once the whole Range has ended); away from the Range only the return
-    /// button at its end appears. Derived from the same `carousel` as the
-    /// cards, so the button comes and goes on the same settle. Nil without a
-    /// Range.
-    private var rangeLine: RangeLine? {
-        guard let carousel, let range = carousel.rangeHours,
-              let window = authored?.window, let deriver else { return nil }
-        return RangeLine(window: window,
-                         isAtRange: carousel.isAtRange,
-                         rangeHasPassed: deriver.rangeHasPassed(range, now: now()))
+                          selected: nil)
     }
 
     // MARK: Span scoring state (owner rulings 2026-11-04)
@@ -249,64 +187,99 @@ struct ActivityDetailView: View {
         return scoredSpan.result
     }
 
-    /// Row 2 exists only away from the Range: "Scored …" once the shown span
-    /// has a result; otherwise the capsule on a span with a data hour (a
-    /// failed call shows its note instead); nothing on an all-gone span.
-    private var spanRow: SpanRow? {
-        guard let carousel, !carousel.isAtRange, let key = spanKey else { return nil }
-        if let shown = shownSpanScore { return .scored(shown.window) }
-        guard let deriver,
-              SpanScoring.showsButton(isAtRange: carousel.isAtRange, slots: displayedSlots),
-              let window = SpanScoring.window(for: carousel.span, deriver: deriver) else { return nil }
-        return failedKey == key ? .failure : .button(window)
+    // MARK: Passed day (lane RETHINK, owner ruling 05 a)
+
+    /// Today's hours are over for this Activity.
+    private var hasPassedToday: Bool { viewModel.hasPassedToday(activityId: activity.activityId) }
+
+    /// The passed-day tomorrow: the detail it opens on.
+    private var isPassedTomorrow: Bool { hasPassedToday && selectedDayIndex == 1 }
+
+    /// The hours-over row: on the passed-day tomorrow, until tapped away.
+    private var showsHoursOver: Bool {
+        isPassedTomorrow && !hoursOverGone
+            && !viewModel.passedDayEntry(activityId: activity.activityId).rowDismissed
     }
 
-    /// The ring's score and verdict: the scored span's, else the day's.
-    private var ringScore: Int? { shownSpanScore.map(\.score) ?? selectedDay?.score }
-    private var ringRating: Rating? { shownSpanScore.map(\.rating) ?? selectedDay?.rating }
+    private var ringCaption: String { isPassedTomorrow ? "Tomorrow" : "Average" }
 
-    /// Row 2's fade (its swaps and its coming and going) — a crossfade under
-    /// Reduce Motion.
+    /// The authored Range as "6 – 10am".
+    private var rangeLabel: String? { authored?.window.map(RangeText.chipLabel) }
+
+    // MARK: Explore state
+
+    /// The looked-at span as "7 – 11am"; nil on the Range.
+    private var lookedAtLabel: String? {
+        guard heroMode == .explore, let carousel, !carousel.isAtRange, let deriver,
+              let window = SpanScoring.window(for: carousel.span, deriver: deriver) else { return nil }
+        return RangeText.chipLabel(window)
+    }
+
+    /// The ring's score: the looked-at span's (Explore, off the Range, once
+    /// the server answers), else the shown day's.
+    private var ringScore: Int? {
+        if lookedAtLabel != nil, let shown = shownSpanScore { return shown.score }
+        return selectedDay?.score
+    }
+
+    private var verdictLine: VerdictLine { VerdictLine(day: selectedDay, deriver: deriver) }
+
+    private var exploreRows: [ExploreRows.Row] {
+        ExploreRows.rows(range: rangeLabel ?? "\u{2014}",
+                         dayScore: selectedDay?.score,
+                         best: verdictLine,
+                         lookingAt: lookedAtLabel.map { .init(span: $0, score: shownSpanScore?.score) })
+    }
+
+    /// Cross-fades under Reduce Motion.
     private var fade: Animation {
         reduceMotion ? .easeInOut(duration: 0.2) : Theme.Motion.value
     }
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: Layout.dotsToHero) {
+            VStack(alignment: .leading, spacing: RethinkLayout.gap) {
                 if !weekDots.isEmpty {
                     WeekDotsView(dots: weekDots,
                                  ringedDayIndex: selectedDayIndex,
+                                 dimmedDayIndex: hasPassedToday ? 0 : nil,
                                  onTap: jump(to:),
                                  identifierPrefix: "detail.weekDot")
                 }
-                VStack(alignment: .leading, spacing: Layout.sectionGap) {
-                    // A minute tick scoped to the hero (build-8 deferral 5):
-                    // passed pills and "Time passed" grey on the minute, not
-                    // only on the next re-render. Nothing faster — a
-                    // constantly re-rendering pushed detail starves XCUI.
-                    TimelineView(.everyMinute) { _ in
-                        heroCard
+                if showsHoursOver {
+                    HoursOverRow(morning: viewModel.passedDayEntry(activityId: activity.activityId).morning) {
+                        withAnimation(HoursOverRow.removalAnimation(reduceMotion: reduceMotion)) {
+                            hoursOverGone = true
+                        }
+                        viewModel.dismissHoursOverRow(activityId: activity.activityId)
                     }
-                    VStack(alignment: .leading, spacing: Layout.chipsToGrid) {
-                        hourChipRow
-                        metricGrid
-                    }
+                    .transition(HoursOverRow.removal(reduceMotion: reduceMotion))
+                }
+                // A minute tick scoped to the hero (build-8 deferral 5):
+                // passed pills grey on the minute. Nothing faster — a
+                // constantly re-rendering pushed detail starves XCUI.
+                TimelineView(.everyMinute) { _ in
+                    heroCard
+                }
+                metricGrid
+                if isPassedTomorrow, let deriver {
+                    let rows = ComingDays.rows(for: current, after: selectedDayIndex, deriver: deriver)
+                    if !rows.isEmpty { ComingDaysCard(rows: rows) }
                 }
                 editCircles
-                    .padding(.top, Layout.editCirclesTop - Layout.dotsToHero)
+                    .padding(.top, RethinkLayout.Grid.x2)
                 deleteButton
             }
-            .padding(.horizontal, Layout.sideMargin)
+            .padding(.horizontal, RethinkLayout.margin)
             .padding(.top, Layout.topPadding)
-            .padding(.bottom, Layout.sideMargin)
+            .padding(.bottom, RethinkLayout.margin)
         }
         .background(Theme.appBackground)
         // Re-base guard: a refetch across a day rollover shifts what each
-        // dayIndex / hours[] index means, so a stale selection would point at
-        // a shifted or absent day — reset to today, carousel back on the Range.
+        // dayIndex / hours[] index means — back to the OPENING day (tomorrow
+        // once today's hours are over), carousel back on the Range.
         .onChange(of: viewModel.forecast?.forecastStart) { _, _ in
-            selectedDayIndex = 0
+            selectedDayIndex = viewModel.shownCardDay(forActivityId: activity.activityId).dayIndex
             seed(openingCarousel?.scrollAnchor)
         }
         // A new day or row width re-opens the row on that day's Range.
@@ -321,24 +294,26 @@ struct ActivityDetailView: View {
                   opening.span(forScrollAnchor: old) != opening.span(forScrollAnchor: new) else { return }
             selectionTick += 1
         }
-        // The clearing rule: a new span (a settle, − / +, a return), a day
-        // jump or a refetch drops the span score and its failure note, and
-        // the ring falls back to the day score.
+        // The clearing rule: a new span, a day jump or a refetch drops the
+        // span score; a settled span off the Range asks the server again.
         .onChange(of: spanKey) { _, _ in
             clearSpanScore()
-            chipSelection.clear() // a new span or day opens on its average
+            scheduleSpanScore()
         }
-        .sensoryFeedback(.selection, trigger: chipTick)
+        .onChange(of: heroMode) { _, mode in
+            viewModel.preferences.setHeroMode(mode, for: activity.activityId)
+            // Report always describes the Range: the row springs home.
+            if mode == .report { returnToRange() } else { scheduleSpanScore() }
+        }
         .sensoryFeedback(.selection, trigger: selectionTick)
         .sensoryFeedback(.impact(weight: .light), trigger: homeTick)
-        .sensoryFeedback(.impact(weight: .light), trigger: scoreTick)
         .sensoryFeedback(.impact(weight: .light), trigger: editTick)
         .navigationTitle(current.label)
         .navigationBarTitleDisplayMode(.inline)
-        // The circles are the detail's edit doors (the card gear is gone —
-        // owner ruling 2026-10-06 #2); the editor keeps its Delete too. A
-        // Activity deleted there pops the detail as the sheet closes: `authored` reads the
-        // store, so it is nil the moment the delete lands (no refetch wait).
+        // The circles are the detail's edit doors; the editor keeps its
+        // Delete too. A Activity deleted there pops the detail as the sheet
+        // closes: `authored` reads the store, so it is nil the moment the
+        // delete lands (no refetch wait).
         .sheet(item: $editing, onDismiss: {
             if authored == nil { onActivityDeleted() }
         }) { request in
@@ -372,95 +347,71 @@ struct ActivityDetailView: View {
     /// carousel).
     private func jump(to day: Int) {
         guard day != selectedDayIndex,
-              let dot = weekDots.first(where: { $0.dayIndex == day }), dot.isJumpable else { return }
+              let dot = weekDots.first(where: { $0.dayIndex == day }),
+              dot.isJumpable || (day == 0 && hasPassedToday) else { return }
         withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
             selectedDayIndex = day
         }
     }
 
-    // MARK: Hero — ring + rating word, the hour row beside it
+    // MARK: Hero — Report / Explore (Figma v2 frames 2, 4, 6)
 
-    /// Owner ruling 2026-11-04: ring 64 inset 16 from the top and left, the
-    /// word 12 under it, 16 to the bottom. The row column runs from the
-    /// ring's right edge + 16 to the right inset: the pill row, and 8 under
-    /// it the line. Alone, the row sits on the ring's centre line; with the
-    /// line, the row + line block centres on the ring column. The hero is
-    /// the taller column plus the insets (`Theme.Detail.heroHeight`).
-    ///
-    /// Row 1 is the fixed Range line (owner rulings 2026-11-04). Away from
-    /// the Range, row 2 — the span action row (capsule / "Scored …" /
-    /// failure note, one constant 28pt slot) — hangs `rowToLine` under it.
-    /// Row 2 never moves the pill row (the finger is on it); the hero grows
-    /// to the taller column instead.
+    /// Ring column | text column, 16 inset, r24 superellipse. At
+    /// accessibility sizes the text column drops under the ring.
     private var heroCard: some View {
-        let line = rangeLine
-        let hasLine = line != nil
-        let row = hasLine ? spanRow : nil
-        let hasSpanRow = row != nil
-        let metrics = heroMetrics
-        let stacked = isStacked
-        // One layout switched in place (`AnyLayout`), so the pill row's
-        // scroll view keeps its identity across a text-size change.
-        let layout = stacked
-            ? AnyLayout(VStackLayout(alignment: .leading, spacing: Layout.ringToRow))
-            : AnyLayout(HStackLayout(alignment: .top, spacing: Layout.ringToRow))
-        let height = stacked
-            ? Layout.stackedHeroHeight(hasLine: hasLine, hasSpanRow: hasSpanRow, metrics: metrics)
-            : Layout.heroHeight(hasLine: hasLine, hasSpanRow: hasSpanRow, metrics: metrics)
-        return layout {
-            ringButton
-                .frame(maxWidth: stacked ? .infinity : nil)
-            VStack(alignment: .leading, spacing: Layout.rowToLine) {
-                carouselRow
-                    .frame(height: Layout.pillHeight)
-                if let line {
-                    rangeLineView(line)
-                        .frame(height: metrics.lineHeight)
+        let layout = isStacked
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: Hero.columnGap))
+            : AnyLayout(HStackLayout(alignment: .top, spacing: Hero.columnGap))
+        return VStack(alignment: .leading, spacing: Hero.headerToRows) {
+            layout {
+                ringColumn
+                VStack(alignment: .leading, spacing: 0) {
+                    switch heroMode {
+                    case .report: reportColumn
+                    case .explore: exploreColumn
+                    }
                 }
-                if let row {
-                    spanRowView(row)
-                        .frame(height: metrics.spanRowHeight, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            if heroMode == .explore {
+                exploreRowsView
+                if lookedAtLabel != nil, let rangeLabel {
+                    backPill(rangeLabel)
+                        .padding(.top, Hero.rowsToBack - Hero.headerToRows + RethinkLayout.Grid.x2)
                         .transition(.opacity)
                 }
             }
-            .padding(.top, stacked ? 0 : Layout.rowColumnTop(hasLine: hasLine, metrics: metrics))
         }
-        .frame(height: height - Layout.heroInset - Layout.heroBottom,
-               alignment: .top)
-        .animation(fade, value: row)
-        .padding(EdgeInsets(top: Layout.heroInset, leading: Layout.heroInset,
-                            bottom: Layout.heroBottom, trailing: Layout.heroInset))
+        .animation(fade, value: heroMode)
+        .animation(fade, value: lookedAtLabel)
+        .padding(RethinkLayout.inset)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Theme.detailContainer)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.lg))
-        .cardLift(cornerRadius: Theme.Radius.lg)
+        .clipShape(RethinkLayout.shape())
+        .cardLift(cornerRadius: RethinkLayout.outerRadius)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("detail.hero")
     }
 
-    private var canReturn: Bool { carousel?.canReturnToRange ?? false }
-
-    /// The ring belongs to the Range: tapping it springs the row home — the
-    /// second way home beside the line's return button (owner ruling
-    /// 2026-11-04 moved `detail.returnToRange` to that button). Press
-    /// feedback lands on touch-down; the button is inert on the Range. The
-    /// day score (`detail.score`) is an overlay element of its own.
-    private var ringButton: some View {
-        VStack(spacing: Layout.ringToWord) {
+    /// The 64pt ring + its caption. Tapping the ring springs the row home
+    /// (Explore, off the Range); the spoken summary is its own element.
+    private var ringColumn: some View {
+        VStack(spacing: Hero.ringToCaption) {
             Button(action: returnToRange) {
-                ScoreRingView(score: ringScore,
-                              tint: heroDimmed ? Theme.secondaryText : Theme.ratingTint(ringRating),
-                              style: .hero)
+                ScoreRingView(score: ringScore, tint: Theme.scoreBandTint(ringScore), style: .hero)
                     .contentShape(Circle())
             }
             .buttonStyle(PressStyle())
-            .disabled(!canReturn)
+            .disabled(!(carousel?.canReturnToRange ?? false))
             .accessibilityHidden(true)
-            ratingWord
+            Text(ringCaption)
+                .scaledFont(size: Hero.captionFont, weight: .semibold, maxSize: 17)
+                .foregroundStyle(Theme.secondaryText)
+                .lineLimit(1)
                 .fixedSize()
-                .frame(height: heroMetrics.wordHeight)
+                .accessibilityHidden(true)
         }
-        // A floor, not a width: a scaled word may be wider than the ring.
-        .frame(minWidth: Layout.ringDiameter)
-        .frame(height: Layout.scaledRingColumnHeight(heroMetrics), alignment: .top)
+        .frame(minWidth: Hero.ringDiameter)
         .overlay {
             Color.clear
                 .accessibilityElement()
@@ -470,185 +421,184 @@ struct ActivityDetailView: View {
         }
     }
 
-    /// The word under the ring: Perfect / Good Semibold 12 in their tint;
-    /// no rating (nil or unknown) → "No Window" Regular 12 light red (owner
-    /// ruling 2026-11-04). Same slot either way, so the hero height holds.
-    /// A scored span's verdict takes the day's place.
-    private var ratingWord: some View {
-        let rating = ringRating
-        let isRated = rating == .perfect || rating == .good
-        return Text(Self.verdictText(rating))
-            .scaledFont(size: 12, weight: isRated ? .semibold : .regular)
-            .foregroundStyle(heroDimmed ? Theme.secondaryText
-                             : (isRated ? Theme.ratingTint(rating) : Theme.noWindowTint))
+    /// "Average 86 out of 100, 7 – 10am · Perfect" — "… for 7 – 11am" on a
+    /// looked-at span.
+    private var scoreAccessibilityLabel: String {
+        let score = ringScore.map { "\(ringCaption) \($0) out of 100" } ?? "\(ringCaption), no score"
+        if let span = lookedAtLabel, shownSpanScore != nil { return "\(score), for \(span)" }
+        return "\(score), \(verdictLine.text)"
     }
 
-    /// Fresh-eyes 5a: an unscored previewed span dims the ring and word.
-    private var heroDimmed: Bool {
-        SpanScoring.dimsVerdict(isAtRange: carousel?.isAtRange ?? true,
-                                spanScored: shownSpanScore != nil)
-    }
-
-    /// `Day.ratingDisplay`'s words for any verdict (the day's or a span's).
-    private static func verdictText(_ rating: Rating?) -> String {
-        Day(dayIndex: 0, rating: rating).ratingDisplay
-    }
-
-    /// Row 1: "Your range 6 – 10am" — 13pt secondary text that never changes
-    /// with the carousel (a day jump to a different Range rolls it,
-    /// `numericText`); away from the Range the return button fades in at the
-    /// line's end.
-    private func rangeLineView(_ line: RangeLine) -> some View {
-        HStack(spacing: Theme.Spacing.xs) {
-            Text(line.text)
-                .scaledFont(size: Layout.lineFont)
-                .foregroundStyle(Theme.secondaryText)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-                .contentTransition(.numericText())
-                .accessibilityIdentifier("detail.rangeLine")
-            if line.showsReturn {
-                returnButton
-                    .transition(.opacity)
+    /// Report: verdict line + switch, the Range strip + integers, "Your
+    /// hours 6 – 10am".
+    private var reportColumn: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .top, spacing: RethinkLayout.Grid.x2) {
+                Text(verdictLine.text)
+                    .scaledFont(size: Hero.verdictFont, weight: .semibold)
+                    .foregroundStyle(verdictLine.tint)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(minHeight: RethinkLayout.Switch.height)
+                    .accessibilityIdentifier("detail.verdictLine")
+                Spacer(minLength: 0)
+                HeroModeSwitch(mode: $heroMode)
             }
-            Spacer(minLength: 0)
+            reportStrip
+                .padding(.top, Hero.headerToStrip)
+            if let rangeLabel {
+                Text("Your hours \(rangeLabel)")
+                    .scaledFont(size: Hero.captionFont)
+                    .foregroundStyle(Theme.secondaryText)
+                    .padding(.top, Hero.numeralsToCaption)
+                    .accessibilityIdentifier("detail.yourHours")
+            }
         }
-        .animation(reduceMotion ? nil : Theme.Motion.value, value: line)
     }
 
-    /// The line's return button: a 12pt Semibold `arrow.uturn.backward` in a
-    /// 24×24 capsule hit shape, padded to the HIG 44pt target. Springs the
-    /// row home exactly like the ring tap.
-    private var returnButton: some View {
+    /// The Range strip (5pt, tier per hour) and its hour integers.
+    @ViewBuilder
+    private var reportStrip: some View {
+        if let authored {
+            let tiers = viewModel.rangeStripTiers(for: authored, dayIndex: selectedDayIndex, now: now())
+            let slots = viewModel.rangeSlots(for: authored, dayIndex: selectedDayIndex)
+            VStack(alignment: .leading, spacing: Hero.stripToNumerals) {
+                HStack(spacing: RethinkLayout.Card.stripSegmentGap) {
+                    ForEach(Array(tiers.enumerated()), id: \.offset) { _, tier in
+                        RoundedRectangle(cornerRadius: Hero.stripHeight / 2, style: .continuous)
+                            .fill(tier.map(Theme.tierColor) ?? Theme.timelineTrack)
+                            .frame(maxWidth: .infinity)
+                    }
+                }
+                .frame(height: Hero.stripHeight)
+                StripIntegers(startLocalHour: slots.first?.localHour, count: tiers.count)
+                    .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(rangeLabel.map { "Hours \($0)" } ?? "Hours")
+            .accessibilityIdentifier("detail.reportStrip")
+        }
+    }
+
+    /// Explore: the switch on top, the `−` pills `+` row under it.
+    private var exploreColumn: some View {
+        VStack(alignment: .trailing, spacing: Hero.switchToPills) {
+            HeroModeSwitch(mode: $heroMode)
+            carouselRow
+                .frame(height: Hero.stepDiameter)
+                // Room for the Best hours bar under the pills.
+                .padding(.bottom, Hero.pillsToBestBar + Hero.bestBarHeight)
+        }
+    }
+
+    /// The green bar under the Best hours window's pills — only the part of
+    /// the Window the row shows.
+    @ViewBuilder
+    private func bestBar(carousel: HourCarousel, pillWidth: CGFloat) -> some View {
+        if let start = selectedDay?.startIndex, let end = selectedDay?.endIndex,
+           selectedDay?.hasWindow == true {
+            let span = carousel.span
+            let lower = max(start, span.lowerBound)
+            let upper = min(end, span.upperBound)
+            if lower < upper {
+                let pitch = pillWidth + Layout.pillGap
+                RoundedRectangle(cornerRadius: Hero.bestBarHeight / 2, style: .continuous)
+                    .fill(verdictLine.tint)
+                    .frame(width: CGFloat(upper - lower) * pitch - Layout.pillGap,
+                           height: Hero.bestBarHeight)
+                    .offset(x: CGFloat(lower - span.lowerBound) * pitch)
+                    .accessibilityHidden(true)
+            }
+        }
+    }
+
+    /// Your hours / Best hours / Looking at — one 32pt row each; the
+    /// highlighted row (what the ring and the cards describe) sits on the
+    /// accent band, 12 / 8 inset.
+    private var exploreRowsView: some View {
+        VStack(spacing: 0) {
+            ForEach(exploreRows) { row in
+                HStack(spacing: 0) {
+                    Text(row.label)
+                        .scaledFont(size: Hero.rowFont)
+                        .foregroundStyle(Theme.secondaryText)
+                        .frame(minWidth: Hero.valueColumn, alignment: .leading)
+                    Text(row.value)
+                        .scaledFont(size: Hero.rowFont)
+                        .foregroundStyle(Theme.primaryText)
+                    Spacer(minLength: RethinkLayout.Grid.x2)
+                    Text(row.result)
+                        .scaledFont(size: Hero.rowFont, weight: row.resultIsVerdict ? .semibold : .regular)
+                        .foregroundStyle(row.resultIsVerdict ? Theme.ratingTint(row.resultRating)
+                                                             : Theme.primaryText)
+                        .contentTransition(.numericText())
+                }
+                .lineLimit(2)
+                .padding(.horizontal, Hero.bandHorizontalInset)
+                .padding(.vertical, RethinkLayout.Grid.x2)
+                .frame(minHeight: Hero.rowHeight)
+                .background {
+                    if row.isHighlighted {
+                        RoundedRectangle(cornerRadius: RethinkLayout.innerRadius, style: .continuous)
+                            .fill(Theme.accentTint)
+                    }
+                }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("\(row.label), \(row.value), \(row.result)")
+                .accessibilityAddTraits(row.isHighlighted ? .isSelected : [])
+                .accessibilityIdentifier("detail.row.\(row.kind)")
+            }
+        }
+        .animation(fade, value: exploreRows)
+    }
+
+    /// "Back to 6 – 10am" — full width, 36 tall, r8; springs the row home.
+    private func backPill(_ range: String) -> some View {
         Button(action: returnToRange) {
-            Image(systemName: "arrow.uturn.backward")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Theme.accentBrand)
-                .frame(width: Layout.returnPiece, height: Layout.returnPiece)
-                .contentShape(Capsule())
-                .padding(Layout.hitPad)
-                .contentShape(Rectangle())
-                .padding(-Layout.hitPad)
+            HStack(spacing: Hero.backGlyphToText) {
+                Image(systemName: "arrow.uturn.backward")
+                    .font(.system(size: Hero.rowFont, weight: .semibold))
+                Text(ExploreRows.backLabel(range: range))
+                    .scaledFont(size: Hero.rowFont, weight: .semibold)
+                Spacer(minLength: 0)
+            }
+            .foregroundStyle(Theme.accentBrand)
+            .padding(.horizontal, RethinkLayout.Grid.x3)
+            .frame(maxWidth: .infinity, minHeight: Hero.backHeight)
+            .background(Theme.timelineTrack,
+                        in: RoundedRectangle(cornerRadius: RethinkLayout.innerRadius, style: .continuous))
+            .contentShape(Rectangle())
         }
         .buttonStyle(PressStyle())
-        .accessibilityIdentifier("detail.returnToRange")
-        .accessibilityLabel("Return to your range")
+        .accessibilityLabel(ExploreRows.backLabel(range: range))
+        .accessibilityIdentifier("detail.backToRange")
     }
 
-    /// "Perfect, score 86 out of 100" — "… for 4 to 8pm" on a scored span.
-    private var scoreAccessibilityLabel: String {
-        SpanScoring.scoreAccessibilityLabel(verdict: Self.verdictText(ringRating),
-                                            score: ringScore,
-                                            span: shownSpanScore?.window)
-    }
+    // MARK: The looked-at span's score (server-side, existing call)
 
-    // MARK: Span scoring — row 2, the span action row (owner rulings 2026-11-04)
+    /// How long the row must rest before the span is scored.
+    private static let spanScoreDebounce: Duration = .milliseconds(350)
 
-    /// The three row-2 states overlap in one leading-aligned slot, each laid
-    /// out 28pt tall with its leading edge on the column's left edge (the
-    /// Range text's and the − piece's x), so a swap (capsule → "Scored …",
-    /// capsule ↔ failure note) is a true crossfade with nothing shifting.
-    private func spanRowView(_ row: SpanRow) -> some View {
-        ZStack(alignment: .leading) {
-            switch row {
-            case .button(let window):
-                spanScoreButton(window)
-                    .transition(.opacity)
-            case .scored(let window):
-                Text(SpanScoring.scoredLabel(window))
-                    .font(.system(size: spanRowFont))
-                    .foregroundStyle(Theme.secondaryText)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-                    .frame(height: spanRowHeight, alignment: .leading)
-                    .accessibilityIdentifier("detail.scoredSpan")
-                    .transition(.opacity)
-            case .failure:
-                Text("Couldn\u{2019}t score \u{2014} try again")
-                    .font(.system(size: spanRowFont))
-                    .foregroundStyle(Theme.secondaryText)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-                    .frame(height: spanRowHeight, alignment: .leading)
-                    .accessibilityIdentifier("detail.scoreError")
-                    .transition(.opacity)
-            }
-        }
-    }
-
-    /// "Score 7 – 11am": a 28pt glass capsule (12pt side padding, 13pt
-    /// Semibold tinted label), its hit area padded to the HIG 44pt. Its own
-    /// glass container — the hero's wraps only the − / + row, and the
-    /// capsule must never blend into those pieces. The hit padding is grown
-    /// and given back (`padding` / `-padding`), so the LAID-OUT capsule is
-    /// 28pt tall at the column's left edge. Touch-down = `PressStyle`;
-    /// release = the shared lift (on the label, a render effect — the resting
-    /// layout never moves) + the impact haptic + the request. No spinner: in
-    /// flight it is disabled at 60%.
-    private func spanScoreButton(_ window: WindowSpec) -> some View {
-        let inFlight = scoringKey != nil && scoringKey == spanKey
-        let hitPad = Layout.hitPad(forSpanRowHeight: spanRowHeight)
-        return GlassGroup(spacing: Layout.spanCapsuleBlend) {
-            Button(action: scoreSpan) {
-                Text(SpanScoring.buttonLabel(window))
-                    .minimumScaleFactor(0.7)
-                    .glassCapsule(font: .system(size: spanRowFont, weight: .semibold),
-                                  height: spanRowHeight,
-                                  horizontalPadding: spanCapsulePadding,
-                                  enabled: !inFlight)
-                    .opacity(inFlight ? Layout.inFlightOpacity : 1)
-                    .liftOnRelease(trigger: liftTick)
-                    .padding(.vertical, hitPad)
-                    .contentShape(Rectangle())
-                    .padding(.vertical, -hitPad)
-            }
-            .buttonStyle(PressStyle())
-            .disabled(inFlight)
-            .accessibilityIdentifier("detail.scoreSpan")
-            .accessibilityLabel(SpanScoring.buttonAccessibilityLabel(window))
-        }
-    }
-
-    /// How long the failure note holds the button's place.
-    private static let failureNoteSeconds: Double = 2
-
-    /// The button's action: lift + haptic, then one server call for the span
-    /// on screen. The reply lands only if that span is still the one shown.
-    private func scoreSpan() {
-        guard let key = spanKey, scoringKey != key, let authored else { return }
-        scoreTick += 1
-        liftTick += 1 // `liftOnRelease` skips the motion under Reduce Motion
-        scoringKey = key
-        failedKey = nil
-        Task { @MainActor in
+    /// One server call for the span on screen once it settles off the Range
+    /// in Explore. The reply lands only if that span is still the one shown.
+    private func scheduleSpanScore() {
+        scoringTask?.cancel()
+        guard heroMode == .explore, let carousel, !carousel.isAtRange,
+              SpanScoring.showsButton(isAtRange: false, slots: displayedSlots),
+              let key = spanKey, let authored else { return }
+        scoringTask = Task { @MainActor in
+            try? await Task.sleep(for: Self.spanScoreDebounce)
+            guard !Task.isCancelled, key == spanKey else { return }
             let result = await viewModel.scoreSpan(for: authored, span: key.span)
-            if scoringKey == key { scoringKey = nil }
-            guard key == spanKey else { return }
-            if let result {
-                withAnimation(fade) { scoredSpan = ScoredSpan(key: key, result: result) }
-            } else {
-                showFailure(for: key)
-            }
-        }
-    }
-
-    /// "Couldn't score — try again" in the button's place for ~2 s.
-    private func showFailure(for key: SpanKey) {
-        failureTask?.cancel()
-        withAnimation(fade) { failedKey = key }
-        failureTask = Task { @MainActor in
-            try? await Task.sleep(for: .seconds(Self.failureNoteSeconds))
-            guard !Task.isCancelled, failedKey == key else { return }
-            withAnimation(fade) { failedKey = nil }
+            guard !Task.isCancelled, key == spanKey, let result else { return }
+            withAnimation(fade) { scoredSpan = ScoredSpan(key: key, result: result) }
         }
     }
 
     /// The clearing rule's one place.
     private func clearSpanScore() {
-        failureTask?.cancel()
-        failureTask = nil
+        scoringTask?.cancel()
+        scoringTask = nil
         scoredSpan = nil
-        failedKey = nil
     }
 
     /// `−` · pill viewport · `+` filling the column, 4pt apart. Under
@@ -675,10 +625,10 @@ struct ActivityDetailView: View {
                             action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: systemName)
-                .font(.system(size: 10, weight: .semibold))
+                .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(Theme.accentBrand)
                 .opacity(enabled ? 1 : 0.35)
-                .frame(width: Layout.stepPiece, height: Layout.stepPiece)
+                .frame(width: RethinkLayout.Hero.stepDiameter, height: RethinkLayout.Hero.stepDiameter)
                 .stepPieceSurface(enabled: enabled)
                 .padding(Layout.hitPad)
                 .contentShape(Rectangle())
@@ -727,6 +677,10 @@ struct ActivityDetailView: View {
                     .onAppear {
                         if scrolledSlot == nil { seed(carousel.scrollAnchor) }
                     }
+                }
+                .overlay(alignment: .bottomLeading) {
+                    bestBar(carousel: carousel, pillWidth: pillWidth)
+                        .offset(y: RethinkLayout.Hero.pillsToBestBar + RethinkLayout.Hero.bestBarHeight)
                 }
                 .accessibilityElement(children: .ignore)
                 .accessibilityIdentifier("detail.hourStrip")
@@ -798,7 +752,7 @@ struct ActivityDetailView: View {
         let passed = tier == nil
         let fill = tier.map(Theme.tierColor) ?? Theme.timelineTrack
         let dim: Double = chosen ? 1 : 0.35
-        let shape = RoundedRectangle(cornerRadius: Theme.Radius.sm)
+        let shape = RoundedRectangle(cornerRadius: RethinkLayout.Hero.pillRadius, style: .continuous)
         return shape
             .fill(fill.opacity(passed ? (chosen ? 1 : 0.5) : 1))
             .overlay(
@@ -843,98 +797,13 @@ struct ActivityDetailView: View {
         scroll(to: slot, animation: nil)
     }
 
-    /// The ring's action: spring the row back onto the Range.
+    /// Springs the row back onto the Range (the back pill, a ring tap, a
+    /// switch to Report).
     private func returnToRange() {
         guard var next = carousel, next.canReturnToRange else { return }
         next.returnToRange()
         homeTick += 1
         scroll(to: next.scrollAnchor, animation: Theme.Motion.home)
-    }
-
-    // MARK: The hour chips — what the cards read (fresh-eyes row 7b)
-
-    /// Owner, seen live 2026-11-12: the row must explain itself. A plain
-    /// caption says what the cards show — "Average of 6 – 10am · tap an hour",
-    /// or "At 8am" — over ONE segmented row: a leading "Avg" segment
-    /// (selected by default), then one segment per span hour. A segment tap
-    /// shows that hour; "Avg", or the same hour again, returns to the
-    /// average. Gone hours (no data) are drawn but not tappable.
-    @ViewBuilder
-    private var hourChipRow: some View {
-        let slots = displayedSlots
-        if !slots.isEmpty {
-            let selected = selectedChip
-            VStack(alignment: .leading, spacing: Layout.captionToChips) {
-                Text(HourChips.caption(slots: slots, selected: selected))
-                    .scaledFont(size: 13, weight: .medium)
-                    .foregroundStyle(Theme.secondaryText)
-                    .accessibilityIdentifier("detail.chipsCaption")
-                // Fits the width when it can; a long span scrolls instead.
-                ViewThatFits(in: .horizontal) {
-                    segmentedRow(slots: slots, selected: selected, fills: true)
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        segmentedRow(slots: slots, selected: selected, fills: false)
-                    }
-                }
-            }
-        }
-    }
-
-    /// The one track: a card-coloured capsule, 44pt tall (the HIG target),
-    /// with the segments inset in it; the chosen one takes the accent fill
-    /// (the wizard's chosen-tile pairing). The fill swap crossfades — no
-    /// sliding thumb, so Reduce Motion has nothing to replace.
-    private func segmentedRow(slots: [HourSlot], selected: HourSlot?, fills: Bool) -> some View {
-        HStack(spacing: 0) {
-            segment(HourChips.averageLabel,
-                    selected: selected == nil,
-                    enabled: true,
-                    identifier: "detail.hourChipAvg",
-                    accessibilityLabel: "Average",
-                    fills: fills) {
-                chipSelection.clear()
-            }
-            ForEach(slots, id: \.position) { slot in
-                let label = HourChips.label(slot)
-                segment(label,
-                        selected: slot.position == selected?.position,
-                        enabled: slot.index != nil,
-                        identifier: "detail.hourChip.\(label)",
-                        accessibilityLabel: label,
-                        fills: fills) {
-                    chipSelection.tap(slot.position, in: displayedSlots)
-                }
-            }
-        }
-        .padding(Layout.segmentInset)
-        .background(Capsule().fill(Theme.cardBackground))
-    }
-
-    /// One segment. Touch-down = `PressStyle` (no scale under Reduce
-    /// Motion); a tap = the selection haptic.
-    private func segment(_ label: String, selected: Bool, enabled: Bool, identifier: String,
-                         accessibilityLabel: String, fills: Bool,
-                         action: @escaping () -> Void) -> some View {
-        Button {
-            withAnimation(fade) { action() }
-            chipTick += 1
-        } label: {
-            Text(label)
-                .scaledFont(size: 13, weight: selected ? .semibold : .medium, maxSize: 20)
-                .lineLimit(1)
-                .fixedSize()
-                .foregroundStyle(selected ? Theme.onFill : Theme.primaryText)
-                .padding(.horizontal, Layout.segmentPadding)
-                .frame(maxWidth: fills ? .infinity : nil, minHeight: Layout.segmentHeight)
-                .background(Capsule().fill(selected ? Theme.accentBrandFill : .clear))
-                .opacity(enabled ? 1 : 0.35)
-                .contentShape(Capsule())
-        }
-        .buttonStyle(PressStyle())
-        .disabled(!enabled)
-        .accessibilityIdentifier(identifier)
-        .accessibilityLabel(accessibilityLabel)
-        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
     // MARK: The metric cards — two per row, the chosen hours' average
@@ -947,8 +816,7 @@ struct ActivityDetailView: View {
         let metrics = current.displayMetrics
         // A chosen hour is judged only if it is a Range hour; the average
         // whenever the span overlaps the Range.
-        let inRange = selectedChip.map { rangeHours?.contains($0.position) ?? false }
-            ?? carousel?.overlapsRange ?? false
+        let inRange = carousel?.overlapsRange ?? false
         let hour = displayedHour
         // Accessibility sizes: one column, so the scaled words have room.
         let columnCount = Layout.metricGridColumnCount(isAccessibilitySize: isStacked)
@@ -1109,9 +977,9 @@ struct ProgrammaticScrollMarker: Equatable {
 // are shared with the dashboard (Glass.swift)
 
 private extension View {
-    /// The − / + piece's surface: an r6 glass piece on the recess track.
+    /// The − / + piece's surface: a 32pt glass circle on the recess track.
     func stepPieceSurface(enabled: Bool) -> some View {
-        glassPieceSurface(in: RoundedRectangle(cornerRadius: Theme.Radius.sm),
+        glassPieceSurface(in: Circle(),
                           enabled: enabled,
                           fallback: .track)
     }
@@ -1228,15 +1096,40 @@ private let previewNow: @Sendable () -> Date = { ISO8601DateFormatter().date(fro
 }
 #endif
 
-// MARK: Hour chip geometry (fresh-eyes row 7b — simulator-ruled, no frame)
+// MARK: The Report strip's integers
 
-extension Theme.Detail {
-    /// Chip row (caption + chips) to the metric grid.
-    static let chipsToGrid: CGFloat = 12
-    /// Caption to the segmented row.
-    static let captionToChips: CGFloat = 8
-    /// Segment height + 2 × inset = the HIG 44pt track.
-    static let segmentHeight: CGFloat = 36
-    static let segmentInset: CGFloat = 4
-    static let segmentPadding: CGFloat = 8
+/// The hour integers under the Report strip, on the segment boundaries —
+/// first left-aligned, last right-aligned, the rest centred (the card's
+/// rule, thinned to what the width holds).
+private struct StripIntegers: View {
+    let startLocalHour: Int?
+    let count: Int
+
+    @ScaledMetric(relativeTo: .caption) private var slotHeight: CGFloat = 13
+    @ScaledMetric(relativeTo: .caption) private var halfWidth: CGFloat = 7
+
+    var body: some View {
+        if let startLocalHour, count > 0 {
+            GeometryReader { geo in
+                let labels = RangeStripAxis.labels(
+                    startLocalHour: startLocalHour,
+                    hourCount: count,
+                    maxLabels: RangeStripAxis.maxLabels(fittingWidth: geo.size.width,
+                                                        labelWidth: 2 * halfWidth))
+                ForEach(labels, id: \.boundary) { label in
+                    let fraction = CGFloat(label.boundary) / CGFloat(count)
+                    let nudge: CGFloat = label.boundary == 0 ? halfWidth
+                        : (label.boundary == count ? -halfWidth : 0)
+                    Text(label.text)
+                        .scaledFont(size: RethinkLayout.Card.numeralFont, weight: .medium)
+                        .foregroundStyle(Theme.secondaryText)
+                        .fixedSize()
+                        .position(x: geo.size.width * fraction + nudge, y: slotHeight / 2)
+                }
+            }
+            .frame(height: slotHeight)
+        } else {
+            Color.clear.frame(height: slotHeight)
+        }
+    }
 }
