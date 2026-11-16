@@ -179,53 +179,45 @@ final class TimeItUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts["PRO"].exists, "no PRO badge anywhere")
     }
 
-    /// Card v2 — "Score ring" (approved frame `458:394`). The card is wordless
-    /// beyond the name, the numerals and the colour: the score ring with its
-    /// "Score" caption, an HOURS-ONLY blue Range chip, and the Range-scoped
-    /// hour strip. The sublabel and the metric chips are not on the v2 frame.
-    func testCardV2ShowsScoreRingHoursOnlyChipAndNoWords() {
+    /// Lane RETHINK card (Figma v2 `921:19890`): the ring captioned
+    /// "Average", the hour integers under the bars, the verdict line under
+    /// them in the verdict's tint ("No good time" on a null day), the week
+    /// dots full width — and no Range pill.
+    func testCardShowsAverageRingIntegersVerdictLineAndNoPill() {
         let app = launchApp()
 
-        XCTAssertTrue(app.buttons["card.cycling"].waitForExistence(timeout: 5))
+        let card = app.buttons["card.cycling"]
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["Cycling"].exists)
+        XCTAssertFalse(app.staticTexts["rangeChip.cycling"].exists, "the Range pill is gone (ruling 04 a)")
+        XCTAssertFalse(app.staticTexts["Best hours"].exists, "no Best hours words on the card")
 
-        // Hours-only chip — the "Range · " prefix is dropped on the v2 card.
-        XCTAssertTrue(app.staticTexts["rangeChip.cycling"].exists)
-        XCTAssertEqual(app.staticTexts["rangeChip.cycling"].label, "6 – 10am",
-                       "the v2 chip is hours-only — no \u{201C}Range \u{B7} \u{201D} prefix")
-        XCTAssertTrue(app.staticTexts["rangeChip.fishing-lite"].exists,
-                      "the null-verdict card keeps its range chip")
+        XCTAssertEqual(app.staticTexts["ringCaption.cycling"].label, "Average",
+                       "the day score's user-facing name (ruling 03 a)")
+        let line = app.staticTexts["verdictLine.cycling"]
+        XCTAssertTrue(line.exists)
+        XCTAssertEqual(line.label, "6 – 10am · Perfect")
+        XCTAssertEqual(app.staticTexts["verdictLine.fishing-lite"].label, "No good time",
+                       "a null day reads No good time (ruling 07 a)")
 
-        // Still no rating word, and no sublabel/day name anywhere.
-        XCTAssertFalse(app.staticTexts["Perfect"].exists)
-        XCTAssertFalse(app.staticTexts["Good"].exists)
-        XCTAssertFalse(app.staticTexts["Today \u{B7} 6\u{2013}10am"].exists,
-                       "the v2 card drops the sublabel")
-        XCTAssertFalse(app.staticTexts["Nothing in your range."].exists)
-        XCTAssertFalse(app.staticTexts["Tomorrow"].exists,
-                       "the dashboard never shows a later day — the week lives in the detail")
+        // The integers sit under the bars and the verdict line under them.
+        let integers = card.staticTexts.allElementsBoundByIndex.filter { Int($0.label) != nil && $0.frame.width > 0 }
+        XCTAssertFalse(integers.isEmpty, "the hour integers are back under the bars")
+        for integer in integers {
+            XCTAssertLessThanOrEqual(integer.frame.maxY, line.frame.minY + 0.5,
+                                     "the verdict line sits under the hour numbers")
+        }
 
-        // The ring's VoiceOver summary keeps the words the visual dropped,
-        // and the mock's day 0 scores (Perfect 86 / null 31) reach it.
-        XCTAssertEqual(app.otherElements["score.cycling"].label, "Perfect, score 86 out of 100",
-                       "the ring draws the wire's day score")
-        // A rating-null day with hours scores exactly 1 (every hour has a
-        // required miss → 0, clamped to 1), so it still draws a NUMERAL ring,
-        // not an empty one. The ring is empty only when `score` is null.
-        XCTAssertEqual(app.otherElements["score.fishing-lite"].label, "No Window, score 1 out of 100",
+        // VoiceOver keeps the caption, the score and the verdict.
+        XCTAssertEqual(app.otherElements["score.cycling"].label, "Average 86 out of 100, 6 – 10am · Perfect")
+        XCTAssertEqual(app.otherElements["score.fishing-lite"].label, "Average 1 out of 100, No good time",
                        "a rating-null day still carries a real score (ADR-0011)")
+        XCTAssertFalse(app.buttons["card.overlay.cycling"].exists, "no overlay while the hours are ahead")
 
-        // Spec 05: the week-dot row (shown by default) + the chevron.
-        XCTAssertTrue(app.descendants(matching: .any)["weekDots.cycling"].exists,
-                      "the card carries the week-dot row — shown is the natural state")
+        XCTAssertTrue(app.descendants(matching: .any)["weekDots.cycling"].exists)
         XCTAssertTrue(app.buttons["cardChevron.cycling"].exists)
         XCTAssertEqual(app.buttons["cardChevron.cycling"].label, "Hide week")
-        // Owner ruling 2026-10-06 #2: the card gear is gone — editing lives
-        // only behind the detail's circles; the chevron sits alone top-right.
         XCTAssertFalse(app.buttons["gear.cycling"].exists, "no per-card gear")
-        XCTAssertGreaterThan(app.buttons["cardChevron.cycling"].frame.midX,
-                             app.buttons["card.cycling"].frame.midX,
-                             "the chevron is the top-right element")
     }
 
     /// Spec 05 chevron ruling: tap hides the dot row, the choice is
@@ -598,52 +590,73 @@ final class TimeItUITests: XCTestCase {
         attachScreenshot(second, named: "opening-second-launch")
     }
 
-    /// Row 7b (owner, 2026-11-12, redone after "very confusing"): the caption
-    /// says what the cards show; "Avg" leads the segmented row, selected; an
-    /// hour shows that hour; "Avg" (or the same hour again) returns.
-    func testDetailHourChipShowsThatHourAndReturnsToTheAverage() {
+    /// The hero's Report / Explore switch (lane RETHINK): Report by
+    /// default, remembered per Activity across a pop and a re-open; the
+    /// shipped "Average of … · tap an hour" caption and Avg/hour segment are
+    /// gone.
+    func testDetailModeSwitchIsRememberedPerActivity() {
         let app = launchApp()
         let card = app.buttons["card.cycling"]
         XCTAssertTrue(card.waitForExistence(timeout: 5))
         tapCardBody(card)
-        let caption = app.staticTexts["detail.chipsCaption"]
-        XCTAssertTrue(caption.waitForExistence(timeout: 5))
-        XCTAssertEqual(caption.label, "Average of 6 – 10am · tap an hour")
-        let average = app.buttons["detail.hourChipAvg"]
-        XCTAssertTrue(average.isSelected, "Avg is selected by default")
+        XCTAssertTrue(app.navigationBars["Cycling"].waitForExistence(timeout: 5))
 
-        let chip = app.buttons["detail.hourChip.7am"]
-        XCTAssertTrue(chip.exists, "one segment per span hour")
-        chip.tap()
-        XCTAssertEqual(caption.label, "At 7am", "the caption reads the chosen hour")
-        XCTAssertTrue(chip.isSelected)
-        XCTAssertFalse(average.isSelected)
+        // Report: the verdict line, the strip and "Your hours".
+        let report = app.buttons["detail.modeSwitch.report"]
+        let explore = app.buttons["detail.modeSwitch.explore"]
+        XCTAssertTrue(report.waitForExistence(timeout: 3))
+        XCTAssertTrue(report.isSelected, "Report is the default")
+        XCTAssertEqual(app.staticTexts["detail.verdictLine"].label, "6 – 10am · Perfect")
+        XCTAssertEqual(app.staticTexts["detail.yourHours"].label, "Your hours 6 – 10am")
+        XCTAssertFalse(app.buttons["detail.stepForward"].exists, "no hour pills in Report")
+        XCTAssertFalse(app.staticTexts["detail.chipsCaption"].exists, "the chip caption is removed")
+        XCTAssertFalse(app.buttons["detail.hourChipAvg"].exists, "the Avg/hour segment is removed")
 
-        chip.tap()
-        XCTAssertTrue(average.isSelected, "the same hour again returns to the average")
+        // Explore: the pills and the rows.
+        explore.tap()
+        XCTAssertTrue(app.buttons["detail.stepForward"].waitForExistence(timeout: 3))
+        XCTAssertTrue(explore.isSelected)
+        XCTAssertEqual(app.otherElements["detail.row.yourHours"].label, "Your hours, 6 – 10am, Average 86")
+        XCTAssertEqual(app.otherElements["detail.row.bestHours"].label, "Best hours, 6 – 10am, Perfect")
+        XCTAssertTrue(app.otherElements["detail.row.yourHours"].isSelected, "on the Range, Your hours is highlighted")
+        XCTAssertFalse(app.otherElements["detail.row.lookingAt"].exists)
 
-        chip.tap()
-        average.tap()
-        XCTAssertEqual(caption.label, "Average of 6 – 10am · tap an hour", "Avg returns to the average")
-        XCTAssertFalse(chip.isSelected)
+        // Remembered for Cycling …
+        app.navigationBars["Cycling"].buttons.firstMatch.tap()
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        tapCardBody(card)
+        XCTAssertTrue(app.buttons["detail.modeSwitch.explore"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["detail.modeSwitch.explore"].isSelected, "the choice is remembered")
+
+        // … while Fishing Lite keeps its own default.
+        app.navigationBars["Cycling"].buttons.firstMatch.tap()
+        let fishing = app.buttons["card.fishing-lite"]
+        XCTAssertTrue(fishing.waitForExistence(timeout: 5))
+        tapCardBody(fishing)
+        XCTAssertTrue(app.buttons["detail.modeSwitch.report"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["detail.modeSwitch.report"].isSelected, "per Activity, default Report")
     }
 
-    /// The owner rules row 7b from these (screenshots only): the detail on
-    /// the average and with one chip chosen, light and dark.
-    func testDetailHourChipsScreensLightAndDark() {
+    /// The owner moves things by eye from these: Report and Explore, light
+    /// and dark.
+    func testDetailReportAndExploreScreensLightAndDark() {
         for appearance in ["light", "dark"] {
             let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_SEED_LIVE",
                                             "UITEST_LOCATION", "UITEST_APPEARANCE=\(appearance)"])
             let card = app.buttons["card.cycling"]
             XCTAssertTrue(card.waitForExistence(timeout: 5))
+            attachScreenshot(app, named: "rethink-card-\(appearance)")
             tapCardBody(card)
-            let caption = app.staticTexts["detail.chipsCaption"]
-            XCTAssertTrue(caption.waitForExistence(timeout: 5))
+            XCTAssertTrue(app.buttons["detail.modeSwitch.report"].waitForExistence(timeout: 5))
             Thread.sleep(forTimeInterval: 1) // the push settles
-            attachScreenshot(app, named: "chips-average-\(appearance)")
-            app.buttons["detail.hourChip.8am"].tap()
-            Thread.sleep(forTimeInterval: 1) // the fill settles
-            attachScreenshot(app, named: "chips-selected-\(appearance)")
+            attachScreenshot(app, named: "rethink-report-\(appearance)")
+            app.buttons["detail.modeSwitch.explore"].tap()
+            Thread.sleep(forTimeInterval: 1)
+            attachScreenshot(app, named: "rethink-explore-\(appearance)")
+            app.buttons["detail.stepForward"].tap()
+            XCTAssertTrue(app.otherElements["detail.row.lookingAt"].waitForExistence(timeout: 3))
+            Thread.sleep(forTimeInterval: 1)
+            attachScreenshot(app, named: "rethink-looking-at-\(appearance)")
             app.terminate()
         }
     }
@@ -1097,13 +1110,15 @@ final class TimeItUITests: XCTestCase {
         XCTAssertTrue(card.waitForExistence(timeout: 5))
         tapCardBody(card)
         XCTAssertTrue(app.navigationBars["Cycling"].waitForExistence(timeout: 5))
+        // The carousel lives in Explore (lane RETHINK; Report is the default).
+        XCTAssertTrue(app.buttons["detail.modeSwitch.explore"].waitForExistence(timeout: 3))
+        app.buttons["detail.modeSwitch.explore"].tap()
 
         // Hero: the DAY score + the day's rating word, and the carousel's
         // span opening ON the Range (Cycling 6–10am = idx 2..<6 today).
-        XCTAssertEqual(app.otherElements["detail.score"].label, "Perfect, score 86 out of 100")
-        XCTAssertTrue(app.staticTexts["Perfect"].exists, "the rating word returns on the detail")
+        XCTAssertEqual(app.otherElements["detail.score"].label, "Average 86 out of 100, 6 – 10am · Perfect")
         let row = app.descendants(matching: .any)["detail.hourStrip"]
-        XCTAssertTrue(row.exists)
+        XCTAssertTrue(row.waitForExistence(timeout: 3))
         XCTAssertEqual(row.label, "Hours 6am to 10am", "the span opens on the Range")
         XCTAssertFalse(app.staticTexts["detail.selectedHour"].exists,
                        "the old big hour label is gone — the hero is ring + word + pill row")
@@ -1111,17 +1126,10 @@ final class TimeItUITests: XCTestCase {
         let forward = app.buttons["detail.stepForward"]
         XCTAssertTrue(back.exists)
         XCTAssertTrue(forward.exists)
-        XCTAssertFalse(app.buttons["detail.returnToRange"].exists,
-                       "no return control while the span sits on the Range")
-        // The line under the row names the hours the cards show (owner
-        // ruling 2026-11-04): on the Range it reads the Range itself. The
-        // launch helper pins the clock (`UITEST_NOW`) to 4:30am on the June-
-        // 2026 mock's day, before the Range — without the pin the real clock
-        // is past it and the line would read "· Time passed" (that wording
-        // is covered by `testDetailLineReadsTimePassedOnceTheRangeHasEnded`).
-        let line = app.staticTexts["detail.rangeLine"]
-        XCTAssertTrue(line.exists)
-        XCTAssertEqual(line.label, "Your range 6 – 10am")
+        XCTAssertFalse(app.buttons["detail.backToRange"].exists,
+                       "no back pill while the span sits on the Range")
+        XCTAssertFalse(app.staticTexts["detail.rangeLine"].exists,
+                       "the shipped Your range line is replaced by the Explore rows")
 
         // ONE metric card per displayMetric — the grid is not capped at the
         // frames' three. Cycling shows temp/wind/rain/uV.
@@ -1137,30 +1145,24 @@ final class TimeItUITests: XCTestCase {
         XCTAssertTrue(uv.label.hasSuffix("UV 3"), "got \(uv.label)")
 
         // + slides the WHOLE span one hour (7–11am); the cards re-average live
-        // ((3 + 3 + 3 + 7) / 4 = 4); the day score does NOT follow the span.
+        // ((3 + 3 + 3 + 7) / 4 = 4); the ring takes the looked-at span's score.
         forward.tap()
         XCTAssertTrue(waitForLabel(row, "Hours 7am to 11am"), "got \(row.label)")
         XCTAssertTrue(waitForLabel(uv, suffix: "UV 4"), "the cards average the chosen hours — got \(uv.label)")
-        XCTAssertEqual(app.otherElements["detail.score"].label, "Perfect, score 86 out of 100",
-                       "the hero ring shows the DAY score, unchanged by the span")
-        XCTAssertEqual(line.label, "Your range 6 – 10am",
-                       "the Range lives in one place and never changes with the span")
+        XCTAssertEqual(app.otherElements["detail.row.yourHours"].label, "Your hours, 6 – 10am, Average 86",
+                       "the Range keeps its own row and average")
 
-        // Off the Range the line grows its return button at its end (owner
-        // rulings 2026-11-04); tapping it springs home.
+        // Off the Range the full-width back pill appears; tapping it springs home.
         XCTAssertFalse(app.buttons.matching(NSPredicate(format: "label == 'Calculate'")).firstMatch.exists,
                        "no Calculate button — the cards are live")
-        let returnControl = app.buttons["detail.returnToRange"]
+        let returnControl = app.buttons["detail.backToRange"]
         XCTAssertTrue(returnControl.waitForExistence(timeout: 2))
-        XCTAssertEqual(returnControl.label, "Return to your range")
+        XCTAssertEqual(returnControl.label, "Back to 6 – 10am")
         XCTAssertFalse(returnControl.frame.intersects(app.otherElements["detail.score"].frame),
-                       "the return button sits at the line's end, not on the ring")
-        XCTAssertGreaterThan(returnControl.frame.midX, line.frame.maxX - 1,
-                             "the return button trails the line")
+                       "the back pill sits under the rows, not on the ring")
         returnControl.tap()
         XCTAssertTrue(waitForLabel(row, "Hours 6am to 10am"), "got \(row.label)")
         XCTAssertTrue(waitForLabel(uv, suffix: "UV 3"), "got \(uv.label)")
-        XCTAssertTrue(waitForLabel(line, "Your range 6 – 10am"), "got \(line.label)")
         XCTAssertFalse(returnControl.waitForExistence(timeout: 1), "gone once back on the Range")
 
         // − walks back to the walk start (today's first forecast hour, 4am =
@@ -1203,147 +1205,113 @@ final class TimeItUITests: XCTestCase {
         let dayTwo = app.buttons["detail.weekDot.2"]
         XCTAssertTrue(dayTwo.exists)
         dayTwo.tap()
-        XCTAssertEqual(app.otherElements["detail.score"].label, "No Window, score 1 out of 100",
+        XCTAssertEqual(app.otherElements["detail.score"].label, "Average 1 out of 100, No good time",
                        "the hero re-reads for the jumped day")
         XCTAssertTrue(waitForLabel(row, "Hours 6am to 10am"),
                       "a jump re-opens the span on that day's Range — got \(row.label)")
-        XCTAssertFalse(app.buttons["detail.returnToRange"].exists)
+        XCTAssertFalse(app.buttons["detail.backToRange"].exists)
 
         app.buttons["detail.weekDot.0"].tap()
-        XCTAssertEqual(app.otherElements["detail.score"].label, "Perfect, score 86 out of 100",
+        XCTAssertEqual(app.otherElements["detail.score"].label, "Average 86 out of 100, 6 – 10am · Perfect",
                        "back to today")
         XCTAssertTrue(waitForLabel(row, "Hours 6am to 10am"), "got \(row.label)")
     }
 
-    /// Owner rulings 2026-11-04: the detail opens with the full Range on the
-    /// row and "Your range …" under it; two + presses leave that line
-    /// unchanged and add the return button at its end. Attaches the two
-    /// screenshots the owner reviews (the launch helper's `UITEST_NOW` pin
-    /// puts the clock at 4:30am on the fixture's day, so the pills show their
-    /// live tier colours rather than passed-grey).
-    func testDetailLineFollowsTheSpanAndScreenshotsTheHero() {
+    /// Explore off the Range (Figma v2 frame 4): a Looking at row joins,
+    /// highlighted, with the SERVER's score for the shown hours (the mock
+    /// answers a non-seed window as Good `60 + startHour`: 7 – 11am → 67);
+    /// the ring takes that score; "Back to 6 – 10am" springs home and clears
+    /// it. A new span drops the stale score before its own arrives.
+    func testExploreLooksAtOtherHoursAndBacksHome() {
         let app = launchApp()
         let card = app.buttons["card.cycling"]
         XCTAssertTrue(card.waitForExistence(timeout: 5))
         tapCardBody(card)
-        XCTAssertTrue(app.navigationBars["Cycling"].waitForExistence(timeout: 5))
-
-        let row = app.descendants(matching: .any)["detail.hourStrip"]
-        let line = app.staticTexts["detail.rangeLine"]
-        XCTAssertTrue(line.waitForExistence(timeout: 3))
-        XCTAssertEqual(row.label, "Hours 6am to 10am", "the full Range is on the row")
-        XCTAssertEqual(line.label, "Your range 6 – 10am")
-        attachScreenshot(app, named: "detail-at-rest")
-
-        let forward = app.buttons["detail.stepForward"]
-        forward.tap()
-        XCTAssertTrue(waitForLabel(row, "Hours 7am to 11am"), "got \(row.label)")
-        forward.tap()
-        XCTAssertTrue(waitForLabel(row, "Hours 8am to 12pm"), "got \(row.label)")
-        XCTAssertTrue(app.buttons["detail.returnToRange"].waitForExistence(timeout: 2))
-        XCTAssertEqual(line.label, "Your range 6 – 10am", "the line never reads the span")
-        // Let the springs and the line's crossfade settle before the capture.
-        Thread.sleep(forTimeInterval: 0.6)
-        attachScreenshot(app, named: "detail-after-two-plus")
-
-        app.buttons["detail.returnToRange"].tap()
-        XCTAssertTrue(waitForLabel(line, "Your range 6 – 10am"), "got \(line.label)")
-        XCTAssertTrue(waitForLabel(row, "Hours 6am to 10am"), "got \(row.label)")
-    }
-
-    /// "· Time passed" (owner ruling 2026-11-04): pinned to noon Dubai on the
-    /// fixture's day 0, after Cycling's 6–10am, the line names the Range as
-    /// ended. Wording only — no accessibility surface exposes the pills' or
-    /// the card strip's tier colour, so the grey is checked by eye in the
-    /// attached screenshot.
-    func testDetailLineReadsTimePassedOnceTheRangeHasEnded() {
-        let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_SEED_LIVE", "UITEST_LOCATION",
-                                        "UITEST_NOW=2026-06-19T08:00:00Z"])
-        let card = app.buttons["card.cycling"]
-        XCTAssertTrue(card.waitForExistence(timeout: 5))
-        tapCardBody(card)
-        XCTAssertTrue(app.navigationBars["Cycling"].waitForExistence(timeout: 5))
-
-        let line = app.staticTexts["detail.rangeLine"]
-        XCTAssertTrue(line.waitForExistence(timeout: 3))
-        XCTAssertEqual(app.descendants(matching: .any)["detail.hourStrip"].label, "Hours 6am to 10am")
-        XCTAssertEqual(line.label, "Your range 6 – 10am · Time passed")
-        attachScreenshot(app, named: "detail-time-passed")
-    }
-
-    /// Span scoring (owner rulings 2026-11-04): away from the Range, the
-    /// glass "Score 7 – 11am" capsule (row 2, under the fixed Range line)
-    /// scores the shown hours on the server. The mock answers a seeded
-    /// activity sent with a non-seed window as Good `60 + startHour` (7–11am
-    /// → 67, 8am–12pm → 68 — see `ForecastResponse.uiTestFixture`). The ring
-    /// then reads the span's score and the capsule becomes "Scored 7 – 11am"
-    /// — the span is named once, with no caption under the word; a new span
-    /// brings the capsule back and the return button clears it.
-    func testScoreSpanScoresTheShownHoursAndClearsOnReturn() {
-        let app = launchApp()
-        let card = app.buttons["card.cycling"]
-        XCTAssertTrue(card.waitForExistence(timeout: 5))
-        tapCardBody(card)
-        XCTAssertTrue(app.navigationBars["Cycling"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["detail.modeSwitch.explore"].waitForExistence(timeout: 5))
+        app.buttons["detail.modeSwitch.explore"].tap()
 
         let score = app.otherElements["detail.score"]
-        let scoreButton = app.buttons["detail.scoreSpan"]
-        let scored = app.staticTexts["detail.scoredSpan"]
-        let line = app.staticTexts["detail.rangeLine"]
         let row = app.descendants(matching: .any)["detail.hourStrip"]
-        XCTAssertEqual(score.label, "Perfect, score 86 out of 100")
-        XCTAssertFalse(scoreButton.exists, "no score capsule on the Range — the ring already scores it")
-        XCTAssertFalse(scored.exists)
+        XCTAssertTrue(row.waitForExistence(timeout: 3))
+        XCTAssertEqual(row.label, "Hours 6am to 10am", "the full Range is on the row")
+        XCTAssertEqual(score.label, "Average 86 out of 100, 6 – 10am · Perfect")
+        XCTAssertFalse(app.buttons["detail.backToRange"].exists, "no back pill on the Range")
 
         app.buttons["detail.stepForward"].tap()
         XCTAssertTrue(waitForLabel(row, "Hours 7am to 11am"), "got \(row.label)")
-        XCTAssertTrue(scoreButton.waitForExistence(timeout: 2))
-        XCTAssertEqual(scoreButton.label, "Score 7 to 11am", "the capsule names the span")
-        XCTAssertEqual(line.label, "Your range 6 – 10am", "row 1 keeps the Range")
-        // midY: the capsule's accessibility frame is its padded 44pt target.
-        XCTAssertGreaterThan(scoreButton.frame.midY, line.frame.maxY,
-                             "the capsule sits under the fixed Range line")
-        XCTAssertEqual(scoreButton.frame.minX, line.frame.minX, accuracy: 0.5,
-                       "the capsule is flush with the Range text's leading edge")
-        XCTAssertFalse(app.staticTexts["detail.spanCaption"].exists, "the caption under the word is gone")
-        // The offered capsule, for the by-eye/pixel alignment check against
-        // the Range text's leading edge. Let the fade settle first.
+        let lookingAt = app.otherElements["detail.row.lookingAt"]
+        XCTAssertTrue(lookingAt.waitForExistence(timeout: 3))
+        XCTAssertTrue(waitForLabel(lookingAt, "Looking at, 7 – 11am, Average 67"), "got \(lookingAt.label)")
+        XCTAssertTrue(lookingAt.isSelected, "the looked-at row takes the highlight")
+        XCTAssertFalse(app.otherElements["detail.row.yourHours"].isSelected)
+        XCTAssertEqual(app.otherElements["detail.row.yourHours"].label, "Your hours, 6 – 10am, Average 86",
+                       "the Range keeps its own average")
+        XCTAssertTrue(waitForLabel(score, "Average 67 out of 100, for 7 – 11am"), "got \(score.label)")
+        let back = app.buttons["detail.backToRange"]
+        XCTAssertTrue(back.waitForExistence(timeout: 2))
+        XCTAssertEqual(back.label, "Back to 6 – 10am")
         Thread.sleep(forTimeInterval: 0.6)
-        attachScreenshot(app, named: "detail-span-offered")
+        attachScreenshot(app, named: "explore-looking-at")
 
-        scoreButton.tap()
-        XCTAssertTrue(scored.waitForExistence(timeout: 3), "the capsule becomes the quiet Scored text")
-        XCTAssertEqual(scored.label, "Scored 7 – 11am")
-        XCTAssertTrue(waitForLabel(score, "Good, score 67 out of 100 for 7 to 11am"), "got \(score.label)")
-        XCTAssertTrue(app.staticTexts["Good"].exists, "the word takes the span's verdict")
-        XCTAssertTrue(scoreButton.waitForNonExistence(timeout: 2), "the capsule goes once the span has a score")
-        XCTAssertFalse(app.staticTexts["detail.spanCaption"].exists, "the span is named once, in row 2")
-        XCTAssertEqual(line.label, "Your range 6 – 10am")
-        attachScreenshot(app, named: "detail-span-scored")
-
-        // A new span clears the score: the ring is the day's again, the
-        // capsule is back for the new span.
         app.buttons["detail.stepForward"].tap()
         XCTAssertTrue(waitForLabel(row, "Hours 8am to 12pm"), "got \(row.label)")
-        XCTAssertTrue(waitForLabel(score, "Perfect, score 86 out of 100"), "got \(score.label)")
-        XCTAssertTrue(scored.waitForNonExistence(timeout: 2), "a stale span score never stays")
-        XCTAssertTrue(scoreButton.waitForExistence(timeout: 2))
-        XCTAssertEqual(scoreButton.label, "Score 8am to 12pm")
+        XCTAssertTrue(waitForLabel(lookingAt, "Looking at, 8am – 12pm, Average 68"), "got \(lookingAt.label)")
 
-        scoreButton.tap()
-        XCTAssertTrue(waitForLabel(score, "Good, score 68 out of 100 for 8am to 12pm"), "got \(score.label)")
-        XCTAssertTrue(scored.waitForExistence(timeout: 2))
-        XCTAssertEqual(scored.label, "Scored 8am – 12pm")
-
-        // The return button at the line's end clears it too.
-        let returnControl = app.buttons["detail.returnToRange"]
-        XCTAssertGreaterThan(returnControl.frame.midX, line.frame.maxX - 1, "the return button trails the line")
-        returnControl.tap()
+        back.tap()
         XCTAssertTrue(waitForLabel(row, "Hours 6am to 10am"), "got \(row.label)")
-        XCTAssertTrue(waitForLabel(score, "Perfect, score 86 out of 100"), "got \(score.label)")
-        XCTAssertTrue(scored.waitForNonExistence(timeout: 2), "row 2 goes on return")
-        XCTAssertFalse(scoreButton.exists, "no capsule back on the Range")
-        XCTAssertTrue(returnControl.waitForNonExistence(timeout: 2), "no return button on the Range")
+        XCTAssertTrue(lookingAt.waitForNonExistence(timeout: 2), "Looking at goes on return")
+        XCTAssertTrue(waitForLabel(score, "Average 86 out of 100, 6 – 10am · Perfect"), "got \(score.label)")
+        XCTAssertTrue(back.waitForNonExistence(timeout: 2))
+    }
+
+    /// After today's hours (owner rulings 05 a / 06 a, Figma v2 frames 5,
+    /// 3, 3b, 7): pinned to 11:20am Dubai, past Cycling's 6 – 10am, the
+    /// card shows TOMORROW under a glass overlay; a tap dismisses it. The
+    /// detail opens on tomorrow with the hours-over row on top and the
+    /// Coming days list; tapping the row slides it away; today stays
+    /// reachable from its greyed dot, with no row there.
+    func testPassedHoursMoveTheCardToTomorrowUnderTheOverlayAndRow() {
+        let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_SEED_LIVE", "UITEST_LOCATION",
+                                        "UITEST_NOW=2026-06-19T07:20:00Z"])
+        let card = app.buttons["card.cycling"]
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        XCTAssertEqual(app.staticTexts["ringCaption.cycling"].label, "Tomorrow")
+        XCTAssertEqual(app.staticTexts["ringCaption.fishing-lite"].label, "Average",
+                       "3 – 7pm is still ahead: Fishing Lite stays on today")
+        let overlay = app.buttons["card.overlay.cycling"]
+        XCTAssertTrue(overlay.exists)
+        XCTAssertEqual(overlay.label,
+                       "Your chosen hours of 6 – 10am have passed, you are seeing tomorrow\u{2019}s score.")
+        XCTAssertFalse(app.buttons["card.overlay.fishing-lite"].exists, "the overlay covers that card only")
+        attachScreenshot(app, named: "passed-card-overlay")
+
+        overlay.tap()
+        XCTAssertTrue(overlay.waitForNonExistence(timeout: 2), "a tap dismisses the overlay")
+        XCTAssertTrue(card.exists, "and the card stays — on tomorrow")
+        XCTAssertEqual(app.staticTexts["ringCaption.cycling"].label, "Tomorrow")
+        attachScreenshot(app, named: "passed-card-after-tap")
+
+        tapCardBody(card)
+        XCTAssertTrue(app.navigationBars["Cycling"].waitForExistence(timeout: 5))
+        let row = app.buttons["detail.hoursOver"]
+        XCTAssertTrue(row.waitForExistence(timeout: 3), "the detail opens on tomorrow under the hours-over row")
+        XCTAssertTrue(row.label.hasPrefix("Today\u{2019}s hours are over"), "got \(row.label)")
+        XCTAssertTrue(app.descendants(matching: .any)["detail.comingDays"].exists, "the Coming days list")
+        XCTAssertTrue(app.otherElements["detail.score"].label.hasPrefix("Tomorrow"),
+                      "the ring is captioned Tomorrow — got \(app.otherElements["detail.score"].label)")
+        attachScreenshot(app, named: "passed-detail-row")
+
+        row.tap()
+        XCTAssertTrue(row.waitForNonExistence(timeout: 3), "the row slides away")
+        attachScreenshot(app, named: "passed-detail-after-tap")
+
+        let today = app.buttons["detail.weekDot.0"]
+        XCTAssertTrue(today.exists, "today stays reachable from its greyed dot")
+        today.tap()
+        XCTAssertTrue(waitForLabel(app.otherElements["detail.score"], "Average 86 out of 100, 6 – 10am · Perfect"),
+                      "today's own result")
+        XCTAssertFalse(app.buttons["detail.hoursOver"].exists, "no row on today")
+        XCTAssertFalse(app.descendants(matching: .any)["detail.comingDays"].exists)
     }
 
     /// Item 2: pulling the dashboard list down refreshes it in place — the
@@ -1424,15 +1392,17 @@ final class TimeItUITests: XCTestCase {
         tapCardBody(card)
         XCTAssertTrue(app.navigationBars["Cycling"].waitForExistence(timeout: 5))
         let row = app.descendants(matching: .any)["detail.hourStrip"]
-        XCTAssertTrue(app.staticTexts["detail.rangeLine"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["detail.yourHours"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.otherElements["detail.score"].exists)
         XCTAssertTrue(app.otherElements["detail.metric.temp"].exists)
         Thread.sleep(forTimeInterval: 0.6)
         attachScreenshot(app, named: "detail-dark")
 
+        app.buttons["detail.modeSwitch.explore"].tap()
+        XCTAssertTrue(app.buttons["detail.stepForward"].waitForExistence(timeout: 3))
         app.buttons["detail.stepForward"].tap()
         XCTAssertTrue(waitForLabel(row, "Hours 7am to 11am"), "got \(row.label)")
-        XCTAssertTrue(app.buttons["detail.scoreSpan"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.otherElements["detail.row.lookingAt"].waitForExistence(timeout: 3))
         Thread.sleep(forTimeInterval: 0.6)
         attachScreenshot(app, named: "detail-dark-span")
 
@@ -1470,15 +1440,21 @@ final class TimeItUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Cycling"].waitForExistence(timeout: 5))
         let score = app.otherElements["detail.score"]
         let row = app.descendants(matching: .any)["detail.hourStrip"]
-        let line = app.staticTexts["detail.rangeLine"]
+        let line = app.staticTexts["detail.yourHours"]
         XCTAssertTrue(line.waitForExistence(timeout: 3))
-        // The launch argument took effect: the 13pt range line is far
+        // The launch argument took effect: the 13pt Your hours line is far
         // taller than its default ~16pt line.
         XCTAssertGreaterThan(line.frame.height, 30, "the text size reached the app")
-        XCTAssertTrue(score.exists)
-        XCTAssertTrue(row.exists)
-        XCTAssertTrue(row.isHittable)
         XCTAssertTrue(line.isHittable)
+        Thread.sleep(forTimeInterval: 0.6)
+        assertNothingOverflowsHorizontally(app)
+        attachScreenshot(app, named: "detail-report-ax-xxl")
+        let explore = app.buttons["detail.modeSwitch.explore"]
+        XCTAssertTrue(explore.isHittable, "the switch stays reachable at AX sizes")
+        explore.tap()
+        XCTAssertTrue(row.waitForExistence(timeout: 3))
+        XCTAssertTrue(score.exists)
+        XCTAssertTrue(row.isHittable)
         XCTAssertTrue(app.buttons["detail.stepForward"].isHittable)
         // Ruling 5: the hour row drops UNDER the ring column.
         XCTAssertGreaterThanOrEqual(row.frame.minY, score.frame.maxY - 0.5,
@@ -1495,21 +1471,18 @@ final class TimeItUITests: XCTestCase {
 
         app.buttons["detail.stepForward"].tap()
         XCTAssertTrue(waitForLabel(row, "Hours 7am to 11am"), "got \(row.label)")
-        let scoreButton = app.buttons["detail.scoreSpan"]
-        XCTAssertTrue(scoreButton.waitForExistence(timeout: 2))
-        XCTAssertTrue(scoreButton.isHittable)
-        scoreButton.tap()
-        let scored = app.staticTexts["detail.scoredSpan"]
-        XCTAssertTrue(scored.waitForExistence(timeout: 3))
-        XCTAssertTrue(waitForLabel(score, "Good, score 67 out of 100 for 7 to 11am"), "got \(score.label)")
+        let lookingAt = app.otherElements["detail.row.lookingAt"]
+        XCTAssertTrue(lookingAt.waitForExistence(timeout: 3))
+        XCTAssertTrue(waitForLabel(score, "Average 67 out of 100, for 7 – 11am"), "got \(score.label)")
         Thread.sleep(forTimeInterval: 0.6)
         assertNothingOverflowsHorizontally(app)
 
-        let returnControl = app.buttons["detail.returnToRange"]
+        let returnControl = app.buttons["detail.backToRange"]
+        scrollTo(returnControl, in: app)
         XCTAssertTrue(returnControl.isHittable)
         returnControl.tap()
         XCTAssertTrue(waitForLabel(row, "Hours 6am to 10am"), "got \(row.label)")
-        XCTAssertTrue(scored.waitForNonExistence(timeout: 2))
+        XCTAssertTrue(lookingAt.waitForNonExistence(timeout: 2))
 
         // The edit circles keep 44pt and stay reachable below the grid.
         let editRange = app.buttons["detail.editRange"]
@@ -1533,8 +1506,8 @@ final class TimeItUITests: XCTestCase {
         tapCardBody(card)
         XCTAssertTrue(app.navigationBars["Cycling"].waitForExistence(timeout: 5))
         let score = app.otherElements["detail.score"]
-        let row = app.descendants(matching: .any)["detail.hourStrip"]
-        let line = app.staticTexts["detail.rangeLine"]
+        let row = app.descendants(matching: .any)["detail.reportStrip"]
+        let line = app.staticTexts["detail.yourHours"]
         XCTAssertTrue(line.waitForExistence(timeout: 3))
         // The launch argument took effect: the 13pt footnote line shrinks
         // (12pt at extra small — a line under the default ~15.5pt).
