@@ -53,7 +53,7 @@ Each phase ends with a durable write (this file, the local ledger, or a merge) b
 
 - [x] **P0 — plan audit and owner rulings** (2026-11-17/18).
 - [x] **P1 — Wave 0:** this file, ROADMAP item 23, the STATUS pointer, the sweep of the overridden hold (2026-11-18).
-- [ ] **P2 — Waves 1 and 2, in parallel.** Read-only. Lanes do not talk to each other.
+- [x] **P2 — Waves 1 and 2, in parallel** (2026-11-18 — all nine lanes reported; 88 findings in the local ledger). Read-only. Lanes do not talk to each other.
 
   | Lane | Agent | Ledger file |
   |---|---|---|
