@@ -59,21 +59,20 @@ function createFeedbackRouter({ db = defaultDb } = {}) {
     if (errors.length > 0) return res.status(400).json({ errors });
 
     try {
-      const { rows } = await db.query(
-        `SELECT count(*)::int AS count FROM suggestions
-         WHERE device_id = $1 AND created_at > now() - interval '24 hours'`,
-        [body.deviceId]
+      // The ceiling check rides in the insert itself: the row is written only
+      // while the device's rolling-24h count is under the ceiling — one
+      // statement, no separate read-then-write round trip.
+      const { rowCount } = await db.query(
+        `INSERT INTO suggestions (device_id, message, app_version, build, ios_version, kind)
+         SELECT $1, $2, $3, $4, $5, $6
+         WHERE (SELECT count(*) FROM suggestions
+                WHERE device_id = $1 AND created_at > now() - interval '24 hours') < $7`,
+        [body.deviceId, body.message.trim(), body.appVersion, body.build, body.iosVersion,
+          body.kind ?? DEFAULT_KIND, MAX_PER_DEVICE_PER_DAY]
       );
-      if (Number(rows[0].count) >= MAX_PER_DEVICE_PER_DAY) {
+      if (rowCount === 0) {
         return res.status(429).json(errorBody('Too many suggestions today — try again tomorrow'));
       }
-
-      await db.query(
-        `INSERT INTO suggestions (device_id, message, app_version, build, ios_version, kind)
-         VALUES ($1, $2, $3, $4, $5, $6)`,
-        [body.deviceId, body.message.trim(), body.appVersion, body.build, body.iosVersion,
-          body.kind ?? DEFAULT_KIND]
-      );
 
       res.status(204).end();
     } catch (err) {

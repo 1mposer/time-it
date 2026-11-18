@@ -20,7 +20,9 @@ function createRatingRouter({ getWeather = defaultGetWeather } = {}) {
     const { lat, lon, activities } = body;
 
     try {
-      const { forecastStart, timezone, hours } = await getWeather(lat, lon);
+      // A refused or failed provider call may be answered with the cell's
+      // last good forecast; provider misses count against the caller's address.
+      const { forecastStart, timezone, hours } = await getWeather(lat, lon, { allowStale: true, clientKey: req.ip });
       const resultActivities = evaluateAll(hours, activities);
       const indexedHours = hours.map(({ localDay, localHour, ...h }, i) => ({ index: i, ...h }));
       res.json({ forecastStart, timezone, activities: resultActivities, hours: indexedHours });

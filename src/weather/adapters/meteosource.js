@@ -4,7 +4,9 @@ const { UpstreamError } = require('../UpstreamError');
 const { zonedWallTimeToUtcIso } = require('../timeBoundary');
 
 const meteosourceAdapter = {
-  extractHours:     (res) => res.hourly.data,
+  // A missing hourly section reads as empty — parse.js reports that as an
+  // UpstreamError rather than a TypeError escaping as a 500.
+  extractHours:     (res) => res?.hourly?.data,
   // Astro lives under daily.data[].astro (there is no top-level astro section).
   // Returns { 'YYYY-MM-DD': 'new moon', ... } keyed on the location-local day
   // so parse.js can spread each day's phase across its hours. Meteosource
@@ -41,8 +43,21 @@ const meteosourceAdapter = {
   // The hourly row's location-local calendar date (timezone=auto serves local
   // wall-time) — the join key against moonPhaseByDay.
   localDate:        (h) => (typeof h?.date === 'string' ? h.date.slice(0, 10) : null),
-  // Location IANA zone, exposed top-level under timezone=auto.
-  timezone:         (res) => res.timezone,
+  // Location IANA zone, exposed top-level under timezone=auto. A payload
+  // without a usable zone is malformed (UpstreamError → 502): falling back
+  // would silently bucket every day in the host's zone.
+  timezone:         (res) => {
+    const zone = res?.timezone;
+    if (typeof zone !== 'string' || zone.length === 0) {
+      throw new UpstreamError('Provider payload carries no timezone');
+    }
+    try {
+      new Intl.DateTimeFormat('en-US', { timeZone: zone });
+    } catch {
+      throw new UpstreamError(`Provider payload carries an unknown timezone: ${zone}`);
+    }
+    return zone;
+  },
   // The provider serves local wall-time under timezone=auto — convert to the
   // UTC-Z contract. A malformed date is a malformed payload (UpstreamError →
   // 502), never a generic 500.

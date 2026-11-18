@@ -177,3 +177,19 @@ test('localDate is the hourly row local calendar date — the join key for the m
   assert.equal(meteosourceAdapter.localDate({ date: '2026-09-15T18:00:00' }), '2026-09-15');
   assert.equal(meteosourceAdapter.localDate({}), null);
 });
+
+// A payload without a usable zone would bucket every day in the host zone —
+// it is a malformed payload (UpstreamError → 502), never a silent fallback.
+test('timezone throws UpstreamError when the payload carries no zone', () => {
+  assert.throws(() => meteosourceAdapter.timezone({}), UpstreamError);
+  assert.throws(() => meteosourceAdapter.timezone({ timezone: '' }), UpstreamError);
+  assert.throws(() => meteosourceAdapter.timezone({ timezone: 42 }), UpstreamError);
+});
+
+test('timezone throws UpstreamError on a zone name Intl does not know', () => {
+  assert.throws(() => meteosourceAdapter.timezone({ timezone: 'Mars/Olympus_Mons' }), UpstreamError);
+});
+
+test('extractHours tolerates a payload with no hourly section (parse then reports it empty)', () => {
+  assert.deepEqual(meteosourceAdapter.extractHours({}) ?? [], []);
+});

@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { createWeatherCache, TTL_MS } = require('../../src/services/weatherCache');
+const { createWeatherCache, TTL_MS, NEGATIVE_TTL_MS } = require('../../src/services/weatherCache');
 
 const FIXTURE = { forecastStart: '2026-08-01T02:00:00Z', timezone: 'Asia/Dubai', hours: [] };
 
@@ -70,10 +70,12 @@ test('a rejected fetch is not cached — the next call retries the provider', as
     if (fail) throw new Error('provider down');
     return FIXTURE;
   };
-  const cached = createWeatherCache({ getWeather, now: () => 0 });
+  let clock = 0;
+  const cached = createWeatherCache({ getWeather, now: () => clock });
   await assert.rejects(() => cached(25.16, 55.21), /provider down/);
   fail = false;
+  clock = NEGATIVE_TTL_MS;
   const result = await cached(25.16, 55.21);
   assert.equal(result, FIXTURE);
-  assert.equal(calls.length, 2, 'the failure was evicted, so the second call refetched');
+  assert.equal(calls.length, 2, 'the failure was not cached as a value, so the next call (after the negative-cache window) refetched');
 });
