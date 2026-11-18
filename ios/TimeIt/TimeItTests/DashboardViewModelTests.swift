@@ -55,7 +55,12 @@ final class FakeLocationProvider: LocationProviding {
     }
 
     private(set) var requestLocationCalled = false
+    private(set) var requestLocationCount = 0
     private(set) var requestAuthorizationCalled = false
+    /// When set, `requestLocation()` answers with this fix on a later
+    /// main-actor hop — the real manager's asynchronous delivery. Nil = a
+    /// request is recorded but never answered (a fix still pending).
+    var fixOnRequest: CLLocation?
 
     init(location: CLLocation? = nil, authorization: CLAuthorizationStatus = .notDetermined) {
         subject = CurrentValueSubject(location)
@@ -64,6 +69,10 @@ final class FakeLocationProvider: LocationProviding {
 
     func requestLocation() {
         requestLocationCalled = true
+        requestLocationCount += 1
+        if let fix = fixOnRequest {
+            Task { @MainActor in self.location = fix }
+        }
     }
 
     func requestAuthorization() {
@@ -644,6 +653,77 @@ final class DashboardViewModelTests: XCTestCase {
 
         XCTAssertEqual(api.fetchCount, 1,
                        "while a home location covers the fetch, GPS movement is irrelevant")
+    }
+
+    // MARK: issue #19 — an already-authorized launch with an empty store
+
+    /// Waits (bounded) for `condition`, yielding the main actor between
+    /// checks so queued sink work and fix deliveries can run.
+    private func waitUntil(timeout: TimeInterval = 2, _ condition: () -> Bool) async {
+        let deadline = Date().addingTimeInterval(timeout)
+        while !condition(), Date() < deadline {
+            try? await Task.sleep(nanoseconds: 10_000_000)
+        }
+    }
+
+    /// Cell 3: location already granted (no prompt this launch), no
+    /// Activity yet. The first load must ask for a fix, and the fix must
+    /// name the header — "No location" with permission granted is #19.
+    func testAuthorizedLaunchWithAnEmptyStoreRequestsAFixAndNamesTheLocation() async {
+        let (vm, api, locationProvider, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])),
+                                                       location: nil, authorization: .authorizedWhenInUse,
+                                                       seeds: [])
+        locationProvider.fixOnRequest = CLLocation(latitude: 25.2048, longitude: 55.2708)
+
+        await vm.loadForecast()
+
+        XCTAssertTrue(locationProvider.requestLocationCalled,
+                      "authorized → the first load asks for a fix even with no Activity (#19)")
+        await waitUntil { vm.activeLocationName != nil }
+        XCTAssertEqual(vm.activeLocationName, "Current location", "the delivered fix names the header")
+        XCTAssertFalse(vm.hasNoLocation)
+        XCTAssertEqual(api.fetchCount, 0, "an empty store still never POSTs")
+    }
+
+    /// Cell 7: allow on the first run, quit, reopen — a NEW view-model
+    /// whose authorization is already granted behaves exactly like cell 3.
+    func testRelaunchWithAuthorizationAlreadyGrantedNamesTheLocation() async {
+        let (first, _, firstProvider, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])),
+                                                     location: nil, authorization: .notDetermined, seeds: [])
+        firstProvider.fixOnRequest = CLLocation(latitude: 25.2048, longitude: 55.2708)
+        await first.loadForecast()
+        firstProvider.authorizationStatus = .authorizedWhenInUse
+        await waitUntil { first.activeLocationName != nil }
+        XCTAssertEqual(first.activeLocationName, "Current location", "first run: the grant names the header")
+
+        let (relaunched, _, provider, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])),
+                                                     location: nil, authorization: .authorizedWhenInUse,
+                                                     seeds: [])
+        provider.fixOnRequest = CLLocation(latitude: 25.2048, longitude: 55.2708)
+
+        await relaunched.loadForecast()
+
+        XCTAssertTrue(provider.requestLocationCalled, "the relaunch asks for a fix without a prompt")
+        await waitUntil { relaunched.activeLocationName != nil }
+        XCTAssertEqual(relaunched.activeLocationName, "Current location")
+        XCTAssertFalse(relaunched.hasNoLocation)
+    }
+
+    /// Nothing records a fetched coordinate on the empty path, so a fix
+    /// that reloaded would request again: fix → reload → request → fix.
+    func testWithAnEmptyStoreADeliveredFixRequestsNoFurtherFix() async {
+        let (vm, _, locationProvider, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])),
+                                                     location: nil, authorization: .authorizedWhenInUse,
+                                                     seeds: [])
+        locationProvider.fixOnRequest = CLLocation(latitude: 25.2048, longitude: 55.2708)
+
+        await vm.loadForecast()
+        await waitUntil { vm.activeLocationName != nil }
+        try? await Task.sleep(nanoseconds: 200_000_000)
+
+        XCTAssertEqual(locationProvider.requestLocationCount, 1,
+                       "one load, one request — the delivered fix must not loop back into another")
+        XCTAssertEqual(vm.activeLocationName, "Current location")
     }
 
     // MARK: authored-activity lookups (icon + nocturnal labels)
