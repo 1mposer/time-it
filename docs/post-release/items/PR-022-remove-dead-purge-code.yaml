@@ -1,0 +1,22 @@
+id: PR-022
+title: Remove the build-10 purge code that still ships
+type: Polish
+priority: Low
+status: Backlog
+area: Build
+owner: Yaas
+effort: S
+reported: 2026-11-18
+found_in: 1.0 (11)
+fixed_in: null
+issue: null
+source:
+  - ship gate ruling R-41 (DEFER-POST)
+summary: |
+  One-off clean-up code from build 10 still ships. Dead code with no user effect.
+proposal: |
+  Delete it and its tests in a build that touches the same files.
+acceptance: |
+  - the code and its tests are gone
+  - the suite stays green
+decision_needed: null

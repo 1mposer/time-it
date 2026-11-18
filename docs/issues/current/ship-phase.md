@@ -67,7 +67,7 @@ Each phase ends with a durable write (this file, the local ledger, or a merge) b
   | Blind review — server | Opus, separate session, code-only export | `wave2/blind-server.md` |
   | Blind review — iOS | Opus, separate session, code-only export | `wave2/blind-ios.md` |
 
-- [ ] **P3 — (judge done, Captain ruled 2026-11-18 — §6; sheet and owner veto page in progress) Wave 3 judge (Opus):** merge, dedupe, rank → **Wave 4:** the orchestrator sorts each finding into real / documented-and-accepted / needs-ruling against the ADRs, then the Captain rules and writes the fix list and §6. The deferred-items sheet (§5) is built here. Owner veto page.
+- [x] **P3 — done 2026-11-18** (judge: 88 findings → 54; Captain's rulings in §6, ship criteria in §7; the deferred-items sheet built — 59 rows; the owner's rulings page is out, veto window open). Wave 3 judge (Opus): merge, dedupe, rank → **Wave 4:** the orchestrator sorts each finding into real / documented-and-accepted / needs-ruling against the ADRs, then the Captain rules and writes the fix list and §6. The deferred-items sheet (§5) is built here. Owner veto page.
 - [ ] **P4 — Wave 5 fix lanes** (TDD, worktrees; Opus implements, Sonnet verifies; iOS through the Mac). Provisional lanes, replaced by the Captain's fix list: **THROTTLE** (server traffic limits — the [item 20](../ROADMAP.md) lane, promoted), **DEPLOY** (deploy config as code, recovery runbook), **FIRSTRUN** (#19), **RELEASE** (release-only iOS changes, build bump).
 - [ ] **P5 — Wave 6:** the Captain's ship / no-ship verdict (advisor consulted first).
 - [ ] **P6 — Wave 7, owner's hands** (§4).
@@ -87,6 +87,8 @@ Only the owner can do these; each is a box on the final checklist.
 Still open from build 11, outside this phase: answer 12 from the current screenshot; the Instruments lane ([PR-011](../../post-release/items/PR-011-opening-hold-instruments.yaml)); the Figma Color/Typography token writes ([ROADMAP item 19](../ROADMAP.md)).
 
 ## 5. The deferred-items sheet (ruling 2)
+
+**Built 2026-11-18:** [`docs/post-release/backlog.csv`](../../post-release/backlog.csv) — 59 rows, with an `Issue` column. Rows still without an issue wait for the owner's batch approval (asked on the rulings page).
 
 One spreadsheet of everything deferred past 1.0, for the owner's post-launch review: the existing [post-release backlog](../../post-release/README.md), extended to cover the ship phase's own deferrals, the [ROADMAP Deferred table](../ROADMAP.md) and the open GitHub issues classed post-release. Every row carries its GitHub issue link. Rows whose item has no issue yet get one, created in **one batch after the Captain's list is final and shown to the owner first** (each new issue carries a `triage:` label or a ROADMAP row, per the ROADMAP issue rule). Rows for items that already have a ROADMAP row link to it and do not restate its status.
 

@@ -1,0 +1,24 @@
+id: PR-035
+title: Natural-language activity authoring
+type: Enhancement
+priority: Low
+status: Backlog
+area: Wizard
+owner: Yaas
+effort: L
+reported: 2026-11-18
+found_in: 1.0 (11)
+fixed_in: null
+issue: null
+source:
+  - docs/issues/ROADMAP.md (section Deferred): natural-language authoring
+summary: |
+  Free text to an Activity through one model call, validated by the server before return.
+proposal: |
+  See the ROADMAP row for preconditions. Promote condition: see ROADMAP §Deferred.
+acceptance: |
+  - free text produces a valid Activity
+  - ADR-0010 amended first
+decision_needed: null
+links:
+  - docs/issues/ROADMAP.md (section Deferred)

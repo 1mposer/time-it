@@ -1,0 +1,22 @@
+id: PR-027
+title: Let in-flight push passes finish on a service restart
+type: Enhancement
+priority: Low
+status: Backlog
+area: Server
+owner: Yaas
+effort: S
+reported: 2026-11-18
+found_in: 1.0 (11)
+fixed_in: null
+issue: null
+source:
+  - ship gate ruling R-08 (SIGTERM drain left for post-1.0)
+  - ship gate S-12 remainder
+summary: |
+  A restart during a push pass can cut it short. Claim-before-send already turns a cut into a missed send, never a duplicate.
+proposal: |
+  On termination signal stop scheduling, let the running pass finish within a bounded time, then exit.
+acceptance: |
+  - a restart during a pass lets it finish or stops cleanly with no duplicate sends
+decision_needed: null

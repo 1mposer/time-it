@@ -1,0 +1,22 @@
+id: PR-053
+title: Triple-tap any component to suggest, linked to that component
+type: Enhancement
+priority: Low
+status: Needs decision
+area: Settings
+owner: Yaas
+effort: M
+reported: 2026-11-18
+found_in: 1.0 (11)
+fixed_in: null
+issue: https://github.com/1mposer/time-it/issues/32
+source:
+  - GitHub issue #32
+summary: |
+  Open the suggestion sheet from a component with its tag attached.
+proposal: |
+  See the issue; open question on App Store installs.
+acceptance: |
+  - owner decides schedule or close
+decision_needed: |
+  Schedule, defer with a condition, or close?

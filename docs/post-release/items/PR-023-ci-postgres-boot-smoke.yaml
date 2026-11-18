@@ -1,0 +1,23 @@
+id: PR-023
+title: CI runs unit tests only: no Postgres, no boot smoke, not a deploy gate
+type: Enhancement
+priority: Low
+status: Backlog
+area: Build
+owner: Yaas
+effort: M
+reported: 2026-11-18
+found_in: 1.0 (11)
+fixed_in: null
+issue: null
+source:
+  - ship gate ruling R-48 (DEFER-POST)
+  - ship gate S-12 remainder (CI Postgres)
+summary: |
+  The real SQL is only exercised by live checks. CI has no database service and does not start the server.
+proposal: |
+  Add a Postgres service to CI, run init and one request round-trip as a boot smoke test, and make it a deploy gate.
+acceptance: |
+  - CI starts a Postgres service and boots the app
+  - a failing smoke test blocks the deploy
+decision_needed: null

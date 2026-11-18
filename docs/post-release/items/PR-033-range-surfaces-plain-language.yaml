@@ -1,0 +1,24 @@
+id: PR-033
+title: Plain-language rework of the shipped range surfaces
+type: Enhancement
+priority: Medium
+status: Backlog
+area: Dashboard
+owner: Yaas
+effort: L
+reported: 2026-11-18
+found_in: 1.0 (11)
+fixed_in: null
+issue: null
+source:
+  - docs/issues/ROADMAP.md (section Deferred): plain-language rework
+summary: |
+  The card phrase, the range chip and the editor's Range section still use range wording.
+proposal: |
+  Fresh frames in the onboarding-v2 style, then rebuild. Promote condition: see ROADMAP §Deferred.
+acceptance: |
+  - the three surfaces use plain wording
+  - old frames untouched
+decision_needed: null
+links:
+  - docs/issues/ROADMAP.md (section Deferred)

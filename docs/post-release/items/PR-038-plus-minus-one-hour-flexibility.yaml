@@ -1,0 +1,23 @@
+id: PR-038
+title: Plus or minus one hour flexibility
+type: Enhancement
+priority: Low
+status: Backlog
+area: Wizard
+owner: Yaas
+effort: M
+reported: 2026-11-18
+found_in: 1.0 (11)
+fixed_in: null
+issue: null
+source:
+  - docs/issues/ROADMAP.md (section Deferred): flexibility
+summary: |
+  Spec 14 full-scope leftover.
+proposal: |
+  Design wave first. Promote condition: see ROADMAP §Deferred.
+acceptance: |
+  - flexibility is authorable and evaluated
+decision_needed: null
+links:
+  - docs/issues/ROADMAP.md (section Deferred)

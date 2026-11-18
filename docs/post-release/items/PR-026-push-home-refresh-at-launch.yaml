@@ -1,0 +1,21 @@
+id: PR-026
+title: Push home location can go stale: a launch-time refresh is dropped when no fix exists yet
+type: Bug
+priority: Low
+status: Backlog
+area: Notifications
+owner: Yaas
+effort: S
+reported: 2026-11-18
+found_in: 1.0 (11)
+fixed_in: null
+issue: null
+source:
+  - ship gate ruling R-51 (DEFER-POST)
+summary: |
+  A push-only GPS home is frozen at opt-in and a re-send at launch is dropped when no location fix is ready yet. It heals on the next launch with a fix.
+proposal: |
+  Queue the re-send until a fix arrives instead of dropping it.
+acceptance: |
+  - a launch without an immediate fix still updates the home once a fix arrives
+decision_needed: null

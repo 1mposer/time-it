@@ -11,6 +11,7 @@ effort:      enum [S, M, L]
 reported:    date YYYY-MM-DD
 found_in:    string, "1.0 (10)" = marketing version (build)
 fixed_in:    string | null (optional until Done)
+issue:       full GitHub issue URL | null (optional) — the one open issue this item is; exported as the last CSV column "Issue"
 source:      list of strings — tester note / issue / ruling references
 summary:     block string — what rubs, in the user's terms
 proposal:    block string — the intended change, concrete enough to code from

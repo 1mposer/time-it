@@ -1,0 +1,22 @@
+id: PR-017
+title: Offline fallback forecast shows no date in the footer
+type: Polish
+priority: Low
+status: Backlog
+area: Dashboard
+owner: Yaas
+effort: S
+reported: 2026-11-18
+found_in: 1.0 (11)
+fixed_in: null
+issue: null
+source:
+  - ship gate ruling R-21 (DEFER-POST)
+summary: |
+  When the app falls back to its saved forecast the footer shows a clock time but no date, so an old forecast can read as today's.
+proposal: |
+  Show the forecast's date in the footer whenever the saved forecast is not from today. Render change, so it needs a Figma frame first (ADR-0008).
+acceptance: |
+  - a forecast from an earlier day shows its date in the footer
+  - a same-day forecast reads as before
+decision_needed: null

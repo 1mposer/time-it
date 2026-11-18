@@ -1,0 +1,25 @@
+id: PR-050
+title: Rainfall and cloud-coverage map for rain and cloud hunters
+type: Enhancement
+priority: Low
+status: Needs decision
+area: Dashboard
+owner: Yaas
+effort: L
+reported: 2026-11-18
+found_in: 1.0 (11)
+fixed_in: null
+issue: https://github.com/1mposer/time-it/issues/37
+source:
+  - GitHub issue #37
+summary: |
+  A user asked for a cloud-coverage map for people who hunt rain and cloud, hyper-local with future predictions.
+proposal: |
+  Scope with the maps issue (#36) and hyper-local sources (#35).
+acceptance: |
+  - owner decides schedule or close
+decision_needed: |
+  Schedule, merge with the maps and hyper-local ideas, or close?
+links:
+  - https://github.com/1mposer/time-it/issues/36
+  - https://github.com/1mposer/time-it/issues/35

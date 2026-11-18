@@ -1,0 +1,23 @@
+id: PR-041
+title: Metrics catalog route, remote conformer and error-code enum
+type: Enhancement
+priority: Low
+status: Backlog
+area: Server
+owner: Yaas
+effort: M
+reported: 2026-11-18
+found_in: 1.0 (11)
+fixed_in: null
+issue: null
+source:
+  - docs/issues/ROADMAP.md (section Deferred): metrics route
+summary: |
+  GET /api/v1/metrics, RemoteMetricCatalog, ADR-0005 error codes and client stale-activity reconciliation.
+proposal: |
+  Promote condition: see ROADMAP §Deferred.
+acceptance: |
+  - route and client conformer exist
+decision_needed: null
+links:
+  - docs/issues/ROADMAP.md (section Deferred)

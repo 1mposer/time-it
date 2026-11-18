@@ -1,0 +1,23 @@
+id: PR-029
+title: Page the device selection in the push jobs
+type: Enhancement
+priority: Medium
+status: Backlog
+area: Server
+owner: Yaas
+effort: M
+reported: 2026-11-18
+found_in: 1.0 (11)
+fixed_in: null
+issue: null
+source:
+  - ship gate ruling R-06 (full paging left for post-1.0)
+  - ship gate S-12 remainder
+summary: |
+  1.0 bounds each pass with a row limit. A growing device list will need real paging so every device is eventually served.
+proposal: |
+  Select devices in pages with a stable order and a cursor, sharing the weather budget across pages.
+acceptance: |
+  - a pass covers all devices across pages
+  - memory stays bounded as the table grows
+decision_needed: null

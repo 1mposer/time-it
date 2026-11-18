@@ -1,0 +1,23 @@
+id: PR-042
+title: Analytics events table
+type: Enhancement
+priority: Low
+status: Backlog
+area: Server
+owner: Yaas
+effort: M
+reported: 2026-11-18
+found_in: 1.0 (11)
+fixed_in: null
+issue: null
+source:
+  - docs/issues/ROADMAP.md (section Deferred): analytics events
+summary: |
+  No usage analytics yet.
+proposal: |
+  Promote condition: see ROADMAP §Deferred.
+acceptance: |
+  - events table and privacy ruling exist
+decision_needed: null
+links:
+  - docs/issues/ROADMAP.md (section Deferred)

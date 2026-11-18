@@ -1,0 +1,23 @@
+id: PR-058
+title: One device-pass module behind the digest and detector jobs
+type: Enhancement
+priority: Low
+status: Backlog
+area: Server
+owner: Yaas
+effort: M
+reported: 2026-11-18
+found_in: 1.0 (11)
+fixed_in: null
+issue: https://github.com/1mposer/time-it/issues/22
+source:
+  - GitHub issue #22
+summary: |
+  The two jobs share structure but no code.
+proposal: |
+  Depends on the snapshot store (#21).
+acceptance: |
+  - one shared pass module
+decision_needed: null
+links:
+  - https://github.com/1mposer/time-it/issues/21

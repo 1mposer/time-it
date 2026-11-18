@@ -24,7 +24,8 @@ REQUIRED = ["id", "title", "type", "priority", "status", "area", "owner", "effor
             "reported", "found_in", "source", "summary", "proposal", "acceptance"]
 COLUMNS = [("id", "ID"), ("title", "Title"), ("type", "Type"), ("priority", "Priority"),
            ("status", "Status"), ("area", "Area"), ("owner", "Owner"), ("effort", "Effort"),
-           ("reported", "Reported"), ("found_in", "Found in"), ("fixed_in", "Fixed in")]
+           ("reported", "Reported"), ("found_in", "Found in"), ("fixed_in", "Fixed in"),
+           ("issue", "Issue")]
 
 
 def parse(text):
@@ -65,6 +66,9 @@ def validate(path, data):
         errors.append(f"{path.name}: id {data.get('id')!r} is not PR-NNN")
     if not re.match(r"^\d{4}-\d{2}-\d{2}$", str(data.get("reported", ""))):
         errors.append(f"{path.name}: reported {data.get('reported')!r} is not YYYY-MM-DD")
+    issue = data.get("issue")
+    if issue is not None and not re.match(r"^https://github\.com/[\w.-]+/[\w.-]+/issues/\d+$", str(issue)):
+        errors.append(f"{path.name}: issue {issue!r} is not a full GitHub issue URL or null")
     if data.get("status") == "Needs decision" and not data.get("decision_needed"):
         errors.append(f"{path.name}: Needs decision without decision_needed")
     return errors

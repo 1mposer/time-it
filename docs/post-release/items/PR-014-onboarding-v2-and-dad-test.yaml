@@ -9,6 +9,7 @@ effort: L
 reported: 2026-11-18
 found_in: 1.0 (11)
 fixed_in: null
+issue: https://github.com/1mposer/time-it/issues/18
 source:
   - ship gate decision page, ruling 2 (owner, 2026-11-18) — 1.0 ships with today's first run
 summary: |

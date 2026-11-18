@@ -1,0 +1,24 @@
+id: PR-040
+title: requireTrue threshold type and kind validation
+type: Enhancement
+priority: Low
+status: Backlog
+area: Server
+owner: Yaas
+effort: S
+reported: 2026-11-18
+found_in: 1.0 (11)
+fixed_in: null
+issue: https://github.com/1mposer/time-it/issues/8
+source:
+  - docs/issues/ROADMAP.md (section Deferred): #8 requireTrue
+summary: |
+  No way to require a flag be present.
+proposal: |
+  See the stub. Promote condition: see ROADMAP §Deferred.
+acceptance: |
+  - requireTrue is evaluated and validated
+decision_needed: null
+links:
+  - docs/issues/ROADMAP.md (section Deferred)
+  - docs/issues/deferred/implement-spec-issue-8-require-true-threshold.md

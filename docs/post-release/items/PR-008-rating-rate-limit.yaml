@@ -9,6 +9,7 @@ effort: S
 reported: 2026-11-11
 found_in: 1.0 (10)
 fixed_in: null
+issue: null
 source:
   - build-10 lane plan, lane THROTTLE — owner: "later"
   - ship gate (owner rulings 2026-11-17/18) — promoted into 1.0, ROADMAP item 23

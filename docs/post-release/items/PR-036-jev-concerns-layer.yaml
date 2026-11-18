@@ -1,0 +1,25 @@
+id: PR-036
+title: Jev concerns layer (practitioner language)
+type: Enhancement
+priority: Medium
+status: Backlog
+area: Server
+owner: Yaas
+effort: L
+reported: 2026-11-18
+found_in: 1.0 (11)
+fixed_in: null
+issue: null
+source:
+  - docs/issues/ROADMAP.md (section Deferred): Jev concerns layer
+summary: |
+  Per-activity concerns asked of Jev over enriched hourly data and aggregated in code.
+proposal: |
+  Spec: docs/issues/deferred/implementation_spec_04-jev-concerns-layer.md. Promote condition: see ROADMAP §Deferred.
+acceptance: |
+  - pilot concern judged per hour
+  - never feeds rating, score or jobs
+decision_needed: null
+links:
+  - docs/issues/ROADMAP.md (section Deferred)
+  - docs/issues/deferred/implementation_spec_04-jev-concerns-layer.md

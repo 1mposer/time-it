@@ -1,0 +1,22 @@
+id: PR-018
+title: An Activity saved while offline renders nothing until a forecast arrives
+type: Bug
+priority: Low
+status: Backlog
+area: Dashboard
+owner: Yaas
+effort: S
+reported: 2026-11-18
+found_in: 1.0 (11)
+fixed_in: null
+issue: null
+source:
+  - ship gate ruling R-22 (DEFER-POST)
+summary: |
+  Save an Activity with no connection and its card area stays empty instead of showing a placeholder.
+proposal: |
+  Render a placeholder card (name plus a waiting state) for an Activity that has no forecast data yet. Needs a Figma frame first.
+acceptance: |
+  - an offline-saved Activity shows a placeholder card
+  - the placeholder is replaced by the real card when data arrives
+decision_needed: null

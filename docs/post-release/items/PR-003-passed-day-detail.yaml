@@ -9,6 +9,7 @@ effort: M
 reported: 2026-11-12
 found_in: 1.0 (10)
 fixed_in: null
+issue: null
 source:
   - build-9 addendum item 6 (red "No Window" on a passed day); spec row 6 (unruled)
   - owner, 2026-11-12: "I never want the user to see this screen, an empty screen with no valuable information does nothing for the user"

@@ -9,6 +9,7 @@ effort: M
 reported: 2026-11-11
 found_in: 1.0 (9)
 fixed_in: null
+issue: null
 source:
   - fresh-eyes notes 18/19, b9-13b (real data: "20 · Perfect" with one green hour in five); spec Q1, owner ruled b (open an ADR-0011 amendment)
 summary: |

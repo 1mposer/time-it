@@ -1,0 +1,22 @@
+id: PR-032
+title: One bounded retry for a transient push failure
+type: Enhancement
+priority: Low
+status: Backlog
+area: Notifications
+owner: Yaas
+effort: S
+reported: 2026-11-18
+found_in: 1.0 (11)
+fixed_in: null
+issue: null
+source:
+  - ship gate ruling R-10 (ACCEPT; one bounded retry post-1.0)
+summary: |
+  The alert is recorded before it is sent so a crash causes a missed alert, never a duplicate. A transient send failure is the same class, so the alert is lost for that window.
+proposal: |
+  Retry a transient failure once or twice within the same pass before giving up, without ever risking a duplicate.
+acceptance: |
+  - a transient failure is retried a bounded number of times
+  - no duplicate alert is possible
+decision_needed: null

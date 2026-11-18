@@ -1,0 +1,21 @@
+id: PR-024
+title: Feedback Send button may sit under the keyboard on small phones
+type: Bug
+priority: Low
+status: Backlog
+area: Settings
+owner: Yaas
+effort: S
+reported: 2026-11-18
+found_in: 1.0 (11)
+fixed_in: null
+issue: null
+source:
+  - ship gate ruling R-49 (DEFER-POST)
+summary: |
+  Plausible layout problem on the smallest phone with the keyboard up; not confirmed. The release verifier checks the moved sheet and returns it as a waiver request if Send is unreachable.
+proposal: |
+  Keep Send visible above the keyboard on the smallest supported screen.
+acceptance: |
+  - Send is reachable with the keyboard open on the smallest simulator
+decision_needed: null

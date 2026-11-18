@@ -1,5 +1,5 @@
 id: PR-012
-title: Partially-routed GitHub issues — the halves no lane built (#31, #23, #17)
+title: Detail metric-card tap/lift and the app-wide gesture audit (#31; the #23 and #17 halves are now PR-056 and PR-060)
 type: Enhancement
 priority: Low
 status: Backlog
@@ -9,6 +9,7 @@ effort: M
 reported: 2026-11-12
 found_in: 1.0 (10)
 fixed_in: null
+issue: https://github.com/1mposer/time-it/issues/31
 source:
   - lane TRIAGE report, 2026-11-12
 summary: |
@@ -17,8 +18,8 @@ summary: |
   (CACHE shipped the cache). #17: the country → city picking flow was not built (FIXES
   shipped the multi-result search).
 proposal: |
-  Each half becomes its own PR-item or a ROADMAP row when scheduled; until then the
-  three issues stay open with their TRIAGE comments.
+  The #23 (Range mirror) and #17 (country then city) halves are split into their own rows
+  (see links). This row now tracks the #31 half only; schedule it or give it a ROADMAP row.
 acceptance: |
   - each issue either closes with a citation or gets a row / PR-item
 decision_needed: null

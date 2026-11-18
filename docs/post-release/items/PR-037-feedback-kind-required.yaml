@@ -1,0 +1,24 @@
+id: PR-037
+title: Make feedback kind required
+type: Polish
+priority: Low
+status: Backlog
+area: Server
+owner: Yaas
+effort: S
+reported: 2026-11-18
+found_in: 1.0 (11)
+fixed_in: null
+issue: null
+source:
+  - docs/issues/ROADMAP.md (section Deferred): feedback kind required
+summary: |
+  kind is optional today so old builds keep working.
+proposal: |
+  Flip the guard to a required rule and sweep the docs. Promote condition: see ROADMAP §Deferred.
+acceptance: |
+  - missing kind returns 400
+  - docs swept
+decision_needed: null
+links:
+  - docs/issues/ROADMAP.md (section Deferred)

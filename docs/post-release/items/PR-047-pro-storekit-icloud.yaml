@@ -1,0 +1,23 @@
+id: PR-047
+title: Pro tier (StoreKit and paywall) and iCloud sync
+type: Enhancement
+priority: Low
+status: Backlog
+area: Settings
+owner: Yaas
+effort: L
+reported: 2026-11-18
+found_in: 1.0 (11)
+fixed_in: null
+issue: null
+source:
+  - docs/issues/ROADMAP.md (section Deferred): Pro and iCloud
+summary: |
+  No paid tier or sync yet.
+proposal: |
+  See ROADMAP row incl. its tripwire. Promote condition: see ROADMAP §Deferred.
+acceptance: |
+  - entitlement and sync shipped
+decision_needed: null
+links:
+  - docs/issues/ROADMAP.md (section Deferred)

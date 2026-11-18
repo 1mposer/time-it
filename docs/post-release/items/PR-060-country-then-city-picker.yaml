@@ -1,0 +1,24 @@
+id: PR-060
+title: Home location search in two steps: country, then city
+type: Enhancement
+priority: Low
+status: Backlog
+area: Location
+owner: Yaas
+effort: M
+reported: 2026-11-18
+found_in: 1.0 (11)
+fixed_in: null
+issue: https://github.com/1mposer/time-it/issues/17
+source:
+  - GitHub issue #17
+  - lane TRIAGE report, 2026-11-12 (split out of PR-012)
+summary: |
+  The country to city picking flow was not built; the dashboard should show country and city.
+proposal: |
+  See the issue.
+acceptance: |
+  - two-step picker; header shows country and city
+decision_needed: null
+links:
+  - docs/post-release/items/PR-001-location-picker-rethink.yaml

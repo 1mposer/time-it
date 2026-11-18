@@ -1,0 +1,24 @@
+id: PR-019
+title: Notifications switch snaps back after a denied permission with no route to iOS Settings
+type: Enhancement
+priority: Low
+status: Backlog
+area: Notifications
+owner: Yaas
+effort: S
+reported: 2026-11-18
+found_in: 1.0 (11)
+fixed_in: null
+issue: null
+source:
+  - ship gate ruling R-24 (DEFER-POST)
+summary: |
+  After the user denies the notification permission the switch snaps back and nothing says why or how to change it. Honest, not a dead end, but unhelpful.
+proposal: |
+  On a denied state, explain it and offer a button that opens the app's page in iOS Settings. Flow and render change; needs a Figma frame first.
+acceptance: |
+  - a denied permission shows an explanation and an Open Settings action
+  - granting it in Settings and returning enables the switch
+decision_needed: null
+links:
+  - https://github.com/1mposer/time-it/issues/24

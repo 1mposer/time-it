@@ -1,0 +1,24 @@
+id: PR-039
+title: Apple WeatherKit as a second weather source
+type: Enhancement
+priority: Medium
+status: Backlog
+area: Server
+owner: Yaas
+effort: L
+reported: 2026-11-18
+found_in: 1.0 (11)
+fixed_in: null
+issue: https://github.com/1mposer/time-it/issues/12
+source:
+  - docs/issues/ROADMAP.md (section Deferred): WeatherKit
+summary: |
+  A second provider for redundancy behind the adapter seam.
+proposal: |
+  Provider-descriptor ADR first, then adapter. Promote condition: see ROADMAP §Deferred.
+acceptance: |
+  - second provider serves when the first fails
+decision_needed: null
+links:
+  - docs/issues/ROADMAP.md (section Deferred)
+  - docs/issues/completed/handoff-weatherkit-provider-abstraction.md

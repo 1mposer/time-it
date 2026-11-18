@@ -1,0 +1,23 @@
+id: PR-031
+title: Bound the size of validation error responses
+type: Enhancement
+priority: Low
+status: Backlog
+area: Server
+owner: Yaas
+effort: S
+reported: 2026-11-18
+found_in: 1.0 (11)
+fixed_in: null
+issue: null
+source:
+  - ship gate ruling R-36 (error-list cap left for post-1.0)
+  - ship gate S-12 remainder
+summary: |
+  A validation failure can return a long list of errors.
+proposal: |
+  Cap the number of errors returned in one response while keeping the structured shape.
+acceptance: |
+  - error responses are bounded in size
+  - the envelope shape is unchanged
+decision_needed: null

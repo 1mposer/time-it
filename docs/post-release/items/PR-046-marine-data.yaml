@@ -1,0 +1,23 @@
+id: PR-046
+title: Wire real marine data
+type: Enhancement
+priority: Medium
+status: Backlog
+area: Server
+owner: Yaas
+effort: L
+reported: 2026-11-18
+found_in: 1.0 (11)
+fixed_in: null
+issue: https://github.com/1mposer/time-it/issues/7
+source:
+  - docs/issues/ROADMAP.md (section Deferred): marine data
+summary: |
+  Marine metrics are placeholders so they cannot be used.
+proposal: |
+  Investigate provider fields, then wire. Promote condition: see ROADMAP §Deferred.
+acceptance: |
+  - marine metrics live
+decision_needed: null
+links:
+  - docs/issues/ROADMAP.md (section Deferred)

@@ -1,0 +1,21 @@
+id: PR-057
+title: Device-snapshot store: one domain-verb module over the db seam
+type: Enhancement
+priority: Low
+status: Backlog
+area: Server
+owner: Yaas
+effort: M
+reported: 2026-11-18
+found_in: 1.0 (11)
+fixed_in: null
+issue: https://github.com/1mposer/time-it/issues/21
+source:
+  - GitHub issue #21
+summary: |
+  Deactivation rules and raw SQL are repeated across routes and jobs and tests.
+proposal: |
+  Do before the device-pass module (#22).
+acceptance: |
+  - one module owns the device queries
+decision_needed: null

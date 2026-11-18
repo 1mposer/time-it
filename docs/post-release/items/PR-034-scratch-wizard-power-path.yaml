@@ -1,0 +1,24 @@
+id: PR-034
+title: Scratch-wizard power-user path and Add-sheet wizard deprecation
+type: Enhancement
+priority: Low
+status: Backlog
+area: Wizard
+owner: Yaas
+effort: L
+reported: 2026-11-18
+found_in: 1.0 (11)
+fixed_in: null
+issue: null
+source:
+  - docs/issues/ROADMAP.md (section Deferred): scratch-wizard
+summary: |
+  The old wizard's unbuilt screens 2-5 as a power-user path.
+proposal: |
+  Build or drop per the ROADMAP row. Promote condition: see ROADMAP §Deferred.
+acceptance: |
+  - owner rules on the path
+  - the Add-sheet wizard fate is recorded
+decision_needed: null
+links:
+  - docs/issues/ROADMAP.md (section Deferred)

@@ -1,0 +1,22 @@
+id: PR-052
+title: Hyper-local data sources for different activities
+type: Enhancement
+priority: Low
+status: Needs decision
+area: Server
+owner: Yaas
+effort: L
+reported: 2026-11-18
+found_in: 1.0 (11)
+fixed_in: null
+issue: https://github.com/1mposer/time-it/issues/35
+source:
+  - GitHub issue #35
+summary: |
+  A list of candidate activity-specific data sources.
+proposal: |
+  Evaluate sources against provider terms and need.
+acceptance: |
+  - owner decides schedule or close
+decision_needed: |
+  Schedule, defer with a condition, or close?

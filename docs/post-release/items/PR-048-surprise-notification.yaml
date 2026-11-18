@@ -1,0 +1,24 @@
+id: PR-048
+title: Surprise notification (out-of-range Perfect alert)
+type: Enhancement
+priority: Low
+status: Backlog
+area: Notifications
+owner: Yaas
+effort: M
+reported: 2026-11-18
+found_in: 1.0 (11)
+fixed_in: null
+issue: null
+source:
+  - docs/issues/ROADMAP.md (section Deferred): surprise notification
+summary: |
+  Alert for Perfect windows outside the user's range.
+proposal: |
+  Promote condition: see ROADMAP §Deferred.
+acceptance: |
+  - out-of-range alert exists
+decision_needed: null
+links:
+  - docs/issues/ROADMAP.md (section Deferred)
+  - ios/GLOSSARY.md

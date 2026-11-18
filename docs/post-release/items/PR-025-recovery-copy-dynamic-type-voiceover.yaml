@@ -1,0 +1,22 @@
+id: PR-025
+title: Recovery and error copy ignores Dynamic Type; VoiceOver reads raw symbol names
+type: Polish
+priority: Low
+status: Backlog
+area: Dashboard
+owner: Yaas
+effort: S
+reported: 2026-11-18
+found_in: 1.0 (11)
+fixed_in: null
+issue: null
+source:
+  - ship gate ruling R-50 (DEFER-POST)
+summary: |
+  Empty, error and recovery messages do not scale with the text size and some icons are read aloud by symbol name.
+proposal: |
+  Use scaling text styles and give each icon an accessibility label or hide it. Render change, needs frames.
+acceptance: |
+  - recovery copy scales at the accessibility sizes
+  - VoiceOver reads a human label for each icon
+decision_needed: null

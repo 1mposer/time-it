@@ -1,0 +1,24 @@
+id: PR-043
+title: Seed-threshold finalization
+type: Decision
+priority: Low
+status: Backlog
+area: Wizard
+owner: Yaas
+effort: S
+reported: 2026-11-18
+found_in: 1.0 (11)
+fixed_in: null
+issue: null
+source:
+  - docs/issues/ROADMAP.md (section Deferred): seed thresholds
+summary: |
+  Provisional default values from the removed templates.
+proposal: |
+  Owner pass, rides onboarding v2. Promote condition: see ROADMAP §Deferred.
+acceptance: |
+  - defaults ruled
+decision_needed: |
+  Which default thresholds should onboarding prefill?
+links:
+  - docs/issues/ROADMAP.md (section Deferred)

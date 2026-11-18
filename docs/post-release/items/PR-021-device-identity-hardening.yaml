@@ -1,0 +1,23 @@
+id: PR-021
+title: Install identity storage can be restored from a backup or re-minted in an edge launch
+type: Enhancement
+priority: Low
+status: Backlog
+area: Settings
+owner: Yaas
+effort: S
+reported: 2026-11-18
+found_in: 1.0 (11)
+fixed_in: null
+issue: null
+source:
+  - ship gate ruling R-40 (DEFER-POST)
+  - ADR-0001 (device identity only)
+summary: |
+  The anonymous install identity is not bound to one device and the stored push address sits in plain app storage. ADR-0001 accepts the posture; the duplicate-row side effect is already limited by the 1.0 fixes.
+proposal: |
+  Review the identity and push-address storage against ADR-0001 and move them to a stricter store if the posture should tighten.
+acceptance: |
+  - the owner confirms the posture stays or tightens
+  - any change keeps existing installs working
+decision_needed: null

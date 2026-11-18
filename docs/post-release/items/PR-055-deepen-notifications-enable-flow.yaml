@@ -1,0 +1,21 @@
+id: PR-055
+title: Deepen the notifications-enable flow in DeviceRegistration
+type: Enhancement
+priority: Low
+status: Backlog
+area: Notifications
+owner: Yaas
+effort: M
+reported: 2026-11-18
+found_in: 1.0 (11)
+fixed_in: null
+issue: https://github.com/1mposer/time-it/issues/24
+source:
+  - GitHub issue #24
+summary: |
+  Architecture review: the enable steps are spread across the view and the registration module.
+proposal: |
+  Time with onboarding v2, per the issue.
+acceptance: |
+  - one interface drives enabling
+decision_needed: null

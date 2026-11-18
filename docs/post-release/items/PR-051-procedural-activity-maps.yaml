@@ -1,0 +1,22 @@
+id: PR-051
+title: Generated maps on the Activity detail page
+type: Enhancement
+priority: Low
+status: Needs decision
+area: Detail
+owner: Yaas
+effort: L
+reported: 2026-11-18
+found_in: 1.0 (11)
+fixed_in: null
+issue: https://github.com/1mposer/time-it/issues/36
+source:
+  - GitHub issue #36
+summary: |
+  Maps (temperature, wind, sea temperature, rain cells and others) added per Activity.
+proposal: |
+  Owner decision on scope and data sources.
+acceptance: |
+  - owner decides schedule or close
+decision_needed: |
+  Schedule, defer with a condition, or close?

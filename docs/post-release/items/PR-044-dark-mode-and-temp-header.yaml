@@ -1,0 +1,23 @@
+id: PR-044
+title: Dark-mode adoption and temperature-driven header
+type: Enhancement
+priority: Low
+status: Backlog
+area: Dashboard
+owner: Yaas
+effort: L
+reported: 2026-11-18
+found_in: 1.0 (11)
+fixed_in: null
+issue: null
+source:
+  - docs/issues/ROADMAP.md (section Deferred): dark mode
+summary: |
+  The app is light-only; dark designs exist ahead of code.
+proposal: |
+  Promote condition: see ROADMAP §Deferred.
+acceptance: |
+  - dark appearance supported
+decision_needed: null
+links:
+  - docs/issues/ROADMAP.md (section Deferred)

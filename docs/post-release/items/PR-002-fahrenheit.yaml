@@ -9,6 +9,7 @@ effort: M
 reported: 2026-11-12
 found_in: 1.0 (10)
 fixed_in: null
+issue: null
 source:
   - fresh-eyes note 7; spec row 14, owner ruled 14a (mph now, °F later)
 summary: |

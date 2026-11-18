@@ -1,0 +1,22 @@
+id: PR-054
+title: Migrate to Xcode 27 / iOS 27 SDK and update server dependencies
+type: Enhancement
+priority: High
+status: Backlog
+area: Build
+owner: Yaas
+effort: M
+reported: 2026-11-18
+found_in: 1.0 (11)
+fixed_in: null
+issue: https://github.com/1mposer/time-it/issues/30
+source:
+  - GitHub issue #30
+summary: |
+  App Store uploads must use the iOS 27 SDK from about April 2027; server dependencies have drifted.
+proposal: |
+  Follow the task list in the issue before the April 2027 deadline.
+acceptance: |
+  - app builds and uploads with the new SDK
+  - server dependencies updated with tests green
+decision_needed: null

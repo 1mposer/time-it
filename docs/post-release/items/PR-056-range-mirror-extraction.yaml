@@ -1,0 +1,23 @@
+id: PR-056
+title: Extract the Range-evaluation mirror out of DashboardViewModel
+type: Enhancement
+priority: Low
+status: Backlog
+area: Dashboard
+owner: Yaas
+effort: M
+reported: 2026-11-18
+found_in: 1.0 (11)
+fixed_in: null
+issue: https://github.com/1mposer/time-it/issues/23
+source:
+  - GitHub issue #23
+  - lane TRIAGE report, 2026-11-12 (split out of PR-012)
+summary: |
+  About 65 lines of pure math live in a large view model and are not registered as a mirror in ADR-0007.
+proposal: |
+  Extract as a pure module and register the mirror.
+acceptance: |
+  - tests need no view model
+  - mirror registered
+decision_needed: null

@@ -1,0 +1,23 @@
+id: PR-049
+title: Build 8 review deferrals (minute tick, formatter cache, stale slot)
+type: Polish
+priority: Low
+status: Backlog
+area: Dashboard
+owner: Yaas
+effort: M
+reported: 2026-11-18
+found_in: 1.0 (11)
+fixed_in: null
+issue: null
+source:
+  - docs/issues/ROADMAP.md (section Deferred): build 8 deferrals
+summary: |
+  Three small client items from the build 8 review.
+proposal: |
+  Promote condition: see ROADMAP §Deferred; details in docs/issues/current/handoff-depth-pass.md.
+acceptance: |
+  - the three items closed
+decision_needed: null
+links:
+  - docs/issues/ROADMAP.md (section Deferred)
