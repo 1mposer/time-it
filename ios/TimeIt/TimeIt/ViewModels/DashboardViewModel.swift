@@ -141,6 +141,13 @@ final class DashboardViewModel: ObservableObject {
             .compactMap { $0 }
             .sink { [weak self] fix in
                 guard let self, self.preferences.homeLocation == nil else { return }
+                // Nothing is fetched without a live Activity, so the fix only
+                // names the header. Reloading here would request again (no
+                // fetched coordinate ever stops it) — a fix → request loop.
+                guard self.hasLiveActivities else {
+                    self.publishLocationWithoutFetch()
+                    return
+                }
                 if let fetched = self.lastFetchedCoordinate,
                    !Self.isMeaningfulMove(from: fetched, to: fix.coordinate) { return }
                 self.scheduleReload()
@@ -255,15 +262,21 @@ final class DashboardViewModel: ObservableObject {
         loadGeneration += 1
         let generation = loadGeneration
 
+        // Every load warms a fix while authorized — with or without a live
+        // Activity, so the header names the location on an empty store too
+        // (#19: a launch with permission already granted fires no grant
+        // change, and nothing else asks).
+        if isAuthorized {
+            locationProvider.requestLocation()
+        }
+
         guard hasLiveActivities else {
             forecast = nil
             lastUpdated = nil
             errorMessage = nil
             isTransientError = false
             isLoading = false
-            let active = resolveActiveLocation()
-            hasNoLocation = active == nil
-            activeLocationName = active?.displayName
+            publishLocationWithoutFetch()
             return
         }
 
@@ -274,10 +287,6 @@ final class DashboardViewModel: ObservableObject {
         isLoading = showsLoading && forecast == nil
         errorMessage = nil
         isTransientError = false
-
-        if isAuthorized {
-            locationProvider.requestLocation()
-        }
 
         guard let active = resolveActiveLocation() else {
             forecast = nil
@@ -371,6 +380,14 @@ final class DashboardViewModel: ObservableObject {
             isTransientError = true
         }
         isLoading = false
+    }
+
+    /// The fetch-less path's location state: the header name and the
+    /// no-location signal, straight from the chain.
+    private func publishLocationWithoutFetch() {
+        let active = resolveActiveLocation()
+        hasNoLocation = active == nil
+        activeLocationName = active?.displayName
     }
 
     /// Draws a cache entry: the forecast, its age, and the location side
