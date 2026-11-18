@@ -165,7 +165,7 @@ final class DashboardViewModel: ObservableObject {
                 // names the header. Reloading here would request again (no
                 // fetched coordinate ever stops it) — a fix → request loop.
                 guard self.hasLiveActivities else {
-                    self.publishLocationWithoutFetch()
+                    self.publishLocationWithoutFetch(fix: fix)
                     return
                 }
                 if let fetched = self.lastFetchedCoordinate,
@@ -268,11 +268,11 @@ final class DashboardViewModel: ObservableObject {
         locationProvider.requestAuthorization()
     }
 
-    /// Shows the existing "Enable Location" / "Place your own location"
-    /// buttons under the empty first screen's hero: no Activity, no
-    /// location resolved, and either permission is denied/restricted or a
-    /// requested fix failed. Never while the prompt is unanswered or a fix
-    /// is still pending, so the allow path doesn't flash them.
+    /// True when the empty first screen (no Activity, nothing in the
+    /// location chain) has no location on its way: permission was refused
+    /// or is locked, or the last fix attempt errored. The prompt being up,
+    /// or a granted fix still in flight, keeps it false — a user tapping
+    /// Allow sees the name arrive, not a CTA blink.
     var showsLocationActionsOnEmptyScreen: Bool {
         guard !hasActivities, hasNoLocation else { return false }
         switch locationProvider.authorizationStatus {
@@ -457,9 +457,11 @@ final class DashboardViewModel: ObservableObject {
     }
 
     /// The fetch-less path's location state: the header name and the
-    /// no-location signal, straight from the chain.
-    private func publishLocationWithoutFetch() {
-        let active = resolveActiveLocation()
+    /// no-location signal, straight from the chain. `fix` is a fix being
+    /// delivered: the real manager's `$location` publishes before the
+    /// property holds it, so the provider can't be re-read for it yet.
+    private func publishLocationWithoutFetch(fix: CLLocation? = nil) {
+        let active = resolveActiveLocation(fix: fix)
         hasNoLocation = active == nil
         activeLocationName = active?.displayName
     }
@@ -594,11 +596,11 @@ final class DashboardViewModel: ObservableObject {
 
     /// The location chain: home → live GPS fix → last-resolved cache → nil
     /// (nil = show the no-location empty state, never a fallback coordinate).
-    private func resolveActiveLocation() -> ActiveLocation? {
+    private func resolveActiveLocation(fix delivered: CLLocation? = nil) -> ActiveLocation? {
         if let home = preferences.homeLocation {
             return .home(home)
         }
-        if let fix = locationProvider.location {
+        if let fix = delivered ?? locationProvider.location {
             return .gps(fix.coordinate)
         }
         if let cached = preferences.lastResolvedLocation {
