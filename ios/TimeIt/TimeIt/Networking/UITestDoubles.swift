@@ -28,6 +28,10 @@ final class StaticLocationProvider: LocationProviding {
         Just(authorizationStatus).eraseToAnyPublisher()
     }
 
+    var locationFailurePublisher: AnyPublisher<Void, Never> {
+        Empty().eraseToAnyPublisher()
+    }
+
     func requestLocation() {}
     func requestAuthorization() {}
 }

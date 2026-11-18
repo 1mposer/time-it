@@ -231,9 +231,10 @@ struct DashboardView: View {
         // (lane CACHE): a forecast under 3 h old for this location is served
         // without a POST, an older one is refetched. Launch is covered by
         // .task; the generation guard makes an overlapping load harmless.
+        // It also restores the one failed-fix retry (#19).
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active else { return }
-            Task { await viewModel.loadForecast() }
+            Task { await viewModel.returnToForeground() }
         }
         .onReceive(router.$focusActivityId.compactMap { $0 }) { activityId in
             showSettings = false
@@ -305,6 +306,11 @@ struct DashboardView: View {
                         .multilineTextAlignment(.center)
                         .padding(.top, 16)
                         .accessibilityIdentifier("firstLaunchMessage")
+                    // #19: no location and no fix coming (denied, restricted
+                    // or a failed fix) — the no-location CTAs, unchanged.
+                    if viewModel.showsLocationActionsOnEmptyScreen {
+                        locationActions
+                    }
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.horizontal, 20)
@@ -403,34 +409,42 @@ struct DashboardView: View {
                     .frame(maxWidth: 280)
                     .padding(.top, 6)
                     .accessibilityIdentifier("noLocationMessage")
-                if viewModel.locationPermissionRestricted {
-                    Text("Location access is restricted on this device.")
-                        .font(.system(size: 13))
-                        .foregroundStyle(Theme.secondaryText)
-                        .padding(.top, 16)
-                        .accessibilityIdentifier("locationRestrictedMessage")
-                } else {
-                    GlassControl(identifier: "enableLocationButton", action: enableLocation) {
-                        Text("Enable Location")
-                            .glassCapsule(font: GlassCapsule.primaryFont)
-                    }
-                    .padding(.top, 8)
-                }
-                Button {
-                    showCityPicker = true
-                } label: {
-                    Text("Place your own location")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(Theme.accentBrand)
-                        .frame(minHeight: 44)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .padding(.top, 5)
-                .accessibilityIdentifier("placeLocationButton")
+                locationActions
             }
             .padding(14)
         }
+    }
+
+    /// The two location CTAs, shared by the no-location state and the
+    /// empty first screen: "Enable Location" (or the honest restricted
+    /// line) over "Place your own location".
+    @ViewBuilder
+    private var locationActions: some View {
+        if viewModel.locationPermissionRestricted {
+            Text("Location access is restricted on this device.")
+                .font(.system(size: 13))
+                .foregroundStyle(Theme.secondaryText)
+                .padding(.top, 16)
+                .accessibilityIdentifier("locationRestrictedMessage")
+        } else {
+            GlassControl(identifier: "enableLocationButton", action: enableLocation) {
+                Text("Enable Location")
+                    .glassCapsule(font: GlassCapsule.primaryFont)
+            }
+            .padding(.top, 8)
+        }
+        Button {
+            showCityPicker = true
+        } label: {
+            Text("Place your own location")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Theme.accentBrand)
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .padding(.top, 5)
+        .accessibilityIdentifier("placeLocationButton")
     }
 
     /// One grayed skeleton card per authored Activity: its icon and name

@@ -59,6 +59,21 @@ final class DashboardViewModel: ObservableObject {
     /// Device-clock instant of the drawn forecast's full fetch — the
     /// dashboard's "Updated 10:43" label. Nil with no forecast.
     @Published private(set) var lastUpdated: Date?
+    /// True once a requested fix failed and none has landed since — with
+    /// no location resolved, the empty first screen offers the location
+    /// buttons instead of waiting on a fix that may never come (#19).
+    @Published private(set) var locationFailed = false
+    /// The pause before the one retry a failed fix earns (10 s in the app;
+    /// injected so tests don't wait in real time).
+    private let locationRetryWait: () async -> Void
+    /// One retry per foreground: a failure spends it, only a return to the
+    /// foreground restores it — so failure → retry → failure never loops.
+    private var locationRetryAvailable = true
+    private var locationRetryTask: Task<Void, Never>?
+
+    nonisolated static func tenSeconds() async {
+        try? await Task.sleep(nanoseconds: 10_000_000_000)
+    }
 
     /// Where the location chain resolved: home → GPS → last-resolved cache.
     private enum ActiveLocation {
@@ -108,8 +123,10 @@ final class DashboardViewModel: ObservableObject {
          cache: ForecastCache? = nil,
          passedDays: PassedDayStore? = nil,
          deviceTimeZone: TimeZone = .current,
-         now: @escaping () -> Date = Date.init) {
+         now: @escaping () -> Date = Date.init,
+         locationRetryWait: @escaping () async -> Void = DashboardViewModel.tenSeconds) {
         self.api = api
+        self.locationRetryWait = locationRetryWait
         self.cache = cache ?? ForecastCache.standard()
         self.deviceTimeZone = deviceTimeZone
         self.now = now
@@ -140,7 +157,17 @@ final class DashboardViewModel: ObservableObject {
             .dropFirst()
             .compactMap { $0 }
             .sink { [weak self] fix in
-                guard let self, self.preferences.homeLocation == nil else { return }
+                guard let self else { return }
+                self.locationFailed = false
+                self.locationRetryTask?.cancel()
+                guard self.preferences.homeLocation == nil else { return }
+                // Nothing is fetched without a live Activity, so the fix only
+                // names the header. Reloading here would request again (no
+                // fetched coordinate ever stops it) — a fix → request loop.
+                guard self.hasLiveActivities else {
+                    self.publishLocationWithoutFetch(fix: fix)
+                    return
+                }
                 if let fetched = self.lastFetchedCoordinate,
                    !Self.isMeaningfulMove(from: fetched, to: fix.coordinate) { return }
                 self.scheduleReload()
@@ -150,8 +177,22 @@ final class DashboardViewModel: ObservableObject {
             .removeDuplicates()
             .dropFirst()
             .sink { [weak self] status in
-                guard status == .authorizedWhenInUse || status == .authorizedAlways else { return }
-                self?.locationProvider.requestLocation()
+                guard let self else { return }
+                // A new status starts over: any earlier failure is moot.
+                self.locationFailed = false
+                self.locationRetryTask?.cancel()
+                guard status == .authorizedWhenInUse || status == .authorizedAlways else {
+                    // Denied/restricted are read from the provider, not a
+                    // published property — tell the view to re-read them.
+                    self.objectWillChange.send()
+                    return
+                }
+                self.locationProvider.requestLocation()
+            }
+            .store(in: &cancellables)
+        self.locationProvider.locationFailurePublisher
+            .sink { [weak self] in
+                self?.handleLocationFailure()
             }
             .store(in: &cancellables)
 
@@ -227,6 +268,46 @@ final class DashboardViewModel: ObservableObject {
         locationProvider.requestAuthorization()
     }
 
+    /// True when the empty first screen (no Activity, nothing in the
+    /// location chain) has no location on its way: permission was refused
+    /// or is locked, or the last fix attempt errored. The prompt being up,
+    /// or a granted fix still in flight, keeps it false — a user tapping
+    /// Allow sees the name arrive, not a CTA blink.
+    var showsLocationActionsOnEmptyScreen: Bool {
+        guard !hasActivities, hasNoLocation else { return false }
+        switch locationProvider.authorizationStatus {
+        case .denied, .restricted:
+            return true
+        case .authorizedWhenInUse, .authorizedAlways:
+            return locationFailed
+        default:
+            return false
+        }
+    }
+
+    /// The return to the foreground: restores the one failed-fix retry,
+    /// then reloads (which asks for a fresh fix while authorized).
+    func returnToForeground() async {
+        locationRetryAvailable = true
+        await loadForecast()
+    }
+
+    /// A requested fix failed: flag it (the empty screen's way forward) and
+    /// spend this foreground's one retry, if it is still there. A denial
+    /// never retries — there is no fix to wait for.
+    private func handleLocationFailure() {
+        guard isAuthorized else { return }
+        locationFailed = true
+        guard locationRetryAvailable else { return }
+        locationRetryAvailable = false
+        let wait = locationRetryWait
+        locationRetryTask = Task { [weak self] in
+            await wait()
+            guard !Task.isCancelled, let self, self.isAuthorized else { return }
+            self.locationProvider.requestLocation()
+        }
+    }
+
     /// Resolves the active location and fetches ratings for the live
     /// Activities; publishes forecast/error/empty-state accordingly.
     func loadForecast() async {
@@ -255,15 +336,21 @@ final class DashboardViewModel: ObservableObject {
         loadGeneration += 1
         let generation = loadGeneration
 
+        // Every load warms a fix while authorized — with or without a live
+        // Activity, so the header names the location on an empty store too
+        // (#19: a launch with permission already granted fires no grant
+        // change, and nothing else asks).
+        if isAuthorized {
+            locationProvider.requestLocation()
+        }
+
         guard hasLiveActivities else {
             forecast = nil
             lastUpdated = nil
             errorMessage = nil
             isTransientError = false
             isLoading = false
-            let active = resolveActiveLocation()
-            hasNoLocation = active == nil
-            activeLocationName = active?.displayName
+            publishLocationWithoutFetch()
             return
         }
 
@@ -274,10 +361,6 @@ final class DashboardViewModel: ObservableObject {
         isLoading = showsLoading && forecast == nil
         errorMessage = nil
         isTransientError = false
-
-        if isAuthorized {
-            locationProvider.requestLocation()
-        }
 
         guard let active = resolveActiveLocation() else {
             forecast = nil
@@ -371,6 +454,16 @@ final class DashboardViewModel: ObservableObject {
             isTransientError = true
         }
         isLoading = false
+    }
+
+    /// The fetch-less path's location state: the header name and the
+    /// no-location signal, straight from the chain. `fix` is a fix being
+    /// delivered: the real manager's `$location` publishes before the
+    /// property holds it, so the provider can't be re-read for it yet.
+    private func publishLocationWithoutFetch(fix: CLLocation? = nil) {
+        let active = resolveActiveLocation(fix: fix)
+        hasNoLocation = active == nil
+        activeLocationName = active?.displayName
     }
 
     /// Draws a cache entry: the forecast, its age, and the location side
@@ -503,11 +596,11 @@ final class DashboardViewModel: ObservableObject {
 
     /// The location chain: home → live GPS fix → last-resolved cache → nil
     /// (nil = show the no-location empty state, never a fallback coordinate).
-    private func resolveActiveLocation() -> ActiveLocation? {
+    private func resolveActiveLocation(fix delivered: CLLocation? = nil) -> ActiveLocation? {
         if let home = preferences.homeLocation {
             return .home(home)
         }
-        if let fix = locationProvider.location {
+        if let fix = delivered ?? locationProvider.location {
             return .gps(fix.coordinate)
         }
         if let cached = preferences.lastResolvedLocation {

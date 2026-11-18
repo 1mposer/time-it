@@ -54,8 +54,25 @@ final class FakeLocationProvider: LocationProviding {
         authSubject.eraseToAnyPublisher()
     }
 
+    private let failureSubject = PassthroughSubject<Void, Never>()
+
+    var locationFailurePublisher: AnyPublisher<Void, Never> {
+        failureSubject.eraseToAnyPublisher()
+    }
+
+    /// A requested fix failed (what the real manager publishes from
+    /// `didFailWithError`, a denial excluded).
+    func failFix() {
+        failureSubject.send()
+    }
+
     private(set) var requestLocationCalled = false
+    private(set) var requestLocationCount = 0
     private(set) var requestAuthorizationCalled = false
+    /// When set, `requestLocation()` answers with this fix on a later
+    /// main-actor hop — the real manager's asynchronous delivery. Nil = a
+    /// request is recorded but never answered (a fix still pending).
+    var fixOnRequest: CLLocation?
 
     init(location: CLLocation? = nil, authorization: CLAuthorizationStatus = .notDetermined) {
         subject = CurrentValueSubject(location)
@@ -64,6 +81,10 @@ final class FakeLocationProvider: LocationProviding {
 
     func requestLocation() {
         requestLocationCalled = true
+        requestLocationCount += 1
+        if let fix = fixOnRequest {
+            Task { @MainActor in self.location = fix }
+        }
     }
 
     func requestAuthorization() {
@@ -97,7 +118,8 @@ final class DashboardViewModelTests: XCTestCase {
                         authorization: CLAuthorizationStatus = .notDetermined,
                         seeds: [AuthoredActivity] = Fixtures.liveSeeds,
                         home: SavedLocation? = nil,
-                        deviceTimeZone: TimeZone = TimeZone(identifier: "Asia/Dubai")!)
+                        deviceTimeZone: TimeZone = TimeZone(identifier: "Asia/Dubai")!,
+                        locationRetryWait: @escaping () async -> Void = {})
         -> (DashboardViewModel, FakeRatingService, FakeLocationProvider, ActivityStore, PreferencesStore) {
         let api = FakeRatingService(result: result)
         let locationProvider = FakeLocationProvider(location: location, authorization: authorization)
@@ -109,7 +131,8 @@ final class DashboardViewModelTests: XCTestCase {
         let store = ActivityStore(defaults: defaults, seeds: seeds)
         let vm = DashboardViewModel(api: api, locationProvider: locationProvider,
                                     store: store, preferences: preferences,
-                                    deviceTimeZone: deviceTimeZone)
+                                    deviceTimeZone: deviceTimeZone,
+                                    locationRetryWait: locationRetryWait)
         return (vm, api, locationProvider, store, preferences)
     }
 
@@ -644,6 +667,204 @@ final class DashboardViewModelTests: XCTestCase {
 
         XCTAssertEqual(api.fetchCount, 1,
                        "while a home location covers the fetch, GPS movement is irrelevant")
+    }
+
+    // MARK: issue #19 — an already-authorized launch with an empty store
+
+    /// Waits (bounded) for `condition`, yielding the main actor between
+    /// checks so queued sink work and fix deliveries can run.
+    private func waitUntil(timeout: TimeInterval = 2, _ condition: () -> Bool) async {
+        let deadline = Date().addingTimeInterval(timeout)
+        while !condition(), Date() < deadline {
+            try? await Task.sleep(nanoseconds: 10_000_000)
+        }
+    }
+
+    /// Cell 3: location already granted (no prompt this launch), no
+    /// Activity yet. The first load must ask for a fix, and the fix must
+    /// name the header — "No location" with permission granted is #19.
+    func testAuthorizedLaunchWithAnEmptyStoreRequestsAFixAndNamesTheLocation() async {
+        let (vm, api, locationProvider, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])),
+                                                       location: nil, authorization: .authorizedWhenInUse,
+                                                       seeds: [])
+        locationProvider.fixOnRequest = CLLocation(latitude: 25.2048, longitude: 55.2708)
+
+        await vm.loadForecast()
+
+        XCTAssertTrue(locationProvider.requestLocationCalled,
+                      "authorized → the first load asks for a fix even with no Activity (#19)")
+        await waitUntil { vm.activeLocationName != nil }
+        XCTAssertEqual(vm.activeLocationName, "Current location", "the delivered fix names the header")
+        XCTAssertFalse(vm.hasNoLocation)
+        XCTAssertEqual(api.fetchCount, 0, "an empty store still never POSTs")
+    }
+
+    /// Cell 7: allow on the first run, quit, reopen — a NEW view-model
+    /// whose authorization is already granted behaves exactly like cell 3.
+    func testRelaunchWithAuthorizationAlreadyGrantedNamesTheLocation() async {
+        let (first, _, firstProvider, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])),
+                                                     location: nil, authorization: .notDetermined, seeds: [])
+        firstProvider.fixOnRequest = CLLocation(latitude: 25.2048, longitude: 55.2708)
+        await first.loadForecast()
+        firstProvider.authorizationStatus = .authorizedWhenInUse
+        await waitUntil { first.activeLocationName != nil }
+        XCTAssertEqual(first.activeLocationName, "Current location", "first run: the grant names the header")
+
+        let (relaunched, _, provider, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])),
+                                                     location: nil, authorization: .authorizedWhenInUse,
+                                                     seeds: [])
+        provider.fixOnRequest = CLLocation(latitude: 25.2048, longitude: 55.2708)
+
+        await relaunched.loadForecast()
+
+        XCTAssertTrue(provider.requestLocationCalled, "the relaunch asks for a fix without a prompt")
+        await waitUntil { relaunched.activeLocationName != nil }
+        XCTAssertEqual(relaunched.activeLocationName, "Current location")
+        XCTAssertFalse(relaunched.hasNoLocation)
+    }
+
+    /// Nothing records a fetched coordinate on the empty path, so a fix
+    /// that reloaded would request again: fix → reload → request → fix.
+    func testWithAnEmptyStoreADeliveredFixRequestsNoFurtherFix() async {
+        let (vm, _, locationProvider, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])),
+                                                     location: nil, authorization: .authorizedWhenInUse,
+                                                     seeds: [])
+        locationProvider.fixOnRequest = CLLocation(latitude: 25.2048, longitude: 55.2708)
+
+        await vm.loadForecast()
+        await waitUntil { vm.activeLocationName != nil }
+        try? await Task.sleep(nanoseconds: 200_000_000)
+
+        XCTAssertEqual(locationProvider.requestLocationCount, 1,
+                       "one load, one request — the delivered fix must not loop back into another")
+        XCTAssertEqual(vm.activeLocationName, "Current location")
+    }
+
+    // MARK: issue #19 — a failed or slow fix
+
+    /// Counts the retry waits the view-model starts; each returns at once.
+    @MainActor
+    private final class RetryWaitSpy {
+        var count = 0
+    }
+
+    private func makeRetryVM(authorization: CLAuthorizationStatus = .authorizedWhenInUse,
+                             seeds: [AuthoredActivity] = [])
+        -> (DashboardViewModel, FakeLocationProvider, RetryWaitSpy) {
+        let spy = RetryWaitSpy()
+        let (vm, _, provider, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])),
+                                             location: nil, authorization: authorization, seeds: seeds,
+                                             locationRetryWait: { @MainActor in spy.count += 1 })
+        return (vm, provider, spy)
+    }
+
+    func testAFailedFixSchedulesExactlyOneRetry() async {
+        let (vm, provider, spy) = makeRetryVM()
+        await vm.loadForecast()
+        XCTAssertEqual(provider.requestLocationCount, 1)
+
+        provider.failFix()
+        await waitUntil { provider.requestLocationCount == 2 }
+        try? await Task.sleep(nanoseconds: 100_000_000)
+
+        XCTAssertEqual(spy.count, 1, "one failure → one retry wait")
+        XCTAssertEqual(provider.requestLocationCount, 2, "the retry asks for a fix once")
+    }
+
+    func testASecondFailureSchedulesNoRetryUntilTheNextForeground() async {
+        let (vm, provider, spy) = makeRetryVM()
+        await vm.loadForecast()
+        provider.failFix()
+        await waitUntil { provider.requestLocationCount == 2 }
+
+        provider.failFix()
+        try? await Task.sleep(nanoseconds: 200_000_000)
+        XCTAssertEqual(spy.count, 1, "the retry is spent — a second failure schedules none")
+        XCTAssertEqual(provider.requestLocationCount, 2, "no failure → retry → failure loop")
+
+        await vm.returnToForeground()
+        XCTAssertEqual(provider.requestLocationCount, 3, "a return to the foreground asks again")
+        provider.failFix()
+        await waitUntil { provider.requestLocationCount == 4 }
+        XCTAssertEqual(spy.count, 2, "the foreground restored the one retry")
+        XCTAssertEqual(provider.requestLocationCount, 4)
+    }
+
+    func testAFailureWhileDeniedIsNotRetried() async {
+        let (vm, provider, spy) = makeRetryVM(authorization: .denied)
+        await vm.loadForecast()
+
+        provider.failFix()
+        try? await Task.sleep(nanoseconds: 200_000_000)
+
+        XCTAssertEqual(spy.count, 0, "denied is not a failed fix to retry")
+        XCTAssertEqual(provider.requestLocationCount, 0)
+    }
+
+    // MARK: issue #19 — the empty first screen's location buttons
+
+    func testEmptyScreenButtonsHiddenWhileThePromptIsUnanswered() async {
+        let (vm, _, _) = makeRetryVM(authorization: .notDetermined)
+        await vm.loadForecast()
+        XCTAssertTrue(vm.hasNoLocation)
+        XCTAssertFalse(vm.showsLocationActionsOnEmptyScreen, "the prompt is the way forward — no buttons under it")
+    }
+
+    func testEmptyScreenButtonsHiddenWhileAFixIsPending() async {
+        let (vm, provider, _) = makeRetryVM()
+        await vm.loadForecast()
+        XCTAssertEqual(provider.requestLocationCount, 1)
+        XCTAssertTrue(vm.hasNoLocation)
+        XCTAssertFalse(vm.showsLocationActionsOnEmptyScreen, "the allow path must not flash the buttons")
+    }
+
+    func testEmptyScreenButtonsShowAfterAFailedFix() async {
+        let (vm, provider, _) = makeRetryVM()
+        await vm.loadForecast()
+
+        provider.failFix()
+        await waitUntil { vm.showsLocationActionsOnEmptyScreen }
+
+        XCTAssertTrue(vm.showsLocationActionsOnEmptyScreen, "a failed fix with nothing resolved → a way forward")
+    }
+
+    func testEmptyScreenButtonsGoOnceAFixLands() async {
+        let (vm, provider, _) = makeRetryVM()
+        await vm.loadForecast()
+        provider.failFix()
+        await waitUntil { vm.showsLocationActionsOnEmptyScreen }
+        XCTAssertTrue(vm.showsLocationActionsOnEmptyScreen, "precondition: the failure showed them")
+
+        provider.location = CLLocation(latitude: 25.2048, longitude: 55.2708)
+        await waitUntil { vm.activeLocationName != nil }
+
+        XCTAssertEqual(vm.activeLocationName, "Current location")
+        XCTAssertFalse(vm.showsLocationActionsOnEmptyScreen)
+    }
+
+    func testEmptyScreenButtonsShowWhenDeniedOrRestricted() async {
+        for status in [CLAuthorizationStatus.denied, .restricted] {
+            let (vm, _, _) = makeRetryVM(authorization: status)
+            await vm.loadForecast()
+            XCTAssertTrue(vm.showsLocationActionsOnEmptyScreen, "status \(status.rawValue) → the buttons")
+        }
+    }
+
+    func testEmptyScreenButtonsHiddenWhenAHomeResolves() async {
+        let (vm, _, _, _, _) = makeVM(result: .success(Fixtures.makeForecast(activities: [])),
+                                      location: nil, authorization: .denied, seeds: [],
+                                      home: SavedLocation(name: "Bangkok", lat: 13.7563, lon: 100.5018))
+        await vm.loadForecast()
+        XCTAssertEqual(vm.activeLocationName, "Bangkok")
+        XCTAssertFalse(vm.showsLocationActionsOnEmptyScreen, "a resolved location needs no way forward")
+    }
+
+    func testEmptyScreenButtonsNeverShowWithActivities() async {
+        let (vm, _, _) = makeRetryVM(authorization: .denied, seeds: Fixtures.liveSeeds)
+        await vm.loadForecast()
+        XCTAssertTrue(vm.hasNoLocation)
+        XCTAssertFalse(vm.showsLocationActionsOnEmptyScreen,
+                       "with Activities the no-location state already carries the buttons")
     }
 
     // MARK: authored-activity lookups (icon + nocturnal labels)

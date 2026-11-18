@@ -1055,6 +1055,47 @@ final class TimeItUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts["headerTemp"].exists)
     }
 
+    // MARK: - Issue #19: the empty first screen's way forward
+
+    func testDeniedEmptyFirstScreenOffersBothLocationButtons() {
+        // A TRUE first launch (no Activity) with location denied: the hero
+        // stays, and the two no-location CTAs sit under it.
+        let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_LOCATION_DENIED"])
+
+        XCTAssertTrue(app.buttons["addActivitiesButton"].waitForExistence(timeout: 5), "the Add-Activity hero")
+        XCTAssertTrue(app.buttons["enableLocationButton"].waitForExistence(timeout: 5),
+                      "denied with no Activity → Enable Location under the hero")
+        XCTAssertTrue(app.buttons["placeLocationButton"].exists, "and Place your own location")
+        XCTAssertTrue(app.staticTexts["NO LOCATION"].exists, "the header stays honest")
+        attachScreenshot(app, named: "first-launch-denied")
+    }
+
+    func testPlacingOwnLocationFromTheEmptyFirstScreenNamesTheHeader() {
+        let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_LOCATION_DENIED"])
+
+        let place = app.buttons["placeLocationButton"]
+        XCTAssertTrue(place.waitForExistence(timeout: 5))
+        place.tap()
+        pickCity("Dubai Marina", in: app)
+
+        XCTAssertTrue(app.staticTexts["DUBAI MARINA"].waitForExistence(timeout: 5), "the picked city names the header")
+        XCTAssertFalse(app.buttons["placeLocationButton"].exists, "a resolved location retires the buttons")
+        XCTAssertFalse(app.buttons["enableLocationButton"].exists)
+        XCTAssertTrue(app.buttons["addActivitiesButton"].exists, "still the empty first screen")
+    }
+
+    func testPreGrantedEmptyFirstScreenNamesTheLocationWithNoButtons() {
+        let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_LOCATION"])
+
+        XCTAssertTrue(app.buttons["addActivitiesButton"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["CURRENT LOCATION"].waitForExistence(timeout: 5),
+                      "granted with a fix → the header names the location (#19)")
+        XCTAssertFalse(app.staticTexts["NO LOCATION"].exists)
+        XCTAssertFalse(app.buttons["enableLocationButton"].exists, "no way forward needed")
+        XCTAssertFalse(app.buttons["placeLocationButton"].exists)
+        attachScreenshot(app, named: "first-launch-granted")
+    }
+
     func testPlacingOwnLocationLoadsRatings() {
         let app = launchApp(arguments: ["UITEST_MOCK_SUCCESS", "UITEST_RESET", "UITEST_SEED_LIVE"])
 
