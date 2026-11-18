@@ -1,0 +1,28 @@
+{
+  "lat": 25.204849123456781,
+  "lon": 55.270782854324096,
+  "activities": [
+    {
+      "id": "3F2504E0-4F89-41D3-9A0C-0305E82C3301",
+      "label": "Morning run with Sam — beach loop 🏃",
+      "displayMetrics": ["temp", "windSpeed", "rainFall", "dustAlert", "uV"],
+      "thresholds": {
+        "temp": { "min": 18, "max": 32, "required": true },
+        "windSpeed": { "max": 25, "required": false },
+        "rainFall": { "max": 2.5, "required": true },
+        "dustAlert": { "required": true, "type": "flag", "forbidTrue": true }
+      },
+      "window": { "startHour": 6, "endHour": 10 }
+    },
+    {
+      "id": "9B1DEB4D-3B7D-4BAD-9BDD-2B0D7B3DCB6D",
+      "label": "Stargazing",
+      "displayMetrics": ["cloudCover", "humidity", "moon", "visibility"],
+      "thresholds": {
+        "cloudCover": { "max": 20, "required": true },
+        "humidity": { "min": 10, "max": 70, "required": false }
+      },
+      "window": { "startHour": 22, "endHour": 2 }
+    }
+  ]
+}

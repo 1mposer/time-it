@@ -1,0 +1,31 @@
+{
+  "deviceId": "E621E1F8-C36C-495A-93FC-0C247A3E6E5F",
+  "body": {
+    "apnsToken": "8f3a0c1e4b7d4a2e8f6c1d2e3f4a5b6c9d0e1f2a3b4c5d6e7f8091a2b3c4d5e6",
+    "home": { "lat": 25.204849123456781, "lon": 55.270782854324096 },
+    "activities": [
+      {
+        "id": "3F2504E0-4F89-41D3-9A0C-0305E82C3301",
+        "label": "Morning run with Sam — beach loop 🏃",
+        "displayMetrics": ["temp", "windSpeed", "rainFall", "dustAlert", "uV"],
+        "thresholds": {
+          "temp": { "min": 18, "max": 32, "required": true },
+          "windSpeed": { "max": 25, "required": false },
+          "rainFall": { "max": 2.5, "required": true },
+          "dustAlert": { "required": true, "type": "flag", "forbidTrue": true }
+        },
+        "window": { "startHour": 6, "endHour": 10 }
+      },
+      {
+        "id": "9B1DEB4D-3B7D-4BAD-9BDD-2B0D7B3DCB6D",
+        "label": "Stargazing",
+        "displayMetrics": ["cloudCover", "humidity", "moon", "visibility"],
+        "thresholds": {
+          "cloudCover": { "max": 20, "required": true },
+          "humidity": { "min": 10, "max": 70, "required": false }
+        },
+        "window": { "startHour": 22, "endHour": 2 }
+      }
+    ]
+  }
+}
