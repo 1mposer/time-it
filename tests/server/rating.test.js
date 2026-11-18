@@ -160,14 +160,29 @@ test('oversized body (>100kb) → 413 with the uniform { errors[] } envelope', a
 });
 
 // --- no timezone in request (ADR-0005): getWeather called with exactly (lat, lon) ---
-test('a stray timezone field in the body is ignored — getWeather gets (lat, lon) only', async () => {
+test('a stray timezone field in the body is ignored — getWeather gets (lat, lon) and the cache options only', async () => {
   let receivedArgs = null;
   const spyGetWeather = async (...args) => { receivedArgs = args; return happyFixture; };
   const app = makeApp({ getWeather: spyGetWeather });
   const body = validBody(); body.timezone = 'Asia/Dubai';
   const res = await post(app, body);
   assert.equal(res.status, 200);
-  assert.equal(receivedArgs.length, 2, `expected only (lat, lon), got ${receivedArgs.length}`);
+  assert.equal(receivedArgs.length, 3, `expected (lat, lon, options), got ${receivedArgs.length}`);
+  assert.deepStrictEqual(Object.keys(receivedArgs[2]).sort(), ['allowStale', 'clientKey']);
+});
+
+// --- cache options: /rating may be served the last good forecast, and its
+// provider misses are counted against the caller's address ---
+test('the route asks the cache for { allowStale: true, clientKey: req.ip }', async () => {
+  let receivedArgs = null;
+  const spyGetWeather = async (...args) => { receivedArgs = args; return happyFixture; };
+  const res = await post(makeApp({ getWeather: spyGetWeather }), validBody());
+  assert.equal(res.status, 200);
+  assert.equal(receivedArgs[0], 25.1627);
+  assert.equal(receivedArgs[1], 55.2077);
+  assert.equal(receivedArgs[2].allowStale, true);
+  assert.equal(typeof receivedArgs[2].clientKey, 'string');
+  assert.ok(receivedArgs[2].clientKey.length > 0);
 });
 
 // --- null-day wire convention ---
