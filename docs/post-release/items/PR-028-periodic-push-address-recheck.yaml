@@ -1,5 +1,5 @@
 id: PR-028
-title: Periodically re-verify stored push addresses
+title: Verify push addresses at registration and periodically
 type: Enhancement
 priority: Low
 status: Backlog
@@ -11,12 +11,12 @@ found_in: 1.0 (11)
 fixed_in: null
 issue: null
 source:
-  - ship gate ruling R-01 (weekly re-check left for post-1.0)
+  - ship gate ruling R-01 and amendment A-1 (address verification left for post-1.0)
   - ship gate S-12 remainder
 summary: |
-  The 1.0 hardening verifies a push address when it is new or changed. Addresses that go stale later are only found when a send fails.
+  A push address is only found stale when a send to it fails. Verifying an address when it is new or changed, and re-verifying periodically, was scoped during the ship gate and moved after 1.0 (Captain amendment A-1).
 proposal: |
-  A weekly low-cost pass that re-verifies addresses and deactivates the ones the provider reports as dead, with the same safeguards as the send path.
+  Verify an address when it is new or changed, and add a weekly low-cost pass that re-verifies addresses and deactivates the ones the provider reports as dead, with the same safeguards as the send path.
 acceptance: |
   - a weekly pass re-verifies addresses
   - unknown outcomes never deactivate a device

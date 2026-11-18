@@ -25,7 +25,7 @@ PR-024,Feedback Send button may sit under the keyboard on small phones,Bug,Low,B
 PR-025,Recovery and error copy ignores Dynamic Type; VoiceOver reads raw symbol names,Polish,Low,Backlog,Dashboard,Yaas,S,2026-11-18,1.0 (11),,
 PR-026,Push home location can go stale: a launch-time refresh is dropped when no fix exists yet,Bug,Low,Backlog,Notifications,Yaas,S,2026-11-18,1.0 (11),,
 PR-027,Let in-flight push passes finish on a service restart,Enhancement,Low,Backlog,Server,Yaas,S,2026-11-18,1.0 (11),,
-PR-028,Periodically re-verify stored push addresses,Enhancement,Low,Backlog,Notifications,Yaas,M,2026-11-18,1.0 (11),,
+PR-028,Verify push addresses at registration and periodically,Enhancement,Low,Backlog,Notifications,Yaas,M,2026-11-18,1.0 (11),,
 PR-029,Page the device selection in the push jobs,Enhancement,Medium,Backlog,Server,Yaas,M,2026-11-18,1.0 (11),,
 PR-030,Retention and clean-up for stored feedback,Enhancement,Low,Needs decision,Server,Yaas,S,2026-11-18,1.0 (11),,
 PR-031,Bound the size of validation error responses,Enhancement,Low,Backlog,Server,Yaas,S,2026-11-18,1.0 (11),,

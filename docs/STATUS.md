@@ -1,6 +1,6 @@
 # STATUS — now / next / blocked
 
-> **Last updated: 2026-11-18 — the ship phase is open ([ROADMAP item 23](issues/ROADMAP.md); [ship doc](issues/current/ship-phase.md)).** Build 11 is complete on `main`, not uploaded. 1.0 goes straight to App Store review with the current first run; onboarding v2 and the dad test follow 1.0 (owner rulings 2026-11-17/18). Events of record: [ROADMAP](issues/ROADMAP.md). This file is deliberately one screen: a snapshot only.
+> **Last updated: 2026-11-18 — the ship phase is open ([ROADMAP item 23](issues/ROADMAP.md); [ship doc](issues/current/ship-phase.md)).** Build 11 is complete (commit `4ab28bd`), not uploaded; **`main` is build 12** since the ship phase's first iOS fix merged (2026-11-18). 1.0 goes straight to App Store review with the current first run; onboarding v2 and the dad test follow 1.0 (owner rulings 2026-11-17/18). Events of record: [ROADMAP](issues/ROADMAP.md). This file is deliberately one screen: a snapshot only.
 
 **Read order:** [`CLAUDE.md`](../CLAUDE.md) → [`CONTEXT.md`](CONTEXT.md) → this file → [ROADMAP](issues/ROADMAP.md).
 
