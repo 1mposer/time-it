@@ -1,0 +1,28 @@
+id: PR-015
+title: Push live-acceptance boxes still open at the ship gate
+type: Decision
+priority: High
+status: In progress
+area: Notifications
+owner: Yaas
+effort: S
+reported: 2026-11-18
+found_in: 1.0 (11)
+fixed_in: null
+source:
+  - ship gate decision page, ruling 6 (owner, 2026-11-18) — the Captain decides; add to the sheet
+summary: |
+  The daily digest and the Perfect-window alert run in production, but several live
+  checks were never ticked because they depend on timing. Push reaches the public in 1.0.
+proposal: |
+  A short test plan is written during the ship-phase audits. The Release Captain rules
+  which boxes must pass before submission and which ship as accepted risk. The open
+  boxes and their status live in ROADMAP item 8 and the push-client spec §6, not here.
+acceptance: |
+  - every open box is either ticked or carries a Captain ruling in the ship doc's ledger
+decision_needed: |
+  Which of the live checks need the owner's phone before submission.
+links:
+  - docs/issues/ROADMAP.md (item 8)
+  - docs/issues/current/implement-spec-push-client.md
+  - docs/issues/current/ship-phase.md

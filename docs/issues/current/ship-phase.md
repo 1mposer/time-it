@@ -1,0 +1,97 @@
+# Ship phase — the 1.0 ship gate (ROADMAP item 23)
+
+> Living work order, created 2026-11-18. **Status home: [ROADMAP item 23](../ROADMAP.md).** This file holds the phase checklist, the owner's rulings and the Release Captain's ledger — nothing else. Fold-in: when App Review approves 1.0, fold the outcome into ROADMAP item 23 and move this file to `completed/`.
+>
+> **This repository is public.** Raw audit and review findings stay out of it until their fixes are deployed. They live in a local ledger folder on the owner's Linux machine (`~/time-it-ship-ledger/`), and this file refers to them by ID only. The same rule covers commit messages, branch names, PR text and new GitHub issues.
+
+## How a cold session resumes
+
+1. Read order as [`CLAUDE.md`](../../../CLAUDE.md) sets it, then [ROADMAP](../ROADMAP.md), then this file.
+2. Find the first unticked box in §3. That phase's working files are in `~/time-it-ship-ledger/` (its `README.md` is the index).
+3. Method: the `imposers_ship_gate` skill, as amended by §2 and §3 here. Agent workflow rules: `CLAUDE.md`.
+
+## 1. Owner rulings
+
+**2026-11-17 (handoff session)**
+
+- The phase is an audit, not a design pass: security failure modes, an adversarial review, a deploy realignment (ready to host users; fallbacks for server and provider), App Store readiness.
+- The adversarial review is **blind**: separate sessions that get the code only — no docs, no project memory.
+- The final decider is the **Release Captain** (§2), so the owner is never the bottleneck.
+- Bundle ID stays `com.timeit.app.dev`.
+- When the weather provider fails, the server serves the last good forecast. No second provider in 1.0.
+- **Straight to App Store review** — no external TestFlight stop. Overrides the 2026-08-22 hold ([ROADMAP item 9](../ROADMAP.md)).
+- 1.0 ships **free**; payments come in 1.1.
+- Bulk GitHub issue closes need one batch approval; label changes are fine.
+
+**2026-11-18 (decision page — eleven rulings)**
+
+1. Start now. Build 11 is complete on `main`.
+2. 1.0 ships with today's first run; onboarding v2 and the dad test ([items 13–14](../ROADMAP.md)) follow 1.0 — a deliberate trade. Every deferred item goes into one spreadsheet, each row linked to its GitHub issue, for the owner's post-launch review (§5).
+3. Issue #19 (first-launch "No location"): reproduce and fix, **or** the owner passes a clean fresh install on the phone, allow and deny. The Captain may not accept it unreproduced.
+4. [ADR-0008](../../adr/0008-figma-first-ui-gate.md) is waived for three release changes only: the two feedback entries moving into Settings, a Privacy Policy row in Settings, and whatever the #19 fix changes on the empty first screen. Plain rows in the existing style; the owner reviews them on the phone.
+5. The devices-route registration limit is built in 1.0 (was a [Deferred](../ROADMAP.md) row).
+6. The open push live-acceptance boxes ([ROADMAP item 8](../ROADMAP.md)): the Captain decides, from a short test plan run during the audits. Listed in the sheet (§5).
+7. A stale forecast may be shown for up to **6 hours**; an alert is never sent from it. Read as: neither push job evaluates stale data (the digest's 6–11 band absorbs the wait) — the Captain may refine this for the digest.
+8. This file, one ROADMAP row and one STATUS line — no root `roadmap_ship.md`.
+9. Everything is orchestrated from the Linux machine; iOS builds and tests run on the owner's Mac over SSH. Signing, archive and upload stay with the owner.
+10. Build 11 is not uploaded yet.
+11. The privacy and support pages are hosted on the owner's Time it website, live before release.
+
+## 2. The Release Captain
+
+One Opus agent (skill `ship-gate`), final authority below the owner's line.
+
+- **Blocks the ship for:** something App Review will reject; a security exposure or a way to burn paid provider quota; a crash or data-loss path; a broken deploy or recovery path; a first run a reviewer cannot get through.
+- **Rules without the owner:** accepted risks, deferrals to post-release, severity disputes, which issues are in the release.
+- **May not:** accept #19 unreproduced (ruling 3).
+- **Escalates to the owner:** money, legal and privacy-policy wording (including any mismatch between the privacy manifest, the App Privacy answers and what the app actually sends), brand, irreversible actions (bulk closes, the final submit).
+- Every ruling and its reason goes into §6. The owner vetoes after the fact.
+
+## 3. Phases
+
+Each phase ends with a durable write (this file, the local ledger, or a merge) before the session sleeps.
+
+- [x] **P0 — plan audit and owner rulings** (2026-11-17/18).
+- [x] **P1 — Wave 0:** this file, ROADMAP item 23, the STATUS pointer, the sweep of the overridden hold (2026-11-18).
+- [ ] **P2 — Waves 1 and 2, in parallel.** Read-only. Lanes do not talk to each other.
+
+  | Lane | Agent | Ledger file |
+  |---|---|---|
+  | Server security | Sonnet | `wave1/server-security.md` |
+  | iOS security and privacy | Sonnet | `wave1/ios-security.md` |
+  | Deploy and resilience | Sonnet | `wave1/deploy-resilience.md` |
+  | App Store readiness (seeded from issue #29) | Sonnet | `wave1/store-readiness.md` |
+  | #19 reproduction, on the Mac | Sonnet | `wave1/issue19-repro.md` |
+  | Push acceptance test plan (item 8) | Sonnet | `wave1/push-acceptance-plan.md` |
+  | Store copy and shot lists (drafts) | Sonnet | `wave1/store-drafts.md` |
+  | Blind review — server | Opus, separate session, code-only export | `wave2/blind-server.md` |
+  | Blind review — iOS | Opus, separate session, code-only export | `wave2/blind-ios.md` |
+
+- [ ] **P3 — Wave 3 judge (Opus):** merge, dedupe, rank → **Wave 4:** the orchestrator sorts each finding into real / documented-and-accepted / needs-ruling against the ADRs, then the Captain rules and writes the fix list and §6. The deferred-items sheet (§5) is built here. Owner veto page.
+- [ ] **P4 — Wave 5 fix lanes** (TDD, worktrees; Opus implements, Sonnet verifies; iOS through the Mac). Provisional lanes, replaced by the Captain's fix list: **THROTTLE** (server traffic limits — the [item 20](../ROADMAP.md) lane, promoted), **DEPLOY** (deploy config as code, recovery runbook), **FIRSTRUN** (#19), **RELEASE** (release-only iOS changes, build bump).
+- [ ] **P5 — Wave 6:** the Captain's ship / no-ship verdict (advisor consulted first).
+- [ ] **P6 — Wave 7, owner's hands** (§4).
+
+## 4. Owner's hands
+
+Only the owner can do these; each is a box on the final checklist.
+
+- [ ] Meteosource: the plan's call limit and whether its terms allow a public app.
+- [ ] Railway: the service settings (health check, restart policy, replicas) and whether Postgres backups are on.
+- [ ] Privacy and support pages live on the Time it website (text drafted by an agent, approved by the owner).
+- [ ] The phone checks: #19 fresh install (ruling 3) and the push live checks the Captain keeps (ruling 6).
+- [ ] Screen recordings for App Review, from the shot list.
+- [ ] App Store Connect: metadata, screenshots, App Privacy answers, age rating.
+- [ ] Archive, upload, and sync the assigned build number; submit.
+
+Still open from build 11, outside this phase: answer 12 from the current screenshot; the Instruments lane ([PR-011](../../post-release/items/PR-011-opening-hold-instruments.yaml)); the Figma Color/Typography token writes ([ROADMAP item 19](../ROADMAP.md)).
+
+## 5. The deferred-items sheet (ruling 2)
+
+One spreadsheet of everything deferred past 1.0, for the owner's post-launch review: the existing [post-release backlog](../../post-release/README.md), extended to cover the ship phase's own deferrals, the [ROADMAP Deferred table](../ROADMAP.md) and the open GitHub issues classed post-release. Every row carries its GitHub issue link. Rows whose item has no issue yet get one, created in **one batch after the Captain's list is final and shown to the owner first** (each new issue carries a `triage:` label or a ROADMAP row, per the ROADMAP issue rule). Rows for items that already have a ROADMAP row link to it and do not restate its status.
+
+## 6. The Captain's ledger
+
+| # | Date | Ruling | Reason | Owner veto |
+|---|---|---|---|---|
+| — | — | *(empty until P3)* | | |

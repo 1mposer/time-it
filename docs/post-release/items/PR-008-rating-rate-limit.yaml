@@ -2,7 +2,7 @@ id: PR-008
 title: Rate limit on POST /api/v1/rating (lane THROTTLE)
 type: Enhancement
 priority: Medium
-status: Backlog
+status: Scheduled
 area: Server
 owner: Yaas
 effort: S
@@ -11,9 +11,11 @@ found_in: 1.0 (10)
 fixed_in: null
 source:
   - build-10 lane plan, lane THROTTLE — owner: "later"
+  - ship gate (owner rulings 2026-11-17/18) — promoted into 1.0, ROADMAP item 23
 summary: |
   The rating route has no per-client ceiling; the feedback route's 20-per-24h pattern is
-  the mold. The devices-route limit keeps its own deferred ROADMAP row.
+  the mold. 2026-11-18: this lane and the devices-route limit are both in 1.0 under
+  ROADMAP item 23 (the ship phase).
 proposal: |
   Per-IP (or per device id when sent) sliding-window limit in the feedback route's
   shape, 429 in the uniform errors envelope, tests in tests/server/.
@@ -23,3 +25,4 @@ acceptance: |
 decision_needed: null
 links:
   - docs/issues/current/build-10-lanes.md
+  - docs/issues/current/ship-phase.md

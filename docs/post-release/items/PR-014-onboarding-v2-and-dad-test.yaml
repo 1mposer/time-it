@@ -1,0 +1,27 @@
+id: PR-014
+title: Onboarding v2 build and the watched-session dad-test round (moved after 1.0)
+type: Enhancement
+priority: High
+status: Scheduled
+area: Wizard
+owner: Yaas
+effort: L
+reported: 2026-11-18
+found_in: 1.0 (11)
+fixed_in: null
+source:
+  - ship gate decision page, ruling 2 (owner, 2026-11-18) — 1.0 ships with today's first run
+summary: |
+  1.0 goes to App Store review with the current first run (empty dashboard, Add
+  Activity, the wizard). The approved onboarding-v2 frames stay unbuilt and the dad
+  test is not run before launch — a deliberate trade the owner reviews after launch.
+proposal: |
+  Build onboarding v2 against the approved frames, then run the watched-session round.
+  Scope and status live in the ROADMAP rows (items 13 and 14), not here.
+acceptance: |
+  - ROADMAP item 13 built; item 14's observations appended to the research note
+decision_needed: null
+links:
+  - docs/issues/ROADMAP.md (items 13, 14)
+  - docs/issues/current/ship-phase.md
+  - https://github.com/1mposer/time-it/issues/18
