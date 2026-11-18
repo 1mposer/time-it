@@ -157,7 +157,10 @@ final class DashboardViewModel: ObservableObject {
             .dropFirst()
             .compactMap { $0 }
             .sink { [weak self] fix in
-                guard let self, self.preferences.homeLocation == nil else { return }
+                guard let self else { return }
+                self.locationFailed = false
+                self.locationRetryTask?.cancel()
+                guard self.preferences.homeLocation == nil else { return }
                 // Nothing is fetched without a live Activity, so the fix only
                 // names the header. Reloading here would request again (no
                 // fetched coordinate ever stops it) — a fix → request loop.
@@ -174,8 +177,22 @@ final class DashboardViewModel: ObservableObject {
             .removeDuplicates()
             .dropFirst()
             .sink { [weak self] status in
-                guard status == .authorizedWhenInUse || status == .authorizedAlways else { return }
-                self?.locationProvider.requestLocation()
+                guard let self else { return }
+                // A new status starts over: any earlier failure is moot.
+                self.locationFailed = false
+                self.locationRetryTask?.cancel()
+                guard status == .authorizedWhenInUse || status == .authorizedAlways else {
+                    // Denied/restricted are read from the provider, not a
+                    // published property — tell the view to re-read them.
+                    self.objectWillChange.send()
+                    return
+                }
+                self.locationProvider.requestLocation()
+            }
+            .store(in: &cancellables)
+        self.locationProvider.locationFailurePublisher
+            .sink { [weak self] in
+                self?.handleLocationFailure()
             }
             .store(in: &cancellables)
 
@@ -257,13 +274,38 @@ final class DashboardViewModel: ObservableObject {
     /// requested fix failed. Never while the prompt is unanswered or a fix
     /// is still pending, so the allow path doesn't flash them.
     var showsLocationActionsOnEmptyScreen: Bool {
-        false // STUB — red run
+        guard !hasActivities, hasNoLocation else { return false }
+        switch locationProvider.authorizationStatus {
+        case .denied, .restricted:
+            return true
+        case .authorizedWhenInUse, .authorizedAlways:
+            return locationFailed
+        default:
+            return false
+        }
     }
 
     /// The return to the foreground: restores the one failed-fix retry,
     /// then reloads (which asks for a fresh fix while authorized).
     func returnToForeground() async {
+        locationRetryAvailable = true
         await loadForecast()
+    }
+
+    /// A requested fix failed: flag it (the empty screen's way forward) and
+    /// spend this foreground's one retry, if it is still there. A denial
+    /// never retries — there is no fix to wait for.
+    private func handleLocationFailure() {
+        guard isAuthorized else { return }
+        locationFailed = true
+        guard locationRetryAvailable else { return }
+        locationRetryAvailable = false
+        let wait = locationRetryWait
+        locationRetryTask = Task { [weak self] in
+            await wait()
+            guard !Task.isCancelled, let self, self.isAuthorized else { return }
+            self.locationProvider.requestLocation()
+        }
     }
 
     /// Resolves the active location and fetches ratings for the live

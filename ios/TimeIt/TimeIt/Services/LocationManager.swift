@@ -97,6 +97,6 @@ extension LocationManager: CLLocationManagerDelegate {
     /// A denial is not a failed fix to retry — the authorization status
     /// carries it. Everything else (no fix yet, network, timeout) is.
     nonisolated static func isReportableFailure(_ error: Error) -> Bool {
-        true // STUB — red run
+        (error as? CLError)?.code != .denied
     }
 }

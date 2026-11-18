@@ -833,6 +833,7 @@ final class DashboardViewModelTests: XCTestCase {
         await vm.loadForecast()
         provider.failFix()
         await waitUntil { vm.showsLocationActionsOnEmptyScreen }
+        XCTAssertTrue(vm.showsLocationActionsOnEmptyScreen, "precondition: the failure showed them")
 
         provider.location = CLLocation(latitude: 25.2048, longitude: 55.2708)
         await waitUntil { vm.activeLocationName != nil }
