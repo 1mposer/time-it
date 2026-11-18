@@ -6,8 +6,11 @@ const supertest = require('supertest');
 const createFeedbackRouter = require('../../src/routes/feedback');
 
 // Stateful fake db: interprets exactly the queries the router issues. The
-// count query returns a JS number (the router casts count(*)::int, which the
-// pg driver returns as a number, unlike the bare bigint-as-string count).
+// insert is the conditional INSERT … SELECT … WHERE (24 h count) < limit: the
+// fake applies the check and the write in one step, as one statement does,
+// and reports rowCount 0 when the ceiling holds the row back. A standalone
+// count query (a read-then-write ceiling) is still interpreted, with a yield
+// before it answers, so a check split from its insert shows its race.
 function makeFakeDb({ recentCount = 0 } = {}) {
   const inserted = [];
   const queries = [];
@@ -17,14 +20,17 @@ function makeFakeDb({ recentCount = 0 } = {}) {
     queries,
     query: async (text, params) => {
       queries.push({ text, params });
-      if (text.includes('SELECT count(*)')) {
-        return { rows: [{ count }] };
-      }
       if (text.includes('INSERT INTO suggestions')) {
-        const [deviceId, message, appVersion, build, iosVersion, kind] = params;
+        const [deviceId, message, appVersion, build, iosVersion, kind, limit] = params;
+        if (text.includes('WHERE') && !(count < limit)) return { rows: [], rowCount: 0 };
         inserted.push({ device_id: deviceId, message, app_version: appVersion, build, ios_version: iosVersion, kind });
         count += 1;
-        return { rows: [] };
+        return { rows: [], rowCount: 1 };
+      }
+      if (text.includes('SELECT count(*)')) {
+        const seen = count;
+        await new Promise(setImmediate);
+        return { rows: [{ count: seen }] };
       }
       throw new Error(`fake db: unexpected query: ${text}`);
     },
@@ -199,6 +205,23 @@ test('the ceiling is shared across kinds: 10 suggestions + 10 likes, the 21st (e
   const res = await post(app, validBody({ message: 'one too many', kind: 'liked' }));
   assert.equal(res.status, 429);
   assert.equal(db.inserted.length, 20);
+});
+
+test('20 parallel inserts at count 19 store exactly one more row', async () => {
+  const { app, db } = makeApp(makeFakeDb({ recentCount: 19 }));
+  const results = await Promise.all(
+    Array.from({ length: 20 }, (_, i) => post(app, validBody({ message: `parallel ${i}` }))),
+  );
+  assert.equal(db.inserted.length, 1);
+  assert.equal(results.filter((r) => r.status === 204).length, 1);
+  assert.equal(results.filter((r) => r.status === 429).length, 19);
+});
+
+test('the ceiling check and the insert are one statement', async () => {
+  const { app, db } = makeApp();
+  await post(app, validBody());
+  assert.equal(db.queries.length, 1);
+  assert.match(db.queries[0].text, /INSERT INTO suggestions[\s\S]*SELECT[\s\S]*WHERE[\s\S]*count\(\*\)/);
 });
 
 // --- failure mapping ---
