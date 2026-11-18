@@ -59,6 +59,21 @@ final class DashboardViewModel: ObservableObject {
     /// Device-clock instant of the drawn forecast's full fetch — the
     /// dashboard's "Updated 10:43" label. Nil with no forecast.
     @Published private(set) var lastUpdated: Date?
+    /// True once a requested fix failed and none has landed since — with
+    /// no location resolved, the empty first screen offers the location
+    /// buttons instead of waiting on a fix that may never come (#19).
+    @Published private(set) var locationFailed = false
+    /// The pause before the one retry a failed fix earns (10 s in the app;
+    /// injected so tests don't wait in real time).
+    private let locationRetryWait: () async -> Void
+    /// One retry per foreground: a failure spends it, only a return to the
+    /// foreground restores it — so failure → retry → failure never loops.
+    private var locationRetryAvailable = true
+    private var locationRetryTask: Task<Void, Never>?
+
+    nonisolated static func tenSeconds() async {
+        try? await Task.sleep(nanoseconds: 10_000_000_000)
+    }
 
     /// Where the location chain resolved: home → GPS → last-resolved cache.
     private enum ActiveLocation {
@@ -108,8 +123,10 @@ final class DashboardViewModel: ObservableObject {
          cache: ForecastCache? = nil,
          passedDays: PassedDayStore? = nil,
          deviceTimeZone: TimeZone = .current,
-         now: @escaping () -> Date = Date.init) {
+         now: @escaping () -> Date = Date.init,
+         locationRetryWait: @escaping () async -> Void = DashboardViewModel.tenSeconds) {
         self.api = api
+        self.locationRetryWait = locationRetryWait
         self.cache = cache ?? ForecastCache.standard()
         self.deviceTimeZone = deviceTimeZone
         self.now = now
@@ -232,6 +249,21 @@ final class DashboardViewModel: ObservableObject {
         guard preferences.homeLocation == nil,
               locationProvider.authorizationStatus == .notDetermined else { return }
         locationProvider.requestAuthorization()
+    }
+
+    /// Shows the existing "Enable Location" / "Place your own location"
+    /// buttons under the empty first screen's hero: no Activity, no
+    /// location resolved, and either permission is denied/restricted or a
+    /// requested fix failed. Never while the prompt is unanswered or a fix
+    /// is still pending, so the allow path doesn't flash them.
+    var showsLocationActionsOnEmptyScreen: Bool {
+        false // STUB — red run
+    }
+
+    /// The return to the foreground: restores the one failed-fix retry,
+    /// then reloads (which asks for a fresh fix while authorized).
+    func returnToForeground() async {
+        await loadForecast()
     }
 
     /// Resolves the active location and fetches ratings for the live

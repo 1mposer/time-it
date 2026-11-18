@@ -16,6 +16,10 @@ protocol LocationProviding: AnyObject {
     /// Emits when authorization changes (e.g. the user returns from system
     /// Settings after granting access).
     var authorizationPublisher: AnyPublisher<CLAuthorizationStatus, Never> { get }
+    /// Emits when a requested fix fails (a denial excluded — the
+    /// authorization status already says that), so the consumer can retry
+    /// and offer a way forward instead of waiting on a fix that won't come.
+    var locationFailurePublisher: AnyPublisher<Void, Never> { get }
     /// Ask for a fresh fix. Fix-only — never triggers the permission prompt;
     /// callers check `authorizationStatus` first (the prompt belongs to the
     /// "Enable location" CTA, not to every load).
@@ -25,10 +29,10 @@ protocol LocationProviding: AnyObject {
     func requestAuthorization()
 }
 
-/// Thin CLLocationManager wrapper. Silent failure by design — when nothing
-/// arrives, `location` stays nil and the ViewModel walks the rest of the
-/// Active-location chain (last-resolved cache, then the no-location empty
-/// state — never a substitute coordinate).
+/// Thin CLLocationManager wrapper. When nothing arrives, `location` stays
+/// nil and the ViewModel walks the rest of the Active-location chain
+/// (last-resolved cache, then the no-location state — never a substitute
+/// coordinate); a failed fix is published so the ViewModel can retry.
 @MainActor
 final class LocationManager: NSObject, ObservableObject, LocationProviding {
     static let shared = LocationManager()
@@ -44,6 +48,11 @@ final class LocationManager: NSObject, ObservableObject, LocationProviding {
         $authorizationStatus.eraseToAnyPublisher()
     }
 
+    var locationFailurePublisher: AnyPublisher<Void, Never> {
+        failures.eraseToAnyPublisher()
+    }
+
+    private let failures = PassthroughSubject<Void, Never>()
     private let manager: CLLocationManager
 
     override init() {
@@ -79,7 +88,15 @@ extension LocationManager: CLLocationManagerDelegate {
     }
 
     nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        // Silent — the chain's later links (cache, empty state) cover denial,
-        // Simulator, and timeouts.
+        guard Self.isReportableFailure(error) else { return }
+        Task { @MainActor in
+            self.failures.send()
+        }
+    }
+
+    /// A denial is not a failed fix to retry — the authorization status
+    /// carries it. Everything else (no fix yet, network, timeout) is.
+    nonisolated static func isReportableFailure(_ error: Error) -> Bool {
+        true // STUB — red run
     }
 }
