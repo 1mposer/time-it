@@ -21,10 +21,15 @@ function rateLimitMode(env = process.env) {
   return String(env.RATE_LIMIT_MODE ?? '').trim().toLowerCase() === 'enforce' ? 'enforce' : 'observe';
 }
 
-// A positive integer from the environment, else the default.
-function readLimit(name, fallback, env = process.env) {
-  const value = Number(env[name]);
-  return Number.isInteger(value) && value > 0 ? value : fallback;
+// A positive integer from the environment (or 0, where `allowZero` — e.g. an
+// outside provider budget of 0 sends all outside traffic to the last good
+// forecast or 502), else the default.
+function readLimit(name, fallback, env = process.env, { allowZero = false } = {}) {
+  const raw = env[name];
+  if (raw === undefined || String(raw).trim() === '') return fallback;
+  const value = Number(raw);
+  if (!Number.isInteger(value)) return fallback;
+  return value > 0 || (allowZero && value === 0) ? value : fallback;
 }
 
 // IPv6 text → its eight 16-bit groups (handles `::` and an IPv4 tail).

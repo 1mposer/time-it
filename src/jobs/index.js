@@ -13,7 +13,7 @@ const { createPerfectWindowDetectorJob } = require('./perfectWindowDetector');
 
 // The jobs read weather through the shared cache as origin 'job': never
 // counted against the outside provider budget and never served a stale
-// forecast (a push is only ever built from fresh data).
+// forecast — they only ever work from fresh data.
 function jobWeather(cache) {
   return (lat, lon) => cache(lat, lon, { origin: 'job' });
 }

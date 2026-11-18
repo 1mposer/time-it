@@ -282,7 +282,7 @@ test('a job that joins an outside caller\'s failing fetch rejects; the outside c
 // --- size cap and sweep ---
 test('the cache never holds more than the cap and a swept entry\'s lastGood is gone', async () => {
   const provider = makeProvider();
-  const { cached, clock } = makeCache(provider, { maxEntries: 5 });
+  const { cached } = makeCache(provider, { maxEntries: 5 });
   for (let i = 0; i < 12; i++) {
     await cached(...cell(i), { origin: 'job' });
     assert.ok(cached.size() <= 5, `size ${cached.size()} exceeds the cap`);
@@ -295,7 +295,30 @@ test('the cache never holds more than the cap and a swept entry\'s lastGood is g
   clock2.t += STALE_MAX_MS + 1;
   await c2(...cell(0));
   assert.equal(c2.size(), 1, 'the expired entry (and its lastGood) was swept');
-  void clock;
+});
+
+test('a cell evicted by the cap loses its last good forecast', async () => {
+  const provider = makeProvider();
+  const { cached } = makeCache(provider, { maxEntries: 2 });
+  await cached(25.16, 55.21);
+  await cached(...cell(0));
+  await cached(...cell(1)); // evicts 25.16,55.21 — the oldest idle entry
+  provider.mode = 'fail';
+  await assert.rejects(() => cached(25.16, 55.21, { allowStale: true }), UpstreamError,
+    'a fresh forecast would have been served stale had it survived');
+});
+
+test('the sweep keeps a failed cell\'s negative cache even when its last good forecast is past 6 h', async () => {
+  const provider = makeProvider();
+  const { cached, clock } = makeCache(provider);
+  await cached(25.16, 55.21);
+  clock.t += STALE_MAX_MS + 1;
+  provider.mode = 'fail';
+  await assert.rejects(() => cached(25.16, 55.21), UpstreamError);
+  provider.mode = 'ok';
+  await cached(...cell(0)); // a new cell runs the sweep
+  await assert.rejects(() => cached(25.16, 55.21), UpstreamError);
+  assert.equal(provider.calls.length, 3, 'no provider call for the failed cell inside its 60 s');
 });
 
 test('the cache cap defaults to 1,000 entries', async () => {

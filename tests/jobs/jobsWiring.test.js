@@ -1,4 +1,4 @@
-// The production job wiring: both push jobs must read weather through the
+// The production job wiring: both scheduled jobs must read weather through the
 // shared cache as origin 'job' — uncounted by the outside provider budget and
 // never served a stale forecast. The cache's default origin is 'outside', so a
 // missing wrapper would let outside traffic starve the jobs without failing

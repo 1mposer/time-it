@@ -42,7 +42,7 @@ const round2 = (x) => Math.round(x * 100) / 100;
 function createWeatherCache({
   getWeather = defaultGetWeather,
   now = Date.now,
-  outsideBudgetPerHour = readLimit('PROVIDER_OUTSIDE_BUDGET_PER_HOUR', DEFAULT_OUTSIDE_BUDGET_PER_HOUR),
+  outsideBudgetPerHour = readLimit('PROVIDER_OUTSIDE_BUDGET_PER_HOUR', DEFAULT_OUTSIDE_BUDGET_PER_HOUR, process.env, { allowZero: true }),
   outsideConcurrency = readLimit('PROVIDER_OUTSIDE_CONCURRENCY', DEFAULT_OUTSIDE_CONCURRENCY),
   missesPerClientPerHour = readLimit('PROVIDER_MISSES_PER_CLIENT_PER_HOUR', DEFAULT_MISSES_PER_CLIENT_PER_HOUR),
   maxEntries = readLimit('WEATHER_CACHE_MAX_ENTRIES', DEFAULT_MAX_ENTRIES),
@@ -108,8 +108,9 @@ function createWeatherCache({
 
   function removable(entry, t) {
     if (entry.inFlight) return false;
+    if (entry.failedUntil > t) return false; // keep the negative cache
     if (entry.lastGood) return t - entry.lastGood.fetchedAt > STALE_MAX_MS;
-    return entry.failedUntil <= t;
+    return true;
   }
 
   function makeRoom(t) {

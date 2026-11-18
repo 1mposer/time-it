@@ -48,3 +48,9 @@ test('readLimit takes a positive integer from the environment, else the default'
   assert.equal(readLimit('X', 60, { X: '25' }), 25);
   for (const bad of ['', 'abc', '0', '-5', '2.5']) assert.equal(readLimit('X', 60, { X: bad }), 60, bad);
 });
+
+test('readLimit accepts 0 only where allowed', () => {
+  assert.equal(readLimit('X', 60, { X: '0' }, { allowZero: true }), 0);
+  assert.equal(readLimit('X', 60, { X: '' }, { allowZero: true }), 60);
+  assert.equal(readLimit('X', 60, { X: '-1' }, { allowZero: true }), 60);
+});

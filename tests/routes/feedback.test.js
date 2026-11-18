@@ -7,8 +7,8 @@ const createFeedbackRouter = require('../../src/routes/feedback');
 
 // Stateful fake db: interprets exactly the queries the router issues. The
 // insert is the conditional INSERT … SELECT … WHERE (24 h count) < limit: the
-// fake applies the check and the write in one step, as one statement does,
-// and reports rowCount 0 when the ceiling holds the row back. A standalone
+// fake applies the check and the write in one step and reports rowCount 0
+// when the ceiling holds the row back. A standalone
 // count query (a read-then-write ceiling) is still interpreted, with a yield
 // before it answers, so a check split from its insert shows its race.
 function makeFakeDb({ recentCount = 0 } = {}) {
