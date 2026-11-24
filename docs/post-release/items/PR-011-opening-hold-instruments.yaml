@@ -9,7 +9,7 @@ effort: S
 reported: 2026-11-12
 found_in: 1.0 (10)
 fixed_in: null
-issue: null
+issue: https://github.com/1mposer/time-it/issues/44
 source:
   - lane POLISH report (item 5): simulator windows could not judge the lag honestly
 summary: |

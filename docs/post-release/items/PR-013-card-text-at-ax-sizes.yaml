@@ -9,7 +9,7 @@ effort: S
 reported: 2026-11-15
 found_in: 1.0 (10)
 fixed_in: null
-issue: null
+issue: https://github.com/1mposer/time-it/issues/45
 source:
   - tester note 36 (second half); morning page item 05; owner ruled 06b on the 2026-11-15 decisions page (park it)
 summary: |

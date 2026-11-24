@@ -1,52 +1,52 @@
 ID,Title,Type,Priority,Status,Area,Owner,Effort,Reported,Found in,Fixed in,Issue
-PR-001,Location picker never tells you where you are set or what to do,Enhancement,High,Needs decision,Location,Yaas,M,2026-11-12,1.0 (10),,
-PR-002,Temperature unit (°F) as a Settings row,Enhancement,Medium,Backlog,Settings,Yaas,M,2026-11-12,1.0 (10),,
+PR-001,Location picker never tells you where you are set or what to do,Enhancement,High,Needs decision,Location,Yaas,M,2026-11-12,1.0 (10),,https://github.com/1mposer/time-it/issues/38
+PR-002,Temperature unit (°F) as a Settings row,Enhancement,Medium,Backlog,Settings,Yaas,M,2026-11-12,1.0 (10),,https://github.com/1mposer/time-it/issues/39
 PR-003,Detail for a day whose window has passed shows nothing useful,Decision,High,In progress,Detail,Yaas,M,2026-11-12,1.0 (10),,
-PR-004,Metrics step — the grid reflows under the finger when a tile opens its slider,Polish,Medium,Needs decision,Wizard,Yaas,S,2026-11-12,1.0 (10),,
-PR-005,At AX5 the disabled wizard Next button is see-through over the list before scrolling,Polish,Low,Backlog,Wizard,Yaas,S,2026-11-12,1.0 (10),,
-PR-006,Notifications switch ignores a plain tap (hardware check owed),Bug,Medium,Needs decision,Notifications,Yaas,S,2026-11-11,1.0 (9),,
-PR-007,Dependabot alert — minimatch via nodemon (dev-only),Bug,Low,Backlog,Build,Yaas,S,2026-11-11,1.0 (10),,
+PR-004,Metrics step — the grid reflows under the finger when a tile opens its slider,Polish,Medium,Needs decision,Wizard,Yaas,S,2026-11-12,1.0 (10),,https://github.com/1mposer/time-it/issues/40
+PR-005,At AX5 the disabled wizard Next button is see-through over the list before scrolling,Polish,Low,Backlog,Wizard,Yaas,S,2026-11-12,1.0 (10),,https://github.com/1mposer/time-it/issues/41
+PR-006,Notifications switch ignores a plain tap (hardware check owed),Bug,Medium,Needs decision,Notifications,Yaas,S,2026-11-11,1.0 (9),,https://github.com/1mposer/time-it/issues/42
+PR-007,Dependabot alert — minimatch via nodemon (dev-only),Bug,Low,Backlog,Build,Yaas,S,2026-11-11,1.0 (10),,https://github.com/1mposer/time-it/issues/43
 PR-008,Rate limit on POST /api/v1/rating (lane THROTTLE),Enhancement,Medium,Scheduled,Server,Yaas,S,2026-11-11,1.0 (10),,
 PR-009,"Wordmark case — ""Time it"" or ""Time It",Decision,Low,Done,Opening,Yaas,S,2026-11-12,1.0 (10),1.0 (10),
 PR-010,"A low score beside the word ""Perfect"" (ADR-0011 presentation amendment)",Decision,High,In progress,Dashboard,Yaas,M,2026-11-11,1.0 (9),,
-PR-011,Opening sequence — on-device frame-drop check still owed,Polish,High,Scheduled,Opening,Yaas,S,2026-11-12,1.0 (10),,
+PR-011,Opening sequence — on-device frame-drop check still owed,Polish,High,Scheduled,Opening,Yaas,S,2026-11-12,1.0 (10),,https://github.com/1mposer/time-it/issues/44
 PR-012,Detail metric-card tap/lift and the app-wide gesture audit (#31; the #23 and #17 halves are now PR-056 and PR-060),Enhancement,Low,Backlog,Docs,Yaas,M,2026-11-12,1.0 (10),,https://github.com/1mposer/time-it/issues/31
-PR-013,"Card title and ""Score"" label outgrow the ring numeral at the accessibility sizes",Polish,Low,Backlog,Dashboard,Yaas,S,2026-11-15,1.0 (10),,
+PR-013,"Card title and ""Score"" label outgrow the ring numeral at the accessibility sizes",Polish,Low,Backlog,Dashboard,Yaas,S,2026-11-15,1.0 (10),,https://github.com/1mposer/time-it/issues/45
 PR-014,Onboarding v2 build and the watched-session dad-test round (moved after 1.0),Enhancement,High,Scheduled,Wizard,Yaas,L,2026-11-18,1.0 (11),,https://github.com/1mposer/time-it/issues/18
 PR-015,Push live-acceptance boxes still open at the ship gate,Decision,High,In progress,Notifications,Yaas,S,2026-11-18,1.0 (11),,
-PR-017,Offline fallback forecast shows no date in the footer,Polish,Low,Backlog,Dashboard,Yaas,S,2026-11-18,1.0 (11),,
-PR-018,An Activity saved while offline renders nothing until a forecast arrives,Bug,Low,Backlog,Dashboard,Yaas,S,2026-11-18,1.0 (11),,
-PR-019,Notifications switch snaps back after a denied permission with no route to iOS Settings,Enhancement,Low,Backlog,Notifications,Yaas,S,2026-11-18,1.0 (11),,
-PR-020,Perfect-window alerts have no quiet hours,Decision,Low,Needs decision,Notifications,Yaas,S,2026-11-18,1.0 (11),,
-PR-021,Install identity storage can be restored from a backup or re-minted in an edge launch,Enhancement,Low,Backlog,Settings,Yaas,S,2026-11-18,1.0 (11),,
-PR-022,Remove the build-10 purge code that still ships,Polish,Low,Backlog,Build,Yaas,S,2026-11-18,1.0 (11),,
-PR-023,"CI runs unit tests only: no Postgres, no boot smoke, not a deploy gate",Enhancement,Low,Backlog,Build,Yaas,M,2026-11-18,1.0 (11),,
-PR-024,Feedback Send button may sit under the keyboard on small phones,Bug,Low,Backlog,Settings,Yaas,S,2026-11-18,1.0 (11),,
-PR-025,Recovery and error copy ignores Dynamic Type; VoiceOver reads raw symbol names,Polish,Low,Backlog,Dashboard,Yaas,S,2026-11-18,1.0 (11),,
-PR-026,Push home location can go stale: a launch-time refresh is dropped when no fix exists yet,Bug,Low,Backlog,Notifications,Yaas,S,2026-11-18,1.0 (11),,
-PR-027,Let in-flight push passes finish on a service restart,Enhancement,Low,Backlog,Server,Yaas,S,2026-11-18,1.0 (11),,
-PR-028,Verify push addresses at registration and periodically,Enhancement,Low,Backlog,Notifications,Yaas,M,2026-11-18,1.0 (11),,
-PR-029,Page the device selection in the push jobs,Enhancement,Medium,Backlog,Server,Yaas,M,2026-11-18,1.0 (11),,
-PR-030,Retention and clean-up for stored feedback,Enhancement,Low,Needs decision,Server,Yaas,S,2026-11-18,1.0 (11),,
-PR-031,Bound the size of validation error responses,Enhancement,Low,Backlog,Server,Yaas,S,2026-11-18,1.0 (11),,
-PR-032,One bounded retry for a transient push failure,Enhancement,Low,Backlog,Notifications,Yaas,S,2026-11-18,1.0 (11),,
-PR-033,Plain-language rework of the shipped range surfaces,Enhancement,Medium,Backlog,Dashboard,Yaas,L,2026-11-18,1.0 (11),,
-PR-034,Scratch-wizard power-user path and Add-sheet wizard deprecation,Enhancement,Low,Backlog,Wizard,Yaas,L,2026-11-18,1.0 (11),,
-PR-035,Natural-language activity authoring,Enhancement,Low,Backlog,Wizard,Yaas,L,2026-11-18,1.0 (11),,
-PR-036,Jev concerns layer (practitioner language),Enhancement,Medium,Backlog,Server,Yaas,L,2026-11-18,1.0 (11),,
-PR-037,Make feedback kind required,Polish,Low,Backlog,Server,Yaas,S,2026-11-18,1.0 (11),,
-PR-038,Plus or minus one hour flexibility,Enhancement,Low,Backlog,Wizard,Yaas,M,2026-11-18,1.0 (11),,
+PR-017,Offline fallback forecast shows no date in the footer,Polish,Low,Backlog,Dashboard,Yaas,S,2026-11-18,1.0 (11),,https://github.com/1mposer/time-it/issues/46
+PR-018,An Activity saved while offline renders nothing until a forecast arrives,Bug,Low,Backlog,Dashboard,Yaas,S,2026-11-18,1.0 (11),,https://github.com/1mposer/time-it/issues/47
+PR-019,Notifications switch snaps back after a denied permission with no route to iOS Settings,Enhancement,Low,Backlog,Notifications,Yaas,S,2026-11-18,1.0 (11),,https://github.com/1mposer/time-it/issues/48
+PR-020,Perfect-window alerts have no quiet hours,Decision,Low,Needs decision,Notifications,Yaas,S,2026-11-18,1.0 (11),,https://github.com/1mposer/time-it/issues/49
+PR-021,Install identity storage can be restored from a backup or re-minted in an edge launch,Enhancement,Low,Backlog,Settings,Yaas,S,2026-11-18,1.0 (11),,https://github.com/1mposer/time-it/issues/50
+PR-022,Remove the build-10 purge code that still ships,Polish,Low,Backlog,Build,Yaas,S,2026-11-18,1.0 (11),,https://github.com/1mposer/time-it/issues/51
+PR-023,"CI runs unit tests only: no Postgres, no boot smoke, not a deploy gate",Enhancement,Low,Backlog,Build,Yaas,M,2026-11-18,1.0 (11),,https://github.com/1mposer/time-it/issues/52
+PR-024,Feedback Send button may sit under the keyboard on small phones,Bug,Low,Backlog,Settings,Yaas,S,2026-11-18,1.0 (11),,https://github.com/1mposer/time-it/issues/53
+PR-025,Recovery and error copy ignores Dynamic Type; VoiceOver reads raw symbol names,Polish,Low,Backlog,Dashboard,Yaas,S,2026-11-18,1.0 (11),,https://github.com/1mposer/time-it/issues/54
+PR-026,Push home location can go stale: a launch-time refresh is dropped when no fix exists yet,Bug,Low,Backlog,Notifications,Yaas,S,2026-11-18,1.0 (11),,https://github.com/1mposer/time-it/issues/55
+PR-027,Let in-flight push passes finish on a service restart,Enhancement,Low,Backlog,Server,Yaas,S,2026-11-18,1.0 (11),,https://github.com/1mposer/time-it/issues/56
+PR-028,Verify push addresses at registration and periodically,Enhancement,Low,Backlog,Notifications,Yaas,M,2026-11-18,1.0 (11),,https://github.com/1mposer/time-it/issues/57
+PR-029,Page the device selection in the push jobs,Enhancement,Medium,Backlog,Server,Yaas,M,2026-11-18,1.0 (11),,https://github.com/1mposer/time-it/issues/58
+PR-030,Retention and clean-up for stored feedback,Enhancement,Low,Needs decision,Server,Yaas,S,2026-11-18,1.0 (11),,https://github.com/1mposer/time-it/issues/59
+PR-031,Bound the size of validation error responses,Enhancement,Low,Backlog,Server,Yaas,S,2026-11-18,1.0 (11),,https://github.com/1mposer/time-it/issues/60
+PR-032,One bounded retry for a transient push failure,Enhancement,Low,Backlog,Notifications,Yaas,S,2026-11-18,1.0 (11),,https://github.com/1mposer/time-it/issues/61
+PR-033,Plain-language rework of the shipped range surfaces,Enhancement,Medium,Backlog,Dashboard,Yaas,L,2026-11-18,1.0 (11),,https://github.com/1mposer/time-it/issues/62
+PR-034,Scratch-wizard power-user path and Add-sheet wizard deprecation,Enhancement,Low,Backlog,Wizard,Yaas,L,2026-11-18,1.0 (11),,https://github.com/1mposer/time-it/issues/63
+PR-035,Natural-language activity authoring,Enhancement,Low,Backlog,Wizard,Yaas,L,2026-11-18,1.0 (11),,https://github.com/1mposer/time-it/issues/64
+PR-036,Jev concerns layer (practitioner language),Enhancement,Medium,Backlog,Server,Yaas,L,2026-11-18,1.0 (11),,https://github.com/1mposer/time-it/issues/65
+PR-037,Make feedback kind required,Polish,Low,Backlog,Server,Yaas,S,2026-11-18,1.0 (11),,https://github.com/1mposer/time-it/issues/66
+PR-038,Plus or minus one hour flexibility,Enhancement,Low,Backlog,Wizard,Yaas,M,2026-11-18,1.0 (11),,https://github.com/1mposer/time-it/issues/67
 PR-039,Apple WeatherKit as a second weather source,Enhancement,Medium,Backlog,Server,Yaas,L,2026-11-18,1.0 (11),,https://github.com/1mposer/time-it/issues/12
 PR-040,requireTrue threshold type and kind validation,Enhancement,Low,Backlog,Server,Yaas,S,2026-11-18,1.0 (11),,https://github.com/1mposer/time-it/issues/8
-PR-041,"Metrics catalog route, remote conformer and error-code enum",Enhancement,Low,Backlog,Server,Yaas,M,2026-11-18,1.0 (11),,
-PR-042,Analytics events table,Enhancement,Low,Backlog,Server,Yaas,M,2026-11-18,1.0 (11),,
-PR-043,Seed-threshold finalization,Decision,Low,Backlog,Wizard,Yaas,S,2026-11-18,1.0 (11),,
-PR-044,Dark-mode adoption and temperature-driven header,Enhancement,Low,Backlog,Dashboard,Yaas,L,2026-11-18,1.0 (11),,
-PR-045,Air-quality adapter,Enhancement,Low,Backlog,Server,Yaas,M,2026-11-18,1.0 (11),,
+PR-041,"Metrics catalog route, remote conformer and error-code enum",Enhancement,Low,Backlog,Server,Yaas,M,2026-11-18,1.0 (11),,https://github.com/1mposer/time-it/issues/68
+PR-042,Analytics events table,Enhancement,Low,Backlog,Server,Yaas,M,2026-11-18,1.0 (11),,https://github.com/1mposer/time-it/issues/69
+PR-043,Seed-threshold finalization,Decision,Low,Backlog,Wizard,Yaas,S,2026-11-18,1.0 (11),,https://github.com/1mposer/time-it/issues/70
+PR-044,Dark-mode adoption and temperature-driven header,Enhancement,Low,Backlog,Dashboard,Yaas,L,2026-11-18,1.0 (11),,https://github.com/1mposer/time-it/issues/71
+PR-045,Air-quality adapter,Enhancement,Low,Backlog,Server,Yaas,M,2026-11-18,1.0 (11),,https://github.com/1mposer/time-it/issues/72
 PR-046,Wire real marine data,Enhancement,Medium,Backlog,Server,Yaas,L,2026-11-18,1.0 (11),,https://github.com/1mposer/time-it/issues/7
-PR-047,Pro tier (StoreKit and paywall) and iCloud sync,Enhancement,Low,Backlog,Settings,Yaas,L,2026-11-18,1.0 (11),,
-PR-048,Surprise notification (out-of-range Perfect alert),Enhancement,Low,Backlog,Notifications,Yaas,M,2026-11-18,1.0 (11),,
-PR-049,"Build 8 review deferrals (minute tick, formatter cache, stale slot)",Polish,Low,Backlog,Dashboard,Yaas,M,2026-11-18,1.0 (11),,
+PR-047,Pro tier (StoreKit and paywall) and iCloud sync,Enhancement,Low,Backlog,Settings,Yaas,L,2026-11-18,1.0 (11),,https://github.com/1mposer/time-it/issues/73
+PR-048,Surprise notification (out-of-range Perfect alert),Enhancement,Low,Backlog,Notifications,Yaas,M,2026-11-18,1.0 (11),,https://github.com/1mposer/time-it/issues/74
+PR-049,"Build 8 review deferrals (minute tick, formatter cache, stale slot)",Polish,Low,Backlog,Dashboard,Yaas,M,2026-11-18,1.0 (11),,https://github.com/1mposer/time-it/issues/75
 PR-050,Rainfall and cloud-coverage map for rain and cloud hunters,Enhancement,Low,Needs decision,Dashboard,Yaas,L,2026-11-18,1.0 (11),,https://github.com/1mposer/time-it/issues/37
 PR-051,Generated maps on the Activity detail page,Enhancement,Low,Needs decision,Detail,Yaas,L,2026-11-18,1.0 (11),,https://github.com/1mposer/time-it/issues/36
 PR-052,Hyper-local data sources for different activities,Enhancement,Low,Needs decision,Server,Yaas,L,2026-11-18,1.0 (11),,https://github.com/1mposer/time-it/issues/35

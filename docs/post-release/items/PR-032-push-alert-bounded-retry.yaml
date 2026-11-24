@@ -9,7 +9,7 @@ effort: S
 reported: 2026-11-18
 found_in: 1.0 (11)
 fixed_in: null
-issue: null
+issue: https://github.com/1mposer/time-it/issues/61
 source:
   - ship gate ruling R-10 (ACCEPT; one bounded retry post-1.0)
 summary: |

@@ -9,7 +9,7 @@ effort: M
 reported: 2026-11-12
 found_in: 1.0 (10)
 fixed_in: null
-issue: null
+issue: https://github.com/1mposer/time-it/issues/38
 source:
   - owner, 2026-11-12 ("has always confused me")
   - fresh-eyes notes 2, 3, 5, 8 (build 8) and b9-03 / b9-08 (build 9)

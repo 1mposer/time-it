@@ -9,7 +9,7 @@ effort: M
 reported: 2026-11-18
 found_in: 1.0 (11)
 fixed_in: null
-issue: null
+issue: https://github.com/1mposer/time-it/issues/58
 source:
   - ship gate ruling R-06 (full paging left for post-1.0)
   - ship gate S-12 remainder

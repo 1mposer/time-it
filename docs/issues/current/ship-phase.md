@@ -37,6 +37,23 @@
 10. Build 11 is not uploaded yet.
 11. The privacy and support pages are hosted on the owner's Time it website, live before release.
 
+**2026-11-24 (round-two questions page — fourteen rulings; the owner had the 19 questions triaged against the docs first, which answered four outright and narrowed five — record: scratch triage, cited per question on https://claude.ai/artifact/FPAnnneJ26gEbxpEY7iRQA)**
+
+12. Meteosource: keep the **Standard** plan; the server's limits already fit under it (public pricing page, read 2026-11-24: 20,000 calls/day entry tier, 700/min — recorded in [`docs/API_documentation/meteosource/README.md`](../../API_documentation/meteosource/README.md)). **Owner product intent, for the Captain:** the server always holds a forecast; a user refresh never reaches the provider while the cache is fresh (the refresh animation plays either way); users should never see a "weather unavailable" screen. The Captain reconciles this with ruling 7's 6-hour stale ceiling and the 60-minute cache cadence before any lane acts on it.
+13. Meteosource terms: the owner picked "allowed, no credit needed" — **held open:** the provider's public FAQ (read 2026-11-24) says commercial use needs visible credit to Meteosource in a prominent part of the app. Re-asked; see §4.
+14. Railway settings read-back: **still open** — the owner asked for the question in plain words. Re-asked; see §4.
+15. Data removal: **by email to the owner**, who removes the device record by hand. The policy says so and gives the contact address. No new code in 1.0 (ADR-0010's deferral stands; its promote condition is met by the launch, resolved this way).
+16. Policy wording for the provider call: **"a service provider fetches the forecast for us."** [ADR-0010](../../adr/0010-data-retention-privacy-posture.md)'s "shared with third parties: never" line is amended to match (same commit).
+17. No extra line under the notifications switch; the policy covers what opting in sends.
+18. The policy and support page name the owner personally, with a contact email and the United Arab Emirates (details kept in the owner's untracked notes, never in this repo).
+19. The app talks to an address on the owner's own domain **if it is live before the final build**; otherwise Railway's address stays for 1.0. The domain is still to be named by the owner.
+20. App Store Connect availability: **iPhone only** — no Apple-silicon Mac, no Vision Pro.
+21. The "Activity limit reached" alert and button read **"You can have up to 10 Activities."** (copy only; no layout change).
+22. Store subtitle: **"Find your best hours outdoors."**
+23. Store opening paragraph: first sentence kept ("Every outdoor activity wants different weather."); the owner wants the rest reworded around "Tell Time it and it rates the next 7 days…" — final wording pending the owner's pick from proposed lines.
+24. Store categories: **Weather** (primary) + **Health & Fitness** (secondary). Apple allows exactly two, so Lifestyle is dropped.
+25. The deferred-items batch: **create all 38 issues** (§5). Label **`ship gate`** on the rows this ship gate produced; the owner's rule: that label takes precedence over any other label or priority when reviewing issues.
+
 ## 2. The Release Captain
 
 One Opus agent (skill `ship-gate`), final authority below the owner's line.
@@ -89,7 +106,7 @@ Still open from build 11, outside this phase: answer 12 from the current screens
 
 ## 5. The deferred-items sheet (ruling 2)
 
-**Built 2026-11-18:** [`docs/post-release/backlog.csv`](../../post-release/backlog.csv) — 59 rows, with an `Issue` column. Rows still without an issue wait for the owner's batch approval (asked on the rulings page).
+**Built 2026-11-18:** [`docs/post-release/backlog.csv`](../../post-release/backlog.csv) — 59 rows, with an `Issue` column. **Batch approved 2026-11-24 (ruling 25):** the 38 unlinked rows (all but PR-003/008/009/010/015, which are done or in 1.0) get issues labelled `triage:parked`, the 16 ship-gate rows (PR-017–032) also `ship gate`.
 
 One spreadsheet of everything deferred past 1.0, for the owner's post-launch review: the existing [post-release backlog](../../post-release/README.md), extended to cover the ship phase's own deferrals, the [ROADMAP Deferred table](../ROADMAP.md) and the open GitHub issues classed post-release. Every row carries its GitHub issue link. Rows whose item has no issue yet get one, created in **one batch after the Captain's list is final and shown to the owner first** (each new issue carries a `triage:` label or a ROADMAP row, per the ROADMAP issue rule). Rows for items that already have a ROADMAP row link to it and do not restate its status.
 

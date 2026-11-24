@@ -23,7 +23,7 @@ Status: Accepted (2026-08-19, owner-ruled). Amends the project's data rule from 
 1. **Data collected:** location (home — granularity note below), **identifiers** (Device ID — the Keychain UUID is transmitted and stored; declare it under *Identifiers → Device ID*), app interactions (activity profiles), user content (suggestions).
 2. **Linked to identity:** **no** — anonymous device ID only.
 3. **Used for tracking:** **no.**
-4. **Shared with third parties:** **never** — the amended rule.
+4. **Shared with third parties:** **never** — the amended rule. **Amended 2026-11-24 (owner ruling, [ship phase §1](../issues/current/ship-phase.md) ruling 16):** the one exception is the forecast fetch — the server sends the weather provider a latitude/longitude rounded to 2 dp and nothing else (no device ID). The policy words it as "a service provider fetches the forecast for us"; the questionnaire answer stays "no data shared for the third party's own purposes".
 5. **Retention:** **indefinite**; user-initiated erasure: **none currently.** A user-facing "delete my data" affordance is **DEFERRED** — promote condition: real users beyond known testers, or an Apple/legal requirement surfacing at review time.
 
 **Location-granularity ruling (owner-decided 2026-08-19): round.** The client sends full-precision coordinates (`DeviceRegistration.swift` home-else-GPS, no rounding), and Apple defines **Precise Location** as ≥3 decimal places — so the server **rounds `home_lat`/`home_lon` to 2 dp (~1.1 km) at write**, making the questionnaire answer **Coarse** honest. Functionally free: the shared weather cache already keys lookups at 2 dp, so ratings are identical. The rounding lands in the same implementation work order as the never-erase rule.

@@ -9,7 +9,7 @@ effort: S
 reported: 2026-11-12
 found_in: 1.0 (10)
 fixed_in: null
-issue: null
+issue: https://github.com/1mposer/time-it/issues/40
 source:
   - build-9 addendum item 2; spec row 12 (owner marked b, then asked what "sheet" means)
 summary: |

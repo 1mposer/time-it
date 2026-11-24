@@ -9,7 +9,7 @@ effort: S
 reported: 2026-11-18
 found_in: 1.0 (11)
 fixed_in: null
-issue: null
+issue: https://github.com/1mposer/time-it/issues/56
 source:
   - ship gate ruling R-08 (SIGTERM drain left for post-1.0)
   - ship gate S-12 remainder
